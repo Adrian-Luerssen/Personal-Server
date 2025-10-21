@@ -1,20 +1,28 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getApiBase } from '../config'
+import { getApiBase } from '../../config'
+import { refreshIfPossible } from '../../auth'
 
-export default function Register() {
+export default function Login() {
   const nav = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
 
+  useEffect(() => {
+    (async () => {
+      const ok = await refreshIfPossible()
+      if (ok) nav('/home', { replace: true })
+    })()
+  }, [nav])
+
   async function submit(e) {
     e.preventDefault()
     try {
-  const res = await fetch(getApiBase() + '/auth/register', {
+  const res = await fetch(getApiBase() + '/auth/access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, rememberMe: true })
       })
       if (!res.ok) {
         const txt = await res.text()
@@ -22,8 +30,10 @@ export default function Register() {
         return
       }
       const data = await res.json()
-  setMessage('Registered: ' + (data.accountId || 'ok'))
-  nav('/login', { replace: true })
+      localStorage.setItem('accessToken', data.accessToken)
+      localStorage.setItem('refreshToken', data.refreshToken)
+  setMessage('Logged in')
+  nav('/home', { replace: true })
     } catch (e) {
       setMessage('Error: ' + e.message)
     }
@@ -32,7 +42,7 @@ export default function Register() {
   return (
     <div className="landing">
       <div className="card" style={{minWidth: 360}}>
-        <h2>Create account</h2>
+        <h2>Sign in</h2>
         <form onSubmit={submit}>
           <div className="field">
             <label>Email</label>
@@ -42,10 +52,10 @@ export default function Register() {
             <label>Password</label>
             <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} />
           </div>
-          <button className="btn" type="submit" style={{width:'100%'}}>Register</button>
+          <button className="btn" type="submit" style={{width:'100%'}}>Login</button>
         </form>
         <div style={{marginTop:'.5rem', fontSize:'.9rem'}}>
-          Already have an account? <a href="/login">Login</a>
+          Don't have an account? <a href="/register">Register</a>
         </div>
         {message && <pre style={{marginTop:'1rem'}}>{message}</pre>}
       </div>

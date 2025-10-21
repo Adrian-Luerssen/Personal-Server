@@ -1,10 +1,35 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import CurrentlyPlayingBox from '../components/CurrentlyPlayingBox'
+import CurrentlyPlayingBox from '../../components/CurrentlyPlayingBox'
 import { Line, PolarArea } from 'react-chartjs-2'
-import { api, apiFetch } from '../api'
-import '../custom-scrollbar.css'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  RadialLinearScale,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js'
+import { api, apiFetch } from '../../api'
+import '../../custom-scrollbar.css'
 import { LoadingDot, LoadingLine, HistoryModal, StatCard, formatDuration, formatNumberShort, PodiumCard } from './SpotifyShared'
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  RadialLinearScale,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler
+)
 
 const TIMEFRAMES = [
   { label: 'Today', value: 'today' },

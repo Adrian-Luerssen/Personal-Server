@@ -132,6 +132,7 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
               playlistId,
               accessToken
             );
+            if (!fullPlaylist) break;
             stream.context = { playlistId: fullPlaylist.id };
             if (fullPlaylist) {
               stream.context.playlistName =
@@ -252,6 +253,7 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
                 playlistId,
                 accessToken
               );
+              if (!fullPlaylist) break;
               stream.context = { playlistId: fullPlaylist.id };
               if (fullPlaylist) {
                 stream.context.playlistName =
@@ -437,10 +439,14 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
       where: { spotifyId: spotifyPlaylistId },
       relations: ["tracks"],
     });
-
-    const res = await this.spotifyApi.get(`/playlists/${spotifyPlaylistId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    let res;
+    try {
+      res = await this.spotifyApi.get(`/playlists/${spotifyPlaylistId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+    } catch (e) {
+      return null;
+    }
     const fullPlaylist = res.data;
     const items = fullPlaylist.tracks?.items || [];
 

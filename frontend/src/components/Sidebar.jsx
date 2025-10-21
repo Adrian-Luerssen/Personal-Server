@@ -7,6 +7,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const location = useLocation()
   const [spotifyLinked, setSpotifyLinked] = useState(null) // null = unknown, true/false once loaded
   const [spotifyMenuOpen, setSpotifyMenuOpen] = useState(false)
+  const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false)
   useEffect(() => {
     let ignore = false
     api.get('/spotify/linked')
@@ -22,6 +23,13 @@ export default function Sidebar({ collapsed, onToggle }) {
     if (!onSpotifyRoute) setSpotifyMenuOpen(false)
   }, [location.pathname, spotifyLinked])
 
+  // Open workout submenu when navigating to a workout route
+  useEffect(() => {
+    const onWorkoutRoute = location.pathname.startsWith('/workout')
+    if (onWorkoutRoute) setWorkoutMenuOpen(true)
+    else setWorkoutMenuOpen(false)
+  }, [location.pathname])
+
   function logout() {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
@@ -29,6 +37,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   }
 
   const isSpotifyActive = location.pathname.startsWith('/spotify')
+  const isWorkoutActive = location.pathname.startsWith('/workout')
   const handleSpotifyClick = () => {
     if (spotifyLinked) {
       setSpotifyMenuOpen(o => !o)
@@ -43,6 +52,15 @@ export default function Sidebar({ collapsed, onToggle }) {
       handleSpotifyClick()
     }
   }
+  const handleWorkoutClick = () => {
+    setWorkoutMenuOpen(o => !o)
+  }
+  const handleWorkoutKey = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleWorkoutClick()
+    }
+  }
   return (
     <aside className={'sidebar' + (collapsed ? ' collapsed' : '')}>
       <div className="brand">Personal Server</div>
@@ -50,6 +68,8 @@ export default function Sidebar({ collapsed, onToggle }) {
       <nav className="nav">
         <NavLink to="/home" className={({isActive})=> 'nav-link'+(isActive?' active':'')}>{collapsed ? '🏠' : '🏠 Home'}</NavLink>
         <NavLink to="/profile" className={({isActive})=> 'nav-link'+(isActive?' active':'')}>{collapsed ? '👤' : '👤 Profile'}</NavLink>
+        
+        {/* Spotify section with conditional dropdown */}
         <div
           className={'nav-link' + (isSpotifyActive ? ' active' : '')}
           onClick={handleSpotifyClick}
@@ -76,6 +96,41 @@ export default function Sidebar({ collapsed, onToggle }) {
             </NavLink>
             <NavLink to="/spotify/global" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
               {collapsed ? '🌐' : '🌐 Global'}
+            </NavLink>
+          </div>
+        )}
+        
+        {/* Workout section with dropdown */}
+        <div
+          className={'nav-link' + (isWorkoutActive ? ' active' : '')}
+          onClick={handleWorkoutClick}
+          onKeyDown={handleWorkoutKey}
+          role="button"
+          tabIndex={0}
+          aria-expanded={workoutMenuOpen}
+          aria-haspopup="menu"
+        >
+          {collapsed ? '💪' : `💪 Workout ${workoutMenuOpen ? '▾' : '▸'}`}
+        </div>
+        {workoutMenuOpen && (
+          <div className="subnav" role="menu" aria-label="Workout views" style={{ marginLeft: collapsed ? 12 : 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <NavLink to="/workout" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
+              {collapsed ? '📊' : '📊 Dashboard'}
+            </NavLink>
+            <NavLink to="/workout/active" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
+              {collapsed ? '⚡' : '⚡ Active'}
+            </NavLink>
+            <NavLink to="/workout/history" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
+              {collapsed ? '📅' : '📅 History'}
+            </NavLink>
+            <NavLink to="/workout/exercises" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
+              {collapsed ? '📝' : '📝 Exercises'}
+            </NavLink>
+            <NavLink to="/workout/bodyweight" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
+              {collapsed ? '⚖️' : '⚖️ Bodyweight'}
+            </NavLink>
+            <NavLink to="/workout/import" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
+              {collapsed ? '📥' : '📥 Import'}
             </NavLink>
           </div>
         )}

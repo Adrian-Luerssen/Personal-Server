@@ -11,6 +11,7 @@ import { Tool } from "./tools/tool.entity";
 import { ToolService } from "./tools/tool.service";
 import { ToolController } from "./tools/tool.controller";
 import { MusicModule } from "./music/music.module";
+import { WorkoutModule } from "./workout/workout.module";
 
 @Module({
   providers: [
@@ -31,6 +32,7 @@ import { MusicModule } from "./music/music.module";
 
     SystemModule,
     MusicModule,
+    WorkoutModule,
     HealthModule,
     TypeOrmModule.forFeature([Tool]),
   ],

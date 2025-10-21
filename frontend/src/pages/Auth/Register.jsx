@@ -1,28 +1,20 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getApiBase } from '../config'
-import { refreshIfPossible } from '../auth'
+import { getApiBase } from '../../config'
 
-export default function Login() {
+export default function Register() {
   const nav = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
 
-  useEffect(() => {
-    (async () => {
-      const ok = await refreshIfPossible()
-      if (ok) nav('/home', { replace: true })
-    })()
-  }, [nav])
-
   async function submit(e) {
     e.preventDefault()
     try {
-  const res = await fetch(getApiBase() + '/auth/access', {
+  const res = await fetch(getApiBase() + '/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, rememberMe: true })
+        body: JSON.stringify({ email, password })
       })
       if (!res.ok) {
         const txt = await res.text()
@@ -30,10 +22,8 @@ export default function Login() {
         return
       }
       const data = await res.json()
-      localStorage.setItem('accessToken', data.accessToken)
-      localStorage.setItem('refreshToken', data.refreshToken)
-  setMessage('Logged in')
-  nav('/home', { replace: true })
+  setMessage('Registered: ' + (data.accountId || 'ok'))
+  nav('/login', { replace: true })
     } catch (e) {
       setMessage('Error: ' + e.message)
     }
@@ -42,7 +32,7 @@ export default function Login() {
   return (
     <div className="landing">
       <div className="card" style={{minWidth: 360}}>
-        <h2>Sign in</h2>
+        <h2>Create account</h2>
         <form onSubmit={submit}>
           <div className="field">
             <label>Email</label>
@@ -52,10 +42,10 @@ export default function Login() {
             <label>Password</label>
             <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} />
           </div>
-          <button className="btn" type="submit" style={{width:'100%'}}>Login</button>
+          <button className="btn" type="submit" style={{width:'100%'}}>Register</button>
         </form>
         <div style={{marginTop:'.5rem', fontSize:'.9rem'}}>
-          Don't have an account? <a href="/register">Register</a>
+          Already have an account? <a href="/login">Login</a>
         </div>
         {message && <pre style={{marginTop:'1rem'}}>{message}</pre>}
       </div>

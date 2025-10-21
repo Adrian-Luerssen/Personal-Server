@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { apiFetch } from '../api'
+import { apiFetch } from '../../api'
 import { StatCard, PodiumCard, formatNumberShort, formatDuration } from './SpotifyShared'
 
 export default function SpotifyGlobal() {

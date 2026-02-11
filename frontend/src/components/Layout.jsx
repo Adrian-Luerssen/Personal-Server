@@ -7,9 +7,9 @@ export default function Layout() {
   return (
     <div className={"layout" + (collapsed ? ' sidebar-collapsed' : '')}>
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
-      <div className="content" style={{ marginLeft: 80 }}>
-        <Outlet context={{ sidebarCollapsed: collapsed }} />
-      </div>
+      <main className="content">
+        <Outlet />
+      </main>
     </div>
   )
 }

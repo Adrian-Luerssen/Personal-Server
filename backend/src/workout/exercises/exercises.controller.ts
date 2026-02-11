@@ -31,7 +31,7 @@ export class WorkoutExercisesController
   async create(
     @Body() body: { name: string; categoryId: string; muscleGroup: string }
   ) {
-    return this.service.createExercise(body);
+    return await this.service.createExercise(body);
   }
 
   @Put(":exerciseId")
@@ -39,11 +39,16 @@ export class WorkoutExercisesController
     @Param("exerciseId") exerciseId: string,
     @Body() body: { name: string; categoryId: string; muscleGroup: string }
   ) {
-    return this.service.updateExercise(exerciseId, body);
+    return await this.service.updateExercise(exerciseId, body);
   }
 
   @Delete(":exerciseId")
   async delete(@Param("exerciseId") exerciseId: string) {
-    return this.service.deleteExercise(exerciseId);
+    return await this.service.deleteExercise(exerciseId);
+  }
+
+  @Get("history/:exerciseId")
+  async getHistory(@Param("exerciseId") exerciseId: string) {
+    return await this.service.getExerciseHistory(exerciseId);
   }
 }

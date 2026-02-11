@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { api } from '../api'
+import { useTheme } from '../contexts/ThemeContext'
 
 export default function Sidebar({ collapsed, onToggle }) {
   const nav = useNavigate()
   const location = useLocation()
-  const [spotifyLinked, setSpotifyLinked] = useState(null) // null = unknown, true/false once loaded
+  const { theme, toggleTheme } = useTheme()
+  const [spotifyLinked, setSpotifyLinked] = useState(null)
   const [spotifyMenuOpen, setSpotifyMenuOpen] = useState(false)
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false)
+
   useEffect(() => {
     let ignore = false
     api.get('/spotify/linked')
@@ -16,14 +19,12 @@ export default function Sidebar({ collapsed, onToggle }) {
     return () => { ignore = true }
   }, [location.pathname])
 
-  // Open submenu when navigating to a spotify route and account is linked
   useEffect(() => {
     const onSpotifyRoute = location.pathname.startsWith('/spotify')
     if (spotifyLinked && onSpotifyRoute) setSpotifyMenuOpen(true)
     if (!onSpotifyRoute) setSpotifyMenuOpen(false)
   }, [location.pathname, spotifyLinked])
 
-  // Open workout submenu when navigating to a workout route
   useEffect(() => {
     const onWorkoutRoute = location.pathname.startsWith('/workout')
     if (onWorkoutRoute) setWorkoutMenuOpen(true)
@@ -38,104 +39,111 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   const isSpotifyActive = location.pathname.startsWith('/spotify')
   const isWorkoutActive = location.pathname.startsWith('/workout')
+
   const handleSpotifyClick = () => {
     if (spotifyLinked) {
       setSpotifyMenuOpen(o => !o)
     } else {
-      // Default to global when not linked (or unknown)
       nav('/spotify/global')
     }
   }
-  const handleSpotifyKey = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      handleSpotifyClick()
-    }
-  }
+
   const handleWorkoutClick = () => {
     setWorkoutMenuOpen(o => !o)
   }
-  const handleWorkoutKey = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      handleWorkoutClick()
-    }
-  }
+
   return (
     <aside className={'sidebar' + (collapsed ? ' collapsed' : '')}>
-      <div className="brand">Personal Server</div>
-      <button className="btn btn-ghost small" onClick={onToggle}>{collapsed ? '➡️' : '⬅️'}</button>
+      <div className="brand">{collapsed ? 'PS' : 'Personal Server'}</div>
+      <button className="btn btn-ghost small" onClick={onToggle} style={{ alignSelf: 'flex-start', marginBottom: '0.5rem' }}>
+        <span className="material-icons" style={{ fontSize: '20px' }}>{collapsed ? 'chevron_right' : 'chevron_left'}</span>
+      </button>
       <nav className="nav">
-        <NavLink to="/home" className={({isActive})=> 'nav-link'+(isActive?' active':'')}>{collapsed ? '🏠' : '🏠 Home'}</NavLink>
-        <NavLink to="/profile" className={({isActive})=> 'nav-link'+(isActive?' active':'')}>{collapsed ? '👤' : '👤 Profile'}</NavLink>
-        
-        {/* Spotify section with conditional dropdown */}
+        <NavLink to="/home" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')}>
+          <span className="material-icons" style={{ fontSize: '20px' }}>home</span>
+          {!collapsed && <span>Home</span>}
+        </NavLink>
+        <NavLink to="/profile" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')}>
+          <span className="material-icons" style={{ fontSize: '20px' }}>person</span>
+          {!collapsed && <span>Profile</span>}
+        </NavLink>
+
         <div
           className={'nav-link' + (isSpotifyActive ? ' active' : '')}
           onClick={handleSpotifyClick}
-          onKeyDown={handleSpotifyKey}
           role="button"
           tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSpotifyClick() } }}
           aria-expanded={spotifyLinked ? spotifyMenuOpen : undefined}
-          aria-haspopup={spotifyLinked ? 'menu' : undefined}
         >
-          {collapsed ? (
-            <span>
-              🎵{spotifyLinked === false ? ' ⚠️' : ''}
-            </span>
-          ) : (
-            <span>
-              🎵 Spotify {spotifyLinked ? (spotifyMenuOpen ? '▾' : '▸') : '(global)'}
-            </span>
-          )}
+          <span className="material-icons" style={{ fontSize: '20px' }}>music_note</span>
+          {!collapsed && <span>Spotify {spotifyLinked ? (spotifyMenuOpen ? '▾' : '▸') : ''}</span>}
+          {collapsed && spotifyLinked === false && <span className="material-icons" style={{ fontSize: '14px', color: 'var(--color-warning)' }}>warning</span>}
         </div>
         {spotifyLinked && spotifyMenuOpen && (
-          <div className="subnav" role="menu" aria-label="Spotify views" style={{ marginLeft: collapsed ? 12 : 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <NavLink to="/spotify/personal" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '👤' : '👤 Personal'}
+          <div className="subnav" role="menu">
+            <NavLink to="/spotify/personal" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>person</span>
+              {!collapsed && <span>Personal</span>}
             </NavLink>
-            <NavLink to="/spotify/global" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '🌐' : '🌐 Global'}
+            <NavLink to="/spotify/global" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>public</span>
+              {!collapsed && <span>Global</span>}
             </NavLink>
           </div>
         )}
-        
-        {/* Workout section with dropdown */}
+
         <div
           className={'nav-link' + (isWorkoutActive ? ' active' : '')}
           onClick={handleWorkoutClick}
-          onKeyDown={handleWorkoutKey}
           role="button"
           tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleWorkoutClick() } }}
           aria-expanded={workoutMenuOpen}
-          aria-haspopup="menu"
         >
-          {collapsed ? '💪' : `💪 Workout ${workoutMenuOpen ? '▾' : '▸'}`}
+          <span className="material-icons" style={{ fontSize: '20px' }}>fitness_center</span>
+          {!collapsed && <span>Workout {workoutMenuOpen ? '▾' : '▸'}</span>}
         </div>
         {workoutMenuOpen && (
-          <div className="subnav" role="menu" aria-label="Workout views" style={{ marginLeft: collapsed ? 12 : 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <NavLink to="/workout" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '📊' : '📊 Dashboard'}
+          <div className="subnav" role="menu">
+            <NavLink to="/workout" end className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>dashboard</span>
+              {!collapsed && <span>Dashboard</span>}
             </NavLink>
-            <NavLink to="/workout/active" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '⚡' : '⚡ Active'}
+            <NavLink to="/workout/active" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>bolt</span>
+              {!collapsed && <span>Active</span>}
             </NavLink>
-            <NavLink to="/workout/history" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '📅' : '📅 History'}
+            <NavLink to="/workout/history" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>history</span>
+              {!collapsed && <span>History</span>}
             </NavLink>
-            <NavLink to="/workout/exercises" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '📝' : '📝 Exercises'}
+            <NavLink to="/workout/exercises" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>list</span>
+              {!collapsed && <span>Exercises</span>}
             </NavLink>
-            <NavLink to="/workout/bodyweight" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '⚖️' : '⚖️ Bodyweight'}
+            <NavLink to="/workout/bodyweight" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>monitor_weight</span>
+              {!collapsed && <span>Bodyweight</span>}
             </NavLink>
-            <NavLink to="/workout/import" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '📥' : '📥 Import'}
+            <NavLink to="/workout/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>file_download</span>
+              {!collapsed && <span>Import</span>}
             </NavLink>
           </div>
         )}
       </nav>
-      <button className="btn btn-ghost" onClick={logout}>Logout</button>
+
+      <div className="sidebar-bottom">
+        <button className="nav-link" onClick={toggleTheme}>
+          <span className="material-icons" style={{ fontSize: '20px' }}>{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
+          {!collapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+        </button>
+        <button className="nav-link" onClick={logout}>
+          <span className="material-icons" style={{ fontSize: '20px' }}>logout</span>
+          {!collapsed && <span>Logout</span>}
+        </button>
+      </div>
     </aside>
   )
 }

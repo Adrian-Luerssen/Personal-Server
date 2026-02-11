@@ -10,7 +10,6 @@ export default function AuthGuard({ children }) {
     (async () => {
       const { accessToken, refreshToken } = getTokens()
       if (accessToken && refreshToken) {
-        // try a refresh on each entry
         const ok = await refreshIfPossible()
         if (ok) {
           setChecking(false)
@@ -18,7 +17,6 @@ export default function AuthGuard({ children }) {
           nav('/login', { replace: true })
         }
       } else {
-        // no tokens, attempt refresh anyway (will fail)
         const ok = await refreshIfPossible()
         if (ok) setChecking(false)
         else nav('/login', { replace: true })
@@ -26,6 +24,19 @@ export default function AuthGuard({ children }) {
     })()
   }, [nav])
 
-  if (checking) return <div style={{padding:'2rem'}}>Checking session…</div>
+  if (checking) return (
+    <div className="landing">
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem' }}>
+        <div style={{
+          width: 32, height: 32,
+          border: '3px solid var(--color-accent-muted)',
+          borderTop: '3px solid var(--color-accent)',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <span style={{ color: 'var(--color-text-secondary)' }}>Checking session...</span>
+      </div>
+    </div>
+  )
   return children
 }

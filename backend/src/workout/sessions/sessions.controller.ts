@@ -39,8 +39,8 @@ export class WorkoutSessionsController
   @Get()
   async getAll(
     @ReqUser() account: Account,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 20
   ) {
     // Paginate sessions
     const {

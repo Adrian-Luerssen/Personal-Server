@@ -56,4 +56,17 @@ export class WorkoutExercisesService extends TypeOrmCrudService<WorkoutExercise>
     await this.repo.delete(exerciseId);
     return { success: true };
   }
+
+  /**
+   * Get exercise history (sessions and sets) for a given exercise
+   */
+  async getExerciseHistory(exerciseId: string) {
+    const exercise = await this.repo.findOne({
+      where: { id: exerciseId },
+      relations: ["sets", "sets.session"],
+      order: { sets: { session: { date: "DESC" } } },
+    });
+    if (!exercise) throw new Error("Exercise not found");
+    return exercise.sets;
+  }
 }

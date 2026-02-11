@@ -40,4 +40,12 @@ export class AccountsService extends TypeOrmCrudService<Account> {
     const account = this.repo.create(accountData);
     return await this.repo.save(account);
   }
+
+  public async updateAccount(
+    accountId: string,
+    data: Partial<Account>
+  ): Promise<Account> {
+    await this.repo.update(accountId, data);
+    return await this.repo.findOne({ where: { id: accountId } });
+  }
 }

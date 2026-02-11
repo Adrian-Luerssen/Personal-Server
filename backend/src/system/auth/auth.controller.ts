@@ -23,6 +23,8 @@ export class AuthenticateRequest {
   @IsNotEmpty()
   password: string;
   rememberMe: boolean;
+  @IsOptional()
+  mfaCode?: string;
 }
 
 export class RegisterRequest {
@@ -42,8 +44,10 @@ export class RegisterRequest {
 }
 
 interface AuthenticateResponse {
-  refreshToken: string;
-  accessToken: string;
+  refreshToken?: string;
+  accessToken?: string;
+  mfaRequired?: boolean;
+  tempToken?: string;
 }
 
 interface RefreshRequest {
@@ -106,19 +110,26 @@ export class AuthController {
   async authenticate(
     @Body() request: AuthenticateRequest
   ): Promise<AuthenticateResponse> {
-    const refreshToken =
-      await this.authService.authenticateAccountForRefreshToken(
-        request.email,
-        request.password,
-        request.rememberMe
-      );
-    if (refreshToken) {
-      const accessToken = await this.refreshTokenService.generateAccessToken(
-        refreshToken
-      );
+    const result = await this.authService.authenticateWithMFA(
+      request.email,
+      request.password,
+      request.rememberMe,
+      request.mfaCode
+    );
 
+    if (result.mfaRequired) {
       return {
-        refreshToken,
+        mfaRequired: true,
+        tempToken: result.tempToken,
+      };
+    }
+
+    if (result.refreshToken) {
+      const accessToken = await this.refreshTokenService.generateAccessToken(
+        result.refreshToken
+      );
+      return {
+        refreshToken: result.refreshToken,
         accessToken,
       };
     }
@@ -212,5 +223,37 @@ export class AuthController {
       accessToken: access,
       refreshToken: refreshToken,
     };
+  }
+
+  @Post("/mfa/setup")
+  @ApiOperation({ summary: "Generate MFA secret and QR code for setup" })
+  async setupMFA(
+    @ReqUser() user: any
+  ): Promise<{ secret: string; qrCode: string }> {
+    return await this.authService.setupMFA(user.id);
+  }
+
+  @Post("/mfa/enable")
+  @ApiOperation({ summary: "Enable MFA after verifying setup code" })
+  async enableMFA(
+    @ReqUser() user: any,
+    @Body() body: { secret: string; code: string }
+  ): Promise<{ success: boolean; message: string }> {
+    return await this.authService.enableMFA(user.id, body.secret, body.code);
+  }
+
+  @Post("/mfa/disable")
+  @ApiOperation({ summary: "Disable MFA for account" })
+  async disableMFA(
+    @ReqUser() user: any,
+    @Body() body: { code: string }
+  ): Promise<{ success: boolean; message: string }> {
+    return await this.authService.disableMFA(user.id, body.code);
+  }
+
+  @Get("/mfa/status")
+  @ApiOperation({ summary: "Check if MFA is enabled" })
+  async mfaStatus(@ReqUser() user: any): Promise<{ enabled: boolean }> {
+    return await this.authService.getMFAStatus(user.id);
   }
 }

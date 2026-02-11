@@ -122,9 +122,11 @@ function resolveTimeframe(
       start.setHours(0, 0, 0, 0);
       return { start, end, label: "today" };
     case "7d":
+    case "week":
     case "last7days":
       return { start: new Date(Date.now() - 7 * 86400000), end, label: "7d" };
     case "30d":
+    case "month":
     case "last30days":
       return {
         start: new Date(Date.now() - 30 * 86400000),
@@ -138,6 +140,7 @@ function resolveTimeframe(
         label: "90d",
       };
     case "1y":
+    case "year":
     case "lastyear":
       return {
         start: new Date(new Date().setFullYear(end.getFullYear() - 1)),
@@ -162,6 +165,20 @@ function parseRetryAfterMs(err: any): number | null {
   return Number.isFinite(n) ? n * 1000 : null;
 }
 
+/**
+ * Formats a date into YYYY-MM-DD for a specific IANA timezone, without external libs.
+ * Uses Intl.DateTimeFormat with timeZone to avoid DST math complexity.
+ */
+function formatDateYYYYMMDDInZone(date: Date, timeZone: string): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return fmt.format(date);
+}
+
 export {
   calculateScore,
   toPercent,
@@ -172,4 +189,5 @@ export {
   resolveTimeframe,
   sleep,
   parseRetryAfterMs,
+  formatDateYYYYMMDDInZone,
 };

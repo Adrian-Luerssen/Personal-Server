@@ -1,11 +1,8 @@
-import React, { useEffect, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
-import { api, apiFetch } from '../../api'
-import { LoadingSpinner, Modal } from './WorkoutShared'
+import React, { useState } from 'react'
+import { apiFetch } from '../../api'
+import { LoadingSpinner } from '../../components/shared'
 
 export default function WorkoutImport() {
-  const { sidebarCollapsed } = useOutletContext() || {}
-  
   const [file, setFile] = useState(null)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
@@ -13,61 +10,35 @@ export default function WorkoutImport() {
 
   function handleFileChange(e) {
     const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      setFile(selectedFile)
-      setError('')
-      setSuccess('')
-    }
+    if (selectedFile) { setFile(selectedFile); setError(''); setSuccess('') }
   }
 
+  // BUG FIX B2: apiFetch already returns parsed data, so remove response.ok / response.json()
   async function handleImport() {
-    if (!file) {
-      setError('Please select a file')
-      return
-    }
-    
-    setImporting(true)
-    setError('')
-    setSuccess('')
-    
+    if (!file) { setError('Please select a file'); return }
+    setImporting(true); setError(''); setSuccess('')
     try {
       const formData = new FormData()
       formData.append('file', file)
-      
-      const response = await apiFetch('/workout/import/fitnotes', {
-        method: 'POST',
-        body: formData
-      })
-      
-      if (!response.ok) {
-        const text = await response.text()
-        throw new Error(text || `Import failed: ${response.status}`)
-      }
-      
-      const result = await response.json()
+      await apiFetch('/workout/import/fitnotes', { method: 'POST', body: formData })
       setSuccess('Import completed successfully! Your data has been synced.')
       setFile(null)
-      
-      // Reset file input
       const fileInput = document.getElementById('fitnotes-file')
       if (fileInput) fileInput.value = ''
-    } catch (e) {
-      setError(e.message || 'Import failed')
-    } finally {
-      setImporting(false)
-    }
+    } catch (e) { setError(e.message || 'Import failed') }
+    finally { setImporting(false) }
   }
 
   return (
-    <div className="content" style={{ marginLeft: sidebarCollapsed ? 80 : 260 }}>
-      <h1>📥 Import FitNotes Data</h1>
+    <>
+      <h2><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8 }}>file_download</span>Import FitNotes Data</h2>
 
-      <div className="card" style={{ marginBottom: '1.5rem', background: 'rgba(125,211,252,0.1)' }}>
+      <div className="card" style={{ marginBottom: '1.5rem', background: 'var(--color-info-muted)' }}>
         <h3 style={{ marginBottom: '.75rem' }}>About FitNotes Import</h3>
-        <p style={{ opacity: .9, lineHeight: 1.6, marginBottom: '.75rem' }}>
+        <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '.75rem' }}>
           Import your historical workout data from FitNotes (Android). This tool will:
         </p>
-        <ul style={{ paddingLeft: '1.5rem', lineHeight: 1.8, opacity: .9 }}>
+        <ul style={{ paddingLeft: '1.5rem', lineHeight: 1.8, color: 'var(--color-text-secondary)' }}>
           <li>Create or update exercises and categories</li>
           <li>Import workout sessions and sets with all details</li>
           <li>Sync bodyweight entries</li>
@@ -75,51 +46,32 @@ export default function WorkoutImport() {
         </ul>
       </div>
 
-      {error && (
-        <div className="card" style={{ borderColor: 'rgba(239,68,68,0.5)', marginBottom: '1rem' }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="card" style={{ borderColor: 'rgba(34,197,94,0.5)', background: 'rgba(34,197,94,0.1)', marginBottom: '1rem' }}>
-          <strong>Success!</strong> {success}
-        </div>
-      )}
+      {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+      {success && <div className="alert-success" style={{ marginBottom: '1rem' }}>{success}</div>}
 
       <div className="card">
         <h3 style={{ marginBottom: '1rem' }}>Upload FitNotes Database</h3>
-        
+
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>
-            Select FitNotes .db file
-          </label>
-          <input 
+          <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Select FitNotes .db file</label>
+          <input
             id="fitnotes-file"
             type="file"
             accept=".db,.sqlite,.sqlite3,.fitnotes"
             onChange={handleFileChange}
             disabled={importing}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '.75rem',
-              border: '2px dashed rgba(125,211,252,0.3)',
-              borderRadius: 8,
-              background: 'rgba(255,255,255,0.03)',
-              cursor: importing ? 'not-allowed' : 'pointer'
-            }}
+            style={{ display: 'block', width: '100%', padding: '.75rem', border: '2px dashed var(--glass-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-accent-muted)', cursor: importing ? 'not-allowed' : 'pointer' }}
           />
           {file && (
-            <div style={{ marginTop: '.5rem', fontSize: '.9rem', opacity: .7 }}>
+            <div style={{ marginTop: '.5rem', fontSize: '.9rem', color: 'var(--color-text-muted)' }}>
               Selected: <strong>{file.name}</strong> ({(file.size / 1024).toFixed(1)} KB)
             </div>
           )}
         </div>
 
-        <div className="card" style={{ background: 'rgba(251,191,36,0.1)', borderColor: 'rgba(251,191,36,0.3)', marginBottom: '1.5rem' }}>
-          <div style={{ fontWeight: 700, marginBottom: '.5rem' }}>⚠️ Important Notes</div>
-          <ul style={{ paddingLeft: '1.5rem', lineHeight: 1.6, fontSize: '.9rem', opacity: .9 }}>
+        <div className="alert-warning" style={{ marginBottom: '1.5rem' }}>
+          <div style={{ fontWeight: 700, marginBottom: '.5rem' }}>Important Notes</div>
+          <ul style={{ paddingLeft: '1.5rem', lineHeight: 1.6, fontSize: '.9rem' }}>
             <li>The import process may take a few minutes for large databases</li>
             <li>Duplicate data will be automatically skipped</li>
             <li>Existing exercises/categories with matching names will be reused</li>
@@ -127,37 +79,26 @@ export default function WorkoutImport() {
           </ul>
         </div>
 
-        <button 
-          className="btn"
-          onClick={handleImport}
-          disabled={!file || importing}
-          style={{ 
-            opacity: (!file || importing) ? 0.5 : 1,
-            cursor: (!file || importing) ? 'not-allowed' : 'pointer'
-          }}
-        >
+        <button className="btn" onClick={handleImport} disabled={!file || importing} style={{ opacity: (!file || importing) ? 0.5 : 1, cursor: (!file || importing) ? 'not-allowed' : 'pointer' }}>
           {importing ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-              <LoadingSpinner size={16} />
-              Importing...
-            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}><LoadingSpinner size={16} />Importing...</span>
           ) : (
-            '📥 Start Import'
+            <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}><span className="material-icons" style={{ fontSize: 18 }}>file_download</span>Start Import</span>
           )}
         </button>
       </div>
 
       <div className="card" style={{ marginTop: '1.5rem' }}>
         <h3 style={{ marginBottom: '.75rem' }}>How to Export from FitNotes</h3>
-        <ol style={{ paddingLeft: '1.5rem', lineHeight: 1.8, opacity: .9 }}>
+        <ol style={{ paddingLeft: '1.5rem', lineHeight: 1.8, color: 'var(--color-text-secondary)' }}>
           <li>Open FitNotes on your Android device</li>
-          <li>Tap the menu (three dots) → <strong>Backup</strong></li>
+          <li>Tap the menu (three dots) &rarr; <strong>Backup</strong></li>
           <li>Choose <strong>Export Database</strong></li>
           <li>Save the <code>.db</code> file to your device</li>
           <li>Transfer the file to this computer (email, cloud, USB, etc.)</li>
           <li>Upload it using the form above</li>
         </ol>
       </div>
-    </div>
+    </>
   )
 }

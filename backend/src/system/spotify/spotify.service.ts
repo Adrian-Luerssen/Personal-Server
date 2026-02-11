@@ -108,10 +108,15 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
       const trackData = item.track;
       // Fetch or create the track (and related album/artist) via helper
       let track = await this.fetchOrCreateTrack(trackData.id, accessToken);
-      // Save stream
-      const alreadyStreamed = await this.streamRepo.findOne({
-        where: { accountId, track: { id: track.id }, streamedAt: playedAt },
-      });
+      // Save stream - check for duplicate using ISO string to avoid timezone issues
+      const alreadyStreamed = await this.streamRepo
+        .createQueryBuilder("stream")
+        .where("stream.accountId = :accountId", { accountId })
+        .andWhere("stream.trackId = :trackId", { trackId: track.id })
+        .andWhere("stream.streamedAt = :streamedAt", {
+          streamedAt: playedAt.toISOString(),
+        })
+        .getOne();
       if (alreadyStreamed) {
         skipped++;
         continue;
@@ -228,10 +233,15 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
 
         let track = await this.fetchOrCreateTrack(trackData.id, accessToken);
 
-        // Check if stream already exists
-        const alreadyStreamed = await this.streamRepo.findOne({
-          where: { accountId, track: { id: track.id }, streamedAt: playedAt },
-        });
+        // Check if stream already exists - using ISO string to avoid timezone issues
+        const alreadyStreamed = await this.streamRepo
+          .createQueryBuilder("stream")
+          .where("stream.accountId = :accountId", { accountId })
+          .andWhere("stream.trackId = :trackId", { trackId: track.id })
+          .andWhere("stream.streamedAt = :streamedAt", {
+            streamedAt: playedAt.toISOString(),
+          })
+          .getOne();
         if (alreadyStreamed) {
           skipped++;
           continue;

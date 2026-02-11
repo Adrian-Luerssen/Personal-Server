@@ -146,7 +146,7 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
     const qb = this.repo
       .createQueryBuilder("stream")
       .select("stream.trackId", "trackId")
-      .addSelect("COUNT(*)", "count")
+      .addSelect("COUNT(distinct stream.id)", "count")
       .leftJoin("stream.track", "track")
       .leftJoin("track.artists", "artist")
       .addSelect(

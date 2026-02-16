@@ -2,7 +2,8 @@
 
 **Author**: Claudia (PM Agent)  
 **Date**: 2026-02-17  
-**Status**: Draft
+**Status**: Active Development
+**Version**: 2.0
 
 ---
 
@@ -10,7 +11,11 @@
 
 This plan outlines the integration of Adrian's personal data sources into the Personal Server NestJS backend. The server already has a solid foundation with authentication, accounts, music tracking (Spotify), and a **fully functional workout module with FitNotes import**. 
 
-We need to add two new modules (Finance, Habits) and enhance the Dashboard for cross-domain analytics.
+We need to:
+1. Add two new modules (Finance, Habits)
+2. Enhance the Dashboard for cross-domain analytics
+3. **Improve FitNotes import UX** (existing feature needs polish)
+4. **Add Agent API** - Enable AI agents to access personal data via MCP + REST
 
 ---
 
@@ -24,16 +29,530 @@ We need to add two new modules (Finance, Habits) and enhance the Dashboard for c
 | Account System | ✅ Complete | Multi-user support, MFA |
 | Music Module | ✅ Complete | Spotify streams, tracks |
 | **Workout Module** | ✅ **Complete** | Categories, exercises, sessions, sets, routines, bodyweight |
-| **FitNotes Import** | ✅ **Complete** | Full SQLite import service exists |
+| **FitNotes Import** | 🔶 **Needs Improvement** | Works but UX is poor |
 | Dashboard | 🔶 Partial | Only Spotify + workout cross-analysis |
 
 ### Data Sources to Integrate
 
 | Source | Format | Records | Status |
 |--------|--------|---------|--------|
-| FitNotes (Gym) | SQLite | 11,304 sets | ✅ Import exists |
+| FitNotes (Gym) | SQLite | 11,304 sets | ✅ Import exists (needs UX fixes) |
 | Cashew (Finance) | SQLite | 793 transactions | ❌ Needs module |
 | HabitShare (Habits) | CSV | 5,130 entries | ❌ Needs module |
+
+---
+
+## NEW: Phase 0 - FitNotes Import Improvements (Priority: HIGH)
+
+### Current Issues Identified
+
+#### Backend Problems
+1. **No progress feedback** - Import runs synchronously, user sees loading spinner indefinitely
+2. **No preview/validation** - User can't see what will be imported before committing
+3. **No detailed summary** - Just returns `{ status: "ok" }`, no counts of created/skipped records
+4. **No transaction rollback** - If import fails halfway, partial data remains in DB
+5. **Fragile deduplication** - Uses order-based matching which can be unreliable
+6. **No selective import** - All or nothing, can't import just bodyweight or just exercises
+
+#### Frontend Problems  
+1. **No progress indicator** - Just a spinner, no progress bar or stage info
+2. **No preview UI** - Can't see what's in the file before importing
+3. **No import summary** - Just "success", no details on what was imported
+4. **No selective controls** - Can't choose what to import
+5. **Basic styling** - Functional but not polished
+
+### Proposed Improvements
+
+#### 0.1 Backend: Two-Phase Import with Preview
+
+```typescript
+// New endpoints
+POST /workout/import/fitnotes/preview   // Analyze file, return preview
+POST /workout/import/fitnotes/execute   // Execute import with options
+
+// Preview response
+interface FitNotesPreview {
+  file: { name: string; size: number; valid: boolean };
+  counts: {
+    categories: { total: number; new: number; existing: number };
+    exercises: { total: number; new: number; existing: number };
+    sessions: { total: number; new: number; existing: number };
+    sets: { total: number; new: number; existing: number };
+    bodyweight: { total: number; new: number; existing: number };
+  };
+  dateRange: { earliest: string; latest: string };
+  topExercises: Array<{ name: string; count: number }>;
+  warnings: string[]; // e.g., "3 sets have invalid dates"
+}
+
+// Execute request
+interface FitNotesExecuteRequest {
+  previewId: string; // Reference to cached preview
+  options: {
+    importCategories: boolean;
+    importExercises: boolean;
+    importSessions: boolean;
+    importBodyweight: boolean;
+    overwriteExisting: boolean;
+    dateFrom?: string; // Optional date filter
+    dateTo?: string;
+  };
+}
+
+// Execute response (with progress via SSE)
+interface FitNotesExecuteProgress {
+  stage: 'categories' | 'exercises' | 'sessions' | 'bodyweight' | 'complete';
+  progress: number; // 0-100
+  current: number;
+  total: number;
+  message: string;
+}
+```
+
+#### 0.2 Backend: Progress Streaming via SSE
+
+```typescript
+// Use Server-Sent Events for real-time progress
+@Sse('fitnotes/execute/:previewId')
+async executeImport(
+  @Param('previewId') previewId: string,
+  @Body() options: FitNotesExecuteOptions,
+): Observable<MessageEvent> {
+  return this.importService.executeWithProgress(previewId, options);
+}
+```
+
+#### 0.3 Backend: Transaction Safety
+
+```typescript
+// Wrap entire import in a transaction
+async executeImport(account: Account, previewId: string, options: Options) {
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+  
+  try {
+    // ... import logic using queryRunner.manager instead of repos
+    await queryRunner.commitTransaction();
+    return { status: 'ok', summary };
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    throw error;
+  } finally {
+    await queryRunner.release();
+  }
+}
+```
+
+#### 0.4 Frontend: Enhanced Import UI
+
+```jsx
+// New import flow:
+// 1. File selection → 2. Preview → 3. Options → 4. Progress → 5. Summary
+
+// Preview step shows:
+// - File info (name, size, valid)
+// - What will be imported (categories, exercises, sessions, etc.)
+// - Date range of data
+// - Warnings (if any)
+
+// Options step allows:
+// - Toggle each data type on/off
+// - Date range filter
+// - Overwrite existing toggle
+
+// Progress step shows:
+// - Progress bar
+// - Current stage (Importing exercises... 45/128)
+// - Elapsed time
+
+// Summary step shows:
+// - Created vs skipped counts per category
+// - Total records imported
+// - Any errors/warnings
+```
+
+### Implementation Tasks
+
+| Task | Effort | Priority |
+|------|--------|----------|
+| Backend: Preview endpoint | 2h | P0 |
+| Backend: SSE progress streaming | 2h | P0 |
+| Backend: Transaction wrapper | 1h | P0 |
+| Backend: Selective import options | 1h | P1 |
+| Frontend: Multi-step import wizard | 3h | P0 |
+| Frontend: Progress bar component | 1h | P0 |
+| Frontend: Summary view | 1h | P1 |
+
+---
+
+## NEW: Phase 4 - Agent API (Priority: HIGH)
+
+### Overview
+
+Adrian wants AI agents (like Claudia, or potentially public agents) to access personal data. This requires:
+1. **Authentication mechanism** for agents (not user JWT tokens)
+2. **Authorization/scopes** to control what each agent can access
+3. **API design** optimized for AI agent consumption
+
+### Recommended Architecture
+
+After analyzing the use case, I recommend a **hybrid approach**:
+
+1. **MCP (Model Context Protocol)** - Primary for AI agents
+   - Purpose-built for AI↔tool communication
+   - Supports natural language tool descriptions
+   - Built-in streaming for large responses
+   - Growing ecosystem (Anthropic Claude, etc.)
+
+2. **REST API with API Keys** - Fallback/universal access
+   - Works with any HTTP client
+   - Simple to implement and debug
+   - Good for non-MCP agents or direct integrations
+
+### 4.1 Agent Authentication
+
+#### API Keys for Agents
+
+```typescript
+// src/agents/entities/agent-key.entity.ts
+@Entity('agent_keys')
+export class AgentKey extends AbstractAccountOwnedEntity {
+  @Column() name: string; // "Claudia", "Home Assistant", etc.
+  
+  @Column() keyHash: string; // bcrypt hash of the API key
+  
+  @Column() keyPrefix: string; // First 8 chars for identification (ps_live_abc...)
+  
+  @Column('simple-array') scopes: string[]; // ['workout:read', 'finance:read', etc.]
+  
+  @Column({ default: true }) isActive: boolean;
+  
+  @Column({ nullable: true }) lastUsedAt: Date;
+  
+  @Column({ nullable: true }) expiresAt: Date;
+  
+  @Column('jsonb', { nullable: true }) metadata: Record<string, any>; // Agent type, version, etc.
+}
+```
+
+#### API Key Format
+```
+ps_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  (production)
+ps_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  (development)
+```
+
+#### Key Management Endpoints
+
+```typescript
+POST   /api/agents/keys          // Create new API key
+GET    /api/agents/keys          // List keys (masked)
+DELETE /api/agents/keys/:id      // Revoke key
+PATCH  /api/agents/keys/:id      // Update scopes/name
+```
+
+### 4.2 Authorization Scopes
+
+```typescript
+// Available scopes
+const AGENT_SCOPES = {
+  // Workout
+  'workout:read': 'Read workout sessions, exercises, bodyweight',
+  'workout:write': 'Create/update workout data',
+  
+  // Finance
+  'finance:read': 'Read transactions, wallets, categories',
+  'finance:write': 'Create/update financial data',
+  'finance:read:summary': 'Read only aggregated summaries (no transaction details)',
+  
+  // Habits
+  'habits:read': 'Read habits and entries',
+  'habits:write': 'Create/update habit data',
+  
+  // Music
+  'music:read': 'Read Spotify listening history',
+  
+  // Dashboard
+  'dashboard:read': 'Read cross-domain analytics',
+  
+  // Profile
+  'profile:read': 'Read basic profile info',
+};
+```
+
+### 4.3 MCP Server Implementation
+
+```typescript
+// src/mcp/mcp.module.ts
+// Implement as a separate process or integrated into NestJS
+
+// MCP Tools (callable by AI agents)
+const MCP_TOOLS = [
+  {
+    name: 'get_workouts',
+    description: 'Get workout sessions with exercises and sets. Can filter by date range.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        from: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+        to: { type: 'string', description: 'End date (YYYY-MM-DD)' },
+        limit: { type: 'number', description: 'Max results (default 10)' },
+      },
+    },
+  },
+  {
+    name: 'get_workout_stats',
+    description: 'Get workout statistics: total volume, session count, streaks, PRs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        period: { type: 'string', enum: ['week', 'month', 'year', 'all'] },
+      },
+    },
+  },
+  {
+    name: 'get_spending',
+    description: 'Get spending summary by category or time period.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        period: { type: 'string', enum: ['week', 'month', 'year'] },
+        category: { type: 'string', description: 'Optional category filter' },
+      },
+    },
+  },
+  {
+    name: 'get_habits',
+    description: 'Get habit tracking data with streaks and success rates.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        habit: { type: 'string', description: 'Optional habit name filter' },
+        from: { type: 'string' },
+        to: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: 'get_correlations',
+    description: 'Get interesting correlations between different data sources (e.g., gym attendance vs alcohol habits, spending patterns vs workout days).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        domains: { 
+          type: 'array', 
+          items: { type: 'string', enum: ['workout', 'finance', 'habits', 'music'] },
+          description: 'Which domains to correlate',
+        },
+      },
+    },
+  },
+  {
+    name: 'log_workout',
+    description: 'Log a new workout session with exercises and sets.',
+    inputSchema: {
+      type: 'object',
+      required: ['exercises'],
+      properties: {
+        date: { type: 'string', description: 'Date (YYYY-MM-DD), defaults to today' },
+        exercises: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              sets: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    reps: { type: 'number' },
+                    weight: { type: 'number', description: 'Weight in kg' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+];
+
+// MCP Resources (data the agent can read)
+const MCP_RESOURCES = [
+  {
+    uri: 'personal://workout/recent',
+    name: 'Recent Workouts',
+    description: 'Last 5 workout sessions with full details',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'personal://finance/summary',
+    name: 'Financial Summary',
+    description: 'Current month spending summary by category',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'personal://habits/streaks',
+    name: 'Habit Streaks',
+    description: 'Current streaks for all tracked habits',
+    mimeType: 'application/json',
+  },
+];
+```
+
+### 4.4 REST API for Agents
+
+```typescript
+// Agent API endpoints (use X-API-Key header)
+
+// Workout
+GET /api/v1/workout/sessions           // List sessions
+GET /api/v1/workout/sessions/:id       // Get session with sets
+GET /api/v1/workout/stats              // Aggregated stats
+GET /api/v1/workout/exercises          // List exercises
+GET /api/v1/workout/bodyweight         // Bodyweight history
+
+// Finance
+GET /api/v1/finance/transactions       // List transactions
+GET /api/v1/finance/summary            // Spending summary
+GET /api/v1/finance/categories         // Categories with totals
+
+// Habits
+GET /api/v1/habits                     // List habits
+GET /api/v1/habits/:id/entries         // Habit entries
+GET /api/v1/habits/streaks             // All streaks
+
+// Dashboard (cross-domain)
+GET /api/v1/dashboard/summary          // Overview of all domains
+GET /api/v1/dashboard/timeline         // Unified timeline view
+GET /api/v1/dashboard/correlations     // Cross-domain insights
+
+// Agent metadata
+GET /api/v1/agent/me                   // Current agent info + scopes
+GET /api/v1/agent/usage                // API usage stats
+```
+
+### 4.5 Authentication Middleware
+
+```typescript
+// src/agents/guards/agent-key.guard.ts
+@Injectable()
+export class AgentKeyGuard implements CanActivate {
+  constructor(
+    private readonly agentKeyService: AgentKeyService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const apiKey = request.headers['x-api-key'];
+    
+    if (!apiKey) return false;
+    
+    const agent = await this.agentKeyService.validateKey(apiKey);
+    if (!agent) return false;
+    
+    // Attach agent to request for scope checking
+    request.agent = agent;
+    return true;
+  }
+}
+
+// src/agents/decorators/require-scope.decorator.ts
+export const RequireScope = (...scopes: string[]) => SetMetadata('scopes', scopes);
+
+// Usage:
+@Get('transactions')
+@UseGuards(AgentKeyGuard)
+@RequireScope('finance:read')
+async getTransactions() { ... }
+```
+
+### 4.6 MCP Server Setup
+
+```typescript
+// Run as separate process or integrated
+
+// Option A: Standalone MCP server (recommended for production)
+// src/mcp/server.ts
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+const server = new Server({
+  name: 'personal-server',
+  version: '1.0.0',
+}, {
+  capabilities: {
+    tools: {},
+    resources: {},
+  },
+});
+
+// Register tools
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: MCP_TOOLS,
+}));
+
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  // Authenticate via API key in tool input or environment
+  // Call internal REST API or service directly
+});
+
+// Option B: HTTP transport for remote access
+// Expose MCP over WebSocket or SSE
+```
+
+### Implementation Tasks
+
+| Task | Effort | Priority |
+|------|--------|----------|
+| Agent key entity + migrations | 1h | P0 |
+| Key generation + management endpoints | 2h | P0 |
+| Agent auth guard + scope decorator | 2h | P0 |
+| REST API v1 endpoints | 4h | P0 |
+| MCP server implementation | 4h | P1 |
+| MCP tools for all domains | 3h | P1 |
+| Agent dashboard UI (key management) | 2h | P2 |
+
+---
+
+## Phase 1: Finance Module (Priority: HIGH)
+
+*(Unchanged from v1 - create finance entities, Cashew import, CRUD endpoints)*
+
+[See original plan for details]
+
+### Key Points:
+- Entities: `FinanceWallet`, `FinanceCategory`, `FinanceTransaction`
+- Import: `CashewImportService` (follow improved import pattern from Phase 0)
+- Endpoints: CRUD + summary/analytics
+
+---
+
+## Phase 2: Habits Module (Priority: MEDIUM)
+
+*(Unchanged from v1 - create habit entities, HabitShare import, streak calculations)*
+
+[See original plan for details]
+
+### Key Points:
+- Entities: `Habit`, `HabitEntry`
+- Import: `HabitShareImportService` (CSV parsing)
+- Endpoints: CRUD + streaks + success rates
+
+---
+
+## Phase 3: Enhanced Dashboard (Priority: HIGH)
+
+*(Unchanged from v1 - cross-domain analytics)*
+
+[See original plan for details]
+
+### Key Points:
+- Unified summary endpoint
+- Timeline view
+- Cross-domain correlations
 
 ---
 
@@ -44,13 +563,7 @@ We need to add two new modules (Finance, Habits) and enhance the Dashboard for c
 #### Tables
 - **transactions**: `transaction_pk`, `name`, `amount`, `note`, `category_fk`, `wallet_fk`, `date_created`, `income` (bool), `paid`, `type`
 - **wallets**: `wallet_pk`, `name`, `colour`, `icon_name`, `currency`, `order`
-- **categories**: `category_pk`, `name`, `colour`, `icon_name`, `income` (bool), `main_category_pk` (for subcategories)
-
-#### Sample Wallets
-- BBVA, Bankinter, Revolut, Santander
-
-#### Sample Categories
-- Dining, Shopping, Transit, Night Out, Groceries, Entertainment, Bills & Fees, Health, Travel, Weed, Tobacco, Beer, Hard Drinks, Coffee, Glovo, etc.
+- **categories**: `category_pk`, `name`, `colour`, `icon_name`, `income` (bool), `main_category_pk`
 
 ### 2. FitNotes (Gym App) - SQLite ✅ ALREADY IMPORTED
 
@@ -67,351 +580,116 @@ We need to add two new modules (Finance, Habits) and enhance the Dashboard for c
 - `Habit`, `Date`, `Status` (success/fail/skip), `Comment`
 
 #### Tracked Habits
-- 🍇 (grapes emoji)
-- 🍍 (pineapple emoji)
-- gym
-- Medicine
-- No 🔞 (no adult content)
-- No Alcohol
-- No Smoking
-- Wake Up Early (< 8:00 am)
+- 🍇, 🍍, gym, Medicine, No 🔞, No Alcohol, No Smoking, Wake Up Early
 
 ---
 
-## Implementation Plan
-
-### Phase 1: Finance Module (Priority: HIGH)
-
-Create a new `finance` module for Cashew data.
-
-#### 1.1 Entities
-
-```typescript
-// src/finance/entities/wallet.entity.ts
-@Entity('finance_wallets')
-export class FinanceWallet extends AbstractAccountOwnedEntity {
-  @Column() name: string;
-  @Column({ nullable: true }) colour: string;
-  @Column({ nullable: true }) iconName: string;
-  @Column({ default: 'EUR' }) currency: string;
-  @Column({ default: 0 }) order: number;
-  @Column({ nullable: true }) externalId: string; // Cashew wallet_pk
-}
-
-// src/finance/entities/category.entity.ts
-@Entity('finance_categories')
-export class FinanceCategory extends AbstractAccountOwnedEntity {
-  @Column() name: string;
-  @Column({ nullable: true }) colour: string;
-  @Column({ nullable: true }) iconName: string;
-  @Column({ default: false }) isIncome: boolean;
-  @ManyToOne(() => FinanceCategory, { nullable: true })
-  parentCategory: FinanceCategory;
-  @Column({ nullable: true }) externalId: string;
-}
-
-// src/finance/entities/transaction.entity.ts
-@Entity('finance_transactions')
-export class FinanceTransaction extends AbstractAccountOwnedEntity {
-  @Column() name: string;
-  @Column('decimal', { precision: 12, scale: 2 }) amount: number;
-  @Column({ nullable: true }) note: string;
-  @ManyToOne(() => FinanceCategory)
-  category: FinanceCategory;
-  @ManyToOne(() => FinanceCategory, { nullable: true })
-  subCategory: FinanceCategory;
-  @ManyToOne(() => FinanceWallet)
-  wallet: FinanceWallet;
-  @Column() transactionDate: Date;
-  @Column({ default: false }) isIncome: boolean;
-  @Column({ default: true }) isPaid: boolean;
-  @Column({ nullable: true }) externalId: string;
-}
-```
-
-#### 1.2 Import Service
-
-```typescript
-// src/finance/import/cashew-import.service.ts
-@Injectable()
-export class CashewImportService {
-  async importFromSqlite(account: Account, file: Express.Multer.File) {
-    // 1. Import wallets first
-    // 2. Import categories (with parent relationships)
-    // 3. Import transactions (map wallet_fk, category_fk)
-  }
-}
-```
-
-#### 1.3 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /finance/wallets | List all wallets |
-| GET | /finance/categories | List all categories |
-| GET | /finance/transactions | List transactions (paginated, filterable) |
-| GET | /finance/transactions/summary | Spending summary by category/period |
-| POST | /finance/import/cashew | Import Cashew SQLite file |
-
-#### 1.4 Analytics Queries
-
-- **Spending by category** (monthly/yearly)
-- **Spending by wallet**
-- **Income vs expenses trend**
-- **Top spending categories**
-- **Daily/weekly/monthly averages**
-
----
-
-### Phase 2: Habits Module (Priority: MEDIUM)
-
-Create a new `habits` module for HabitShare data.
-
-#### 2.1 Entities
-
-```typescript
-// src/habits/entities/habit.entity.ts
-@Entity('habits')
-export class Habit extends AbstractAccountOwnedEntity {
-  @Column() name: string;
-  @Column({ nullable: true }) description: string;
-  @Column({ nullable: true }) emoji: string;
-  @Column({ default: true }) isActive: boolean;
-}
-
-// src/habits/entities/habit-entry.entity.ts
-@Entity('habit_entries')
-export class HabitEntry extends AbstractAccountOwnedEntity {
-  @ManyToOne(() => Habit)
-  habit: Habit;
-  @Column() date: string; // YYYY-MM-DD
-  @Column({ type: 'enum', enum: ['success', 'fail', 'skip'] })
-  status: 'success' | 'fail' | 'skip';
-  @Column({ nullable: true }) comment: string;
-}
-```
-
-#### 2.2 Import Service
-
-```typescript
-// src/habits/import/habitshare-import.service.ts
-@Injectable()
-export class HabitShareImportService {
-  async importFromCsv(account: Account, file: Express.Multer.File) {
-    // Parse CSV
-    // Create habits (unique by name)
-    // Create entries
-  }
-}
-```
-
-#### 2.3 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /habits | List all habits |
-| GET | /habits/:id/entries | Get entries for a habit |
-| GET | /habits/:id/streak | Get current/longest streak |
-| GET | /habits/summary | Overall habit statistics |
-| POST | /habits/import/habitshare | Import HabitShare CSV |
-
-#### 2.4 Analytics Queries
-
-- **Current streak** per habit
-- **Longest streak** per habit
-- **Success rate** (weekly/monthly/all-time)
-- **Day-of-week analysis** (which days succeed/fail most)
-- **Trends over time**
-
----
-
-### Phase 3: Enhanced Dashboard (Priority: HIGH)
-
-Expand the dashboard service for cross-domain analytics.
-
-#### 3.1 New Dashboard Endpoints
-
-```typescript
-// src/dashboard/dashboard.controller.ts
-
-// Overall stats summary
-GET /dashboard/summary
-{
-  finance: { totalSpent, totalIncome, topCategory },
-  workout: { sessionsThisMonth, totalVolume, streak },
-  habits: { overallSuccessRate, activeStreaks },
-  music: { totalStreams, topArtist }
-}
-
-// Correlations
-GET /dashboard/correlations
-{
-  workoutDaysVsHabits: { ... }, // Do gym days correlate with "No Alcohol" success?
-  spendingVsHabits: { ... },    // Spending on nights out vs "No Alcohol" fails
-  workoutVsMusic: { ... }       // Already exists
-}
-
-// Timeline view
-GET /dashboard/timeline?from=&to=
-{
-  dates: [
-    { date: '2024-03-08', workout: true, habits: { noAlcohol: 'success' }, spending: 45.50 },
-    ...
-  ]
-}
-```
-
-#### 3.2 Interesting Cross-Domain Insights
-
-1. **Spending on "Night Out" + "Beer" + "Hard Drinks"** vs **"No Alcohol" habit failures**
-2. **Gym attendance** (from workout sessions) vs **"gym" habit** (validation)
-3. **Workout intensity** (volume) vs **sleep habits** (if tracked)
-4. **Weekend spending patterns** vs **weekday patterns**
-5. **Music during workouts** (already exists)
-
----
-
-## Database Migrations
-
-### Migration 1: Finance Tables
-```sql
-CREATE TABLE finance_wallets (
-  id UUID PRIMARY KEY,
-  "accountId" UUID NOT NULL REFERENCES accounts(id),
-  name VARCHAR NOT NULL,
-  colour VARCHAR,
-  icon_name VARCHAR,
-  currency VARCHAR DEFAULT 'EUR',
-  "order" INTEGER DEFAULT 0,
-  external_id VARCHAR,
-  "createdAt" TIMESTAMPTZ,
-  "updatedAt" TIMESTAMPTZ
-);
-
-CREATE TABLE finance_categories (
-  id UUID PRIMARY KEY,
-  "accountId" UUID NOT NULL REFERENCES accounts(id),
-  name VARCHAR NOT NULL,
-  colour VARCHAR,
-  icon_name VARCHAR,
-  is_income BOOLEAN DEFAULT false,
-  parent_category_id UUID REFERENCES finance_categories(id),
-  external_id VARCHAR,
-  "createdAt" TIMESTAMPTZ,
-  "updatedAt" TIMESTAMPTZ
-);
-
-CREATE TABLE finance_transactions (
-  id UUID PRIMARY KEY,
-  "accountId" UUID NOT NULL REFERENCES accounts(id),
-  name VARCHAR NOT NULL,
-  amount DECIMAL(12,2) NOT NULL,
-  note TEXT,
-  category_id UUID REFERENCES finance_categories(id),
-  sub_category_id UUID REFERENCES finance_categories(id),
-  wallet_id UUID REFERENCES finance_wallets(id),
-  transaction_date TIMESTAMPTZ NOT NULL,
-  is_income BOOLEAN DEFAULT false,
-  is_paid BOOLEAN DEFAULT true,
-  external_id VARCHAR,
-  "createdAt" TIMESTAMPTZ,
-  "updatedAt" TIMESTAMPTZ
-);
-
-CREATE INDEX idx_finance_transactions_date ON finance_transactions(transaction_date);
-CREATE INDEX idx_finance_transactions_category ON finance_transactions(category_id);
-```
-
-### Migration 2: Habits Tables
-```sql
-CREATE TABLE habits (
-  id UUID PRIMARY KEY,
-  "accountId" UUID NOT NULL REFERENCES accounts(id),
-  name VARCHAR NOT NULL,
-  description TEXT,
-  emoji VARCHAR,
-  is_active BOOLEAN DEFAULT true,
-  "createdAt" TIMESTAMPTZ,
-  "updatedAt" TIMESTAMPTZ
-);
-
-CREATE TABLE habit_entries (
-  id UUID PRIMARY KEY,
-  "accountId" UUID NOT NULL REFERENCES accounts(id),
-  habit_id UUID NOT NULL REFERENCES habits(id),
-  date DATE NOT NULL,
-  status VARCHAR NOT NULL CHECK (status IN ('success', 'fail', 'skip')),
-  comment TEXT,
-  "createdAt" TIMESTAMPTZ,
-  "updatedAt" TIMESTAMPTZ,
-  UNIQUE(habit_id, date)
-);
-
-CREATE INDEX idx_habit_entries_date ON habit_entries(date);
-CREATE INDEX idx_habit_entries_habit ON habit_entries(habit_id);
-```
-
----
-
-## File Structure
+## File Structure (Updated)
 
 ```
 src/
+├── agents/                          # NEW: Agent API
+│   ├── agents.module.ts
+│   ├── entities/
+│   │   └── agent-key.entity.ts
+│   ├── agent-keys/
+│   │   ├── agent-keys.controller.ts
+│   │   └── agent-keys.service.ts
+│   ├── guards/
+│   │   └── agent-key.guard.ts
+│   └── decorators/
+│       └── require-scope.decorator.ts
+├── api/                             # NEW: Versioned API for agents
+│   └── v1/
+│       ├── api-v1.module.ts
+│       ├── workout.controller.ts
+│       ├── finance.controller.ts
+│       ├── habits.controller.ts
+│       └── dashboard.controller.ts
+├── mcp/                             # NEW: MCP server
+│   ├── mcp.module.ts
+│   ├── mcp.service.ts
+│   └── tools/
+│       ├── workout.tools.ts
+│       ├── finance.tools.ts
+│       └── habits.tools.ts
 ├── finance/
 │   ├── finance.module.ts
 │   ├── entities/
-│   │   ├── wallet.entity.ts
-│   │   ├── category.entity.ts
-│   │   └── transaction.entity.ts
 │   ├── wallets/
-│   │   ├── wallets.controller.ts
-│   │   └── wallets.service.ts
 │   ├── categories/
-│   │   ├── categories.controller.ts
-│   │   └── categories.service.ts
 │   ├── transactions/
-│   │   ├── transactions.controller.ts
-│   │   └── transactions.service.ts
 │   └── import/
-│       ├── import.controller.ts
-│       └── cashew-import.service.ts
 ├── habits/
 │   ├── habits.module.ts
 │   ├── entities/
-│   │   ├── habit.entity.ts
-│   │   └── habit-entry.entity.ts
 │   ├── habits/
-│   │   ├── habits.controller.ts
-│   │   └── habits.service.ts
 │   ├── entries/
-│   │   ├── entries.controller.ts
-│   │   └── entries.service.ts
 │   └── import/
-│       ├── import.controller.ts
-│       └── habitshare-import.service.ts
+├── workout/
+│   └── import/
+│       ├── fitnotes-import.service.ts  # ENHANCED
+│       └── import.controller.ts        # ENHANCED
 └── dashboard/
-    ├── dashboard.module.ts
-    ├── dashboard.controller.ts
     └── dashboard.service.ts (enhanced)
 ```
 
 ---
 
-## Implementation Timeline
+## Implementation Timeline (Updated)
 
-| Phase | Task | Estimated Effort | Dependencies |
-|-------|------|------------------|--------------|
-| 1.1 | Finance entities + migrations | 2h | - |
-| 1.2 | Cashew import service | 3h | 1.1 |
-| 1.3 | Finance CRUD endpoints | 2h | 1.1 |
-| 1.4 | Finance analytics queries | 2h | 1.3 |
-| 2.1 | Habits entities + migrations | 1h | - |
-| 2.2 | HabitShare import service | 2h | 2.1 |
-| 2.3 | Habits CRUD + streak endpoints | 2h | 2.1 |
-| 3.1 | Dashboard enhancements | 3h | 1.4, 2.3 |
-| 3.2 | Cross-domain correlations | 4h | 3.1 |
+| Phase | Task | Estimated Effort | Dependencies | Agent |
+|-------|------|------------------|--------------|-------|
+| **0.1** | FitNotes preview endpoint | 2h | - | Dev Agent 1 |
+| **0.2** | FitNotes SSE progress | 2h | 0.1 | Dev Agent 1 |
+| **0.3** | FitNotes transaction safety | 1h | 0.2 | Dev Agent 1 |
+| **0.4** | FitNotes frontend wizard | 4h | 0.1-0.3 | Dev Agent 2 |
+| **1.1** | Finance entities + migrations | 2h | - | Dev Agent 3 |
+| **1.2** | Cashew import service | 3h | 1.1 | Dev Agent 3 |
+| **1.3** | Finance CRUD endpoints | 2h | 1.1 | Dev Agent 3 |
+| **2.1** | Habits entities + migrations | 1h | - | Dev Agent 4 |
+| **2.2** | HabitShare import service | 2h | 2.1 | Dev Agent 4 |
+| **2.3** | Habits CRUD + streaks | 2h | 2.1 | Dev Agent 4 |
+| **3.1** | Dashboard enhancements | 3h | 1.3, 2.3 | Dev Agent 5 |
+| **4.1** | Agent key entity + auth | 3h | - | Dev Agent 6 |
+| **4.2** | REST API v1 endpoints | 4h | 4.1, 1.3, 2.3 | Dev Agent 6 |
+| **4.3** | MCP server implementation | 4h | 4.2 | Dev Agent 6 |
 
-**Total**: ~21 hours of development
+**Total**: ~35 hours of development
+
+---
+
+## Development Agent Assignments
+
+### Agent 1: FitNotes Import Backend
+- Implement preview endpoint
+- Add SSE progress streaming
+- Add transaction safety
+
+### Agent 2: FitNotes Import Frontend
+- Create multi-step import wizard
+- Progress bar component
+- Summary view
+
+### Agent 3: Finance Module
+- Create entities + migrations
+- Cashew import service
+- CRUD endpoints
+
+### Agent 4: Habits Module
+- Create entities + migrations
+- HabitShare import service
+- CRUD + streak endpoints
+
+### Agent 5: Dashboard Enhancement
+- Cross-domain analytics
+- Timeline view
+- Correlations API
+
+### Agent 6: Agent API
+- API key management
+- REST API v1
+- MCP server
 
 ---
 
@@ -435,19 +713,21 @@ src/
 
 1. **Decimal precision**: Use `decimal(12,2)` for money, not float
 2. **Timezone handling**: Store all dates in UTC, convert on display
-3. **External IDs**: Store original Cashew/HabitShare IDs for deduplication on re-import
+3. **External IDs**: Store original IDs for deduplication on re-import
 4. **Batch inserts**: Use `save([...])` for bulk operations
-5. **CSV parsing**: Use `csv-parse` or `papaparse` library
+5. **Agent API keys**: Never log full keys, only prefix
 
 ---
 
-## Next Steps
+## Security Considerations for Agent API
 
-1. ✅ Review and approve this plan
-2. ⏳ Create GitHub issues for each phase
-3. ⏳ Spawn development agents for implementation
-4. ⏳ Test with real data imports
-5. ⏳ Build frontend dashboard components
+1. **Key storage**: Store bcrypt hashes, never plaintext
+2. **Key rotation**: Support key regeneration without breaking active sessions
+3. **Rate limiting**: Implement per-key rate limits
+4. **Audit logging**: Log all agent API access
+5. **Scope validation**: Check scopes on every request
+6. **Key expiration**: Support optional expiration dates
+7. **IP allowlisting**: Optional IP restrictions per key
 
 ---
 

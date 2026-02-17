@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { Modal } from '../components/shared'
 
 export default function Profile() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -35,7 +37,7 @@ export default function Profile() {
       setAccountInfo(data)
       setAccountForm(data)
     } catch (e) {
-      setError(e.message || 'Failed to load account info')
+      setError(e.message || t('errors.loadFailed'))
     }
   }
 
@@ -69,7 +71,7 @@ export default function Profile() {
     try {
       await Promise.all([loadAccountInfo(), loadMFAStatus(), loadSpotify()])
     } catch (e) {
-      setError(e.message || 'Failed to load profile')
+      setError(e.message || t('errors.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -85,9 +87,9 @@ export default function Profile() {
       await api.post('/accounts', accountForm)
       setAccountInfo(accountForm)
       setEditingAccount(false)
-      setInfo('Account information updated successfully')
+      setInfo(t('common.success'))
     } catch (e) {
-      setError(e.message || 'Failed to update account')
+      setError(e.message || t('errors.generic'))
     } finally {
       setSavingAccount(false)
     }
@@ -101,11 +103,11 @@ export default function Profile() {
   async function changePassword(e) {
     e.preventDefault()
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setError('New passwords do not match')
+      setError(t('errors.validationError'))
       return
     }
     if (passwordForm.newPassword.length < 6) {
-      setError('New password must be at least 6 characters')
+      setError(t('errors.validationError'))
       return
     }
     setChangingPassword(true)
@@ -116,10 +118,10 @@ export default function Profile() {
         oldPassword: passwordForm.oldPassword,
         newPassword: passwordForm.newPassword,
       })
-      setInfo('Password changed successfully')
+      setInfo(t('common.success'))
       setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
     } catch (e) {
-      setError(e.message || 'Failed to change password')
+      setError(e.message || t('errors.generic'))
     } finally {
       setChangingPassword(false)
     }
@@ -134,7 +136,7 @@ export default function Profile() {
       setMfaSetupData(data)
       setMfaAction('setup')
     } catch (e) {
-      setError(e.message || 'Failed to setup MFA')
+      setError(e.message || t('errors.generic'))
     } finally {
       setMfaLoading(false)
     }
@@ -142,7 +144,7 @@ export default function Profile() {
 
   async function enableMFA() {
     if (!mfaCode || mfaCode.length !== 6) {
-      setError('Please enter a valid 6-digit code')
+      setError(t('errors.validationError'))
       return
     }
     setMfaLoading(true)
@@ -151,16 +153,16 @@ export default function Profile() {
     try {
       const result = await api.post('/auth/mfa/enable', { secret: mfaSetupData.secret, code: mfaCode })
       if (result.success) {
-        setInfo('MFA enabled successfully')
+        setInfo(t('common.success'))
         setMfaEnabled(true)
         setMfaAction(null)
         setMfaSetupData(null)
         setMfaCode('')
       } else {
-        setError(result.message || 'Failed to enable MFA')
+        setError(result.message || t('errors.generic'))
       }
     } catch (e) {
-      setError(e.message || 'Failed to enable MFA')
+      setError(e.message || t('errors.generic'))
     } finally {
       setMfaLoading(false)
     }
@@ -168,7 +170,7 @@ export default function Profile() {
 
   async function disableMFA() {
     if (!mfaCode || mfaCode.length !== 6) {
-      setError('Please enter a valid 6-digit code')
+      setError(t('errors.validationError'))
       return
     }
     setMfaLoading(true)
@@ -177,15 +179,15 @@ export default function Profile() {
     try {
       const result = await api.post('/auth/mfa/disable', { code: mfaCode })
       if (result.success) {
-        setInfo('MFA disabled successfully')
+        setInfo(t('common.success'))
         setMfaEnabled(false)
         setMfaAction(null)
         setMfaCode('')
       } else {
-        setError(result.message || 'Failed to disable MFA')
+        setError(result.message || t('errors.generic'))
       }
     } catch (e) {
-      setError(e.message || 'Failed to disable MFA')
+      setError(e.message || t('errors.generic'))
     } finally {
       setMfaLoading(false)
     }
@@ -203,10 +205,10 @@ export default function Profile() {
     setInfo('')
     try {
       await api.post('/spotify/backfill-streams')
-      setInfo('Backfill started. This may take a while.')
+      setInfo(t('common.success'))
       setShowBackfillConfirm(false)
     } catch (e) {
-      setError(e.message || 'Failed to start backfill')
+      setError(e.message || t('errors.generic'))
     } finally {
       setBackfilling(false)
     }
@@ -216,7 +218,7 @@ export default function Profile() {
     e.preventDefault()
     setError('')
     try {
-      if (!spotifyForm.accessToken) throw new Error('Access token is required')
+      if (!spotifyForm.accessToken) throw new Error(t('errors.validationError'))
       await api.post('/spotify/tokens', {
         accessToken: spotifyForm.accessToken,
         refreshToken: spotifyForm.refreshToken || undefined,
@@ -226,82 +228,76 @@ export default function Profile() {
       })
       await loadSpotify()
     } catch (e) {
-      setError(e.message || 'Failed to link Spotify')
+      setError(e.message || t('errors.generic'))
     }
   }
 
   return (
     <>
-      <h1>Profile</h1>
+      <h1>{t('profile.title')}</h1>
       {error && <div className="alert-error">{error}</div>}
       {info && <div className="alert-success">{info}</div>}
 
       <div className="card section" style={{ opacity: loading ? 0.7 : 1 }}>
-        <h2>Account Information</h2>
+        <h2>{t('profile.personalInfo')}</h2>
         {!editingAccount ? (
           <div>
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontWeight: 600, marginBottom: '.25rem' }}>Name</div>
-              <div style={{ color: 'var(--color-text-secondary)' }}>{accountInfo.name || 'Not set'}</div>
+              <div style={{ fontWeight: 600, marginBottom: '.25rem' }}>{t('profile.username')}</div>
+              <div style={{ color: 'var(--color-text-secondary)' }}>{accountInfo.name || '—'}</div>
             </div>
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontWeight: 600, marginBottom: '.25rem' }}>Email</div>
+              <div style={{ fontWeight: 600, marginBottom: '.25rem' }}>{t('profile.emailAddress')}</div>
               <div style={{ color: 'var(--color-text-secondary)' }}>{accountInfo.email}</div>
             </div>
-            <button className="btn small" onClick={() => setEditingAccount(true)}>Edit</button>
+            <button className="btn small" onClick={() => setEditingAccount(true)}>{t('common.edit')}</button>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '.75rem', maxWidth: 520 }}>
             <div className="field">
-              <label>Name</label>
-              <input className="input" type="text" value={accountForm.name} onChange={e => setAccountForm({ ...accountForm, name: e.target.value })} placeholder="Your name" />
+              <label>{t('profile.username')}</label>
+              <input className="input" type="text" value={accountForm.name} onChange={e => setAccountForm({ ...accountForm, name: e.target.value })} />
             </div>
             <div className="field">
-              <label>Email</label>
-              <input className="input" type="email" value={accountForm.email} onChange={e => setAccountForm({ ...accountForm, email: e.target.value })} placeholder="email@example.com" />
+              <label>{t('profile.emailAddress')}</label>
+              <input className="input" type="email" value={accountForm.email} onChange={e => setAccountForm({ ...accountForm, email: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: '.5rem' }}>
-              <button className="btn small" onClick={saveAccountInfo} disabled={savingAccount}>{savingAccount ? 'Saving...' : 'Save'}</button>
-              <button className="btn small btn-ghost" onClick={cancelEditAccount} disabled={savingAccount}>Cancel</button>
+              <button className="btn small" onClick={saveAccountInfo} disabled={savingAccount}>{savingAccount ? t('common.loading') : t('common.save')}</button>
+              <button className="btn small btn-ghost" onClick={cancelEditAccount} disabled={savingAccount}>{t('common.cancel')}</button>
             </div>
           </div>
         )}
       </div>
 
       <div className="card section">
-        <h2>Change Password</h2>
+        <h2>{t('profile.changePassword')}</h2>
         <form onSubmit={changePassword} style={{ display: 'grid', gap: '.75rem', maxWidth: 520 }}>
           <div className="field">
-            <label>Current Password</label>
-            <input className="input" type="password" value={passwordForm.oldPassword} onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })} placeholder="Enter current password" />
+            <label>{t('profile.currentPassword')}</label>
+            <input className="input" type="password" value={passwordForm.oldPassword} onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })} />
           </div>
           <div className="field">
-            <label>New Password</label>
-            <input className="input" type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} placeholder="Min 6 characters" />
+            <label>{t('profile.newPassword')}</label>
+            <input className="input" type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} />
           </div>
           <div className="field">
-            <label>Confirm New Password</label>
-            <input className="input" type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="Confirm new password" />
+            <label>{t('profile.confirmNewPassword')}</label>
+            <input className="input" type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} />
           </div>
-          <button className="btn small" type="submit" disabled={changingPassword}>{changingPassword ? 'Changing...' : 'Change Password'}</button>
+          <button className="btn small" type="submit" disabled={changingPassword}>{changingPassword ? t('common.loading') : t('profile.updatePassword')}</button>
         </form>
       </div>
 
       <div className="card section">
-        <h2>Multi-Factor Authentication</h2>
+        <h2>{t('profile.mfa')}</h2>
         {mfaAction === null ? (
           <div>
-            <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>Status: <strong>{mfaEnabled ? 'Enabled' : 'Disabled'}</strong></p>
+            <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>{mfaEnabled ? t('profile.mfaEnabled') : t('profile.mfaDisabled')}</p>
             {!mfaEnabled ? (
-              <div>
-                <p style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>Protect your account with an extra layer of security.</p>
-                <button className="btn small" onClick={startMFASetup} disabled={mfaLoading}>{mfaLoading ? 'Loading...' : 'Enable MFA'}</button>
-              </div>
+              <button className="btn small" onClick={startMFASetup} disabled={mfaLoading}>{mfaLoading ? t('common.loading') : t('profile.enableMfa')}</button>
             ) : (
-              <div>
-                <p style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>MFA is currently enabled.</p>
-                <button className="btn small btn-danger" onClick={() => setMfaAction('disable')} disabled={mfaLoading}>Disable MFA</button>
-              </div>
+              <button className="btn small btn-danger" onClick={() => setMfaAction('disable')} disabled={mfaLoading}>{t('profile.disableMfa')}</button>
             )}
           </div>
         ) : mfaAction === 'setup' ? (
@@ -316,64 +312,50 @@ export default function Profile() {
             </div>
             <div style={{ maxWidth: 520 }}>
               <div className="field">
-                <label>Verification Code</label>
-                <input className="input" type="text" value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter 6-digit code" maxLength={6} />
+                <label>{t('auth.mfaCode')}</label>
+                <input className="input" type="text" value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder={t('auth.enterMfaCode')} maxLength={6} />
               </div>
               <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
-                <button className="btn small" onClick={enableMFA} disabled={mfaLoading || mfaCode.length !== 6}>{mfaLoading ? 'Verifying...' : 'Verify and Enable'}</button>
-                <button className="btn small btn-ghost" onClick={cancelMFAAction} disabled={mfaLoading}>Cancel</button>
+                <button className="btn small" onClick={enableMFA} disabled={mfaLoading || mfaCode.length !== 6}>{mfaLoading ? t('common.loading') : t('auth.verifyCode')}</button>
+                <button className="btn small btn-ghost" onClick={cancelMFAAction} disabled={mfaLoading}>{t('common.cancel')}</button>
               </div>
             </div>
           </div>
         ) : mfaAction === 'disable' ? (
           <div style={{ maxWidth: 520 }}>
-            <p style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>Enter a code from your authenticator app to disable MFA:</p>
+            <p style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>{t('auth.enterMfaCode')}:</p>
             <div className="field">
-              <label>Verification Code</label>
-              <input className="input" type="text" value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter 6-digit code" maxLength={6} />
+              <label>{t('auth.mfaCode')}</label>
+              <input className="input" type="text" value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder={t('auth.enterMfaCode')} maxLength={6} />
             </div>
             <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
-              <button className="btn small btn-danger" onClick={disableMFA} disabled={mfaLoading || mfaCode.length !== 6}>{mfaLoading ? 'Verifying...' : 'Verify and Disable'}</button>
-              <button className="btn small btn-ghost" onClick={cancelMFAAction} disabled={mfaLoading}>Cancel</button>
+              <button className="btn small btn-danger" onClick={disableMFA} disabled={mfaLoading || mfaCode.length !== 6}>{mfaLoading ? t('common.loading') : t('profile.disableMfa')}</button>
+              <button className="btn small btn-ghost" onClick={cancelMFAAction} disabled={mfaLoading}>{t('common.cancel')}</button>
             </div>
           </div>
         ) : null}
       </div>
 
       <div className="card section" style={{ opacity: loading ? 0.7 : 1 }}>
-        <h2>Spotify Integration</h2>
+        <h2>{t('profile.spotifyIntegration')}</h2>
         {!linked ? (
           <div>
-            <p style={{ color: 'var(--color-text-secondary)' }}>Your account is not linked to Spotify. Paste your tokens below to link.</p>
-            <form onSubmit={onSubmitSpotify} style={{ display: 'grid', gap: '.75rem', maxWidth: 520 }}>
+            <p style={{ color: 'var(--color-text-secondary)' }}>{t('profile.spotifyNotConnected')}</p>
+            <form onSubmit={onSubmitSpotify} style={{ display: 'grid', gap: '.75rem', maxWidth: 520, marginTop: '1rem' }}>
               <div className="field">
                 <label>Access Token</label>
                 <input className="input" type="text" value={spotifyForm.accessToken} onChange={e => setSpotifyForm({ ...spotifyForm, accessToken: e.target.value })} placeholder="Spotify access token" />
               </div>
               <div className="field">
-                <label>Refresh Token (optional)</label>
+                <label>Refresh Token</label>
                 <input className="input" type="text" value={spotifyForm.refreshToken} onChange={e => setSpotifyForm({ ...spotifyForm, refreshToken: e.target.value })} placeholder="Spotify refresh token" />
               </div>
-              <div style={{ display: 'flex', gap: '.5rem' }}>
-                <div className="field" style={{ flex: 1 }}>
-                  <label>Token Type</label>
-                  <input className="input" type="text" value={spotifyForm.tokenType} onChange={e => setSpotifyForm({ ...spotifyForm, tokenType: e.target.value })} placeholder="Bearer" />
-                </div>
-                <div className="field" style={{ width: 180 }}>
-                  <label>Expires In (sec)</label>
-                  <input className="input" type="number" value={spotifyForm.expiresIn} onChange={e => setSpotifyForm({ ...spotifyForm, expiresIn: e.target.value })} />
-                </div>
-              </div>
-              <div className="field">
-                <label>Scope (optional)</label>
-                <input className="input" type="text" value={spotifyForm.scope} onChange={e => setSpotifyForm({ ...spotifyForm, scope: e.target.value })} placeholder="user-read-recently-played" />
-              </div>
-              <button className="btn small" type="submit" disabled={loading}>Link Spotify</button>
+              <button className="btn small" type="submit" disabled={loading}>{t('profile.connectSpotify')}</button>
             </form>
           </div>
         ) : (
           <div>
-            <p style={{ color: 'var(--color-text-secondary)' }}>Spotify is linked.</p>
+            <p style={{ color: 'var(--color-text-secondary)' }}>{t('profile.spotifyConnected')}</p>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '1rem' }}>
               {me?.images?.[0]?.url ? (
                 <img src={me.images[0].url} alt="avatar" style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', objectFit: 'cover' }} />
@@ -397,10 +379,9 @@ export default function Profile() {
           <p style={{ lineHeight: 1.5, color: 'var(--color-text-secondary)' }}>
             This will start a backfill job that repeatedly calls Spotify for your recently played tracks until no more streams can be found.
           </p>
-          <p style={{ marginTop: '0.5rem', color: 'var(--color-text-muted)' }}>Do you want to continue?</p>
           <div style={{ marginTop: '1rem', display: 'flex', gap: '.5rem', justifyContent: 'flex-end' }}>
-            <button className="btn small btn-ghost" onClick={() => setShowBackfillConfirm(false)} disabled={backfilling}>Cancel</button>
-            <button className="btn small" onClick={startBackfill} disabled={backfilling}>{backfilling ? 'Starting...' : 'Start backfill'}</button>
+            <button className="btn small btn-ghost" onClick={() => setShowBackfillConfirm(false)} disabled={backfilling}>{t('common.cancel')}</button>
+            <button className="btn small" onClick={startBackfill} disabled={backfilling}>{backfilling ? t('common.loading') : t('common.confirm')}</button>
           </div>
         </Modal>
       )}

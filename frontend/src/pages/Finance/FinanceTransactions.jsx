@@ -1,16 +1,47 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import { formatDate, SkeletonCard } from '../../components/shared'
 
 const FINANCE_COLOR = '#fbbf24'
+
+// Transaction type colors
+const TYPE_COLORS = {
+  income: 'var(--color-success)',
+  expense: 'var(--color-error)',
+  transfer: '#60a5fa', // blue for transfers
+}
 
 function formatCurrency(amount, currency = '€') {
   const formatted = Math.abs(amount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `${amount < 0 ? '-' : ''}${currency}${formatted}`
 }
 
+// Determine transaction display type based on backend data
+function getTransactionType(tx) {
+  // type 1 or 3 in Cashew = transfer
+  if (tx.type === 1 || tx.type === 3) return 'transfer'
+  return tx.isIncome ? 'income' : 'expense'
+}
+
+function getTransactionColor(tx) {
+  const type = getTransactionType(tx)
+  return TYPE_COLORS[type]
+}
+
+function getTransactionIcon(tx) {
+  const type = getTransactionType(tx)
+  switch (type) {
+    case 'income': return 'arrow_downward'
+    case 'expense': return 'arrow_upward'
+    case 'transfer': return 'swap_horiz'
+    default: return 'receipt'
+  }
+}
+
 export default function FinanceTransactions() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
@@ -25,6 +56,7 @@ export default function FinanceTransactions() {
   const [filters, setFilters] = useState({
     walletId: '',
     categoryId: '',
+    transactionType: '', // 'income', 'expense', 'transfer', or ''
     startDate: '',
     endDate: '',
     search: '',
@@ -47,13 +79,31 @@ export default function FinanceTransactions() {
       params.set('limit', limit)
       if (filters.walletId) params.set('walletId', filters.walletId)
       if (filters.categoryId) params.set('categoryId', filters.categoryId)
-      if (filters.startDate) params.set('startDate', filters.startDate)
-      if (filters.endDate) params.set('endDate', filters.endDate)
+      if (filters.startDate) params.set('from', filters.startDate)
+      if (filters.endDate) params.set('to', filters.endDate)
       if (filters.search) params.set('search', filters.search)
+      
+      // Handle type filter - backend uses isIncome boolean
+      if (filters.transactionType === 'income') {
+        params.set('isIncome', 'true')
+      } else if (filters.transactionType === 'expense') {
+        params.set('isIncome', 'false')
+      }
+      // Note: transfer filter would need backend support for type field filtering
 
       const txData = await api.get(`/finance/transactions?${params}`)
-      setTransactions(txData?.items || txData?.transactions || txData || [])
-      setTotalCount(txData?.total || txData?.items?.length || txData?.length || 0)
+      let items = txData?.items || txData?.transactions || txData || []
+      
+      // Client-side filtering for transfers (until backend supports it)
+      if (filters.transactionType === 'transfer') {
+        items = items.filter(tx => tx.type === 1 || tx.type === 3)
+      } else if (filters.transactionType === 'income' || filters.transactionType === 'expense') {
+        // Exclude transfers from income/expense views
+        items = items.filter(tx => tx.type !== 1 && tx.type !== 3)
+      }
+      
+      setTransactions(items)
+      setTotalCount(txData?.total || items.length || 0)
     } catch (e) {
       console.error('Failed to load transactions:', e)
     } finally {
@@ -72,6 +122,7 @@ export default function FinanceTransactions() {
     setFilters({
       walletId: '',
       categoryId: '',
+      transactionType: '',
       startDate: '',
       endDate: '',
       search: '',
@@ -87,7 +138,7 @@ export default function FinanceTransactions() {
         <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: FINANCE_COLOR }}>
           receipt_long
         </span>
-        Transactions
+        {t('finance.transactions')}
       </h2>
 
       {/* Filters */}
@@ -95,25 +146,40 @@ export default function FinanceTransactions() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
           {/* Search */}
           <div style={{ flex: '1 1 200px' }}>
-            <label style={labelStyle}>Search</label>
+            <label style={labelStyle}>{t('common.search')}</label>
             <input
               type="text"
-              placeholder="Search transactions..."
+              placeholder={t('finance.searchTransactions')}
               value={filters.search}
               onChange={e => handleFilterChange('search', e.target.value)}
               style={inputStyle}
             />
           </div>
 
+          {/* Transaction Type */}
+          <div style={{ flex: '0 1 150px' }}>
+            <label style={labelStyle}>{t('finance.type')}</label>
+            <select
+              value={filters.transactionType}
+              onChange={e => handleFilterChange('transactionType', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">{t('finance.allTypes')}</option>
+              <option value="income">{t('finance.income')}</option>
+              <option value="expense">{t('finance.expense')}</option>
+              <option value="transfer">{t('finance.transfer')}</option>
+            </select>
+          </div>
+
           {/* Wallet */}
           <div style={{ flex: '0 1 180px' }}>
-            <label style={labelStyle}>Wallet</label>
+            <label style={labelStyle}>{t('finance.wallet')}</label>
             <select
               value={filters.walletId}
               onChange={e => handleFilterChange('walletId', e.target.value)}
               style={inputStyle}
             >
-              <option value="">All Wallets</option>
+              <option value="">{t('finance.allWallets')}</option>
               {wallets.map(w => (
                 <option key={w.id} value={w.id}>{w.name}</option>
               ))}
@@ -122,13 +188,13 @@ export default function FinanceTransactions() {
 
           {/* Category */}
           <div style={{ flex: '0 1 180px' }}>
-            <label style={labelStyle}>Category</label>
+            <label style={labelStyle}>{t('finance.category')}</label>
             <select
               value={filters.categoryId}
               onChange={e => handleFilterChange('categoryId', e.target.value)}
               style={inputStyle}
             >
-              <option value="">All Categories</option>
+              <option value="">{t('finance.allCategories')}</option>
               {categories.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
@@ -137,7 +203,7 @@ export default function FinanceTransactions() {
 
           {/* Date Range */}
           <div style={{ flex: '0 1 150px' }}>
-            <label style={labelStyle}>From</label>
+            <label style={labelStyle}>{t('finance.from')}</label>
             <input
               type="date"
               value={filters.startDate}
@@ -147,7 +213,7 @@ export default function FinanceTransactions() {
           </div>
 
           <div style={{ flex: '0 1 150px' }}>
-            <label style={labelStyle}>To</label>
+            <label style={labelStyle}>{t('finance.to')}</label>
             <input
               type="date"
               value={filters.endDate}
@@ -163,7 +229,7 @@ export default function FinanceTransactions() {
             style={{ background: 'transparent', border: '1px solid var(--glass-border)' }}
           >
             <span className="material-icons" style={{ fontSize: 16 }}>clear</span>
-            Clear
+            {t('common.clear')}
           </button>
         </div>
       </div>
@@ -177,7 +243,7 @@ export default function FinanceTransactions() {
             receipt_long
           </span>
           <div style={{ color: 'var(--color-text-secondary)' }}>
-            No transactions found
+            {t('finance.noTransactions')}
           </div>
           <button
             className="btn"
@@ -185,7 +251,7 @@ export default function FinanceTransactions() {
             style={{ marginTop: '1rem' }}
           >
             <span className="material-icons" style={{ fontSize: 18 }}>file_download</span>
-            Import Data
+            {t('finance.importData')}
           </button>
         </div>
       ) : (
@@ -194,53 +260,71 @@ export default function FinanceTransactions() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--color-bg-elevated)' }}>
-                  <th style={thStyle}>Date</th>
-                  <th style={thStyle}>Description</th>
-                  <th style={thStyle}>Wallet</th>
-                  <th style={thStyle}>Category</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Amount</th>
+                  <th style={thStyle}>{t('finance.date')}</th>
+                  <th style={thStyle}>{t('finance.description')}</th>
+                  <th style={thStyle}>{t('finance.wallet')}</th>
+                  <th style={thStyle}>{t('finance.category')}</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>{t('finance.amount')}</th>
                 </tr>
               </thead>
               <tbody>
-                {transactions.map(tx => (
-                  <tr key={tx.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                    <td style={tdStyle}>{formatDate(tx.date)}</td>
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight: 500 }}>{tx.description || tx.name || '—'}</div>
-                      {tx.notes && (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                          {tx.notes}
+                {transactions.map(tx => {
+                  const txType = getTransactionType(tx)
+                  const txColor = getTransactionColor(tx)
+                  const txIcon = getTransactionIcon(tx)
+
+                  return (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                      <td style={tdStyle}>{formatDate(tx.transactionDate || tx.date)}</td>
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span
+                            className="material-icons"
+                            style={{ fontSize: 18, color: txColor }}
+                            title={t(`finance.${txType}`)}
+                          >
+                            {txIcon}
+                          </span>
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{tx.name || tx.description || '—'}</div>
+                            {tx.note && (
+                              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                                {tx.note}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span className="material-icons" style={{ fontSize: 16, color: FINANCE_COLOR }}>
-                          account_balance_wallet
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span className="material-icons" style={{ fontSize: 16, color: FINANCE_COLOR }}>
+                            account_balance_wallet
+                          </span>
+                          {tx.wallet?.name || tx.walletName || '—'}
                         </span>
-                        {tx.wallet?.name || tx.walletName || '—'}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        padding: '0.2rem 0.5rem',
-                        borderRadius: 'var(--radius-full)',
-                        background: 'var(--color-accent-muted)',
-                        fontSize: '0.8rem',
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: 'var(--radius-full)',
+                          background: 'var(--color-accent-muted)',
+                          fontSize: '0.8rem',
+                        }}>
+                          {tx.category?.name || tx.categoryName || t('finance.uncategorized')}
+                        </span>
+                      </td>
+                      <td style={{
+                        ...tdStyle,
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        color: txColor,
                       }}>
-                        {tx.category?.name || tx.categoryName || 'Uncategorized'}
-                      </span>
-                    </td>
-                    <td style={{
-                      ...tdStyle,
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: tx.amount >= 0 ? 'var(--color-success)' : 'var(--color-error)',
-                    }}>
-                      {formatCurrency(tx.amount)}
-                    </td>
-                  </tr>
-                ))}
+                        {txType === 'income' ? '+' : txType === 'expense' ? '-' : '⇄'}
+                        {formatCurrency(Math.abs(tx.amount))}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -261,10 +345,10 @@ export default function FinanceTransactions() {
                 style={{ opacity: page === 1 ? 0.4 : 1 }}
               >
                 <span className="material-icons" style={{ fontSize: 18 }}>chevron_left</span>
-                Previous
+                {t('common.previous')}
               </button>
               <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                Page {page} of {totalPages}
+                {t('common.page')} {page} {t('common.of')} {totalPages}
               </span>
               <button
                 className="btn small"
@@ -272,7 +356,7 @@ export default function FinanceTransactions() {
                 disabled={page === totalPages}
                 style={{ opacity: page === totalPages ? 0.4 : 1 }}
               >
-                Next
+                {t('common.next')}
                 <span className="material-icons" style={{ fontSize: 18 }}>chevron_right</span>
               </button>
             </div>

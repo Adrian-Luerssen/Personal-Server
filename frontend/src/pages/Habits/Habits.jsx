@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import {
   StatCard,
@@ -35,6 +36,7 @@ function getToday() {
 }
 
 export default function Habits() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
@@ -93,7 +95,7 @@ export default function Habits() {
         <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: HABITS_COLOR }}>
           self_improvement
         </span>
-        Habit Tracker
+        {t('habits.title')}
       </h2>
 
       {/* Stats Grid */}
@@ -102,20 +104,20 @@ export default function Habits() {
           Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
         ) : (
           <>
-            <StatCard label="Total Habits" value={totalHabits} />
-            <StatCard label="Avg Success Rate" value={`${avgSuccessRate}%`} />
-            <StatCard label="Active Today" value={activeToday} />
-            <StatCard label="Total Streak 🔥" value={totalCurrentStreak} />
+            <StatCard label={t('habits.totalHabits')} value={totalHabits} />
+            <StatCard label={t('habits.avgSuccessRate')} value={`${avgSuccessRate}%`} />
+            <StatCard label={t('habits.activeToday')} value={activeToday} />
+            <StatCard label={t('habits.totalStreak')} value={totalCurrentStreak} />
           </>
         )}
       </div>
 
       {/* Quick Actions */}
       <div className="section">
-        <h3>Quick Actions</h3>
+        <h3>{t('habits.quickActions')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: 'file_download', label: 'Import HabitShare', onClick: () => navigate('/habits/import'), accent: true },
+            { icon: 'file_download', label: t('habits.importHabitShare'), onClick: () => navigate('/habits/import'), accent: true },
           ].map(action => (
             <button
               key={action.label}
@@ -144,7 +146,7 @@ export default function Habits() {
         <div className="card" style={{ padding: '1.25rem' }}>
           <h3 style={{ marginBottom: '1rem' }}>
             <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>list</span>
-            Today's Habits
+            {t('habits.todaysHabits')}
           </h3>
 
           {loading ? (
@@ -154,7 +156,7 @@ export default function Habits() {
               <span className="material-icons" style={{ fontSize: 48, color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }}>
                 self_improvement
               </span>
-              No habits yet. Import data to get started!
+              {t('habits.noHabitsYet')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -163,6 +165,7 @@ export default function Habits() {
                   key={habit.id}
                   habit={habit}
                   onToggle={(status) => toggleHabitEntry(habit.id, status)}
+                  t={t}
                 />
               ))}
             </div>
@@ -174,7 +177,7 @@ export default function Habits() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3>
               <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>calendar_month</span>
-              Calendar
+              {t('habits.calendar')}
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <button
@@ -185,7 +188,7 @@ export default function Habits() {
                 <span className="material-icons" style={{ fontSize: 18 }}>chevron_left</span>
               </button>
               <span style={{ fontSize: '0.9rem', fontWeight: 600, minWidth: '100px', textAlign: 'center' }}>
-                {formatMonthYear(selectedMonth)}
+                {formatMonthYear(selectedMonth, i18n.language)}
               </span>
               <button
                 className="btn small"
@@ -200,15 +203,15 @@ export default function Habits() {
           {loading ? (
             <SkeletonCard lines={6} />
           ) : (
-            <CalendarGrid days={calendarDays} habits={habits} />
+            <CalendarGrid days={calendarDays} habits={habits} t={t} />
           )}
 
           {/* Legend */}
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             {[
-              { color: STATUS_COLORS.success, label: 'Success' },
-              { color: STATUS_COLORS.fail, label: 'Failed' },
-              { color: STATUS_COLORS.skip, label: 'Skipped' },
+              { color: STATUS_COLORS.success, label: t('habits.success') },
+              { color: STATUS_COLORS.fail, label: t('habits.failed') },
+              { color: STATUS_COLORS.skip, label: t('habits.skipped') },
             ].map(item => (
               <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}>
                 <div style={{ width: 12, height: 12, borderRadius: 2, background: item.color }} />
@@ -224,7 +227,7 @@ export default function Habits() {
 
 // ─── Habit Card ─────────────────────────────────────────────────────────────
 
-function HabitCard({ habit, onToggle }) {
+function HabitCard({ habit, onToggle, t }) {
   const todayStatus = habit.todayStatus || 'none'
 
   return (
@@ -250,7 +253,7 @@ function HabitCard({ habit, onToggle }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-            {habit.successRate || 0}% success
+            {habit.successRate || 0}%
           </span>
           <div style={{ flex: 1, maxWidth: 80 }}>
             <ProgressBar value={habit.successRate || 0} height={4} color={HABITS_COLOR} />
@@ -277,7 +280,7 @@ function HabitCard({ habit, onToggle }) {
               justifyContent: 'center',
               transition: 'all var(--transition-fast)',
             }}
-            title={status.charAt(0).toUpperCase() + status.slice(1)}
+            title={t(`habits.${status === 'fail' ? 'failed' : status}`)}
           >
             <span className="material-icons" style={{ fontSize: 18 }}>
               {STATUS_ICONS[status]}
@@ -291,7 +294,7 @@ function HabitCard({ habit, onToggle }) {
 
 // ─── Calendar Grid ────────────────────────────────────────────────────────────
 
-function CalendarGrid({ days, habits }) {
+function CalendarGrid({ days, habits, t }) {
   const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
   return (
@@ -330,7 +333,7 @@ function CalendarGrid({ days, habits }) {
             cursor: day.empty ? 'default' : 'pointer',
             position: 'relative',
           }}
-          title={day.empty ? '' : `${day.date}: ${day.stats?.success || 0}/${day.stats?.total || 0} complete`}
+          title={day.empty ? '' : `${day.date}: ${day.stats?.success || 0}/${day.stats?.total || 0} ${t('habits.complete')}`}
         >
           {!day.empty && day.dayNum}
         </div>
@@ -379,9 +382,9 @@ function generateCalendarDays(monthStr, calendarData) {
   return days
 }
 
-function formatMonthYear(monthStr) {
+function formatMonthYear(monthStr, locale = 'en') {
   const [year, month] = monthStr.split('-').map(Number)
-  return new Date(year, month - 1).toLocaleDateString('en', { month: 'long', year: 'numeric' })
+  return new Date(year, month - 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
 }
 
 function getPreviousMonth(monthStr) {

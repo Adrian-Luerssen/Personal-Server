@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import { SkeletonCard } from '../../components/shared'
 
@@ -11,6 +12,7 @@ function formatCurrency(amount, currency = '€') {
 }
 
 export default function FinanceWallets() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
@@ -40,7 +42,7 @@ export default function FinanceWallets() {
         <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: FINANCE_COLOR }}>
           account_balance
         </span>
-        Wallets
+        {t('finance.wallets')}
       </h2>
 
       {/* Total Balance Card */}
@@ -51,13 +53,13 @@ export default function FinanceWallets() {
         border: `1px solid ${FINANCE_COLOR}40`,
       }}>
         <div style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>
-          Total Balance
+          {t('finance.totalBalance')}
         </div>
         <div style={{ fontSize: '2rem', fontWeight: 800, color: FINANCE_COLOR }}>
           {formatCurrency(totalBalance)}
         </div>
         <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-          Across {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
+          {t('finance.across')} {wallets.length} {wallets.length !== 1 ? t('finance.walletsCountPlural') : t('finance.walletsCount')}
         </div>
       </div>
 
@@ -74,11 +76,11 @@ export default function FinanceWallets() {
             account_balance_wallet
           </span>
           <div style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
-            No wallets found
+            {t('finance.noWallets')}
           </div>
           <button className="btn" onClick={() => navigate('/finance/import')}>
             <span className="material-icons" style={{ fontSize: 18 }}>file_download</span>
-            Import Data
+            {t('finance.importData')}
           </button>
         </div>
       ) : (
@@ -130,7 +132,7 @@ export default function FinanceWallets() {
                   color: 'var(--color-text-muted)',
                   marginTop: '0.5rem',
                 }}>
-                  {wallet.transactionCount} transaction{wallet.transactionCount !== 1 ? 's' : ''}
+                  {wallet.transactionCount} {wallet.transactionCount !== 1 ? t('finance.transactionsCountPlural') : t('finance.transactionsCount')}
                 </div>
               )}
             </div>

@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../config'
 
 export default function Register() {
+  const { t } = useTranslation()
   const nav = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,36 +20,36 @@ export default function Register() {
       })
       if (!res.ok) {
         const txt = await res.text()
-        setMessage('Error: ' + txt)
+        setMessage(`${t('common.error')}: ${txt}`)
         return
       }
       const data = await res.json()
-      setMessage('Registered successfully')
+      setMessage(t('auth.registeredSuccess'))
       nav('/login', { replace: true })
     } catch (e) {
-      setMessage('Error: ' + e.message)
+      setMessage(`${t('common.error')}: ${e.message}`)
     }
   }
 
   return (
     <div className="landing">
       <div className="card" style={{ minWidth: 360, maxWidth: 420, width: '100%' }}>
-        <h2 style={{ marginBottom: '1rem' }}>Create account</h2>
+        <h2 style={{ marginBottom: '1rem' }}>{t('auth.signUp')}</h2>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
           <div className="field">
-            <label>Email</label>
+            <label>{t('auth.email')}</label>
             <input className="input" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <div className="field">
-            <label>Password</label>
+            <label>{t('auth.password')}</label>
             <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} />
           </div>
-          <button className="btn" type="submit" style={{ width: '100%' }}>Register</button>
+          <button className="btn" type="submit" style={{ width: '100%' }}>{t('auth.register')}</button>
         </form>
         <div style={{ marginTop: '1rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>
-          Already have an account? <Link to="/login">Login</Link>
+          {t('auth.hasAccount')} <Link to="/login">{t('auth.login')}</Link>
         </div>
-        {message && <div className={message.startsWith('Error') ? 'alert-error' : 'alert-success'} style={{ marginTop: '1rem' }}>{message}</div>}
+        {message && <div className={message.startsWith(t('common.error')) ? 'alert-error' : 'alert-success'} style={{ marginTop: '1rem' }}>{message}</div>}
       </div>
     </div>
   )

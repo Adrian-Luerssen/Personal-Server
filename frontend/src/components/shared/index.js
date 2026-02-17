@@ -7,6 +7,8 @@ export { HistoryItem } from './HistoryItem'
 export { PodiumCard } from './PodiumCard'
 export { SessionCard } from './SessionCard'
 export { SetRow } from './SetRow'
+export { StepIndicator } from './StepIndicator'
+export { ProgressBar } from './ProgressBar'
 export {
   formatNumberShort,
   formatDuration,

@@ -127,7 +127,9 @@ export class HabitsService {
     return this.calculateStreak(entries);
   }
 
-  private calculateStreak(entries: HabitEntry[]): HabitStreak {
+  private calculateStreak(
+    entries: HabitEntry[]
+  ): HabitStreak {
     if (entries.length === 0) {
       return { current: 0, longest: 0, lastSuccess: null };
     }
@@ -148,7 +150,7 @@ export class HabitsService {
     // -- Current streak --
     // Start from today and walk backwards
     let currentStreak = 0;
-    const checkDate = new Date(today);
+    let checkDate = new Date(today);
 
     // If today has no entry, skip to yesterday as starting point
     if (!dateMap.has(today)) {

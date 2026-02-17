@@ -18,10 +18,7 @@ export class EntriesService {
     private readonly habitRepo: Repository<Habit>
   ) {}
 
-  private async verifyHabit(
-    account: Account,
-    habitId: string
-  ): Promise<Habit> {
+  private async verifyHabit(account: Account, habitId: string): Promise<Habit> {
     const habit = await this.habitRepo.findOne({
       where: { accountId: account.id, id: habitId },
     });

@@ -14,6 +14,7 @@ import {
   ApiOperation,
   ApiParam,
   ApiQuery,
+  ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
 import { HabitsService } from "./habits.service";
@@ -26,6 +27,8 @@ import { Account } from "../../system/accounts/account.entity";
 export class HabitsController {
   constructor(private readonly habitsService: HabitsService) {}
 
+  // ========== HABIT CRUD ==========
+
   @Get()
   @ApiOperation({ summary: "List all habits for the authenticated account" })
   async findAll(@ReqUser() account: Account) {
@@ -34,8 +37,7 @@ export class HabitsController {
 
   @Get("summary")
   @ApiOperation({
-    summary:
-      "Get all habits with current streak, longest streak, and success rate",
+    summary: "Get all habits with current streak, longest streak, and success rate",
   })
   async getSummary(@ReqUser() account: Account) {
     return this.habitsService.getAllStreaks(account);
@@ -44,8 +46,7 @@ export class HabitsController {
   @Get("calendar/:month")
   @ApiOperation({
     summary: "Get calendar view for all habits for a given month",
-    description:
-      "Returns all entries for all habits in a given month (YYYY-MM)",
+    description: "Returns all entries for all habits in a given month (YYYY-MM)",
   })
   @ApiParam({ name: "month", description: "Month in YYYY-MM format" })
   async getCalendar(

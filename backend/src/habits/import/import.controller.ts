@@ -37,7 +37,10 @@ export class HabitShareImportController {
       properties: { file: { type: "string", format: "binary" } },
     },
   })
-  @ApiResponse({ status: 200, description: "Preview analysis completed" })
+  @ApiResponse({
+    status: 200,
+    description: "Preview analysis completed",
+  })
   @UseInterceptors(FileInterceptor("file"))
   async previewHabitShare(
     @ReqUser() account: Account,
@@ -62,7 +65,10 @@ export class HabitShareImportController {
       properties: { file: { type: "string", format: "binary" } },
     },
   })
-  @ApiResponse({ status: 201, description: "Import completed successfully" })
+  @ApiResponse({
+    status: 201,
+    description: "Import completed successfully",
+  })
   @UseInterceptors(FileInterceptor("file"))
   async executeHabitShare(
     @ReqUser() account: Account,

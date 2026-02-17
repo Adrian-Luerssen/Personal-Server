@@ -75,8 +75,7 @@ export class HabitShareImportService {
       const habit = fields[habitIdx]?.trim() ?? "";
       const date = fields[dateIdx]?.trim() ?? "";
       const status = fields[statusIdx]?.trim().toLowerCase() ?? "";
-      const comment =
-        commentIdx >= 0 ? (fields[commentIdx]?.trim() ?? "") : "";
+      const comment = commentIdx >= 0 ? (fields[commentIdx]?.trim() ?? "") : "";
 
       if (!habit || !date || !status) continue;
 
@@ -131,9 +130,7 @@ export class HabitShareImportService {
 
     for (const row of rows) {
       if (!VALID_STATUSES.has(row.Status)) {
-        warnings.push(
-          `Unknown status '${row.Status}' on row for habit '${row.Habit}' date ${row.Date}`
-        );
+        warnings.push(`Unknown status '${row.Status}' on row for habit '${row.Habit}' date ${row.Date}`);
         continue;
       }
       habitNames.add(row.Habit);
@@ -188,9 +185,7 @@ export class HabitShareImportService {
     const byHabit = new Map<string, HabitShareRow[]>();
     for (const row of rows) {
       if (!VALID_STATUSES.has(row.Status)) {
-        this.logger.warn(
-          `Skipping invalid status '${row.Status}' for ${row.Habit} on ${row.Date}`
-        );
+        this.logger.warn(`Skipping invalid status '${row.Status}' for ${row.Habit} on ${row.Date}`);
         skipped++;
         continue;
       }
@@ -227,10 +222,7 @@ export class HabitShareImportService {
         });
 
         if (existing) {
-          if (
-            existing.status !== status ||
-            existing.comment !== row.Comment
-          ) {
+          if (existing.status !== status || existing.comment !== row.Comment) {
             existing.status = status;
             existing.comment = row.Comment;
             await this.entryRepo.save(existing);

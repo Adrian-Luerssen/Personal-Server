@@ -59,7 +59,7 @@ export default function Finance() {
       setWallets(walletsData || [])
       setCategories(categoriesData || [])
       setSummary(summaryData || {})
-      setRecentTransactions(transactionsData?.transactions || transactionsData || [])
+      setRecentTransactions(transactionsData?.items || transactionsData?.transactions || transactionsData || [])
     } catch (e) {
       console.error('Failed to load finance dashboard:', e)
     } finally {

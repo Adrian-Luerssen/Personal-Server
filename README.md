@@ -211,7 +211,7 @@ Unified home view with Spotify listening stats, workout metrics, and cross-domai
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-### Workout Tracker
+### 🏋️ Workout Tracker
 Track workouts, manage exercises, view history, and monitor bodyweight over time.
 
 ![Workout Dashboard](docs/screenshots/workout.png)
@@ -222,12 +222,32 @@ Detailed session history and exercise library management.
 ![Workout History](docs/screenshots/workout-history.png)
 ![Workout Exercises](docs/screenshots/workout-exercises.png)
 
-### Spotify Integration
+### 🎵 Spotify Integration
 Link your Spotify account to track listening history and correlate with workouts.
 
 ![Spotify](docs/screenshots/spotify.png)
 
-### Profile & Settings
+### 💰 Finance Tracker
+Track income and expenses, manage wallets, and categorize transactions with the Cashew-compatible import.
+
+![Finance Dashboard](docs/screenshots/finance.png)
+
+### Finance Transactions
+View, filter, and search all your transactions across wallets and categories.
+
+![Finance Transactions](docs/screenshots/finance-transactions.png)
+
+### Finance Wallets
+Manage multiple wallets with different currencies.
+
+![Finance Wallets](docs/screenshots/finance-wallets.png)
+
+### 📊 Habits Tracker
+Track daily habits, view streaks, success rates, and calendar history. Import from HabitShare.
+
+![Habits Dashboard](docs/screenshots/habits.png)
+
+### 🔐 Profile & Settings
 Manage your account, MFA settings, and connected services.
 
 ![Profile](docs/screenshots/profile.png)

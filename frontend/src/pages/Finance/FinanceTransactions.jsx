@@ -52,8 +52,8 @@ export default function FinanceTransactions() {
       if (filters.search) params.set('search', filters.search)
 
       const txData = await api.get(`/finance/transactions?${params}`)
-      setTransactions(txData?.transactions || txData || [])
-      setTotalCount(txData?.total || txData?.length || 0)
+      setTransactions(txData?.items || txData?.transactions || txData || [])
+      setTotalCount(txData?.total || txData?.items?.length || txData?.length || 0)
     } catch (e) {
       console.error('Failed to load transactions:', e)
     } finally {

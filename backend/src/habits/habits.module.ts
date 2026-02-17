@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { MulterModule } from "@nestjs/platform-express";
 
 import { Habit } from "./entities/habit.entity";
 import { HabitEntry } from "./entities/habit-entry.entity";
@@ -14,13 +15,12 @@ import { HabitShareImportService } from "./import/habitshare-import.service";
 import { HabitShareImportController } from "./import/import.controller";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Habit, HabitEntry])],
-  providers: [HabitsService, EntriesService, HabitShareImportService],
-  controllers: [
-    HabitsController,
-    EntriesController,
-    HabitShareImportController,
+  imports: [
+    TypeOrmModule.forFeature([Habit, HabitEntry]),
+    MulterModule.register({ storage: undefined }), // memory storage (default)
   ],
+  providers: [HabitsService, EntriesService, HabitShareImportService],
+  controllers: [HabitsController, EntriesController, HabitShareImportController],
   exports: [HabitsService, EntriesService],
 })
 export class HabitsModule {}

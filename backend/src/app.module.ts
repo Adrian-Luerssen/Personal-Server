@@ -15,6 +15,8 @@ import { WorkoutModule } from "./workout/workout.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { FinanceModule } from "./finance/finance.module";
 import { HabitsModule } from "./habits/habits.module";
+import { AgentsModule } from "./agents/agents.module";
+import { ApiV1Module } from "./api/v1/api-v1.module";
 
 @Module({
   providers: [
@@ -39,6 +41,8 @@ import { HabitsModule } from "./habits/habits.module";
     DashboardModule,
     FinanceModule,
     HabitsModule,
+    AgentsModule,
+    ApiV1Module,
     HealthModule,
     TypeOrmModule.forFeature([Tool]),
   ],

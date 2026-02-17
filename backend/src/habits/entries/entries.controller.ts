@@ -30,16 +30,8 @@ export class EntriesController {
   @Get()
   @ApiOperation({ summary: "Get all entries for a habit" })
   @ApiParam({ name: "habitId", type: "string", format: "uuid" })
-  @ApiQuery({
-    name: "from",
-    required: false,
-    description: "Start date (YYYY-MM-DD)",
-  })
-  @ApiQuery({
-    name: "to",
-    required: false,
-    description: "End date (YYYY-MM-DD)",
-  })
+  @ApiQuery({ name: "from", required: false, description: "Start date (YYYY-MM-DD)" })
+  @ApiQuery({ name: "to", required: false, description: "End date (YYYY-MM-DD)" })
   async findAll(
     @ReqUser() account: Account,
     @Param("habitId", ParseUUIDPipe) habitId: string,

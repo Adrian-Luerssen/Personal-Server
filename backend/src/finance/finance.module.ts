@@ -1,0 +1,30 @@
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+
+import { FinanceWallet } from "./entities/wallet.entity";
+import { FinanceCategory } from "./entities/category.entity";
+import { FinanceTransaction } from "./entities/transaction.entity";
+
+import { WalletsService } from "./wallets/wallets.service";
+import { CategoriesService } from "./categories/categories.service";
+import { TransactionsService } from "./transactions/transactions.service";
+import { CashewImportService } from "./import/cashew-import.service";
+
+import { WalletsController } from "./wallets/wallets.controller";
+import { CategoriesController } from "./categories/categories.controller";
+import { TransactionsController } from "./transactions/transactions.controller";
+import { FinanceImportController } from "./import/import.controller";
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([FinanceWallet, FinanceCategory, FinanceTransaction]),
+  ],
+  providers: [WalletsService, CategoriesService, TransactionsService, CashewImportService],
+  controllers: [
+    WalletsController,
+    CategoriesController,
+    TransactionsController,
+    FinanceImportController,
+  ],
+})
+export class FinanceModule {}

@@ -13,6 +13,7 @@ import { ToolController } from "./tools/tool.controller";
 import { MusicModule } from "./music/music.module";
 import { WorkoutModule } from "./workout/workout.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { FinanceModule } from "./finance/finance.module";
 
 @Module({
   providers: [
@@ -35,6 +36,7 @@ import { DashboardModule } from "./dashboard/dashboard.module";
     MusicModule,
     WorkoutModule,
     DashboardModule,
+    FinanceModule,
     HealthModule,
     TypeOrmModule.forFeature([Tool]),
   ],

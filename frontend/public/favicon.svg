@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Hexagon -->
+  <path 
+    d="M16 2L28 9v14l-12 7L4 23V9l12-7z" 
+    stroke="url(#fg)" 
+    stroke-width="2" 
+    fill="rgba(125, 211, 252, 0.1)"
+    stroke-linejoin="round"
+  />
+  
+  <!-- Simplified bars -->
+  <rect x="9" y="17" width="3" height="6" rx="1" fill="#7dd3fc"/>
+  <rect x="13" y="13" width="3" height="10" rx="1" fill="url(#fg)"/>
+  
+  <!-- Simplified pulse -->
+  <path 
+    d="M19 17l2-4 2 8 2-4h2" 
+    stroke="#4ade80" 
+    stroke-width="1.5" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"
+    fill="none"
+  />
+</svg>

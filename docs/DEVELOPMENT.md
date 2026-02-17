@@ -205,6 +205,22 @@ backend/
 │   │   ├── entries/
 │   │   └── import/
 │   │
+│   ├── finance/               # Finance module
+│   │   ├── entities/
+│   │   ├── wallets/
+│   │   ├── categories/
+│   │   ├── transactions/
+│   │   └── import/
+│   │
+│   ├── agents/                # Agent API authentication
+│   │   ├── entities/
+│   │   ├── guards/
+│   │   ├── decorators/
+│   │   └── constants/
+│   │
+│   ├── api/                   # Versioned API for agents
+│   │   └── v1/
+│   │
 │   ├── dashboard/             # Cross-domain analytics
 │   ├── health/                # Health checks
 │   ├── migrations/            # TypeORM migrations

@@ -8,7 +8,7 @@
 
 > A self-hosted personal data aggregation platform that consolidates your fitness, music, habits, and financial data into a unified dashboard.
 
-![Personal Server Dashboard](docs/assets/screenshot-placeholder.png)
+![Personal Server Landing](docs/screenshots/landing.png)
 
 ---
 
@@ -35,16 +35,29 @@
 - Calendar view by month
 - Success rate statistics
 
+### 💰 Finance Tracking
+- Import data from **Cashew** (JSON export)
+- Track transactions across multiple wallets
+- Categorize expenses and income
+- Support for multiple currencies
+
 ### 📈 Cross-Domain Dashboard
 - Correlate Spotify listening during workouts
 - Unified timeline view
 - Multi-domain analytics
+
+### 🤖 Agent API
+- RESTful API (v1) for AI assistants and external integrations
+- API key authentication with scoped permissions
+- Full access to workout, habits, and finance data
+- MCP-compatible endpoints
 
 ### 🔐 Security
 - JWT-based authentication
 - Multi-factor authentication (MFA/TOTP)
 - Multi-user support with account segregation
 - Per-account data isolation
+- Agent API keys with granular scopes
 
 ---
 
@@ -145,6 +158,9 @@ Personal-Server/
 │   │   ├── music/           # Music/streaming module
 │   │   ├── workout/         # Workout tracking module
 │   │   ├── habits/          # Habits tracking module
+│   │   ├── finance/         # Finance/transaction tracking
+│   │   ├── agents/          # Agent API authentication
+│   │   ├── api/v1/          # Versioned API for agents
 │   │   ├── dashboard/       # Cross-domain analytics
 │   │   └── migrations/      # TypeORM migrations
 │   └── Dockerfile
@@ -175,13 +191,35 @@ Personal-Server/
 
 ## 🗺️ Roadmap
 
+### ✅ Completed
 - [x] Workout module with FitNotes import
 - [x] Music module with Spotify integration
 - [x] Habits module with HabitShare import
-- [ ] Finance module with Cashew import
-- [ ] Agent API (MCP + REST) for AI assistants
+- [x] Finance module with Cashew import
+- [x] Agent API (MCP + REST) for AI assistants
+
+### 🚧 In Progress
 - [ ] Enhanced FitNotes import UX
 - [ ] Mobile-responsive dashboard
+
+---
+
+## 📷 Screenshots
+
+### Landing Page
+Clean dark-themed welcome screen with login and registration options.
+
+![Landing Page](docs/screenshots/landing.png)
+
+### Login Page
+Secure authentication with MFA support.
+
+![Login Page](docs/screenshots/login.png)
+
+### Register Page
+Simple account creation flow.
+
+![Register Page](docs/screenshots/register.png)
 
 ---
 

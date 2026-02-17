@@ -10,6 +10,8 @@ export default function Sidebar({ collapsed, onToggle }) {
   const [spotifyLinked, setSpotifyLinked] = useState(null)
   const [spotifyMenuOpen, setSpotifyMenuOpen] = useState(false)
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false)
+  const [financeMenuOpen, setFinanceMenuOpen] = useState(false)
+  const [habitsMenuOpen, setHabitsMenuOpen] = useState(false)
 
   useEffect(() => {
     let ignore = false
@@ -31,6 +33,18 @@ export default function Sidebar({ collapsed, onToggle }) {
     else setWorkoutMenuOpen(false)
   }, [location.pathname])
 
+  useEffect(() => {
+    const onFinanceRoute = location.pathname.startsWith('/finance')
+    if (onFinanceRoute) setFinanceMenuOpen(true)
+    else setFinanceMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    const onHabitsRoute = location.pathname.startsWith('/habits')
+    if (onHabitsRoute) setHabitsMenuOpen(true)
+    else setHabitsMenuOpen(false)
+  }, [location.pathname])
+
   function logout() {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
@@ -39,6 +53,8 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   const isSpotifyActive = location.pathname.startsWith('/spotify')
   const isWorkoutActive = location.pathname.startsWith('/workout')
+  const isFinanceActive = location.pathname.startsWith('/finance')
+  const isHabitsActive = location.pathname.startsWith('/habits')
 
   const handleSpotifyClick = () => {
     if (spotifyLinked) {
@@ -50,6 +66,14 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   const handleWorkoutClick = () => {
     setWorkoutMenuOpen(o => !o)
+  }
+
+  const handleFinanceClick = () => {
+    setFinanceMenuOpen(o => !o)
+  }
+
+  const handleHabitsClick = () => {
+    setHabitsMenuOpen(o => !o)
   }
 
   return (
@@ -127,6 +151,64 @@ export default function Sidebar({ collapsed, onToggle }) {
               {!collapsed && <span>Bodyweight</span>}
             </NavLink>
             <NavLink to="/workout/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>file_download</span>
+              {!collapsed && <span>Import</span>}
+            </NavLink>
+          </div>
+        )}
+
+        <div
+          className={'nav-link' + (isFinanceActive ? ' active' : '')}
+          onClick={handleFinanceClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFinanceClick() } }}
+          aria-expanded={financeMenuOpen}
+          style={{ color: isFinanceActive ? '#fbbf24' : undefined }}
+        >
+          <span className="material-icons" style={{ fontSize: '20px', color: isFinanceActive ? '#fbbf24' : undefined }}>account_balance_wallet</span>
+          {!collapsed && <span>Finance {financeMenuOpen ? '▾' : '▸'}</span>}
+        </div>
+        {financeMenuOpen && (
+          <div className="subnav" role="menu">
+            <NavLink to="/finance" end className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>dashboard</span>
+              {!collapsed && <span>Dashboard</span>}
+            </NavLink>
+            <NavLink to="/finance/transactions" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>receipt_long</span>
+              {!collapsed && <span>Transactions</span>}
+            </NavLink>
+            <NavLink to="/finance/wallets" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>account_balance</span>
+              {!collapsed && <span>Wallets</span>}
+            </NavLink>
+            <NavLink to="/finance/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>file_download</span>
+              {!collapsed && <span>Import</span>}
+            </NavLink>
+          </div>
+        )}
+
+        <div
+          className={'nav-link' + (isHabitsActive ? ' active' : '')}
+          onClick={handleHabitsClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleHabitsClick() } }}
+          aria-expanded={habitsMenuOpen}
+          style={{ color: isHabitsActive ? '#a78bfa' : undefined }}
+        >
+          <span className="material-icons" style={{ fontSize: '20px', color: isHabitsActive ? '#a78bfa' : undefined }}>self_improvement</span>
+          {!collapsed && <span>Habits {habitsMenuOpen ? '▾' : '▸'}</span>}
+        </div>
+        {habitsMenuOpen && (
+          <div className="subnav" role="menu">
+            <NavLink to="/habits" end className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <span className="material-icons" style={{ fontSize: '20px' }}>dashboard</span>
+              {!collapsed && <span>Dashboard</span>}
+            </NavLink>
+            <NavLink to="/habits/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
               <span className="material-icons" style={{ fontSize: '20px' }}>file_download</span>
               {!collapsed && <span>Import</span>}
             </NavLink>

@@ -1,0 +1,316 @@
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../../api'
+import { Pie, Bar } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+import {
+  StatCard,
+  SkeletonStatCard,
+  SkeletonCard,
+  formatDate,
+  formatNumberShort,
+} from '../../components/shared'
+
+ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+
+// Finance accent color
+const FINANCE_COLOR = '#fbbf24'
+const FINANCE_COLOR_MUTED = 'rgba(251, 191, 36, 0.15)'
+
+// Category colors for charts
+const CATEGORY_COLORS = [
+  '#fbbf24', '#f472b6', '#60a5fa', '#4ade80', '#a78bfa',
+  '#fb923c', '#22d3ee', '#e879f9', '#84cc16', '#f87171',
+]
+
+function formatCurrency(amount, currency = '€') {
+  const formatted = Math.abs(amount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `${amount < 0 ? '-' : ''}${currency}${formatted}`
+}
+
+export default function Finance() {
+  const navigate = useNavigate()
+
+  const [loading, setLoading] = useState(true)
+  const [wallets, setWallets] = useState([])
+  const [categories, setCategories] = useState([])
+  const [summary, setSummary] = useState(null)
+  const [recentTransactions, setRecentTransactions] = useState([])
+
+  useEffect(() => { loadDashboard() }, [])
+
+  async function loadDashboard() {
+    setLoading(true)
+    try {
+      const [walletsData, categoriesData, summaryData, transactionsData] = await Promise.all([
+        api.get('/finance/wallets'),
+        api.get('/finance/categories'),
+        api.get('/finance/transactions/summary'),
+        api.get('/finance/transactions?limit=5'),
+      ])
+      setWallets(walletsData || [])
+      setCategories(categoriesData || [])
+      setSummary(summaryData || {})
+      setRecentTransactions(transactionsData?.transactions || transactionsData || [])
+    } catch (e) {
+      console.error('Failed to load finance dashboard:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const totalBalance = wallets.reduce((sum, w) => sum + (w.balance || 0), 0)
+  const totalIncome = summary?.totalIncome || 0
+  const totalExpenses = summary?.totalExpenses || 0
+  const netFlow = totalIncome - Math.abs(totalExpenses)
+
+  // Prepare chart data for spending by category
+  const categorySpending = summary?.byCategory || []
+  const pieData = {
+    labels: categorySpending.map(c => c.name || 'Uncategorized'),
+    datasets: [{
+      data: categorySpending.map(c => Math.abs(c.amount || 0)),
+      backgroundColor: categorySpending.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length]),
+      borderWidth: 0,
+    }]
+  }
+
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          color: 'var(--color-text-secondary)',
+          font: { size: 11 },
+          padding: 12,
+          usePointStyle: true,
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.raw)}`
+        }
+      }
+    }
+  }
+
+  return (
+    <>
+      <h2>
+        <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: FINANCE_COLOR }}>
+          account_balance_wallet
+        </span>
+        Finance Tracker
+      </h2>
+
+      {/* Stats Grid */}
+      <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
+        ) : (
+          <>
+            <StatCard
+              label="Total Balance"
+              value={formatCurrency(totalBalance)}
+            />
+            <StatCard
+              label="This Month Income"
+              value={formatCurrency(totalIncome)}
+            />
+            <StatCard
+              label="This Month Expenses"
+              value={formatCurrency(Math.abs(totalExpenses))}
+            />
+            <StatCard
+              label="Net Flow"
+              value={formatCurrency(netFlow)}
+              subtitle={netFlow >= 0 ? '↑ Positive' : '↓ Negative'}
+            />
+          </>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="section">
+        <h3>Quick Actions</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
+          {[
+            { icon: 'receipt_long', label: 'Transactions', onClick: () => navigate('/finance/transactions'), accent: true },
+            { icon: 'account_balance', label: 'Wallets', onClick: () => navigate('/finance/wallets') },
+            { icon: 'file_download', label: 'Import Cashew', onClick: () => navigate('/finance/import') },
+          ].map(action => (
+            <button
+              key={action.label}
+              className="card interactive"
+              style={{
+                padding: '1.5rem',
+                textAlign: 'center',
+                color: 'inherit',
+                border: action.accent ? `2px solid ${FINANCE_COLOR}` : undefined,
+                background: action.accent ? FINANCE_COLOR_MUTED : undefined,
+              }}
+              onClick={action.onClick}
+            >
+              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: FINANCE_COLOR }}>
+                {action.icon}
+              </span>
+              <div style={{ fontWeight: 700 }}>{action.label}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Two columns: Chart & Wallets */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+        {/* Spending by Category */}
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>
+            <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>pie_chart</span>
+            Spending by Category
+          </h3>
+          {loading ? (
+            <SkeletonCard lines={5} />
+          ) : categorySpending.length === 0 ? (
+            <div className="empty-state">No spending data yet</div>
+          ) : (
+            <div style={{ height: 220 }}>
+              <Pie data={pieData} options={pieOptions} />
+            </div>
+          )}
+        </div>
+
+        {/* Wallets Overview */}
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3>
+              <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>account_balance</span>
+              Wallets
+            </h3>
+            <button className="btn small" onClick={() => navigate('/finance/wallets')}>View All →</button>
+          </div>
+          {loading ? (
+            <SkeletonCard lines={3} />
+          ) : wallets.length === 0 ? (
+            <div className="empty-state">No wallets yet. Import data to get started!</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {wallets.slice(0, 5).map(wallet => (
+                <div
+                  key={wallet.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.75rem 1rem',
+                    background: 'var(--color-bg-elevated)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span
+                      className="material-icons"
+                      style={{
+                        fontSize: 20,
+                        color: wallet.color || FINANCE_COLOR,
+                      }}
+                    >
+                      {wallet.icon || 'account_balance_wallet'}
+                    </span>
+                    <span style={{ fontWeight: 600 }}>{wallet.name}</span>
+                  </div>
+                  <span style={{
+                    fontWeight: 700,
+                    color: wallet.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)',
+                  }}>
+                    {formatCurrency(wallet.balance || 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div className="section" style={{ marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.75rem' }}>
+          <h3>
+            <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>receipt_long</span>
+            Recent Transactions
+          </h3>
+          <button className="btn small" onClick={() => navigate('/finance/transactions')}>View All →</button>
+        </div>
+
+        {loading ? (
+          <SkeletonCard lines={4} />
+        ) : recentTransactions.length === 0 ? (
+          <div className="empty-state">No transactions yet. Import data to get started!</div>
+        ) : (
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--color-bg-elevated)' }}>
+                  <th style={thStyle}>Date</th>
+                  <th style={thStyle}>Description</th>
+                  <th style={thStyle}>Category</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentTransactions.map(tx => (
+                  <tr key={tx.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={tdStyle}>{formatDate(tx.date)}</td>
+                    <td style={tdStyle}>{tx.description || tx.name || '—'}</td>
+                    <td style={tdStyle}>
+                      <span style={{
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: 'var(--radius-full)',
+                        background: 'var(--color-accent-muted)',
+                        fontSize: '0.8rem',
+                      }}>
+                        {tx.category?.name || tx.categoryName || 'Uncategorized'}
+                      </span>
+                    </td>
+                    <td style={{
+                      ...tdStyle,
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: tx.amount >= 0 ? 'var(--color-success)' : 'var(--color-error)',
+                    }}>
+                      {formatCurrency(tx.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+const thStyle = {
+  textAlign: 'left',
+  padding: '0.75rem 1rem',
+  fontSize: '0.8rem',
+  color: 'var(--color-text-muted)',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+}
+
+const tdStyle = {
+  padding: '0.75rem 1rem',
+  fontSize: '0.9rem',
+}

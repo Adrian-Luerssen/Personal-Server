@@ -8,7 +8,7 @@
 
 > A self-hosted personal data aggregation platform that consolidates your fitness, music, habits, and financial data into a unified dashboard.
 
-![Personal Server Landing](docs/screenshots/landing.png)
+![Personal Server Dashboard](docs/screenshots/dashboard.png)
 
 ---
 
@@ -206,20 +206,31 @@ Personal-Server/
 
 ## 📷 Screenshots
 
-### Landing Page
-Clean dark-themed welcome screen with login and registration options.
+### Main Dashboard
+Unified home view with Spotify listening stats, workout metrics, and cross-domain analytics.
 
-![Landing Page](docs/screenshots/landing.png)
+![Dashboard](docs/screenshots/dashboard.png)
 
-### Login Page
-Secure authentication with MFA support.
+### Workout Tracker
+Track workouts, manage exercises, view history, and monitor bodyweight over time.
 
-![Login Page](docs/screenshots/login.png)
+![Workout Dashboard](docs/screenshots/workout.png)
 
-### Register Page
-Simple account creation flow.
+### Workout History & Exercises
+Detailed session history and exercise library management.
 
-![Register Page](docs/screenshots/register.png)
+![Workout History](docs/screenshots/workout-history.png)
+![Workout Exercises](docs/screenshots/workout-exercises.png)
+
+### Spotify Integration
+Link your Spotify account to track listening history and correlate with workouts.
+
+![Spotify](docs/screenshots/spotify.png)
+
+### Profile & Settings
+Manage your account, MFA settings, and connected services.
+
+![Profile](docs/screenshots/profile.png)
 
 ---
 

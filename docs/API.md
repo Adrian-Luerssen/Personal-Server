@@ -14,7 +14,10 @@ This document provides a complete reference for the Personal Server REST API.
 - [Music / Streams](#music--streams)
 - [Workout](#workout)
 - [Habits](#habits)
+- [Finance](#finance)
 - [Dashboard](#dashboard)
+- [Agent API Keys](#agent-api-keys)
+- [Agent API v1](#agent-api-v1)
 - [Health](#health)
 
 ---
@@ -1016,6 +1019,294 @@ Authorization: Bearer <token>
   "averageTracksPerWorkout": 15
 }
 ```
+
+---
+
+## Agent API Keys
+
+Manage API keys for AI agents and external integrations. These endpoints require JWT authentication (user session).
+
+### List API Keys
+
+```http
+GET /agents/keys
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": "key-uuid",
+    "name": "Claudia",
+    "maskedKey": "ps_...abc",
+    "scopes": ["workout:read", "finance:read"],
+    "isActive": true,
+    "lastUsedAt": "2024-01-15T10:00:00Z",
+    "createdAt": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### Create API Key
+
+```http
+POST /agents/keys
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+```json
+{
+  "name": "My AI Assistant",
+  "scopes": ["workout:read", "finance:read", "habits:read"]
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": "key-uuid",
+  "name": "My AI Assistant",
+  "key": "ps_1234567890abcdef...",  // Only returned once!
+  "scopes": ["workout:read", "finance:read", "habits:read"],
+  "isActive": true,
+  "createdAt": "2024-01-15T10:00:00Z"
+}
+```
+
+> ⚠️ **Important:** The raw API key is only returned once when created. Store it securely.
+
+---
+
+### Update API Key
+
+```http
+PATCH /agents/keys/:id
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+```json
+{
+  "name": "Updated Name",
+  "scopes": ["workout:read"],
+  "isActive": false
+}
+```
+
+---
+
+### Revoke API Key
+
+```http
+DELETE /agents/keys/:id
+Authorization: Bearer <access_token>
+```
+
+**Response:** `204 No Content`
+
+---
+
+### Available Scopes
+
+| Scope | Description |
+|-------|-------------|
+| `workout:read` | Read workout sessions, exercises, bodyweight |
+| `workout:write` | Create/update workout data |
+| `finance:read` | Read transactions, wallets, categories |
+| `finance:write` | Create/update financial data |
+| `habits:read` | Read habits and entries |
+| `habits:write` | Create/update habit data |
+| `music:read` | Read Spotify listening history |
+| `dashboard:read` | Read cross-domain analytics |
+| `profile:read` | Read basic profile info |
+
+---
+
+## Agent API v1
+
+RESTful API for AI agents and external integrations. Authenticated via `X-API-Key` header.
+
+**Base URL:** `/api/v1`
+
+```
+X-API-Key: ps_your_api_key_here
+```
+
+### Workout Endpoints
+
+#### Get Workout Sessions
+
+```http
+GET /api/v1/workout/sessions
+X-API-Key: <api_key>
+```
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | number | 1 | Page number |
+| `limit` | number | 20 | Items per page |
+
+**Required Scope:** `workout:read`
+
+---
+
+#### Get Recent Sessions
+
+```http
+GET /api/v1/workout/sessions/recent
+X-API-Key: <api_key>
+```
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | number | 5 | Number of recent sessions |
+
+**Required Scope:** `workout:read`
+
+---
+
+#### Get Active Session
+
+```http
+GET /api/v1/workout/sessions/active
+X-API-Key: <api_key>
+```
+
+**Required Scope:** `workout:read`
+
+---
+
+#### Get Workout Stats
+
+```http
+GET /api/v1/workout/stats
+X-API-Key: <api_key>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "totalWorkouts": 150,
+  "totalSets": 2340,
+  "totalReps": 28500,
+  "totalVolume": 456000,
+  "totalTimeSeconds": 324000
+}
+```
+
+**Required Scope:** `workout:read`
+
+---
+
+#### Get Exercises
+
+```http
+GET /api/v1/workout/exercises
+X-API-Key: <api_key>
+```
+
+**Required Scope:** `workout:read`
+
+---
+
+#### Get Bodyweight Entries
+
+```http
+GET /api/v1/workout/bodyweight
+X-API-Key: <api_key>
+```
+
+**Required Scope:** `workout:read`
+
+---
+
+### Finance Endpoints
+
+#### Get Transactions
+
+```http
+GET /api/v1/finance/transactions
+X-API-Key: <api_key>
+```
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `page` | number | Page number |
+| `limit` | number | Items per page |
+| `type` | string | Filter by type: `income`, `expense`, `transfer` |
+| `walletId` | string | Filter by wallet |
+| `categoryId` | string | Filter by category |
+
+**Required Scope:** `finance:read`
+
+---
+
+#### Get Wallets
+
+```http
+GET /api/v1/finance/wallets
+X-API-Key: <api_key>
+```
+
+**Required Scope:** `finance:read`
+
+---
+
+#### Get Categories
+
+```http
+GET /api/v1/finance/categories
+X-API-Key: <api_key>
+```
+
+**Required Scope:** `finance:read`
+
+---
+
+### Habits Endpoints
+
+#### Get Habits Summary
+
+```http
+GET /api/v1/habits/summary
+X-API-Key: <api_key>
+```
+
+**Required Scope:** `habits:read`
+
+---
+
+#### Get Habit Calendar
+
+```http
+GET /api/v1/habits/calendar/:month
+X-API-Key: <api_key>
+```
+
+**Path Parameters:**
+- `month`: Month in `YYYY-MM` format
+
+**Required Scope:** `habits:read`
+
+---
+
+### Dashboard Endpoints
+
+#### Get Workout Music Stats
+
+```http
+GET /api/v1/dashboard/workout-music
+X-API-Key: <api_key>
+```
+
+**Required Scope:** `dashboard:read`
 
 ---
 

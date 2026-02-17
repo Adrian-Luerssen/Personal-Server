@@ -39,6 +39,8 @@
 - Import data from **Cashew** (JSON export)
 - Track transactions across multiple wallets
 - Categorize expenses and income
+- **Transaction types**: Income (green), Expenses (red), Transfers (blue)
+- Type filter in transactions view
 - Support for multiple currencies
 
 ### 📈 Cross-Domain Dashboard
@@ -51,6 +53,18 @@
 - API key authentication with scoped permissions
 - Full access to workout, habits, and finance data
 - MCP-compatible endpoints
+
+### 🌐 Multi-Language Support (i18n)
+- **English** and **Spanish** fully supported
+- Language switcher in Settings → Preferences
+- Persists user preference in localStorage
+- Easy to add new translations
+
+### ⚙️ Settings Page
+- **Agent API Keys**: Create, edit, and revoke API keys for AI assistants
+- **Scopes**: Fine-grained permissions per module (workout, finance, habits, music, etc.)
+- **Connections**: View and manage connected services
+- **Preferences**: Language selection and more
 
 ### 🔐 Security
 - JWT-based authentication
@@ -206,48 +220,45 @@ Personal-Server/
 
 ## 📷 Screenshots
 
-### Main Dashboard
+> All screenshots shown in **Spanish** to demonstrate the i18n feature. The app supports English and Spanish.
+
+### 🏠 Main Dashboard
 Unified home view with Spotify listening stats, workout metrics, and cross-domain analytics.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-### 🏋️ Workout Tracker
+### 🏋️ Workout Module
 Track workouts, manage exercises, view history, and monitor bodyweight over time.
 
-![Workout Dashboard](docs/screenshots/workout.png)
-
-### Workout History & Exercises
-Detailed session history and exercise library management.
-
-![Workout History](docs/screenshots/workout-history.png)
-![Workout Exercises](docs/screenshots/workout-exercises.png)
+| Dashboard | History | Exercises |
+|:---------:|:-------:|:---------:|
+| ![Workout](docs/screenshots/workout.png) | ![History](docs/screenshots/workout-history.png) | ![Exercises](docs/screenshots/workout-exercises.png) |
 
 ### 🎵 Spotify Integration
 Link your Spotify account to track listening history and correlate with workouts.
 
 ![Spotify](docs/screenshots/spotify.png)
 
-### 💰 Finance Tracker
-Track income and expenses, manage wallets, and categorize transactions with the Cashew-compatible import.
+### 💰 Finance Module
+Track income (green ↓) and expenses (red ↑), manage wallets, and filter transactions by type.
 
-![Finance Dashboard](docs/screenshots/finance.png)
-
-### Finance Transactions
-View, filter, and search all your transactions across wallets and categories.
-
-![Finance Transactions](docs/screenshots/finance-transactions.png)
-
-### Finance Wallets
-Manage multiple wallets with different currencies.
-
-![Finance Wallets](docs/screenshots/finance-wallets.png)
+| Dashboard | Transactions | Wallets |
+|:---------:|:------------:|:-------:|
+| ![Finance](docs/screenshots/finance.png) | ![Transactions](docs/screenshots/finance-transactions.png) | ![Wallets](docs/screenshots/finance-wallets.png) |
 
 ### 📊 Habits Tracker
 Track daily habits, view streaks, success rates, and calendar history. Import from HabitShare.
 
 ![Habits Dashboard](docs/screenshots/habits.png)
 
-### 🔐 Profile & Settings
+### ⚙️ Settings Page
+Manage Agent API Keys, connections, and preferences including language selection.
+
+| API Keys | Preferences (Language) |
+|:--------:|:----------------------:|
+| ![Settings](docs/screenshots/settings.png) | ![Preferences](docs/screenshots/settings-preferences.png) |
+
+### 🔐 Profile
 Manage your account, MFA settings, and connected services.
 
 ![Profile](docs/screenshots/profile.png)

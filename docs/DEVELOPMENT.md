@@ -728,6 +728,104 @@ refactor: simplify auth middleware
 
 ---
 
+## Internationalization (i18n)
+
+The frontend supports multiple languages using `react-i18next`.
+
+### Current Languages
+
+- **English** (`en`) - Default
+- **Spanish** (`es`)
+
+### Translation Files
+
+Translations are stored in JSON files:
+
+```
+frontend/src/locales/
+├── en.json    # English translations
+└── es.json    # Spanish translations
+```
+
+### How to Add a New Language
+
+1. **Create translation file:**
+   ```bash
+   cp frontend/src/locales/en.json frontend/src/locales/fr.json
+   ```
+
+2. **Translate all strings** in the new file.
+
+3. **Register in i18n config:**
+   Edit `frontend/src/i18n.js`:
+   ```javascript
+   import fr from './locales/fr.json'
+   
+   i18n.init({
+     resources: {
+       en: { translation: en },
+       es: { translation: es },
+       fr: { translation: fr },  // Add new language
+     },
+     // ...
+   })
+   ```
+
+4. **Add to Settings UI:**
+   Edit `frontend/src/pages/Settings/Settings.jsx` to include the new language option.
+
+### Using Translations in Components
+
+```jsx
+import { useTranslation } from 'react-i18next';
+
+export default function MyComponent() {
+  const { t } = useTranslation();
+  
+  return (
+    <div>
+      <h1>{t('nav.home')}</h1>
+      <p>{t('common.loading')}</p>
+    </div>
+  );
+}
+```
+
+### Translation Keys Structure
+
+```json
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save"
+  },
+  "nav": {
+    "home": "Home",
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "module": {
+    "title": "Module Title",
+    "description": "Module description"
+  }
+}
+```
+
+### Language Persistence
+
+The selected language is automatically saved to `localStorage` and restored on page load:
+
+```javascript
+// Set language
+i18n.changeLanguage('es');
+
+// Get current language
+const currentLang = i18n.language;
+```
+
+---
+
 ## Resources
 
 - [NestJS Documentation](https://docs.nestjs.com/)
@@ -735,3 +833,4 @@ refactor: simplify auth middleware
 - [React Documentation](https://react.dev/)
 - [Vite Documentation](https://vitejs.dev/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [react-i18next Documentation](https://react.i18next.com/)

@@ -217,6 +217,10 @@ export default function Sidebar({ collapsed, onToggle }) {
       </nav>
 
       <div className="sidebar-bottom">
+        <NavLink to="/settings" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')}>
+          <span className="material-icons" style={{ fontSize: '20px' }}>settings</span>
+          {!collapsed && <span>Settings</span>}
+        </NavLink>
         <button className="nav-link" onClick={toggleTheme}>
           <span className="material-icons" style={{ fontSize: '20px' }}>{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
           {!collapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}

@@ -36,11 +36,8 @@ export class RegisterRequest {
   @MinLength(6)
   password: string;
 
-  @IsOptional()
-  firstName?: string;
-
-  @IsOptional()
-  lastName?: string;
+  @IsNotEmpty()
+  name: string;
 }
 
 interface AuthenticateResponse {
@@ -82,10 +79,7 @@ export class AuthController {
       const account = await this.authService.createAccount(
         request.email,
         request.password,
-        {
-          firstName: request.firstName,
-          lastName: request.lastName,
-        }
+        { name: request.name }
       );
       return {
         message: "Account created successfully",

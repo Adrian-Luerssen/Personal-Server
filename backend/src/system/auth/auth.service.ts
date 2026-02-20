@@ -67,7 +67,7 @@ export class AuthService {
   public async createAccount(
     email: string,
     password: string,
-    additionalData?: { firstName?: string; lastName?: string }
+    additionalData?: { name?: string }
   ): Promise<Account> {
     // Check if account already exists
     const existingAccount = await this.accountService.findAccountByEmail(email);

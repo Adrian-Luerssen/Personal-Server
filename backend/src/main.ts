@@ -9,6 +9,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AbstractAccountOwnedEntity } from "./system/common/AbstractAccountOwnedEntity";
 import { AbstractEntity } from "./system/common/AbstractEntity";
 import * as bodyParser from "body-parser";
+import * as bcrypt from "bcryptjs";
 
 async function setupInitialData(app: INestApplication) {
   const configService = app.get(ConfigService);
@@ -20,9 +21,13 @@ async function setupInitialData(app: INestApplication) {
     where: { email: "root@gmail.com" }, // new typeORM expects either FindOneOptions<Account> or that <--
   });
   if (!rootAccount) {
+    const hashRounds = parseInt(configService.get("AUTH_HASH_ROUNDS") || "10", 10);
+    const plainPassword = configService.get("USER_ROOT_CREDENTIALS");
+    const hashedPassword = await bcrypt.hash(plainPassword, hashRounds);
+    
     rootAccount = new Account();
     rootAccount.email = "root@gmail.com";
-    rootAccount.password = configService.get("USER_ROOT_CREDENTIALS");
+    rootAccount.password = hashedPassword;
     rootAccount.name = "root";
     rootAccount = await accountRepository.save(rootAccount);
   }

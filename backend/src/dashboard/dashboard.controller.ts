@@ -1,0 +1,43 @@
+import { Controller, Get, Query } from "@nestjs/common";
+import { ApiBearerAuth, ApiQuery, ApiTags } from "@nestjs/swagger";
+import { DashboardService } from "./dashboard.service";
+import { ReqUser } from "../system/auth/auth.decorator";
+import { Account } from "../system/accounts/account.entity";
+import { resolveTimeframe } from "../utils/utils";
+
+@ApiTags("dashboard")
+@ApiBearerAuth("access-token")
+@Controller("dashboard")
+export class DashboardController {
+  constructor(private readonly dashboard: DashboardService) {}
+
+  @Get("streams/workout")
+  @ApiQuery({
+    name: "timeframe",
+    required: false,
+    description: "Preset timeframe e.g. today, 7d, 30d, 1y, all",
+  })
+  @ApiQuery({
+    name: "from",
+    required: false,
+    description: "ISO start datetime override",
+  })
+  @ApiQuery({
+    name: "to",
+    required: false,
+    description: "ISO end datetime override",
+  })
+  async getSpotifyStreamsDuringWorkouts(
+    @ReqUser() account: Account,
+    @Query("timeframe") timeframe?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string
+  ) {
+    const { start, end } = resolveTimeframe(timeframe, from, to);
+    const res = await this.dashboard.getSpotifyStreamsDuringWorkouts(account, {
+      from: start,
+      to: end,
+    });
+    return res;
+  }
+}

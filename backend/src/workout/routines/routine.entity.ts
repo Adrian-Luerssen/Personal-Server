@@ -1,7 +1,7 @@
 import { Column, Entity, Index, OneToMany } from "typeorm";
 import { AbstractAccountOwnedEntity } from "../../system/common/AbstractAccountOwnedEntity";
 import { ApiProperty } from "@nestjs/swagger";
-import { RoutineExercise } from "src/workout/routines/routine-exercise.entity";
+import { RoutineExercise } from "./routine-exercise.entity";
 
 @Entity()
 @Index(["accountId", "name"], { unique: true })

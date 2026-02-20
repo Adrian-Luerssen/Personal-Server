@@ -13,6 +13,10 @@ import { ToolController } from "./tools/tool.controller";
 import { MusicModule } from "./music/music.module";
 import { WorkoutModule } from "./workout/workout.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { FinanceModule } from "./finance/finance.module";
+import { HabitsModule } from "./habits/habits.module";
+import { AgentsModule } from "./agents/agents.module";
+import { ApiV1Module } from "./api/v1/api-v1.module";
 
 @Module({
   providers: [
@@ -35,6 +39,10 @@ import { DashboardModule } from "./dashboard/dashboard.module";
     MusicModule,
     WorkoutModule,
     DashboardModule,
+    FinanceModule,
+    HabitsModule,
+    AgentsModule,
+    ApiV1Module,
     HealthModule,
     TypeOrmModule.forFeature([Tool]),
   ],

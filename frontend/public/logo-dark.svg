@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="accentGradientDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <filter id="glowDark" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Outer hexagon frame -->
+  <path 
+    d="M32 4L56 18v28L32 60L8 46V18L32 4z" 
+    stroke="url(#accentGradientDark)" 
+    stroke-width="2.5" 
+    fill="rgba(125, 211, 252, 0.05)"
+    stroke-linejoin="round"
+    filter="url(#glowDark)"
+  />
+  
+  <!-- Inner data visualization elements -->
+  <g opacity="0.95">
+    <!-- Bar chart representation -->
+    <rect x="18" y="34" width="4" height="12" rx="1.5" fill="#7dd3fc"/>
+    <rect x="24" y="28" width="4" height="18" rx="1.5" fill="#60a5fa"/>
+    <rect x="30" y="22" width="4" height="24" rx="1.5" fill="url(#accentGradientDark)"/>
+    
+    <!-- Pulse/heartbeat line -->
+    <path 
+      d="M38 36h4l2-8 3 16 2-8h5" 
+      stroke="#4ade80" 
+      stroke-width="2" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+      fill="none"
+    />
+  </g>
+  
+  <!-- Center node -->
+  <circle cx="32" cy="32" r="3" fill="#7dd3fc" opacity="0.6"/>
+  
+  <!-- Connection lines -->
+  <g stroke="#7dd3fc" stroke-width="0.5" opacity="0.2">
+    <line x1="32" y1="32" x2="32" y2="8"/>
+    <line x1="32" y1="32" x2="54" y2="20"/>
+    <line x1="32" y1="32" x2="54" y2="44"/>
+    <line x1="32" y1="32" x2="32" y2="56"/>
+    <line x1="32" y1="32" x2="10" y2="44"/>
+    <line x1="32" y1="32" x2="10" y2="20"/>
+  </g>
+</svg>

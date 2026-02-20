@@ -1,10 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
 import { apiFetch } from '../../api'
-import { StatCard, PodiumCard, formatNumberShort, formatDuration } from './SpotifyShared'
+import {
+  StatCard,
+  PodiumCard,
+  AnimatedNumber,
+  LoadingLine,
+  SkeletonStatCard,
+  formatNumberShort,
+  formatDuration,
+} from '../../components/shared'
 
 export default function SpotifyGlobal() {
-  const { sidebarCollapsed } = useOutletContext() || {}
+  const [loading, setLoading] = useState(true)
   const [globalStats, setGlobalStats] = useState(null)
   const [globalTopTracks, setGlobalTopTracks] = useState([])
   const [globalTopAlbums, setGlobalTopAlbums] = useState([])
@@ -13,63 +20,95 @@ export default function SpotifyGlobal() {
   const [globalTopAlbumDetails, setGlobalTopAlbumDetails] = useState([])
   const [globalTopArtistDetails, setGlobalTopArtistDetails] = useState([])
 
-  function loadGlobal(signal) {
-    const p1 = apiFetch('/streams/global-stats', { signal }).catch(() => null)
-    const p2 = apiFetch('/streams/global-top?platform=spotify&limit=10', { signal }).catch(() => [])
-    const p3 = apiFetch('/albums/global-top-albums?platform=spotify&limit=10', { signal }).catch(() => [])
-    const p4 = apiFetch('/artists/global-top-artists?platform=spotify&limit=10', { signal }).catch(() => [])
+  useEffect(() => {
+    const ctrl = new AbortController()
+    setLoading(true)
+
+    const p1 = apiFetch('/streams/global-stats', { signal: ctrl.signal }).catch(() => null)
+    const p2 = apiFetch('/streams/global-top?platform=spotify&limit=10', { signal: ctrl.signal }).catch(() => [])
+    const p3 = apiFetch('/albums/global-top-albums?platform=spotify&limit=10', { signal: ctrl.signal }).catch(() => [])
+    const p4 = apiFetch('/artists/global-top-artists?platform=spotify&limit=10', { signal: ctrl.signal }).catch(() => [])
+
     Promise.all([p1, p2, p3, p4]).then(async ([statsData, topTracksData, topAlbumsData, topArtistsData]) => {
-      if (signal?.aborted) return
+      if (ctrl.signal.aborted) return
       setGlobalStats(statsData)
       setGlobalTopTracks(topTracksData)
       setGlobalTopAlbums(topAlbumsData)
       setGlobalTopArtists(topArtistsData)
+      setLoading(false)
+
       Promise.all([
-        Promise.all((topTracksData || []).map(t => apiFetch(`/tracks/${t.trackId}`, { signal }).catch(() => null))),
-        Promise.all((topAlbumsData || []).map(a => apiFetch(`/albums/${a.albumId}`, { signal }).catch(() => null))),
-        Promise.all((topArtistsData || []).map(a => apiFetch(`/artists/${a.artistId}`, { signal }).catch(() => null))),
+        Promise.all((topTracksData || []).map(t => apiFetch(`/tracks/${t.trackId}`, { signal: ctrl.signal }).catch(() => null))),
+        Promise.all((topAlbumsData || []).map(a => apiFetch(`/albums/${a.albumId}`, { signal: ctrl.signal }).catch(() => null))),
+        Promise.all((topArtistsData || []).map(a => apiFetch(`/artists/${a.artistId}`, { signal: ctrl.signal }).catch(() => null))),
       ]).then(([td, ad, ard]) => {
-        if (signal?.aborted) return
+        if (ctrl.signal.aborted) return
         setGlobalTopTrackDetails(td)
         setGlobalTopAlbumDetails(ad)
         setGlobalTopArtistDetails(ard)
       }).catch(() => {})
-    }).catch(() => {})
-  }
+    }).catch(() => setLoading(false))
 
-  useEffect(() => {
-    const ctrl = new AbortController()
-    loadGlobal(ctrl.signal)
     return () => ctrl.abort()
   }, [])
 
   return (
-    <div className="content" style={{ marginLeft: sidebarCollapsed ? 80 : 260 }}>
-      <h1>Spotify — Global</h1>
-      <h3 style={{ marginBottom: '1rem' }}>Global Spotify Statistics</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
-        <StatCard label="Total Streams" value={formatNumberShort(globalStats?.totalStreams ?? 0)} />
-        <StatCard label="Unique Tracks" value={formatNumberShort(globalStats?.uniqueTracks ?? 0)} />
-        <StatCard label="Unique Artists" value={formatNumberShort(globalStats?.uniqueArtists ?? 0)} />
-        <StatCard label="Total Minutes Listened" value={formatNumberShort(Math.floor((globalStats?.msListened ?? 0) / 1000 / 60))} />
-        <StatCard label="Total Time Listened" value={formatDuration(globalStats?.msListened ?? 0)} />
-      </div>
-      <div style={{ marginTop: '2rem', display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-        <div style={{ gridColumn: '1/-1', fontWeight: 700, fontSize: 18, color: '#7dd3fc', marginBottom: 8 }}>Top Tracks (All Users)</div>
-        {globalTopTracks.length === 0 ? <div className="card">No top tracks yet.</div> : globalTopTracks.map((item, idx) => (
-          <PodiumCard key={item.trackId} data={item} details={globalTopTrackDetails[idx]} rank={idx + 1} type="tracks" />
-        ))}
+    <>
+      <h2>Spotify — Global</h2>
 
-        <div style={{ gridColumn: '1/-1', fontWeight: 700, fontSize: 18, color: '#7dd3fc', margin: '2rem 0 8px 0' }}>Top Albums (All Users)</div>
-        {globalTopAlbums.length === 0 ? <div className="card">No top albums yet.</div> : globalTopAlbums.map((item, idx) => (
-          <PodiumCard key={item.albumId} data={item} details={globalTopAlbumDetails[idx]} rank={idx + 1} type="albums" />
-        ))}
-
-        <div style={{ gridColumn: '1/-1', fontWeight: 700, fontSize: 18, color: '#7dd3fc', margin: '2rem 0 8px 0' }}>Top Artists (All Users)</div>
-        {globalTopArtists.length === 0 ? <div className="card">No top artists yet.</div> : globalTopArtists.map((item, idx) => (
-          <PodiumCard key={item.artistId} data={item} details={globalTopArtistDetails[idx]} rank={idx + 1} type="artists" />
-        ))}
+      <div className="section">
+        <h3>Global Spotify Statistics</h3>
+        <div className="stat-grid">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)
+          ) : (
+            <>
+              <StatCard label="Total Streams" value={<AnimatedNumber value={globalStats?.totalStreams ?? 0} formatter={formatNumberShort} />} />
+              <StatCard label="Unique Tracks" value={<AnimatedNumber value={globalStats?.uniqueTracks ?? 0} formatter={formatNumberShort} />} />
+              <StatCard label="Unique Artists" value={<AnimatedNumber value={globalStats?.uniqueArtists ?? 0} formatter={formatNumberShort} />} />
+              <StatCard label="Total Minutes" value={<AnimatedNumber value={Math.floor((globalStats?.msListened ?? 0) / 1000 / 60)} formatter={formatNumberShort} />} />
+              <StatCard label="Total Time" value={<AnimatedNumber value={globalStats?.msListened ?? 0} formatter={formatDuration} />} />
+            </>
+          )}
+        </div>
       </div>
-    </div>
+
+      <div className="section">
+        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+          <div style={{ gridColumn: '1/-1' }}><h3 style={{ color: 'var(--color-accent)' }}>Top Tracks (All Users)</h3></div>
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="card" style={{ padding: '.75rem' }}><LoadingLine width="60%" /><LoadingLine width="40%" /></div>
+            ))
+          ) : globalTopTracks.length === 0 ? (
+            <div className="empty-state">No top tracks yet.</div>
+          ) : globalTopTracks.map((item, idx) => (
+            <PodiumCard key={item.trackId} data={item} details={globalTopTrackDetails[idx]} rank={idx + 1} type="tracks" />
+          ))}
+
+          <div style={{ gridColumn: '1/-1', marginTop: '1rem' }}><h3 style={{ color: 'var(--color-accent)' }}>Top Albums (All Users)</h3></div>
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="card" style={{ padding: '.75rem' }}><LoadingLine width="60%" /><LoadingLine width="40%" /></div>
+            ))
+          ) : globalTopAlbums.length === 0 ? (
+            <div className="empty-state">No top albums yet.</div>
+          ) : globalTopAlbums.map((item, idx) => (
+            <PodiumCard key={item.albumId} data={item} details={globalTopAlbumDetails[idx]} rank={idx + 1} type="albums" />
+          ))}
+
+          <div style={{ gridColumn: '1/-1', marginTop: '1rem' }}><h3 style={{ color: 'var(--color-accent)' }}>Top Artists (All Users)</h3></div>
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="card" style={{ padding: '.75rem' }}><LoadingLine width="60%" /><LoadingLine width="40%" /></div>
+            ))
+          ) : globalTopArtists.length === 0 ? (
+            <div className="empty-state">No top artists yet.</div>
+          ) : globalTopArtists.map((item, idx) => (
+            <PodiumCard key={item.artistId} data={item} details={globalTopArtistDetails[idx]} rank={idx + 1} type="artists" />
+          ))}
+        </div>
+      </div>
+    </>
   )
 }

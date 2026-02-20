@@ -6,6 +6,7 @@ import { getApiBase } from '../../config'
 export default function Register() {
   const { t } = useTranslation()
   const nav = useNavigate()
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
@@ -16,7 +17,7 @@ export default function Register() {
       const res = await fetch(getApiBase() + '/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ name, email, password })
       })
       if (!res.ok) {
         const txt = await res.text()
@@ -37,8 +38,12 @@ export default function Register() {
         <h2 style={{ marginBottom: '1rem' }}>{t('auth.signUp')}</h2>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
           <div className="field">
+            <label>{t('auth.name')}</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} required />
+          </div>
+          <div className="field">
             <label>{t('auth.email')}</label>
-            <input className="input" value={email} onChange={e => setEmail(e.target.value)} />
+            <input className="input" value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
           <div className="field">
             <label>{t('auth.password')}</label>

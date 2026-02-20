@@ -126,7 +126,7 @@ export class CashewImportService {
           .map((w) => w.externalId)
           .filter(Boolean)
       );
-      const newWallets = walletRows.filter((r) => !existingWalletIds.has(r.wallet_pk));
+      const newWallets = walletRows.filter((r) => !existingWalletIds.has(String(r.wallet_pk)));
 
       // --- Categories ---
       let categoryRows: AnyObject[] = [];
@@ -140,7 +140,7 @@ export class CashewImportService {
           .map((c) => c.externalId)
           .filter(Boolean)
       );
-      const newCategories = categoryRows.filter((r) => !existingCatIds.has(r.category_pk));
+      const newCategories = categoryRows.filter((r) => !existingCatIds.has(String(r.category_pk)));
 
       // --- Transactions ---
       let txRows: AnyObject[] = [];
@@ -156,7 +156,7 @@ export class CashewImportService {
           .map((t) => t.externalId)
           .filter(Boolean)
       );
-      const newTxRows = txRows.filter((r) => !existingTxIds.has(r.transaction_pk));
+      const newTxRows = txRows.filter((r) => !existingTxIds.has(String(r.transaction_pk)));
 
       // Date range
       let earliest: string | null = null;
@@ -340,7 +340,7 @@ export class CashewImportService {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const externalId = row.wallet_pk;
+      const externalId = String(row.wallet_pk);
       if (!externalId) continue;
 
       let wallet = await manager.findOne(FinanceWallet, {
@@ -388,7 +388,7 @@ export class CashewImportService {
     // First pass: create all categories (without parent links)
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const externalId = row.category_pk;
+      const externalId = String(row.category_pk);
       if (!externalId) continue;
 
       let category = await manager.findOne(FinanceCategory, {
@@ -416,10 +416,10 @@ export class CashewImportService {
     // Second pass: set parent links
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const externalId = row.category_pk;
+      const externalId = String(row.category_pk);
       if (!externalId) continue;
 
-      const mainCategoryPk = row.main_category_pk;
+      const mainCategoryPk = String(row.main_category_pk);
       if (!mainCategoryPk) continue;
 
       const ourId = idMap.get(externalId);
@@ -459,7 +459,7 @@ export class CashewImportService {
     const BATCH_SIZE = 50;
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const externalId = row.transaction_pk;
+      const externalId = String(row.transaction_pk);
       if (!externalId) continue;
 
       // Check if already exists
@@ -473,8 +473,8 @@ export class CashewImportService {
 
       const transactionDate = this.unixToDate(row.date_created) ?? new Date();
       const amount = parseFloat(row.amount) || 0;
-      const categoryId = row.category_fk ? categoryIdMap.get(row.category_fk) ?? null : null;
-      const walletId = row.wallet_fk ? walletIdMap.get(row.wallet_fk) ?? null : null;
+      const categoryId = row.category_fk ? categoryIdMap.get(String(row.category_fk)) ?? null : null;
+      const walletId = row.wallet_fk ? walletIdMap.get(String(row.wallet_fk)) ?? null : null;
 
       const tx = manager.create(FinanceTransaction, {
         accountId: account.id,

@@ -19,12 +19,14 @@ export default function WorkoutActive() {
   const [activeSession, setActiveSession] = useState(null)
   const [sets, setSets] = useState([])
   const [exercises, setExercises] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
   // Add set modal state
   const [showAddSet, setShowAddSet] = useState(false)
   const [addSetForm, setAddSetForm] = useState({
+    categoryId: '',
     exerciseId: '',
     reps: '',
     weight: '',
@@ -33,15 +35,50 @@ export default function WorkoutActive() {
     rpe: '',
     notes: ''
   })
+  const [addSetTab, setAddSetTab] = useState('add') // 'add' | 'history'
+  const [exerciseHistory, setExerciseHistory] = useState([])
+  const [lastSet, setLastSet] = useState(null)
   
   // End workout modal
   const [showEndModal, setShowEndModal] = useState(false)
   const [endForm, setEndForm] = useState({ title: '', notes: '' })
 
+
   useEffect(() => {
     loadActiveSession()
     loadExercises()
+    loadCategories()
   }, [])
+
+  // When exercise changes, fetch last set and history
+  useEffect(() => {
+    if (addSetForm.exerciseId) {
+      fetchExerciseHistory(addSetForm.exerciseId)
+    } else {
+      setExerciseHistory([])
+      setLastSet(null)
+    }
+  }, [addSetForm.exerciseId])
+  async function loadCategories() {
+    try {
+      const cat = await api.get('/workout/categories')
+      setCategories(cat || [])
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  async function fetchExerciseHistory(exerciseId) {
+    try {
+      // Get all sets for this exercise, most recent first
+      const data = await api.get(`/workout/exercises/history/${exerciseId}`)
+      setExerciseHistory(data || [])
+      setLastSet((data && data.length > 0) ? data[0] : null)
+    } catch (e) {
+      setExerciseHistory([])
+      setLastSet(null)
+    }
+  }
 
   async function loadActiveSession() {
     setLoading(true)
@@ -99,6 +136,7 @@ export default function WorkoutActive() {
       
       // Reset form and close modal
       setAddSetForm({
+        categoryId: '',
         exerciseId: '',
         reps: '',
         weight: '',
@@ -107,6 +145,7 @@ export default function WorkoutActive() {
         rpe: '',
         notes: ''
       })
+      setAddSetTab('add')
       setShowAddSet(false)
     } catch (e) {
       setError(e.message || 'Failed to add set')
@@ -117,7 +156,7 @@ export default function WorkoutActive() {
     if (!window.confirm('Delete this set?')) return
     setError('')
     try {
-      await api.post(`/workout/sets/${set.id}`, { method: 'DELETE' })
+      await api.delete(`/workout/sets/${set.id}`)
       setSets(sets.filter(s => s.id !== set.id))
     } catch (e) {
       setError(e.message || 'Failed to delete set')
@@ -128,7 +167,7 @@ export default function WorkoutActive() {
     if (!activeSession) return
     setError('')
     try {
-      const updated = await api.post(`/workout/sessions/${activeSession.id}/end`, {
+      const updated = await api.patch(`/workout/sessions/${activeSession.id}/end`, {
         title: endForm.title || null,
         notes: endForm.notes || null
       })
@@ -151,7 +190,7 @@ export default function WorkoutActive() {
 
   return (
     <div className="content" style={{ marginLeft: sidebarCollapsed ? 80 : 260 }}>
-      <h1>💪 Active Workout</h1>
+      <h1><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '8px' }}>fitness_center</span>Active Workout</h1>
 
       {error && (
         <div className="card" style={{ borderColor: 'rgba(239,68,68,0.5)', marginBottom: '1rem' }}>
@@ -179,7 +218,7 @@ export default function WorkoutActive() {
       ) : !activeSession ? (
         <div>
           <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏋️</div>
+            <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: '#7dd3fc' }}>fitness_center</span>
             <h2 style={{ marginBottom: '1rem' }}>No active workout</h2>
             <p style={{ opacity: .7, marginBottom: '2rem' }}>Start a new workout to begin tracking your sets</p>
             <button className="btn" onClick={startWorkout}>
@@ -228,14 +267,16 @@ export default function WorkoutActive() {
 
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '.75rem' }}>
               <button className="btn" onClick={() => setShowAddSet(true)}>
-                ➕ Add Set
+                <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '4px', fontSize: '18px' }}>add</span>
+                Add Set
               </button>
               <button 
                 className="btn" 
                 onClick={() => setShowEndModal(true)}
                 style={{ background: 'rgba(34,197,94,0.2)', color: '#22c55e' }}
               >
-                ✓ End Workout
+                <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '4px', fontSize: '18px' }}>check</span>
+                End Workout
               </button>
             </div>
           </div>
@@ -248,18 +289,56 @@ export default function WorkoutActive() {
                 No sets yet. Click "Add Set" to get started.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
-                {sets.map((set, idx) => {
-                  const exercise = exercises.find(e => e.id === set.exerciseId)
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Group sets by exerciseId */}
+                {Object.entries(
+                  sets.reduce((acc, set) => {
+                    if (!acc[set.exerciseId]) acc[set.exerciseId] = [];
+                    acc[set.exerciseId].push(set);
+                    return acc;
+                  }, {})
+                ).map(([exerciseId, setsForExercise]) => {
+                  const exercise = exercises.find(e => e.id === exerciseId);
                   return (
-                    <SetRow 
-                      key={set.id} 
-                      set={set} 
-                      exercise={exercise}
-                      onDelete={deleteSet}
-                      showOrder
-                    />
-                  )
+                    <div key={exerciseId} style={{ background: 'rgba(125,211,252,0.04)', borderRadius: 8, padding: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{exercise ? exercise.name : 'Unknown Exercise'}</div>
+                        <button
+                          className="btn"
+                          style={{ background: '#7dd3fc', color: '#0a1929', fontWeight: 600, fontSize: '.95rem', padding: '4px 12px' }}
+                          onClick={() => {
+                            // Find last set for this exercise in the current session
+                            const last = setsForExercise.length > 0 ? setsForExercise[setsForExercise.length - 1] : null;
+                            setAddSetForm(f => ({
+                              ...f,
+                              categoryId: exercise ? exercise.categoryId : '',
+                              exerciseId: exerciseId,
+                              reps: last?.reps?.toString() || '',
+                              weight: last?.weight?.toString() || '',
+                              distance: last?.distance?.toString() || '',
+                              durationSec: last?.durationSec?.toString() || '',
+                              rpe: last?.rpe?.toString() || '',
+                              notes: last?.notes || ''
+                            }));
+                            setShowAddSet(true);
+                          }}
+                        >
+                          + Add Set
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+                        {setsForExercise.map((set, i) => (
+                          <SetRow
+                            key={set.id}
+                            set={set}
+                            exercise={exercise}
+                            onDelete={deleteSet}
+                            showOrder
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
                 })}
               </div>
             )}
@@ -269,115 +348,199 @@ export default function WorkoutActive() {
 
       {/* Add Set Modal */}
       {showAddSet && (
-        <Modal title="Add Set" onClose={() => setShowAddSet(false)} size="medium">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>
-                Exercise
-              </label>
-              <select 
-                className="input"
-                value={addSetForm.exerciseId}
-                onChange={(e) => setAddSetForm({ ...addSetForm, exerciseId: e.target.value })}
-              >
-                <option value="">— Select Exercise —</option>
-                {exercises.map(ex => (
-                  <option key={ex.id} value={ex.id}>{ex.name}</option>
-                ))}
-              </select>
-            </div>
+        <Modal title="Add Set" onClose={() => setShowAddSet(false)} size="large">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Step 1: Category selection */}
+            {!addSetForm.categoryId && (
+              <>
+                <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 8 }}>Select a Category</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
+                  {categories.map(cat => (
+                    <div
+                      key={cat.id}
+                      className="card"
+                      style={{ cursor: 'pointer', borderLeft: `4px solid ${cat.color || '#7dd3fc'}`, background: `${cat.color || '#7dd3fc'}08` }}
+                      onClick={() => setAddSetForm(f => ({ ...f, categoryId: cat.id, exerciseId: '' }))}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: cat.color || '#7dd3fc' }} />
+                        <span style={{ fontWeight: 700, color: cat.color || '#7dd3fc' }}>{cat.name}</span>
+                      </div>
+                      {cat.description && <div style={{ fontSize: '.85rem', opacity: .7, marginTop: 4 }}>{cat.description}</div>}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <button className="btn" onClick={() => setShowAddSet(false)} style={{ background: 'rgba(255,255,255,0.1)' }}>Cancel</button>
+                </div>
+              </>
+            )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>
-                  Reps
-                </label>
-                <input 
-                  type="number"
-                  className="input"
-                  placeholder="e.g. 10"
-                  value={addSetForm.reps}
-                  onChange={(e) => setAddSetForm({ ...addSetForm, reps: e.target.value })}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>
-                  Weight (kg)
-                </label>
-                <input 
-                  type="number"
-                  step="0.5"
-                  className="input"
-                  placeholder="e.g. 60"
-                  value={addSetForm.weight}
-                  onChange={(e) => setAddSetForm({ ...addSetForm, weight: e.target.value })}
-                />
-              </div>
-            </div>
+            {/* Step 2: Exercise selection */}
+            {addSetForm.categoryId && !addSetForm.exerciseId && (
+              <>
+                <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 8 }}>Select an Exercise</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                  {exercises.filter(ex => ex.categoryId === addSetForm.categoryId).map(ex => (
+                    <div
+                      key={ex.id}
+                      className="card"
+                      style={{ cursor: 'pointer', borderLeft: `4px solid ${categories.find(c => c.id === addSetForm.categoryId)?.color || '#7dd3fc'}` }}
+                      onClick={() => setAddSetForm(f => ({ ...f, exerciseId: ex.id }))}
+                    >
+                      <div style={{ fontWeight: 700 }}>{ex.name}</div>
+                      {ex.muscleGroup && <div style={{ fontSize: '.85rem', opacity: .7, marginTop: 4 }}>{ex.muscleGroup}</div>}
+                      {ex.notes && <div style={{ fontSize: '.85rem', opacity: .6, marginTop: 6, fontStyle: 'italic' }}>{ex.notes}</div>}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <button className="btn" onClick={() => setAddSetForm(f => ({ ...f, categoryId: '', exerciseId: '' }))} style={{ background: 'rgba(255,255,255,0.1)' }}>Back</button>
+                </div>
+              </>
+            )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>
-                  Distance (m)
-                </label>
-                <input 
-                  type="number"
-                  className="input"
-                  placeholder="e.g. 5000"
-                  value={addSetForm.distance}
-                  onChange={(e) => setAddSetForm({ ...addSetForm, distance: e.target.value })}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>
-                  Duration (sec)
-                </label>
-                <input 
-                  type="number"
-                  className="input"
-                  placeholder="e.g. 60"
-                  value={addSetForm.durationSec}
-                  onChange={(e) => setAddSetForm({ ...addSetForm, durationSec: e.target.value })}
-                />
-              </div>
-            </div>
+            {/* Step 3: Set entry and history */}
+            {addSetForm.categoryId && addSetForm.exerciseId && (
+              <>
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '.5rem' }}>
+                  <button className="btn" style={{ fontWeight: addSetTab === 'add' ? 700 : 400, background: addSetTab === 'add' ? '#7dd3fc' : 'rgba(125,211,252,0.1)', color: addSetTab === 'add' ? '#0a1929' : undefined }} onClick={() => setAddSetTab('add')}>Add Set</button>
+                  <button className="btn" style={{ fontWeight: addSetTab === 'history' ? 700 : 400, background: addSetTab === 'history' ? '#7dd3fc' : 'rgba(125,211,252,0.1)', color: addSetTab === 'history' ? '#0a1929' : undefined }} onClick={() => setAddSetTab('history')}>History</button>
+                </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>
-                RPE (1-10)
-              </label>
-              <input 
-                type="number"
-                min="1"
-                max="10"
-                className="input"
-                placeholder="e.g. 8"
-                value={addSetForm.rpe}
-                onChange={(e) => setAddSetForm({ ...addSetForm, rpe: e.target.value })}
-              />
-            </div>
+                {addSetTab === 'add' && (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>Reps</label>
+                        <input
+                          type="number"
+                          className="input"
+                          placeholder="e.g. 10"
+                          value={addSetForm.reps}
+                          onChange={e => setAddSetForm(f => ({ ...f, reps: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>Weight (kg)</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          className="input"
+                          placeholder="e.g. 60"
+                          value={addSetForm.weight}
+                          onChange={e => setAddSetForm(f => ({ ...f, weight: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>Distance (m)</label>
+                        <input
+                          type="number"
+                          className="input"
+                          placeholder="e.g. 5000"
+                          value={addSetForm.distance}
+                          onChange={e => setAddSetForm(f => ({ ...f, distance: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>Duration (sec)</label>
+                        <input
+                          type="number"
+                          className="input"
+                          placeholder="e.g. 60"
+                          value={addSetForm.durationSec}
+                          onChange={e => setAddSetForm(f => ({ ...f, durationSec: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>RPE (1-10)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        className="input"
+                        placeholder="e.g. 8"
+                        value={addSetForm.rpe}
+                        onChange={e => setAddSetForm(f => ({ ...f, rpe: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>Notes</label>
+                      <textarea
+                        className="input"
+                        rows={3}
+                        placeholder="Any notes about this set..."
+                        value={addSetForm.notes}
+                        onChange={e => setAddSetForm(f => ({ ...f, notes: e.target.value }))}
+                      />
+                    </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', opacity: .9 }}>
-                Notes
-              </label>
-              <textarea 
-                className="input"
-                rows={3}
-                placeholder="Any notes about this set..."
-                value={addSetForm.notes}
-                onChange={(e) => setAddSetForm({ ...addSetForm, notes: e.target.value })}
-              />
-            </div>
+                    {/* Last set summary */}
+                    {lastSet && (
+                      <div className="card" style={{ background: 'rgba(125,211,252,0.08)', marginTop: '1rem', padding: '1rem' }}>
+                        <div style={{ fontWeight: 700, marginBottom: 4 }}>Last Set</div>
+                        <div style={{ fontSize: '.95rem', opacity: .85 }}>
+                          {lastSet.weight ? `${lastSet.weight} kg × ` : ''}{lastSet.reps ? `${lastSet.reps} reps` : ''}
+                          {lastSet.distance ? ` • ${lastSet.distance} m` : ''}
+                          {lastSet.durationSec ? ` • ${lastSet.durationSec} sec` : ''}
+                          {lastSet.rpe ? ` • RPE ${lastSet.rpe}` : ''}
+                        </div>
+                        <div style={{ fontSize: '.85rem', opacity: .7, marginTop: 2 }}>{lastSet.date ? new Date(lastSet.date).toLocaleString() : ''}</div>
+                        {lastSet.notes && <div style={{ fontSize: '.85rem', opacity: .7, marginTop: 2, fontStyle: 'italic' }}>{lastSet.notes}</div>}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
+                      <button className="btn" onClick={addSet}>
+                        Add Set
+                      </button>
+                      <button className="btn" onClick={() => setAddSetForm(f => ({ ...f, exerciseId: '' }))} style={{ background: 'rgba(255,255,255,0.1)' }}>
+                        Back
+                      </button>
+                    </div>
+                  </>
+                )}
 
-            <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
-              <button className="btn" onClick={addSet}>
-                Add Set
-              </button>
-              <button className="btn" onClick={() => setShowAddSet(false)} style={{ background: 'rgba(255,255,255,0.1)' }}>
-                Cancel
-              </button>
-            </div>
+                {/* History Tab */}
+                {addSetTab === 'history' && (
+                  <div style={{ maxHeight: 350, overflowY: 'auto' }}>
+                    {exerciseHistory.length === 0 ? (
+                      <div style={{ opacity: .7, textAlign: 'center', padding: '2rem' }}>No history for this exercise.</div>
+                    ) : (
+                      <table style={{ width: '100%', fontSize: '.97rem', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid rgba(125,211,252,0.2)' }}>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Date</th>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Weight</th>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Reps</th>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Distance</th>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Duration</th>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>RPE</th>
+                            <th style={{ textAlign: 'left', padding: '6px 4px' }}>Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {exerciseHistory.map((set, i) => (
+                            <tr key={set.id || i} style={{ borderBottom: '1px solid rgba(125,211,252,0.08)' }}>
+                              <td style={{ padding: '6px 4px' }}>{set.date ? new Date(set.date).toLocaleString() : ''}</td>
+                              <td style={{ padding: '6px 4px' }}>{set.weight ?? ''}</td>
+                              <td style={{ padding: '6px 4px' }}>{set.reps ?? ''}</td>
+                              <td style={{ padding: '6px 4px' }}>{set.distance ?? ''}</td>
+                              <td style={{ padding: '6px 4px' }}>{set.durationSec ?? ''}</td>
+                              <td style={{ padding: '6px 4px' }}>{set.rpe ?? ''}</td>
+                              <td style={{ padding: '6px 4px', fontStyle: 'italic', opacity: .7 }}>{set.notes ?? ''}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </Modal>
       )}
@@ -436,7 +599,8 @@ export default function WorkoutActive() {
                 onClick={endWorkout}
                 style={{ background: 'rgba(34,197,94,0.2)', color: '#22c55e' }}
               >
-                ✓ Finish & Save
+                <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '4px', fontSize: '18px' }}>check</span>
+                Finish & Save
               </button>
               <button className="btn" onClick={() => setShowEndModal(false)} style={{ background: 'rgba(255,255,255,0.1)' }}>
                 Cancel

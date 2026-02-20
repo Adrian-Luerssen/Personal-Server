@@ -12,6 +12,7 @@ import { ToolService } from "./tools/tool.service";
 import { ToolController } from "./tools/tool.controller";
 import { MusicModule } from "./music/music.module";
 import { WorkoutModule } from "./workout/workout.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
 
 @Module({
   providers: [
@@ -33,6 +34,7 @@ import { WorkoutModule } from "./workout/workout.module";
     SystemModule,
     MusicModule,
     WorkoutModule,
+    DashboardModule,
     HealthModule,
     TypeOrmModule.forFeature([Tool]),
   ],

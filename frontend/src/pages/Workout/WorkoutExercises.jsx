@@ -199,7 +199,7 @@ export default function WorkoutExercises() {
 
   return (
     <div className="content" style={{ marginLeft: sidebarCollapsed ? 80 : 260 }}>
-      <h1>🗂️ Exercises & Categories</h1>
+      <h1><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '8px' }}>folder_open</span>Exercises & Categories</h1>
 
       {error && (
         <div className="card" style={{ borderColor: 'rgba(239,68,68,0.5)', marginBottom: '1rem' }}>
@@ -254,7 +254,8 @@ export default function WorkoutExercises() {
             className="btn"
             onClick={() => tab === 'exercises' ? openExerciseModal() : openCategoryModal()}
           >
-            ➕ Add {tab === 'exercises' ? 'Exercise' : 'Category'}
+            <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '4px', fontSize: '18px' }}>add</span>
+            Add {tab === 'exercises' ? 'Exercise' : 'Category'}
           </button>
         </div>
       </div>
@@ -300,7 +301,7 @@ export default function WorkoutExercises() {
           {tab === 'exercises' ? (
             filteredExercises.length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏋️</div>
+                <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: '#7dd3fc' }}>fitness_center</span>
                 <h3>No exercises found</h3>
                 <p style={{ opacity: .7, marginTop: '.5rem' }}>
                   {searchTerm ? 'Try adjusting your search' : 'Add your first exercise to get started'}
@@ -410,14 +411,14 @@ export default function WorkoutExercises() {
                                 </div>
                                 <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
                                   <button className="btn small" onClick={() => openExerciseModal(exercise)}>
-                                    ✏️
+                                    <span className="material-icons" style={{ fontSize: '18px' }}>edit</span>
                                   </button>
                                   <button 
                                     className="btn small" 
                                     onClick={() => deleteExercise(exercise)}
                                     style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}
                                   >
-                                    🗑️
+                                    <span className="material-icons" style={{ fontSize: '18px' }}>delete</span>
                                   </button>
                                 </div>
                               </div>
@@ -434,7 +435,7 @@ export default function WorkoutExercises() {
           ) : (
             filteredCategories.length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
+                <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: '#7dd3fc' }}>folder</span>
                 <h3>No categories found</h3>
                 <p style={{ opacity: .7, marginTop: '.5rem' }}>
                   {searchTerm ? 'Try adjusting your search' : 'Add your first category to organize exercises'}
@@ -468,14 +469,14 @@ export default function WorkoutExercises() {
                         </div>
                         <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
                           <button className="btn small" onClick={() => openCategoryModal(category)}>
-                            ✏️
+                            <span className="material-icons" style={{ fontSize: '18px' }}>edit</span>
                           </button>
                           <button 
                             className="btn small" 
                             onClick={() => deleteCategory(category)}
                             style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}
                           >
-                            🗑️
+                            <span className="material-icons" style={{ fontSize: '18px' }}>delete</span>
                           </button>
                         </div>
                       </div>

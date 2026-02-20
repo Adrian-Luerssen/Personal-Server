@@ -9,6 +9,7 @@ import { WorkoutSession } from "./session.entity";
 import { In, Repository } from "typeorm";
 import { Account } from "../../system/accounts/account.entity";
 import { WorkoutSet } from "../sets/set.entity";
+import { formatDateYYYYMMDDInZone } from "../../utils/utils";
 
 @Injectable()
 export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
@@ -27,7 +28,9 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
     if (isNaN(startAt.getTime()))
       throw new BadRequestException("Invalid startAt");
 
-    const date = body.date ?? startAt.toISOString().slice(0, 10);
+    // Default session date to Europe/Madrid local date
+    const date =
+      body.date ?? formatDateYYYYMMDDInZone(startAt, "Europe/Madrid");
     const session = this.repo.create({
       accountId: account.id,
       account,
@@ -168,17 +171,25 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
         relations: ["sets", "sets.exercise", "sets.exercise.category"],
       });
       const orderMap = new Map(ids.map((id, idx) => [id, idx] as const));
-      sessions.sort((a, b) => (orderMap.get(a.id)! - orderMap.get(b.id)!));
+      sessions.sort((a, b) => orderMap.get(a.id)! - orderMap.get(b.id)!);
     }
 
     // Transform sessions to include category info without mutating entities
     const transformedSessions = sessions.map((session) => {
-      const categoryMap = new Map<string, { id: string; name: string; color: string }>();
+      const categoryMap = new Map<
+        string,
+        { id: string; name: string; color: string }
+      >();
       const transformedSets = (session.sets || []).map((set) => {
         const cat = set.exercise?.category;
-        let categoryInfo: { id: string; name: string; color: string } | null = null;
+        let categoryInfo: { id: string; name: string; color: string } | null =
+          null;
         if (cat) {
-          categoryMap.set(cat.id, { id: cat.id, name: cat.name, color: cat.color });
+          categoryMap.set(cat.id, {
+            id: cat.id,
+            name: cat.name,
+            color: cat.color,
+          });
           categoryInfo = { id: cat.id, name: cat.name, color: cat.color };
         }
         return {
@@ -220,9 +231,14 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
         .createQueryBuilder("s")
         .where("s.accountId = :aid", { aid: account.id })
         .andWhere("s.endAt IS NOT NULL")
-        .select("COALESCE(SUM(EXTRACT(EPOCH FROM (s.endAt - s.startAt))), 0)", "seconds")
+        .select(
+          "COALESCE(SUM(EXTRACT(EPOCH FROM (s.endAt - s.startAt))), 0)",
+          "seconds"
+        )
         .getRawOne<{ seconds: string | number | null }>();
-      totalTimeSeconds = timeRow?.seconds ? Math.floor(Number(timeRow.seconds)) : 0;
+      totalTimeSeconds = timeRow?.seconds
+        ? Math.floor(Number(timeRow.seconds))
+        : 0;
     } catch {
       // Fallback (DBs without EXTRACT): compute from minimal dataset
       const times = await this.repo.find({
@@ -231,7 +247,9 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
       });
       totalTimeSeconds = times.reduce((acc, s) => {
         if (s.startAt && s.endAt) {
-          const diff = (new Date(s.endAt).getTime() - new Date(s.startAt).getTime()) / 1000;
+          const diff =
+            (new Date(s.endAt).getTime() - new Date(s.startAt).getTime()) /
+            1000;
           if (diff > 0) return acc + Math.floor(diff);
         }
         return acc;

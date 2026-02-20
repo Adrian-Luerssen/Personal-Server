@@ -156,7 +156,8 @@ export default function WorkoutBodyweight() {
       {/* Add button */}
       <div style={{ marginBottom: '1.5rem' }}>
         <button className="btn" onClick={() => openModal()}>
-          ➕ Log Weight
+          <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '4px', fontSize: '18px' }}>add</span>
+          Log Weight
         </button>
       </div>
 
@@ -258,14 +259,14 @@ export default function WorkoutBodyweight() {
                 </div>
                 <div style={{ display: 'flex', gap: '.5rem' }}>
                   <button className="btn small" onClick={() => openModal(entry)}>
-                    ✏️
+                    <span className="material-icons" style={{ fontSize: '18px' }}>edit</span>
                   </button>
                   <button 
                     className="btn small" 
                     onClick={() => deleteEntry(entry)}
                     style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}
                   >
-                    🗑️
+                    <span className="material-icons" style={{ fontSize: '18px' }}>delete</span>
                   </button>
                 </div>
               </div>

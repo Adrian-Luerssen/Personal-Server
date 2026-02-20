@@ -64,10 +64,18 @@ export default function Sidebar({ collapsed, onToggle }) {
   return (
     <aside className={'sidebar' + (collapsed ? ' collapsed' : '')}>
       <div className="brand">Personal Server</div>
-      <button className="btn btn-ghost small" onClick={onToggle}>{collapsed ? '➡️' : '⬅️'}</button>
+      <button className="btn btn-ghost small" onClick={onToggle}>
+        <span className="material-icons" style={{ fontSize: '20px' }}>{collapsed ? 'chevron_right' : 'chevron_left'}</span>
+      </button>
       <nav className="nav">
-        <NavLink to="/home" className={({isActive})=> 'nav-link'+(isActive?' active':'')}>{collapsed ? '🏠' : '🏠 Home'}</NavLink>
-        <NavLink to="/profile" className={({isActive})=> 'nav-link'+(isActive?' active':'')}>{collapsed ? '👤' : '👤 Profile'}</NavLink>
+        <NavLink to="/home" className={({isActive})=> 'nav-link'+(isActive?' active':'')}>
+          <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>home</span>
+          {!collapsed && 'Home'}
+        </NavLink>
+        <NavLink to="/profile" className={({isActive})=> 'nav-link'+(isActive?' active':'')}>
+          <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>person</span>
+          {!collapsed && 'Profile'}
+        </NavLink>
         
         {/* Spotify section with conditional dropdown */}
         <div
@@ -80,22 +88,26 @@ export default function Sidebar({ collapsed, onToggle }) {
           aria-haspopup={spotifyLinked ? 'menu' : undefined}
         >
           {collapsed ? (
-            <span>
-              🎵{spotifyLinked === false ? ' ⚠️' : ''}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span className="material-icons" style={{ fontSize: '20px' }}>music_note</span>
+              {spotifyLinked === false && <span className="material-icons" style={{ fontSize: '16px', color: '#fbbf24' }}>warning</span>}
             </span>
           ) : (
-            <span>
-              🎵 Spotify {spotifyLinked ? (spotifyMenuOpen ? '▾' : '▸') : '(global)'}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="material-icons" style={{ fontSize: '20px' }}>music_note</span>
+              <span>Spotify {spotifyLinked ? (spotifyMenuOpen ? '▾' : '▸') : '(global)'}</span>
             </span>
           )}
         </div>
         {spotifyLinked && spotifyMenuOpen && (
           <div className="subnav" role="menu" aria-label="Spotify views" style={{ marginLeft: collapsed ? 12 : 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <NavLink to="/spotify/personal" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '👤' : '👤 Personal'}
+              <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>person</span>
+              {!collapsed && 'Personal'}
             </NavLink>
             <NavLink to="/spotify/global" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '🌐' : '🌐 Global'}
+              <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>public</span>
+              {!collapsed && 'Global'}
             </NavLink>
           </div>
         )}
@@ -110,27 +122,40 @@ export default function Sidebar({ collapsed, onToggle }) {
           aria-expanded={workoutMenuOpen}
           aria-haspopup="menu"
         >
-          {collapsed ? '💪' : `💪 Workout ${workoutMenuOpen ? '▾' : '▸'}`}
+          {collapsed ? (
+            <span className="material-icons" style={{ fontSize: '20px' }}>fitness_center</span>
+          ) : (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="material-icons" style={{ fontSize: '20px' }}>fitness_center</span>
+              <span>Workout {workoutMenuOpen ? '▾' : '▸'}</span>
+            </span>
+          )}
         </div>
         {workoutMenuOpen && (
           <div className="subnav" role="menu" aria-label="Workout views" style={{ marginLeft: collapsed ? 12 : 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <NavLink to="/workout" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '📊' : '📊 Dashboard'}
+              <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>dashboard</span>
+              {!collapsed && 'Dashboard'}
             </NavLink>
             <NavLink to="/workout/active" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '⚡' : '⚡ Active'}
+              <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>bolt</span>
+              {!collapsed && 'Active'}
             </NavLink>
             <NavLink to="/workout/history" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '📅' : '📅 History'}
+              <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>history</span>
+              {!collapsed && 'History'}
             </NavLink>
             <NavLink to="/workout/exercises" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '📝' : '📝 Exercises'}
+              <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>list</span>
+              {!collapsed && 'Exercises'}
             </NavLink>
             <NavLink to="/workout/bodyweight" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '⚖️' : '⚖️ Bodyweight'}
+              <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>monitor_weight</span>
+              {!collapsed && 'Bodyweight'}
             </NavLink>
             <NavLink to="/workout/import" className={({isActive})=> 'nav-link'+(isActive?' active':'')} role="menuitem">
-              {collapsed ? '📥' : '📥 Import'}
+              <span className="material-icons" style={{ fontSize: '20px', marginRight: collapsed ? 0 : '8px' }}>file_download</span>
+              {!collapsed && 'Import'}
             </NavLink>
           </div>
         )}

@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 
 import * as bcrypt from "bcryptjs";
+import * as speakeasy from "speakeasy";
+import * as QRCode from "qrcode";
 import { Account } from "../accounts/account.entity";
 import { AccountsService } from "../accounts/accounts.service";
 import { RefreshTokenService } from "./refreshToken.service";
@@ -91,5 +93,140 @@ export class AuthService {
     inputCredential: string
   ): Promise<boolean> {
     return await bcrypt.compare(inputCredential, account.password);
+  }
+
+  // MFA Methods
+  public async authenticateWithMFA(
+    email: string,
+    credentials: string,
+    rememberMe: boolean,
+    mfaCode?: string
+  ): Promise<{
+    refreshToken?: string;
+    mfaRequired?: boolean;
+    tempToken?: string;
+  }> {
+    const account = await this.authenticateAccount(email, credentials);
+    if (!account) {
+      return {};
+    }
+
+    // If MFA is enabled, require code
+    if (account.mfaEnabled && account.mfaSecret) {
+      if (!mfaCode) {
+        // Generate a temporary token that encodes the account ID
+        const tempToken = Buffer.from(`${account.id}:${Date.now()}`).toString(
+          "base64"
+        );
+        return { mfaRequired: true, tempToken };
+      }
+
+      // Verify MFA code
+      const verified = speakeasy.totp.verify({
+        secret: account.mfaSecret,
+        encoding: "base32",
+        token: mfaCode,
+        window: 2,
+      });
+
+      if (!verified) {
+        throw new Error("Invalid MFA code");
+      }
+    }
+
+    // Generate tokens
+    const refreshToken = await this.refreshTokenService.generateRefreshToken(
+      account,
+      rememberMe
+    );
+    return { refreshToken };
+  }
+
+  public async setupMFA(
+    accountId: string
+  ): Promise<{ secret: string; qrCode: string }> {
+    const account = await this.accountService.findOne({
+      where: { id: accountId },
+    });
+    if (!account) throw new Error("Account not found");
+
+    const secret = speakeasy.generateSecret({
+      name: `PersonalServer (${account.email})`,
+      issuer: "PersonalServer",
+    });
+
+    const qrCode = await QRCode.toDataURL(secret.otpauth_url);
+
+    return {
+      secret: secret.base32,
+      qrCode,
+    };
+  }
+
+  public async enableMFA(
+    accountId: string,
+    secret: string,
+    code: string
+  ): Promise<{ success: boolean; message: string }> {
+    const account = await this.accountService.findOne({
+      where: { id: accountId },
+    });
+    if (!account) throw new Error("Account not found");
+
+    const verified = speakeasy.totp.verify({
+      secret,
+      encoding: "base32",
+      token: code,
+      window: 2,
+    });
+
+    if (!verified) {
+      return { success: false, message: "Invalid code" };
+    }
+
+    await this.accountService.updateAccount(accountId, {
+      mfaSecret: secret,
+      mfaEnabled: true,
+    });
+
+    return { success: true, message: "MFA enabled successfully" };
+  }
+
+  public async disableMFA(
+    accountId: string,
+    code: string
+  ): Promise<{ success: boolean; message: string }> {
+    const account = await this.accountService.findOne({
+      where: { id: accountId },
+    });
+    if (!account) throw new Error("Account not found");
+    if (!account.mfaEnabled || !account.mfaSecret) {
+      return { success: false, message: "MFA is not enabled" };
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: account.mfaSecret,
+      encoding: "base32",
+      token: code,
+      window: 2,
+    });
+
+    if (!verified) {
+      return { success: false, message: "Invalid code" };
+    }
+
+    await this.accountService.updateAccount(accountId, {
+      mfaSecret: null,
+      mfaEnabled: false,
+    });
+
+    return { success: true, message: "MFA disabled successfully" };
+  }
+
+  public async getMFAStatus(accountId: string): Promise<{ enabled: boolean }> {
+    const account = await this.accountService.findOne({
+      where: { id: accountId },
+    });
+    return { enabled: account?.mfaEnabled ?? false };
   }
 }

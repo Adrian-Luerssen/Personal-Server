@@ -7,6 +7,7 @@ import { ApiBearerAuth } from "@nestjs/swagger";
 import { SpotifyCredentials } from "./spotifyCredentials.entity";
 import { SpotifyService } from "./spotify.service";
 import { NoAuth, ReqUser } from "../auth/auth.decorator";
+import { SpotifyGateway } from "./spotify.gateway";
 
 @CrudAccountOwnedEntity({
   model: { type: SpotifyCredentials },
@@ -15,7 +16,10 @@ import { NoAuth, ReqUser } from "../auth/auth.decorator";
 @ApiBearerAuth("access-token")
 @Controller("spotify")
 export class SpotifyController {
-  constructor(private service: SpotifyService) {}
+  constructor(
+    private service: SpotifyService,
+    private gateway: SpotifyGateway
+  ) {}
 
   @Get("me")
   async me(@ReqUser() user: any) {
@@ -61,7 +65,10 @@ export class SpotifyController {
 
   @Post("sync-streams")
   async syncStreams(@ReqUser() user: any) {
-    return await this.service.syncLatestStreams(user.id);
+    const res = await this.service.syncLatestStreams(user.id);
+    // After syncing, broadcast current status update to the user's room
+    await this.gateway.broadcastCurrentForAccount(user.id);
+    return res;
   }
 
   @NoAuth()
@@ -73,7 +80,8 @@ export class SpotifyController {
   @NoAuth()
   @Post("refreshAllTokens")
   async refreshAllTokens() {
-    return await this.service.refreshAllTokens();
+    const resp = await this.service.refreshAllTokens();
+    return resp;
   }
 
   @Get("currently-playing")

@@ -60,7 +60,7 @@ export default function WorkoutImport() {
 
   return (
     <div className="content" style={{ marginLeft: sidebarCollapsed ? 80 : 260 }}>
-      <h1>📥 Import FitNotes Data</h1>
+      <h1><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '8px' }}>file_download</span>Import FitNotes Data</h1>
 
       <div className="card" style={{ marginBottom: '1.5rem', background: 'rgba(125,211,252,0.1)' }}>
         <h3 style={{ marginBottom: '.75rem' }}>About FitNotes Import</h3>
@@ -142,7 +142,10 @@ export default function WorkoutImport() {
               Importing...
             </span>
           ) : (
-            '📥 Start Import'
+            <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+              <span className="material-icons" style={{ fontSize: '18px' }}>file_download</span>
+              Start Import
+            </span>
           )}
         </button>
       </div>

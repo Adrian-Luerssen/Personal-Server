@@ -77,7 +77,7 @@ export default function Workout() {
 
   return (
     <div className="content" style={{ marginLeft: sidebarCollapsed ? 80 : 260 }}>
-      <h1>💪 Workout Tracker</h1>
+      <h1><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '8px' }}>fitness_center</span>Workout Tracker</h1>
 
       <div>
         {/* Active workout banner or skeleton */}
@@ -95,7 +95,7 @@ export default function Workout() {
             onClick={() => navigate('/workout/active')}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ fontSize: '2rem' }}>🏃</div>
+              <span className="material-icons" style={{ fontSize: '2rem', color: '#fbbf24' }}>directions_run</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#fbbf24' }}>
                   Workout in Progress
@@ -149,7 +149,7 @@ export default function Workout() {
               }}
               onClick={startWorkout}
             >
-              <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>🏋️</div>
+              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: '#7dd3fc' }}>fitness_center</span>
               <div style={{ fontWeight: 700 }}>Start Workout</div>
             </button>
 
@@ -164,7 +164,7 @@ export default function Workout() {
               }}
               onClick={() => navigate('/workout/history')}
             >
-              <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📊</div>
+              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: '#7dd3fc' }}>bar_chart</span>
               <div style={{ fontWeight: 700 }}>View History</div>
             </button>
 
@@ -179,7 +179,7 @@ export default function Workout() {
               }}
               onClick={() => navigate('/workout/exercises')}
             >
-              <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>🗂️</div>
+              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: '#7dd3fc' }}>folder_open</span>
               <div style={{ fontWeight: 700 }}>Manage Exercises</div>
             </button>
 
@@ -194,7 +194,7 @@ export default function Workout() {
               }}
               onClick={() => navigate('/workout/bodyweight')}
             >
-              <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>⚖️</div>
+              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: '#7dd3fc' }}>monitor_weight</span>
               <div style={{ fontWeight: 700 }}>Bodyweight</div>
             </button>
 
@@ -209,7 +209,7 @@ export default function Workout() {
               }}
               onClick={() => navigate('/workout/import')}
             >
-              <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📥</div>
+              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: '#7dd3fc' }}>file_download</span>
               <div style={{ fontWeight: 700 }}>Import Data</div>
             </button>
           </div>

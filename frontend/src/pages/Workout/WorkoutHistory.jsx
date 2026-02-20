@@ -150,7 +150,7 @@ export default function WorkoutHistory() {
     if (!window.confirm('Delete this workout session? All sets will be removed.')) return
     setError('')
     try {
-      await api.post(`/workout/sessions/${sessionId}`, { method: 'DELETE' })
+      await api.delete(`/workout/sessions/${sessionId}`)
       setSessions(sessions.filter(s => s.id !== sessionId))
       closeDetail()
       // Reload to update stats
@@ -176,7 +176,7 @@ export default function WorkoutHistory() {
 
   return (
     <div className="content" style={{ marginLeft: sidebarCollapsed ? 80 : 260 }}>
-      <h1>📊 Workout History</h1>
+      <h1><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '8px' }}>bar_chart</span>Workout History</h1>
 
       {error && (
         <div className="card" style={{ borderColor: 'rgba(239,68,68,0.5)', marginBottom: '1rem' }}>
@@ -244,7 +244,7 @@ export default function WorkoutHistory() {
         </div>
       ) : filteredSessions.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+          <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: '#7dd3fc' }}>inbox</span>
           <h3>No workouts found</h3>
           <p style={{ opacity: .7, marginTop: '.5rem' }}>
             {searchTerm || dateFilter ? 'Try adjusting your filters' : 'Start tracking to see your history here'}
@@ -288,7 +288,8 @@ export default function WorkoutHistory() {
           
           {!hasMore && sessions.length > 0 && (
             <div style={{ textAlign: 'center', marginTop: '1.5rem', opacity: .5, fontSize: '.9rem' }}>
-              🎉 You've reached the end of your workout history
+              <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '4px', fontSize: '16px' }}>check_circle</span>
+              You've reached the end of your workout history
             </div>
           )}
         </div>
@@ -432,7 +433,8 @@ export default function WorkoutHistory() {
                 onClick={() => deleteSession(selectedSession.id)}
                 style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}
               >
-                🗑️ Delete Workout
+                <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: '4px', fontSize: '18px' }}>delete</span>
+                Delete Workout
               </button>
               <button className="btn" onClick={closeDetail} style={{ marginLeft: 'auto' }}>
                 Close

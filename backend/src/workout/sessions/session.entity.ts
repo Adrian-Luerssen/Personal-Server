@@ -7,11 +7,11 @@ import { WorkoutSet } from "../sets/set.entity";
 @Index(["accountId", "date"], { unique: false })
 export class WorkoutSession extends AbstractAccountOwnedEntity {
   @ApiProperty({ description: "Session start timestamp" })
-  @Column({ type: "timestamp" })
+  @Column({ type: "timestamptz" })
   startAt: Date;
 
   @ApiProperty({ description: "Session end timestamp", required: false })
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   endAt?: Date | null;
 
   @ApiProperty({ description: "Session date (local)" })

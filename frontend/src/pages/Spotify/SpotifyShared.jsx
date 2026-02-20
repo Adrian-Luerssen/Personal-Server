@@ -138,6 +138,71 @@ export function StatCard({ label, value }) {
   )
 }
 
+// AnimatedNumber smoothly transitions between numeric values and shows a glow:
+// - green glow when value increases
+// - red glow when value decreases
+export function AnimatedNumber({
+  value = 0,
+  formatter = (n) => String(n),
+  durationMs = 800,
+  decimals = 0,
+  style,
+}) {
+  const [display, setDisplay] = useState(Number(value) || 0)
+  const prevRef = useRef(Number(value) || 0)
+  const rafRef = useRef(0)
+  const glowTimeoutRef = useRef(0)
+  const [glow, setGlow] = useState(null) // 'up' | 'down' | null
+
+  useEffect(() => {
+    const target = Number(value) || 0
+    const start = prevRef.current
+    if (target === start) return
+
+    // determine direction and trigger glow briefly
+    const direction = target > start ? 'up' : 'down'
+    setGlow(direction)
+    if (glowTimeoutRef.current) window.clearTimeout(glowTimeoutRef.current)
+    glowTimeoutRef.current = window.setTimeout(() => setGlow(null), Math.min(durationMs + 200, 1200))
+
+    const t0 = performance.now()
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
+    const step = (now) => {
+      const dt = Math.min(1, (now - t0) / durationMs)
+      const eased = easeOutCubic(dt)
+      const current = start + (target - start) * eased
+      setDisplay(current)
+      if (dt < 1) {
+        rafRef.current = requestAnimationFrame(step)
+      } else {
+        setDisplay(target)
+        prevRef.current = target
+      }
+    }
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(step)
+    // cleanup
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [value, durationMs])
+
+  useEffect(() => () => { if (glowTimeoutRef.current) window.clearTimeout(glowTimeoutRef.current) }, [])
+
+  const rounded = decimals > 0 ? Number(display.toFixed(decimals)) : Math.round(display)
+  const green = 'rgba(74, 222, 128, 0.9)' // emerald-400
+  const red = 'rgba(248, 113, 113, 0.9)' // red-400
+  const textShadow = glow === 'up'
+    ? `0 0 10px ${green}, 0 0 20px ${green}`
+    : glow === 'down'
+      ? `0 0 10px ${red}, 0 0 20px ${red}`
+      : 'none'
+
+  return (
+    <span style={{ textShadow, transition: 'text-shadow 260ms ease', willChange: 'contents', ...style }}>
+      {formatter(rounded)}
+    </span>
+  )
+}
+
 export function formatNumberShort(num) {
   if (num === null || num === undefined || isNaN(num)) return '0'
   const abs = Math.abs(num)
@@ -160,12 +225,16 @@ export function PodiumCard({ data, rank, type, details }) {
     ? (details?.title || data.trackId)
     : type === 'albums'
       ? (details?.title || data.albumId)
-      : (details?.name || data.artistId)
+      : type === 'playlists'
+        ? (details?.title || details?.name || data.playlistId)
+        : (details?.name || data.artistId)
   const subtitle = type === 'tracks'
     ? (details?.artists || '')
     : type === 'albums'
       ? (details?.artistName || '')
-      : ''
+      : type === 'playlists'
+        ? (details?.ownerName || details?.owner?.displayName || '')
+        : ''
   const getShineColor = () => {
     if (rank === 1) return '255,215,0'
     if (rank === 2) return '192,192,192'
@@ -212,7 +281,7 @@ export function PodiumCard({ data, rank, type, details }) {
         <div style={{ fontWeight: 700, color: rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : rank === 3 ? '#CD7F32' : undefined }}>{title}</div>
         {subtitle && <div style={{ opacity: .8, fontSize: '.95rem' }}>{subtitle}</div>}
         <div style={{ marginTop: '.5rem', opacity: .9 }}>
-          Plays: <b>{formatNumberShort(Number(data.count) || 0)}</b>
+          Plays: <b><AnimatedNumber value={Number(data.count) || 0} formatter={formatNumberShort} /></b>
         </div>
       </div>
       {rank <= 3 && (

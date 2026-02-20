@@ -14,4 +14,10 @@ export class Account extends AbstractEntity {
 
   @Column({ nullable: false })
   password: string;
+
+  @Column({ nullable: true })
+  mfaSecret?: string;
+
+  @Column({ default: false })
+  mfaEnabled: boolean;
 }

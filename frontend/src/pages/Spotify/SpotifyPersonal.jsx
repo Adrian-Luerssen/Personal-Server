@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { io } from 'socket.io-client'
+import { getApiBase } from '../../config'
+import { getTokens } from '../../auth'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import CurrentlyPlayingBox from '../../components/CurrentlyPlayingBox'
 import { Line, PolarArea } from 'react-chartjs-2'
 import {
@@ -16,7 +19,7 @@ import {
 } from 'chart.js'
 import { api, apiFetch } from '../../api'
 import '../../custom-scrollbar.css'
-import { LoadingDot, LoadingLine, HistoryModal, StatCard, formatDuration, formatNumberShort, PodiumCard } from './SpotifyShared'
+import { LoadingDot, LoadingLine, HistoryModal, StatCard, formatDuration, formatNumberShort, PodiumCard, AnimatedNumber } from './SpotifyShared'
 
 // Register Chart.js components
 ChartJS.register(
@@ -50,6 +53,7 @@ const mapTimeframe = (tf, from, to) => {
 }
 
 export default function SpotifyPersonal() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [profile, setProfile] = useState(null)
       // Avatar URL for personal stats card (must be after profile declaration)
       const avatarUrl = profile?.images?.[0]?.url
@@ -57,24 +61,33 @@ export default function SpotifyPersonal() {
       const [currentlyPlayingLoading, setCurrentlyPlayingLoading] = useState(true)
       const currentlyPlayingRef = useRef(null)
       const { sidebarCollapsed } = useOutletContext() || {}
-      const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(true)
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+    const hasLoadedOnceRef = useRef(false)
+    useEffect(() => { hasLoadedOnceRef.current = hasLoadedOnce }, [hasLoadedOnce])
       const [error, setError] = useState('')
       const [linked, setLinked] = useState(null)
       const [syncing, setSyncing] = useState(false)
       const [topTracks, setTopTracks] = useState([])
       const [topAlbums, setTopAlbums] = useState([])
       const [topArtists, setTopArtists] = useState([])
+      const [topPlaylists, setTopPlaylists] = useState([])
       const [topTrackDetails, setTopTrackDetails] = useState([])
       const [topAlbumDetails, setTopAlbumDetails] = useState([])
       const [topArtistDetails, setTopArtistDetails] = useState([])
+      const [topPlaylistDetails, setTopPlaylistDetails] = useState([])
   const [topCategory, setTopCategory] = useState('tracks')
   
       const [stats, setStats] = useState(null)
       const [history, setHistory] = useState([])
       const [showHistoryModal, setShowHistoryModal] = useState(false)
-      const [timeframe, setTimeframe] = useState('today')
-      const [customStart, setCustomStart] = useState('')
-      const [customEnd, setCustomEnd] = useState('')
+      // Initialize timeframe from URL query params
+      const initialTf = searchParams.get('tf') || 'today'
+      const initialFrom = searchParams.get('from') || ''
+      const initialTo = searchParams.get('to') || ''
+      const [timeframe, setTimeframe] = useState(initialTf)
+      const [customStart, setCustomStart] = useState(initialFrom)
+      const [customEnd, setCustomEnd] = useState(initialTo)
       const [perDay, setPerDay] = useState([])
       const [perHour, setPerHour] = useState([])
   
@@ -82,14 +95,31 @@ export default function SpotifyPersonal() {
       const timeframeRef = useRef(timeframe)
       const customStartRef = useRef(customStart)
       const customEndRef = useRef(customEnd)
+      const loadRequestIdRef = useRef(0)
   
       useEffect(() => { timeframeRef.current = timeframe }, [timeframe])
       useEffect(() => { customStartRef.current = customStart }, [customStart])
       useEffect(() => { customEndRef.current = customEnd }, [customEnd])
+
+      // Sync URL query with timeframe and custom dates
+      useEffect(() => {
+          const next = new URLSearchParams(searchParams)
+          next.set('tf', timeframe)
+          if (timeframe === 'custom') {
+              if (customStart) next.set('from', customStart); else next.delete('from')
+              if (customEnd) next.set('to', customEnd); else next.delete('to')
+          } else {
+              next.delete('from'); next.delete('to')
+          }
+          setSearchParams(next, { replace: true })
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [timeframe, customStart, customEnd])
   
       async function load() {
+          const myId = ++loadRequestIdRef.current
           setError('')
-          setLoading(true)
+          // Avoid flicker on subsequent refreshes; only show skeletons before first successful load
+          if (!hasLoadedOnceRef.current) setLoading(true)
           try {
               const linkStatus = await api.get('/spotify/linked')
               setLinked(!!linkStatus?.linked)
@@ -102,6 +132,7 @@ export default function SpotifyPersonal() {
                   setHistory([])
                   setPerDay([])
                   setPerHour([])
+                  if (!hasLoadedOnceRef.current) { setHasLoadedOnce(true); hasLoadedOnceRef.current = true }
                   return
               }
               // Always use current timeframe state via refs
@@ -114,34 +145,42 @@ export default function SpotifyPersonal() {
               } else if (currentTimeframe !== 'all') {
                   statsParams = `?timeframe=${currentTimeframe}`
               }
-              const [me, topTracksData, topAlbumsData, topArtistsData, statsData, historyData, perDayData, perHourData] = await Promise.all([
+              const [me, topTracksData, topAlbumsData, topArtistsData, topPlaylistsData, statsData, historyData, perDayData, perHourData] = await Promise.all([
                   api.get('/spotify/me'),
                   api.get('/streams/top?platform=spotify&limit=10&type=track' + (statsParams ? '&' + statsParams.slice(1) : '')),
                   api.get('/albums/top-albums?platform=spotify&limit=10' + (statsParams ? '&' + statsParams.slice(1) : '')),
                   api.get('/artists/top-artists?platform=spotify&limit=10' + (statsParams ? '&' + statsParams.slice(1) : '')),
+                  api.get('/playlists/top-playlists?platform=spotify&limit=10' + (statsParams ? '&' + statsParams.slice(1) : '')),
                   api.get('/streams/stats' + statsParams),
                   api.get('/streams/history?page=1&pageSize=10'),
                   api.get('/streams/per-day' + statsParams),
                   api.get('/streams/per-hour' + statsParams),
               ])
+              if (loadRequestIdRef.current !== myId) return
               setProfile(me)
               setTopTracks(topTracksData)
               setTopAlbums(topAlbumsData)
               setTopArtists(topArtistsData)
+              setTopPlaylists(topPlaylistsData)
               setStats(statsData)
               setHistory(Array.isArray(historyData.items) ? historyData.items : historyData)
               setPerDay(perDayData)
               setPerHour(perHourData)
   
               // Preload details for all top items
-              const [trackDetails, albumDetails, artistDetails] = await Promise.all([
+              const [trackDetails, albumDetails, artistDetails, playlistDetails] = await Promise.all([
                   Promise.all((topTracksData || []).map(t => api.get(`/tracks/${t.trackId}`))),
                   Promise.all((topAlbumsData || []).map(a => api.get(`/albums/${a.albumId}`))),
-                  Promise.all((topArtistsData || []).map(a => api.get(`/artists/${a.artistId}`)))
+                  Promise.all((topArtistsData || []).map(a => api.get(`/artists/${a.artistId}`))),
+                  Promise.all((topPlaylistsData || []).map(p => api.get(`/playlists/${p.playlistId}`)))
               ])
+              if (loadRequestIdRef.current !== myId) return
               setTopTrackDetails(trackDetails)
               setTopAlbumDetails(albumDetails)
               setTopArtistDetails(artistDetails)
+              setTopPlaylistDetails(playlistDetails)
+              // Mark that we have completed at least one load
+              if (!hasLoadedOnceRef.current) { setHasLoadedOnce(true); hasLoadedOnceRef.current = true }
           } catch (e) {
               setError(e.message || 'Failed to load Spotify data')
           } finally {
@@ -161,14 +200,6 @@ export default function SpotifyPersonal() {
           return { timeframe: 'all' }
       }
   
-      useEffect(() => {
-          if (!linked && linked !== null) {
-              setMainTab('global')
-              const ctrl = new AbortController()
-              loadGlobal(ctrl.signal)
-              return () => ctrl.abort()
-          }
-      }, [linked])
   
       // Initial bootstrap: fetch linked + profile without blocking UI
       useEffect(() => {
@@ -221,40 +252,66 @@ export default function SpotifyPersonal() {
           const pTracks = apiFetch(`/streams/top${q}`, { signal: ctrl.signal }).catch(() => [])
           const pAlbums = apiFetch(`/albums/top-albums${q}`, { signal: ctrl.signal }).catch(() => [])
           const pArtists = apiFetch(`/artists/top-artists${q}`, { signal: ctrl.signal }).catch(() => [])
-          Promise.all([pTracks, pAlbums, pArtists]).then(([tracks, albums, artists]) => {
+          const pPlaylists = apiFetch(`/playlists/top-playlists${q}`, { signal: ctrl.signal }).catch(() => [])
+          Promise.all([pTracks, pAlbums, pArtists, pPlaylists]).then(([tracks, albums, artists, playlists]) => {
               if (ctrl.signal.aborted) return
               setTopTracks(tracks)
               setTopAlbums(albums)
               setTopArtists(artists)
+              setTopPlaylists(playlists)
               // details prefetch
               Promise.all([
                   Promise.all((tracks || []).map(t => apiFetch(`/tracks/${t.trackId}`, { signal: ctrl.signal }).catch(() => null))),
                   Promise.all((albums || []).map(a => apiFetch(`/albums/${a.albumId}`, { signal: ctrl.signal }).catch(() => null))),
                   Promise.all((artists || []).map(a => apiFetch(`/artists/${a.artistId}`, { signal: ctrl.signal }).catch(() => null))),
-              ]).then(([td, ad, ard]) => {
+                  Promise.all((playlists || []).map(p => apiFetch(`/playlists/${p.playlistId}`, { signal: ctrl.signal }).catch(() => null))),
+              ]).then(([td, ad, ard, pd]) => {
                   if (ctrl.signal.aborted) return
                   setTopTrackDetails(td)
                   setTopAlbumDetails(ad)
                   setTopArtistDetails(ard)
+                  setTopPlaylistDetails(pd)
               }).catch(() => {})
           })
           return () => ctrl.abort()
       }, [linked, timeframe, customStart, customEnd])
   
+      // WebSocket: subscribe to current track updates
       useEffect(() => {
           let mounted = true
-          async function fetchCurrent() {
-              try {
-                  setCurrentlyPlayingLoading(true)
-                  const data = await api.get('/spotify/currently-playing')
-                  if (mounted) setCurrentlyPlaying(data)
-              } finally {
-                  if (mounted) setCurrentlyPlayingLoading(false)
-              }
+          let socket
+          setCurrentlyPlayingLoading(true)
+          try {
+              const base = getApiBase()
+              // Convert http(s)://host[:port]/api -> ws(s)://host[:port]
+              const url = new URL(base)
+              const wsOrigin = `${url.protocol === 'https:' ? 'wss' : 'ws'}://${url.host}`
+              // Connect to namespace /ws
+              socket = io(wsOrigin + '/ws', { transports: ['websocket'] })
+              socket.on('connect', () => {
+                  const { accessToken } = getTokens()
+                  if (accessToken) {
+                      socket.emit('spotify:subscribeCurrent', { accessToken })
+                  }
+              })
+              socket.on('spotify:current', (payload) => {
+                  if (!mounted) return
+                  setCurrentlyPlaying(payload)
+                  setCurrentlyPlayingLoading(false)
+              })
+              socket.on('spotify:error', (err) => {
+                  // Fallback: do one-time fetch if subscription fails
+                  api.get('/spotify/currently-playing')
+                    .then(d => { if (mounted) setCurrentlyPlaying(d) })
+                    .finally(() => { if (mounted) setCurrentlyPlayingLoading(false) })
+              })
+          } catch (e) {
+              // Fallback fetch
+              api.get('/spotify/currently-playing')
+                .then(d => { if (mounted) setCurrentlyPlaying(d) })
+                .finally(() => { if (mounted) setCurrentlyPlayingLoading(false) })
           }
-          fetchCurrent()
-          const interval = setInterval(fetchCurrent, 20000)
-          return () => { mounted = false; clearInterval(interval) }
+          return () => { mounted = false; if (socket) socket.disconnect() }
       }, [])
   
   
@@ -337,7 +394,6 @@ export default function SpotifyPersonal() {
               await api.post('/spotify/sync-streams')
               // Kick off background refreshes without blocking button
               const ctrl = new AbortController()
-              loadGlobal(ctrl.signal)
           } catch (e) {
               setError(e.message || 'Sync failed')
           } finally {
@@ -345,25 +401,7 @@ export default function SpotifyPersonal() {
           }
       }
   
-      // Currently playing polling (non-blocking)
-      useEffect(() => {
-          let mounted = true
-          let intervalId
-          const fetchNow = (signal) => {
-              setCurrentlyPlayingLoading(true)
-              apiFetch('/spotify/currently-playing', { signal })
-                  .then((d) => { if (mounted && !signal.aborted) setCurrentlyPlaying(d) })
-                  .catch(() => {})
-                  .finally(() => { if (mounted && !signal.aborted) setCurrentlyPlayingLoading(false) })
-          }
-          const ctrl = new AbortController()
-          fetchNow(ctrl.signal)
-          intervalId = setInterval(() => {
-              const c = new AbortController()
-              fetchNow(c.signal)
-          }, 10000)
-          return () => { mounted = false; ctrl.abort(); if (intervalId) clearInterval(intervalId) }
-      }, [])
+      // Remove polling for current song; WebSocket will push updates
   
       // Background periodic refresh (every 2 minutes)
       useEffect(() => {
@@ -386,6 +424,7 @@ export default function SpotifyPersonal() {
               apiFetch('/streams/top' + q, { signal: ctrl.signal }).then(tracks => setTopTracks(tracks || [])).catch(() => {})
               apiFetch('/albums/top-albums' + q, { signal: ctrl.signal }).then(albums => setTopAlbums(albums || [])).catch(() => {})
               apiFetch('/artists/top-artists' + q, { signal: ctrl.signal }).then(artists => setTopArtists(artists || [])).catch(() => {})
+              apiFetch('/playlists/top-playlists' + q, { signal: ctrl.signal }).then(playlists => setTopPlaylists(playlists || [])).catch(() => {})
           }, 120000)
           return () => clearInterval(id)
       }, [])
@@ -457,11 +496,11 @@ export default function SpotifyPersonal() {
                       <div className="card" style={{ marginBottom: '1rem', background: 'none', boxShadow: 'none', border: 'none', padding: 0 }}>
                           <h3 style={{ marginBottom: '1rem' }}>General Statistics</h3>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
-                              <StatCard label="Total Streams" value={loading ? <LoadingLine width={80} /> : formatNumberShort(stats?.totalStreams ?? 0)} />
-                              <StatCard label="Unique Tracks" value={loading ? <LoadingLine width={80} /> : formatNumberShort(stats?.uniqueTracks ?? 0)} />
-                              <StatCard label="Unique Artists" value={loading ? <LoadingLine width={80} /> : formatNumberShort(stats?.uniqueArtists ?? 0)} />
-                              <StatCard label="Total Minutes Listened" value={loading ? <LoadingLine width={80} /> : formatNumberShort(Math.floor((stats?.msListened ?? 0) / 1000 / 60))} />
-                              <StatCard label="Total Time Listened" value={loading ? <LoadingLine width={80} /> : formatDuration(stats?.msListened ?? 0)} />
+                              <StatCard label="Total Streams" value={loading ? <LoadingLine width={80} /> : <AnimatedNumber value={stats?.totalStreams ?? 0} formatter={formatNumberShort} />} />
+                              <StatCard label="Unique Tracks" value={loading ? <LoadingLine width={80} /> : <AnimatedNumber value={stats?.uniqueTracks ?? 0} formatter={formatNumberShort} />} />
+                              <StatCard label="Unique Artists" value={loading ? <LoadingLine width={80} /> : <AnimatedNumber value={stats?.uniqueArtists ?? 0} formatter={formatNumberShort} />} />
+                              <StatCard label="Total Minutes Listened" value={loading ? <LoadingLine width={80} /> : <AnimatedNumber value={Math.floor((stats?.msListened ?? 0) / 1000 / 60)} formatter={formatNumberShort} />} />
+                              <StatCard label="Total Time Listened" value={loading ? <LoadingLine width={80} /> : <AnimatedNumber value={stats?.msListened ?? 0} formatter={formatDuration} />} />
                           </div>
                           {/* Top row: day line chart full width */}
                           <div style={{ marginTop: '1rem', height: 240, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none' }}>
@@ -594,17 +633,27 @@ export default function SpotifyPersonal() {
                                   }}
                                   onClick={() => { setTopCategory('artists'); }}
                               >Top Artists</button>
+                              <button
+                                  className="btn small"
+                                  style={{
+                                      background:  topCategory === 'playlists' ? '#7dd3fc' : 'rgba(125,211,252,0.1)',
+                                      color:  topCategory === 'playlists' ? '#0a1929' : 'rgba(125,211,252,0.7)',
+                                      border:  topCategory === 'playlists' ? '2px solid #7dd3fc' : '1px solid rgba(125,211,252,0.2)',
+                                      fontWeight: topCategory === 'playlists' ? 700 : 400
+                                  }}
+                                  onClick={() => { setTopCategory('playlists'); }}
+                              >Top Playlists</button>
                           </div>
   
                           
                               <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-                                  {(topCategory === 'tracks' ? topTracks : topCategory === 'albums' ? topAlbums : topCategory === 'artists' ? topArtists : []).length === 0 ? (
+                                  {(topCategory === 'tracks' ? topTracks : topCategory === 'albums' ? topAlbums : topCategory === 'artists' ? topArtists : topCategory === 'playlists' ? topPlaylists : []).length === 0 ? (
                                       <div className="card">No top {topCategory} yet.</div>
-                                  ) : (topCategory === 'tracks' ? topTracks : topCategory === 'albums' ? topAlbums : topArtists).map((item, idx) => (
+                                  ) : (topCategory === 'tracks' ? topTracks : topCategory === 'albums' ? topAlbums : topCategory === 'artists' ? topArtists : topPlaylists).map((item, idx) => (
                                       <PodiumCard
-                                          key={item.trackId || item.albumId || item.artistId}
+                                          key={item.trackId || item.albumId || item.artistId || item.playlistId}
                                           data={item}
-                                          details={topCategory === 'tracks' ? topTrackDetails[idx] : topCategory === 'albums' ? topAlbumDetails[idx] : topArtistDetails[idx]}
+                                          details={topCategory === 'tracks' ? topTrackDetails[idx] : topCategory === 'albums' ? topAlbumDetails[idx] : topCategory === 'artists' ? topArtistDetails[idx] : topPlaylistDetails[idx]}
                                           rank={idx + 1}
                                           type={topCategory}
                                       />

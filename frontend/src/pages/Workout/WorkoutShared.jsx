@@ -302,7 +302,7 @@ export function SetRow({ set, exercise, onEdit, onDelete, showOrder = true }) {
         <div style={{ display: 'flex', gap: '.5rem' }}>
           {onEdit && (
             <button className="btn small" onClick={() => onEdit(set)}>
-              ✏️
+              <span className="material-icons" style={{ fontSize: '18px' }}>edit</span>
             </button>
           )}
           {onDelete && (
@@ -311,7 +311,7 @@ export function SetRow({ set, exercise, onEdit, onDelete, showOrder = true }) {
               onClick={() => onDelete(set)}
               style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}
             >
-              🗑️
+              <span className="material-icons" style={{ fontSize: '18px' }}>delete</span>
             </button>
           )}
         </div>
@@ -345,10 +345,10 @@ export function ExerciseCard({ exercise, onEdit, onDelete, onClick }) {
           )}
         </div>
         {(onEdit || onDelete) && (
-          <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
+          <div style={{ display: 'flex', gap: '.5rem' }}>
             {onEdit && (
               <button className="btn small" onClick={(e) => { e.stopPropagation(); onEdit(exercise); }}>
-                ✏️
+                <span className="material-icons" style={{ fontSize: '18px' }}>edit</span>
               </button>
             )}
             {onDelete && (
@@ -357,7 +357,7 @@ export function ExerciseCard({ exercise, onEdit, onDelete, onClick }) {
                 onClick={(e) => { e.stopPropagation(); onDelete(exercise); }}
                 style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}
               >
-                🗑️
+                <span className="material-icons" style={{ fontSize: '18px' }}>delete</span>
               </button>
             )}
           </div>

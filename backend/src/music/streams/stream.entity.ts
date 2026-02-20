@@ -47,7 +47,7 @@ export class Stream extends AbstractAccountOwnedEntity {
   streamType: StreamType;
 
   @ApiProperty({ description: "Timestamp when the stream occurred" })
-  @Column({ type: "timestamp", nullable: false })
+  @Column({ type: "timestamptz", nullable: false })
   streamedAt: Date;
 
   @ApiProperty({

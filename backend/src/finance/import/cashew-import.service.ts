@@ -276,6 +276,49 @@ export class CashewImportService {
     }
   }
 
+  // =========== EXECUTE (JSON response) ===========
+
+  async executeImportDirect(account: Account, previewId: string) {
+    const previewData = this.previewCache.get(previewId);
+    if (!previewData) {
+      throw new Error("Preview not found or expired");
+    }
+    if (previewData.accountId !== account.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    let db: any;
+
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      db = this.openSqlite(previewData.filePath);
+
+      const walletIdMap = await this.importWallets(account, db, queryRunner, () => {});
+      const categoryIdMap = await this.importCategories(account, db, queryRunner, () => {});
+      await this.importTransactions(account, db, queryRunner, walletIdMap, categoryIdMap, () => {});
+
+      await queryRunner.commitTransaction();
+
+      this.previewCache.delete(previewId);
+      if (previewData.filePath && fs.existsSync(previewData.filePath)) {
+        try { fs.unlinkSync(previewData.filePath); } catch {}
+      }
+
+      return { stage: "complete", progress: 100, message: "Import completed successfully!" };
+    } catch (err) {
+      try { await queryRunner.rollbackTransaction(); } catch {}
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Cashew import failed: ${msg}`, err instanceof Error ? err.stack : undefined);
+      throw new Error(`Import failed: ${msg}`);
+    } finally {
+      try { db?.close(); } catch {}
+      await queryRunner.release();
+    }
+  }
+
   // =========== IMPORT METHODS ===========
 
   private async importWallets(

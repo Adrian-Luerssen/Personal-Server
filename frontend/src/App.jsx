@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
 import Home from './pages/Home'
-import Profile from './pages/Profile'
+// Profile merged into Settings > Account tab
 import SpotifyPersonal from './pages/Spotify/SpotifyPersonal'
 import SpotifyGlobal from './pages/Spotify/SpotifyGlobal'
 import withRefreshGuard from './withRefreshGuard'
@@ -28,7 +28,7 @@ import { PreferencesProvider } from './contexts/PreferencesContext'
 
 // BUG FIX B1: Move HOC calls to module scope to prevent unmount/remount on every render
 const GuardedHome = withRefreshGuard(Home)
-const GuardedProfile = withRefreshGuard(Profile)
+// Profile removed - merged into Settings
 const GuardedSpotifyPersonal = withRefreshGuard(SpotifyPersonal)
 const GuardedSpotifyGlobal = withRefreshGuard(SpotifyGlobal)
 const GuardedWorkout = withRefreshGuard(Workout)
@@ -58,7 +58,7 @@ export default function AppRouter() {
 
             <Route element={<AuthGuard><Layout /></AuthGuard>}>
               <Route path="/home" element={<GuardedHome />} />
-              <Route path="/profile" element={<GuardedProfile />} />
+              <Route path="/profile" element={<Navigate to="/settings" replace />} />
               <Route path="/spotify" element={<GuardedSpotifyPersonal />} />
               <Route path="/spotify/personal" element={<GuardedSpotifyPersonal />} />
               <Route path="/spotify/global" element={<GuardedSpotifyGlobal />} />

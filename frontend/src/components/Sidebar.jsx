@@ -90,10 +90,6 @@ export default function Sidebar({ collapsed, onToggle }) {
           <Icon name="home" size={20} />
           {!collapsed && <span>{t('nav.home')}</span>}
         </NavLink>
-        <NavLink to="/profile" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')}>
-          <Icon name="user" size={20} />
-          {!collapsed && <span>{t('nav.profile')}</span>}
-        </NavLink>
 
         <div
           className={'nav-link' + (isSpotifyActive ? ' active' : '')}

@@ -1,14 +1,14 @@
 import React, { useState } from 'react'
-import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import AgentApiKeys from './AgentApiKeys'
 import Connections from './Connections'
 import Appearance from './Appearance'
+import Account from './Account'
 import Icon from '../../components/icons/Icon'
 
 export default function Settings() {
   const { t, i18n } = useTranslation()
-  const [activeTab, setActiveTab] = useState('agent-keys')
+  const [activeTab, setActiveTab] = useState('account')
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng)
@@ -22,11 +22,11 @@ export default function Settings() {
 
       <div className="tab-group" style={{ marginBottom: '1.5rem' }}>
         <button
-          className={`tab-btn ${activeTab === 'agent-keys' ? 'active' : ''}`}
-          onClick={() => setActiveTab('agent-keys')}
+          className={`tab-btn ${activeTab === 'account' ? 'active' : ''}`}
+          onClick={() => setActiveTab('account')}
         >
-          <Icon name="key-round" size={16} style={{ marginRight: '4px' }} />
-          {t('settings.agentApiKeys')}
+          <Icon name="user" size={16} style={{ marginRight: '4px' }} />
+          Account
         </button>
         <button
           className={`tab-btn ${activeTab === 'connections' ? 'active' : ''}`}
@@ -36,11 +36,11 @@ export default function Settings() {
           {t('settings.connections')}
         </button>
         <button
-          className={`tab-btn ${activeTab === 'preferences' ? 'active' : ''}`}
-          onClick={() => setActiveTab('preferences')}
+          className={`tab-btn ${activeTab === 'agent-keys' ? 'active' : ''}`}
+          onClick={() => setActiveTab('agent-keys')}
         >
-          <Icon name="sliders-horizontal" size={16} style={{ marginRight: '4px' }} />
-          {t('settings.preferences')}
+          <Icon name="key-round" size={16} style={{ marginRight: '4px' }} />
+          {t('settings.agentApiKeys')}
         </button>
         <button
           className={`tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
@@ -49,7 +49,16 @@ export default function Settings() {
           <Icon name="palette" size={16} style={{ marginRight: '4px' }} />
           Appearance
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'preferences' ? 'active' : ''}`}
+          onClick={() => setActiveTab('preferences')}
+        >
+          <Icon name="sliders-horizontal" size={16} style={{ marginRight: '4px' }} />
+          {t('settings.preferences')}
+        </button>
       </div>
+
+      {activeTab === 'account' && <Account />}
 
       {activeTab === 'agent-keys' && <AgentApiKeys />}
 
@@ -106,16 +115,6 @@ export default function Settings() {
             <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
               {t('settings.themeDesc')}
             </p>
-          </div>
-
-          <div style={{ marginTop: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>{t('settings.quickLinks')}</h3>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <NavLink to="/profile" className="btn small btn-ghost">
-                <Icon name="user" size={16} />
-                {t('settings.profileSettings')}
-              </NavLink>
-            </div>
           </div>
         </div>
       )}

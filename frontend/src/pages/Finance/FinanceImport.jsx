@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiFetch } from '../../api'
 import { LoadingSpinner, StepIndicator, ProgressBar } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -39,7 +40,7 @@ function FileSelectStep({ file, setFile, onNext, t }) {
   return (
     <div className="card" style={{ marginBottom: '1.5rem' }}>
       <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span className="material-icons">upload_file</span>
+        <Icon name="upload" size={20} />
         {t('financeImport.selectFile')}
       </h3>
 
@@ -64,17 +65,15 @@ function FileSelectStep({ file, setFile, onNext, t }) {
           marginBottom: '1rem',
         }}
       >
-        <span
-          className="material-icons"
+        <Icon
+          name={file ? 'check-circle' : 'cloud-upload'}
+          size={48}
           style={{
-            fontSize: 48,
             color: file ? 'var(--color-success)' : FINANCE_COLOR,
             marginBottom: '0.75rem',
             display: 'block',
           }}
-        >
-          {file ? 'check_circle' : 'cloud_upload'}
-        </span>
+        />
 
         {file ? (
           <>
@@ -112,7 +111,7 @@ function FileSelectStep({ file, setFile, onNext, t }) {
           disabled={!file}
           style={{ opacity: file ? 1 : 0.4, background: FINANCE_COLOR, color: '#000' }}
         >
-          <span className="material-icons" style={{ fontSize: 18 }}>search</span>
+          <Icon name="search" size={18} />
           {t('financeImport.preview')}
         </button>
       </div>
@@ -139,7 +138,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack, t }) {
       <div className="card">
         <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>
         <button className="btn" onClick={onBack} style={{ background: 'var(--glass-border)' }}>
-          <span className="material-icons" style={{ fontSize: 18 }}>arrow_back</span>
+          <Icon name="arrow-left" size={18} />
           {t('common.back')}
         </button>
       </div>
@@ -153,7 +152,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack, t }) {
   return (
     <div className="card" style={{ marginBottom: '1.5rem' }}>
       <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span className="material-icons">preview</span>
+        <Icon name="eye" size={20} />
         {t('financeImport.preview')}
       </h3>
 
@@ -170,16 +169,12 @@ function PreviewStep({ preview, loading, error, onNext, onBack, t }) {
         color: 'var(--color-text-secondary)',
       }}>
         <span>
-          <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>
-            storage
-          </span>
+          <Icon name="hard-drive" size={16} style={{ marginRight: 4 }} />
           {preview.file?.name || 'Cashew backup'}
         </span>
         {preview.dateRange?.earliest && (
           <span>
-            <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>
-              date_range
-            </span>
+            <Icon name="calendar-range" size={16} style={{ marginRight: 4 }} />
             {t('financeImport.dateRange')}: {preview.dateRange.earliest} → {preview.dateRange.latest}
           </span>
         )}
@@ -198,9 +193,9 @@ function PreviewStep({ preview, loading, error, onNext, onBack, t }) {
           </thead>
           <tbody>
             {[
-              { label: t('financeImport.wallets'), icon: 'account_balance', counts: counts.wallets },
-              { label: t('financeImport.categories'), icon: 'category', counts: counts.categories },
-              { label: t('financeImport.transactions'), icon: 'receipt_long', counts: counts.transactions },
+              { label: t('financeImport.wallets'), icon: 'landmark', counts: counts.wallets },
+              { label: t('financeImport.categories'), icon: 'tag', counts: counts.categories },
+              { label: t('financeImport.transactions'), icon: 'receipt', counts: counts.transactions },
             ].filter(r => r.counts).map(({ label, icon, counts: c }) => (
               <tr key={label}>
                 <td style={tdStyle}>
@@ -220,11 +215,11 @@ function PreviewStep({ preview, loading, error, onNext, onBack, t }) {
 
       <div style={{ display: 'flex', gap: '0.75rem' }}>
         <button className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)' }} onClick={onBack}>
-          <span className="material-icons" style={{ fontSize: 18 }}>arrow_back</span>
+          <Icon name="arrow-left" size={18} />
           {t('common.back')}
         </button>
         <button className="btn" onClick={onNext} style={{ background: FINANCE_COLOR, color: '#000' }}>
-          <span className="material-icons" style={{ fontSize: 18 }}>play_arrow</span>
+          <Icon name="play" size={18} />
           {t('financeImport.startImport')}
         </button>
       </div>
@@ -271,18 +266,16 @@ function ProgressStep({ previewId, onComplete, onError, t }) {
 
   return (
     <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-      <span
-        className="material-icons"
+      <Icon
+        name={isError ? 'alert-circle' : isDone ? 'check-circle' : 'refresh-cw'}
+        size={56}
         style={{
-          fontSize: 56,
           color: isError ? 'var(--color-error)' : isDone ? 'var(--color-success)' : FINANCE_COLOR,
           marginBottom: '1rem',
           display: 'block',
           animation: (!isError && !isDone) ? 'spin 2s linear infinite' : 'none',
         }}
-      >
-        {isError ? 'error' : isDone ? 'check_circle' : 'sync'}
-      </span>
+      />
 
       <h3 style={{ marginBottom: '0.5rem' }}>
         {isError ? t('financeImport.importFailed') : isDone ? t('financeImport.importComplete') : t('financeImport.importing')}
@@ -310,9 +303,7 @@ function SummaryStep({ summary, onReset, t }) {
   if (!summary) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-        <span className="material-icons" style={{ fontSize: 56, color: 'var(--color-success)', marginBottom: '1rem', display: 'block' }}>
-          check_circle
-        </span>
+        <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '1rem', display: 'block' }} />
         <h3>{t('financeImport.importComplete')}</h3>
         <button className="btn" onClick={onReset} style={{ marginTop: '1.5rem' }}>
           {t('common.back')}
@@ -326,18 +317,16 @@ function SummaryStep({ summary, onReset, t }) {
     if (!obj) return
     rows.push({ label, icon, imported: obj.imported ?? obj.created ?? 0, skipped: obj.skipped ?? obj.existing ?? 0 })
   }
-  addRow(t('financeImport.wallets'), 'account_balance', summary.wallets)
-  addRow(t('financeImport.categories'), 'category', summary.categories)
-  addRow(t('financeImport.transactions'), 'receipt_long', summary.transactions)
+  addRow(t('financeImport.wallets'), 'landmark', summary.wallets)
+  addRow(t('financeImport.categories'), 'tag', summary.categories)
+  addRow(t('financeImport.transactions'), 'receipt', summary.transactions)
 
   const totalImported = rows.reduce((s, r) => s + r.imported, 0)
 
   return (
     <div className="card">
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        <span className="material-icons" style={{ fontSize: 56, color: 'var(--color-success)', marginBottom: '0.75rem', display: 'block' }}>
-          check_circle
-        </span>
+        <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '0.75rem', display: 'block' }} />
         <h3 style={{ marginBottom: '0.25rem' }}>{t('financeImport.importComplete')}</h3>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
           {totalImported.toLocaleString()} records imported
@@ -358,9 +347,7 @@ function SummaryStep({ summary, onReset, t }) {
               {rows.map(({ label, icon, imported, skipped }) => (
                 <tr key={label}>
                   <td style={tdStyle}>
-                    <span className="material-icons" style={{ fontSize: 15, verticalAlign: 'middle', marginRight: 6, color: FINANCE_COLOR }}>
-                      {icon}
-                    </span>
+                    <Icon name={icon} size={15} style={{ marginRight: 6, color: FINANCE_COLOR }} />
                     {label}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--color-success)', fontWeight: 700 }}>
@@ -378,11 +365,11 @@ function SummaryStep({ summary, onReset, t }) {
 
       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
         <button className="btn" onClick={onReset}>
-          <span className="material-icons" style={{ fontSize: 18 }}>refresh</span>
+          <Icon name="refresh-cw" size={18} />
           {t('common.back')}
         </button>
         <a href="/finance" className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <span className="material-icons" style={{ fontSize: 18 }}>account_balance_wallet</span>
+          <Icon name="wallet" size={18} />
           {t('nav.finance')}
         </a>
       </div>
@@ -452,9 +439,7 @@ export default function FinanceImport() {
   return (
     <>
       <h2>
-        <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: FINANCE_COLOR }}>
-          file_download
-        </span>
+        <Icon name="download" size={24} style={{ marginRight: 8, color: FINANCE_COLOR }} />
         {t('financeImport.title')}
       </h2>
 
@@ -489,11 +474,11 @@ export default function FinanceImport() {
           {importError && (
             <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
               <button className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)' }} onClick={() => setStep(2)}>
-                <span className="material-icons" style={{ fontSize: 18 }}>arrow_back</span>
+                <Icon name="arrow-left" size={18} />
                 {t('common.back')}
               </button>
               <button className="btn" onClick={handleReset}>
-                <span className="material-icons" style={{ fontSize: 18 }}>refresh</span>
+                <Icon name="refresh-cw" size={18} />
                 {t('common.clear')}
               </button>
             </div>

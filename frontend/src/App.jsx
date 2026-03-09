@@ -23,6 +23,7 @@ import FinanceImport from './pages/Finance/FinanceImport'
 import Habits from './pages/Habits/Habits'
 import HabitsImport from './pages/Habits/HabitsImport'
 import Settings from './pages/Settings/Settings'
+import SpotifyCallback from './pages/Spotify/SpotifyCallback'
 import { ThemeProvider } from './contexts/ThemeContext'
 
 // BUG FIX B1: Move HOC calls to module scope to prevent unmount/remount on every render
@@ -43,6 +44,7 @@ const GuardedFinanceImport = withRefreshGuard(FinanceImport)
 const GuardedHabits = withRefreshGuard(Habits)
 const GuardedHabitsImport = withRefreshGuard(HabitsImport)
 const GuardedSettings = withRefreshGuard(Settings)
+const GuardedSpotifyCallback = withRefreshGuard(SpotifyCallback)
 
 export default function AppRouter() {
   return (
@@ -60,6 +62,7 @@ export default function AppRouter() {
               <Route path="/spotify" element={<GuardedSpotifyPersonal />} />
               <Route path="/spotify/personal" element={<GuardedSpotifyPersonal />} />
               <Route path="/spotify/global" element={<GuardedSpotifyGlobal />} />
+              <Route path="/spotify/callback" element={<GuardedSpotifyCallback />} />
               <Route path="/workout" element={<GuardedWorkout />} />
               <Route path="/workout/active" element={<GuardedWorkoutActive />} />
               <Route path="/workout/history" element={<GuardedWorkoutHistory />} />

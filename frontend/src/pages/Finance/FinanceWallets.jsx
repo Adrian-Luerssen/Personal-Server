@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import { SkeletonCard } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -39,9 +40,7 @@ export default function FinanceWallets() {
   return (
     <>
       <h2>
-        <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: FINANCE_COLOR }}>
-          account_balance
-        </span>
+        <Icon name="landmark" size={24} style={{ marginRight: 8, color: FINANCE_COLOR }} />
         {t('finance.wallets')}
       </h2>
 
@@ -72,14 +71,12 @@ export default function FinanceWallets() {
         </div>
       ) : wallets.length === 0 ? (
         <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
-          <span className="material-icons" style={{ fontSize: 48, color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }}>
-            account_balance_wallet
-          </span>
+          <Icon name="wallet" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }} />
           <div style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
             {t('finance.noWallets')}
           </div>
           <button className="btn" onClick={() => navigate('/finance/import')}>
-            <span className="material-icons" style={{ fontSize: 18 }}>file_download</span>
+            <Icon name="download" size={18} />
             {t('finance.importData')}
           </button>
         </div>
@@ -101,12 +98,7 @@ export default function FinanceWallets() {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                  <span className="material-icons" style={{
-                    fontSize: 24,
-                    color: wallet.color || FINANCE_COLOR,
-                  }}>
-                    {wallet.icon || 'account_balance_wallet'}
-                  </span>
+                  <Icon name={wallet.icon || 'wallet'} size={24} style={{ color: wallet.color || FINANCE_COLOR }} />
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{wallet.name}</div>

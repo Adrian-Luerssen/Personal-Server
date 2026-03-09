@@ -85,8 +85,8 @@ export class CashewImportService {
     if (!val) return null;
     const n = typeof val === "number" ? val : Number(val);
     if (isNaN(n)) return null;
-    // Cashew stores milliseconds
-    return new Date(n);
+    // Cashew stores seconds; convert to milliseconds for JS Date
+    return new Date(n < 1e12 ? n * 1000 : n);
   }
 
   // =========== PREVIEW ===========

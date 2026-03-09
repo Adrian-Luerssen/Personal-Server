@@ -11,11 +11,28 @@ export class WalletsService {
     private readonly repo: Repository<FinanceWallet>
   ) {}
 
-  findAll(account: Account) {
-    return this.repo.find({
+  async findAll(account: Account) {
+    const wallets = await this.repo.find({
       where: { accountId: account.id },
       order: { order: "ASC", name: "ASC" },
     });
+
+    // Compute balance for each wallet from transactions
+    const balances = await this.repo.manager
+      .createQueryBuilder()
+      .select('"walletId"')
+      .addSelect(`SUM(CASE WHEN "isIncome" = true THEN amount ELSE -amount END)`, 'balance')
+      .from('app_finance_transactions', 't')
+      .where('"accountId" = :accountId', { accountId: account.id })
+      .groupBy('"walletId"')
+      .getRawMany();
+
+    const balanceMap = new Map(balances.map((b: any) => [b.walletId, parseFloat(b.balance) || 0]));
+
+    return wallets.map(w => ({
+      ...w,
+      balance: balanceMap.get(w.id) || 0,
+    }));
   }
 
   async findOne(account: Account, id: string) {

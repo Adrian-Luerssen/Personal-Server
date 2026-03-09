@@ -85,7 +85,12 @@ export default function Finance() {
       const [walletsData, categoriesData, summaryData, transactionsData] = await Promise.all([
         api.get('/finance/wallets'),
         api.get('/finance/categories'),
-        api.get('/finance/transactions/summary'),
+        (() => {
+          const now = new Date();
+          const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+          const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+          return api.get(`/finance/transactions/summary?from=${from}&to=${to}`);
+        })(),
         api.get('/finance/transactions?limit=5'),
       ])
       setWallets(walletsData || [])
@@ -122,7 +127,7 @@ export default function Finance() {
       legend: {
         position: 'right',
         labels: {
-          color: 'var(--color-text-secondary)',
+          color: '#b0bec5',
           font: { size: 11 },
           padding: 12,
           usePointStyle: true,

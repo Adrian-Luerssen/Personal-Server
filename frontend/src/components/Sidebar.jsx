@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
-import { useTheme } from '../contexts/ThemeContext'
+import { useTheme } from '../contexts/PreferencesContext'
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { t } = useTranslation()

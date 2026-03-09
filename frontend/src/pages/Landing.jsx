@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { refreshIfPossible } from '../auth'
-import { useTheme } from '../contexts/ThemeContext'
+import { useTheme } from '../contexts/PreferencesContext'
 
 export default function Landing() {
   const nav = useNavigate()

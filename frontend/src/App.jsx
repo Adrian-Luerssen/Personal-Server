@@ -24,7 +24,7 @@ import Habits from './pages/Habits/Habits'
 import HabitsImport from './pages/Habits/HabitsImport'
 import Settings from './pages/Settings/Settings'
 import SpotifyCallback from './pages/Spotify/SpotifyCallback'
-import { ThemeProvider } from './contexts/ThemeContext'
+import { PreferencesProvider } from './contexts/PreferencesContext'
 
 // BUG FIX B1: Move HOC calls to module scope to prevent unmount/remount on every render
 const GuardedHome = withRefreshGuard(Home)
@@ -48,7 +48,7 @@ const GuardedSpotifyCallback = withRefreshGuard(SpotifyCallback)
 
 export default function AppRouter() {
   return (
-    <ThemeProvider>
+    <PreferencesProvider>
       <BrowserRouter>
         <div className="app">
           <Routes>
@@ -82,6 +82,6 @@ export default function AppRouter() {
           </Routes>
         </div>
       </BrowserRouter>
-    </ThemeProvider>
+    </PreferencesProvider>
   )
 }

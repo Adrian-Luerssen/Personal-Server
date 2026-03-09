@@ -145,29 +145,43 @@ export class AuthController {
     return { url };
   }
 
-  @Get("/spotify/callback")
-  @NoAuth()
+  @Post("/spotify/callback")
   @ApiOperation({
-    summary: "Spotify OAuth callback to exchange code for tokens",
+    summary:
+      "Spotify OAuth callback - exchange code for tokens using authenticated user",
   })
   async spotifyCallback(
-    @Query("code") code?: string,
-    @Query("state") state?: string
+    @ReqUser() user: any,
+    @Body("code") code?: string
   ): Promise<{ message: string }> {
-    // This path should be configured as SPOTIFY_REDIRECT_URI
-    // The account context must be bound via frontend flow (e.g., linking after login)
     if (!code) {
       throw new HttpException("Missing authorization code", 400);
     }
-    // get access token and refresh token
     const tokenData = await this.spotifyService.exchangeCodeForTokens(code);
     if (!tokenData) {
       throw new HttpException("Failed to exchange code for tokens", 400);
     }
-    console.log("Token Data:", tokenData);
-    // In a real implementation we'd get the accountId from session/cookie/frontend hand-off
-    // For now, reject to avoid linking to unknown account
-    throw new HttpException("Account context required for linking", 400);
+    await this.spotifyService.upsertTokens(user.id, {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      tokenType: tokenData.token_type,
+      scope: tokenData.scope,
+      expiresIn: tokenData.expires_in,
+    });
+
+    // Fetch profile and store basic info
+    const me = await this.spotifyService.getCurrentUser(
+      tokenData.access_token
+    );
+    await this.spotifyService.updateProfile(user.id, {
+      spotifyUserId: me.id,
+      displayName: me.display_name,
+      email: me.email,
+      profileUrl: me.external_urls?.spotify,
+      images: me.images,
+    });
+
+    return { message: "Spotify account linked successfully" };
   }
 
   @Post("/spotify/callback/:accountId")

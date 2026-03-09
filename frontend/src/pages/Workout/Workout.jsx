@@ -10,6 +10,7 @@ import {
   formatDate,
   formatNumberShort,
 } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 export default function Workout() {
   const navigate = useNavigate()
@@ -74,7 +75,7 @@ export default function Workout() {
 
   return (
     <>
-      <h2><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8 }}>fitness_center</span>Workout Tracker</h2>
+      <h2><Icon name="dumbbell" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Workout Tracker</h2>
 
       {loading ? (
         <SkeletonCard lines={2} widths={["30%", "50%"]} />
@@ -85,7 +86,7 @@ export default function Workout() {
           onClick={() => navigate('/workout/active')}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span className="material-icons" style={{ fontSize: '2rem', color: 'var(--color-warning)' }}>directions_run</span>
+            <Icon name="play" size={32} style={{ color: 'var(--color-warning)' }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-warning)' }}>Workout in Progress</div>
               <div style={{ color: 'var(--color-text-secondary)', fontSize: '.9rem', marginTop: 4 }}>
@@ -118,11 +119,11 @@ export default function Workout() {
         <h3>Quick Actions</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: 'fitness_center', label: 'Start Workout', onClick: startWorkout, accent: true },
-            { icon: 'bar_chart', label: 'View History', onClick: () => navigate('/workout/history') },
-            { icon: 'folder_open', label: 'Manage Exercises', onClick: () => navigate('/workout/exercises') },
-            { icon: 'monitor_weight', label: 'Bodyweight', onClick: () => navigate('/workout/bodyweight') },
-            { icon: 'file_download', label: 'Import Data', onClick: () => navigate('/workout/import') },
+            { icon: 'dumbbell', label: 'Start Workout', onClick: startWorkout, accent: true },
+            { icon: 'bar-chart-3', label: 'View History', onClick: () => navigate('/workout/history') },
+            { icon: 'folder-open', label: 'Manage Exercises', onClick: () => navigate('/workout/exercises') },
+            { icon: 'scale', label: 'Bodyweight', onClick: () => navigate('/workout/bodyweight') },
+            { icon: 'download', label: 'Import Data', onClick: () => navigate('/workout/import') },
           ].map(action => (
             <button
               key={action.label}
@@ -130,7 +131,7 @@ export default function Workout() {
               style={{ padding: '1.5rem', textAlign: 'center', color: 'inherit', border: action.accent ? '2px solid var(--color-accent)' : undefined, background: action.accent ? 'var(--color-accent-muted)' : undefined }}
               onClick={action.onClick}
             >
-              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: 'var(--color-accent)' }}>{action.icon}</span>
+              <Icon name={action.icon} size={40} style={{ marginBottom: '.5rem', color: 'var(--color-accent)' }} />
               <div style={{ fontWeight: 700 }}>{action.label}</div>
             </button>
           ))}

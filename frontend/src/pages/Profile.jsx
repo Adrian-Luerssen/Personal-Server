@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { Modal } from '../components/shared'
+import { Icon } from '../components/icons'
 
 export default function Profile() {
   const { t } = useTranslation()
@@ -360,7 +361,7 @@ export default function Profile() {
               {me?.images?.[0]?.url ? (
                 <img src={me.images[0].url} alt="avatar" style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', objectFit: 'cover' }} />
               ) : (
-                <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', background: 'var(--color-accent-muted)', display: 'grid', placeItems: 'center', fontSize: '1.5rem' }}>🎵</div>
+                <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', background: 'var(--color-accent-muted)', display: 'grid', placeItems: 'center' }}><Icon name="music" size={28} /></div>
               )}
               <div>
                 <div style={{ fontWeight: 700 }}>{me?.displayName || 'Spotify Account'}</div>

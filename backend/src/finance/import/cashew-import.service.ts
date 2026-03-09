@@ -146,7 +146,7 @@ export class CashewImportService {
       let txRows: AnyObject[] = [];
       try {
         txRows = db
-          .prepare("SELECT transaction_pk, date_created, income FROM transactions WHERE (type IS NULL OR type = 0)")
+          .prepare("SELECT transaction_pk, date_created, income FROM transactions WHERE (type IS NULL OR type = 0 OR type = 1 OR type = 3)")
           .all();
       } catch {
         warnings.push("transactions table not found");
@@ -296,9 +296,17 @@ export class CashewImportService {
 
       db = this.openSqlite(previewData.filePath);
 
+      const walletsBefore = await queryRunner.manager.count(FinanceWallet, { where: { accountId: account.id } });
+      const categoriesBefore = await queryRunner.manager.count(FinanceCategory, { where: { accountId: account.id } });
+      const transactionsBefore = await queryRunner.manager.count(FinanceTransaction, { where: { accountId: account.id } });
+
       const walletIdMap = await this.importWallets(account, db, queryRunner, () => {});
       const categoryIdMap = await this.importCategories(account, db, queryRunner, () => {});
       await this.importTransactions(account, db, queryRunner, walletIdMap, categoryIdMap, () => {});
+
+      const walletsAfter = await queryRunner.manager.count(FinanceWallet, { where: { accountId: account.id } });
+      const categoriesAfter = await queryRunner.manager.count(FinanceCategory, { where: { accountId: account.id } });
+      const transactionsAfter = await queryRunner.manager.count(FinanceTransaction, { where: { accountId: account.id } });
 
       await queryRunner.commitTransaction();
 
@@ -307,7 +315,23 @@ export class CashewImportService {
         try { fs.unlinkSync(previewData.filePath); } catch {}
       }
 
-      return { stage: "complete", progress: 100, message: "Import completed successfully!" };
+      return {
+        stage: "complete",
+        progress: 100,
+        message: "Import completed successfully!",
+        wallets: {
+          created: walletsAfter - walletsBefore,
+          existing: walletsBefore,
+        },
+        categories: {
+          created: categoriesAfter - categoriesBefore,
+          existing: categoriesBefore,
+        },
+        transactions: {
+          created: transactionsAfter - transactionsBefore,
+          existing: transactionsBefore,
+        },
+      };
     } catch (err) {
       try { await queryRunner.rollbackTransaction(); } catch {}
       const msg = err instanceof Error ? err.message : String(err);

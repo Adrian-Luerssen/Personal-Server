@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Body,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
@@ -28,7 +29,7 @@ export class HabitShareImportController {
   @ApiOperation({
     summary: "Preview HabitShare CSV import",
     description:
-      "Analyzes a HabitShare CSV export without modifying the database. Returns counts of what will be created vs skipped.",
+      "Analyzes a HabitShare CSV export without modifying the database. Returns a previewId and counts of what will be created vs skipped.",
   })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
@@ -56,27 +57,19 @@ export class HabitShareImportController {
   @ApiOperation({
     summary: "Execute HabitShare CSV import",
     description:
-      "Imports a HabitShare CSV export. Creates habits and entries. Existing entries are updated if status/comment changed.",
-  })
-  @ApiConsumes("multipart/form-data")
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: { file: { type: "string", format: "binary" } },
-    },
+      "Executes a previously previewed import using the previewId returned from the preview endpoint.",
   })
   @ApiResponse({
     status: 201,
     description: "Import completed successfully",
   })
-  @UseInterceptors(FileInterceptor("file"))
   async executeHabitShare(
     @ReqUser() account: Account,
-    @UploadedFile() file: Express.Multer.File
+    @Body() body: { previewId: string }
   ) {
-    if (!file) {
-      throw new BadRequestException("No file uploaded");
+    if (!body.previewId) {
+      throw new BadRequestException("previewId is required");
     }
-    return this.importService.executeImport(account, file);
+    return this.importService.executeImport(account, body.previewId);
   }
 }

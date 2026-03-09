@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { Habit } from "../entities/habit.entity";
 import { HabitEntry, HabitStatus } from "../entities/habit-entry.entity";
 import { Account } from "../../system/accounts/account.entity";
+import { randomUUID } from "crypto";
 
 export interface HabitShareRow {
   Habit: string;
@@ -12,40 +13,57 @@ export interface HabitShareRow {
   Comment?: string;
 }
 
-export interface HabitSharePreview {
-  totalRecords: number;
-  habits: {
-    total: number;
-    new: number;
-    existing: number;
+export interface HabitSharePreviewResponse {
+  previewId: string;
+  file: { name: string; size: number };
+  counts: {
+    habits: { total: number; new: number; existing: number };
+    entries: { total: number; new: number; existing: number };
   };
-  dateRange: {
-    earliest: string | null;
-    latest: string | null;
-  };
+  dateRange: { earliest: string | null; latest: string | null };
+  habits: string[];
   warnings: string[];
 }
 
+interface HabitSharePreviewData {
+  csvContent: string;
+  accountId: string;
+  fileName: string;
+  fileSize: number;
+  createdAt: number;
+}
+
 export interface HabitShareImportResult {
-  habitsCreated: number;
-  entriesCreated: number;
-  entriesUpdated: number;
-  skipped: number;
+  habits: { created: number; existing: number };
+  entries: { created: number; existing: number };
   warnings: string[];
 }
 
 const VALID_STATUSES = new Set<string>(["success", "fail", "skip"]);
+const PREVIEW_TTL_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class HabitShareImportService {
   private readonly logger = new Logger(HabitShareImportService.name);
+  private readonly previewCache = new Map<string, HabitSharePreviewData>();
 
   constructor(
     @InjectRepository(Habit)
     private readonly habitRepo: Repository<Habit>,
     @InjectRepository(HabitEntry)
     private readonly entryRepo: Repository<HabitEntry>
-  ) {}
+  ) {
+    setInterval(() => this.cleanupExpired(), 5 * 60 * 1000);
+  }
+
+  private cleanupExpired() {
+    const now = Date.now();
+    for (const [id, data] of this.previewCache.entries()) {
+      if (now - data.createdAt > PREVIEW_TTL_MS) {
+        this.previewCache.delete(id);
+      }
+    }
+  }
 
   /**
    * Parse HabitShare CSV content.
@@ -119,12 +137,13 @@ export class HabitShareImportService {
   async previewImport(
     account: Account,
     file: Express.Multer.File
-  ): Promise<HabitSharePreview> {
+  ): Promise<HabitSharePreviewResponse> {
     const content = file.buffer.toString("utf-8");
     const rows = this.parseCsv(content);
 
     const warnings: string[] = [];
     const habitNames = new Set<string>();
+    const validRows: HabitShareRow[] = [];
     let earliest: string | null = null;
     let latest: string | null = null;
 
@@ -133,6 +152,7 @@ export class HabitShareImportService {
         warnings.push(`Unknown status '${row.Status}' on row for habit '${row.Habit}' date ${row.Date}`);
         continue;
       }
+      validRows.push(row);
       habitNames.add(row.Habit);
       if (!earliest || row.Date < earliest) earliest = row.Date;
       if (!latest || row.Date > latest) latest = row.Date;
@@ -144,14 +164,57 @@ export class HabitShareImportService {
     const existingNames = new Set(existingHabits.map((h) => h.name));
     const newNames = [...habitNames].filter((n) => !existingNames.has(n));
 
+    // Count new vs existing entries
+    const existingEntries = await this.entryRepo.find({
+      where: { accountId: account.id },
+      select: ["habitId", "date"],
+    });
+    const existingEntryKeys = new Set<string>();
+    const habitIdByName = new Map<string, string>();
+    for (const h of existingHabits) {
+      habitIdByName.set(h.name, h.id);
+    }
+    for (const e of existingEntries) {
+      existingEntryKeys.add(`${e.habitId}:${e.date}`);
+    }
+    let newEntries = 0;
+    let existingEntryCount = 0;
+    for (const row of validRows) {
+      const hId = habitIdByName.get(row.Habit);
+      if (hId && existingEntryKeys.has(`${hId}:${row.Date}`)) {
+        existingEntryCount++;
+      } else {
+        newEntries++;
+      }
+    }
+
+    const previewId = randomUUID();
+
+    this.previewCache.set(previewId, {
+      csvContent: content,
+      accountId: account.id,
+      fileName: file.originalname || "unknown",
+      fileSize: file.size || 0,
+      createdAt: Date.now(),
+    });
+
     return {
-      totalRecords: rows.length,
-      habits: {
-        total: habitNames.size,
-        new: newNames.length,
-        existing: habitNames.size - newNames.length,
+      previewId,
+      file: { name: file.originalname || "unknown", size: file.size || 0 },
+      counts: {
+        habits: {
+          total: habitNames.size,
+          new: newNames.length,
+          existing: habitNames.size - newNames.length,
+        },
+        entries: {
+          total: validRows.length,
+          new: newEntries,
+          existing: existingEntryCount,
+        },
       },
       dateRange: { earliest, latest },
+      habits: [...habitNames],
       warnings,
     };
   }
@@ -160,15 +223,22 @@ export class HabitShareImportService {
 
   async executeImport(
     account: Account,
-    file: Express.Multer.File
+    previewId: string
   ): Promise<HabitShareImportResult> {
-    const content = file.buffer.toString("utf-8");
-    const rows = this.parseCsv(content);
+    const previewData = this.previewCache.get(previewId);
+    if (!previewData) {
+      throw new Error("Preview not found or expired");
+    }
+    if (previewData.accountId !== account.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const rows = this.parseCsv(previewData.csvContent);
 
     let habitsCreated = 0;
+    let habitsExisting = 0;
     let entriesCreated = 0;
-    let entriesUpdated = 0;
-    let skipped = 0;
+    let entriesExisting = 0;
     const warnings: string[] = [];
 
     // Build habit map (name -> Habit entity)
@@ -186,7 +256,6 @@ export class HabitShareImportService {
     for (const row of rows) {
       if (!VALID_STATUSES.has(row.Status)) {
         this.logger.warn(`Skipping invalid status '${row.Status}' for ${row.Habit} on ${row.Date}`);
-        skipped++;
         continue;
       }
       if (!byHabit.has(row.Habit)) byHabit.set(row.Habit, []);
@@ -208,6 +277,8 @@ export class HabitShareImportService {
         habitMap.set(habitName, habit);
         habitsCreated++;
         this.logger.log(`Created habit: ${habitName}`);
+      } else {
+        habitsExisting++;
       }
 
       // Process entries
@@ -226,9 +297,9 @@ export class HabitShareImportService {
             existing.status = status;
             existing.comment = row.Comment;
             await this.entryRepo.save(existing);
-            entriesUpdated++;
+            entriesCreated++; // updated counts as "created" for the summary
           } else {
-            skipped++;
+            entriesExisting++;
           }
         } else {
           const entry = this.entryRepo.create({
@@ -247,14 +318,15 @@ export class HabitShareImportService {
     }
 
     this.logger.log(
-      `Import complete: ${habitsCreated} habits created, ${entriesCreated} entries created, ${entriesUpdated} updated, ${skipped} skipped`
+      `Import complete: ${habitsCreated} habits created, ${entriesCreated} entries created/updated, ${entriesExisting} skipped`
     );
 
+    // Cleanup preview
+    this.previewCache.delete(previewId);
+
     return {
-      habitsCreated,
-      entriesCreated,
-      entriesUpdated,
-      skipped,
+      habits: { created: habitsCreated, existing: habitsExisting },
+      entries: { created: entriesCreated, existing: entriesExisting },
       warnings,
     };
   }

@@ -60,6 +60,26 @@ const setupCors = (app) => {
   });
 };
 
+function setupSelfPing(app: INestApplication) {
+  const configService = app.get(ConfigService);
+  const selfUrl = configService.get("RENDER_EXTERNAL_URL");
+  if (!selfUrl) return; // Only activate on Render (RENDER_EXTERNAL_URL is auto-set by Render)
+
+  const pingUrl = `${selfUrl}/api/health`;
+  const PING_INTERVAL_MS = 4 * 60 * 1000; // 4 minutes
+
+  setInterval(async () => {
+    try {
+      const res = await fetch(pingUrl);
+      Logger.debug(`Self-ping: ${res.status}`, "KeepAlive");
+    } catch (err) {
+      Logger.warn(`Self-ping failed: ${err}`, "KeepAlive");
+    }
+  }, PING_INTERVAL_MS);
+
+  Logger.log(`Keep-alive self-ping enabled → ${pingUrl} every 4m`, "KeepAlive");
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(bodyParser.json({ limit: "50mb" }));
@@ -72,5 +92,6 @@ async function bootstrap() {
   const port = configService.get("PORT");
   Logger.log(`BCome API on port ${port}`);
   await app.listen(port);
+  setupSelfPing(app);
 }
 bootstrap();

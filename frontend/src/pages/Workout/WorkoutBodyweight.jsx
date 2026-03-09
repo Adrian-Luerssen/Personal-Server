@@ -7,6 +7,7 @@ import {
   SkeletonStatCard,
   formatDate,
 } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 export default function WorkoutBodyweight() {
   const [entries, setEntries] = useState([])
@@ -69,7 +70,7 @@ export default function WorkoutBodyweight() {
 
   return (
     <>
-      <h2><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8 }}>monitor_weight</span>Bodyweight</h2>
+      <h2><Icon name="scale" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Bodyweight</h2>
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
@@ -88,7 +89,7 @@ export default function WorkoutBodyweight() {
 
       <div style={{ marginBottom: '1.5rem' }}>
         <button className="btn" onClick={() => openModal()}>
-          <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 4, fontSize: 18 }}>add</span>Log Weight
+          <Icon name="plus" size={18} style={{ verticalAlign: 'middle', marginRight: 4 }} />Log Weight
         </button>
       </div>
 
@@ -107,7 +108,7 @@ export default function WorkoutBodyweight() {
         </div>
       ) : entries.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: 'var(--color-accent)' }}>monitor_weight</span>
+          <Icon name="scale" size={48} style={{ marginBottom: '1rem', color: 'var(--color-accent)' }} />
           <h3>No bodyweight entries</h3>
           <p style={{ color: 'var(--color-text-secondary)', marginTop: '.5rem' }}>Start tracking your weight to see trends over time</p>
         </div>
@@ -141,8 +142,8 @@ export default function WorkoutBodyweight() {
                   {entry.note && <div style={{ fontSize: '.85rem', color: 'var(--color-text-muted)', marginTop: 4, fontStyle: 'italic' }}>{entry.note}</div>}
                 </div>
                 <div style={{ display: 'flex', gap: '.5rem' }}>
-                  <button className="btn small" onClick={() => openModal(entry)}><span className="material-icons" style={{ fontSize: 18 }}>edit</span></button>
-                  <button className="btn small btn-danger" onClick={() => deleteEntry(entry)}><span className="material-icons" style={{ fontSize: 18 }}>delete</span></button>
+                  <button className="btn small" onClick={() => openModal(entry)}><Icon name="pencil" size={18} /></button>
+                  <button className="btn small btn-danger" onClick={() => deleteEntry(entry)}><Icon name="trash-2" size={18} /></button>
                 </div>
               </div>
             ))}

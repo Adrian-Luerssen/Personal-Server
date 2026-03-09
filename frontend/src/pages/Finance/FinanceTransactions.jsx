@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import { formatDate, SkeletonCard } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -33,9 +34,9 @@ function getTransactionColor(tx) {
 function getTransactionIcon(tx) {
   const type = getTransactionType(tx)
   switch (type) {
-    case 'income': return 'arrow_downward'
-    case 'expense': return 'arrow_upward'
-    case 'transfer': return 'swap_horiz'
+    case 'income': return 'arrow-down'
+    case 'expense': return 'arrow-up'
+    case 'transfer': return 'arrow-left-right'
     default: return 'receipt'
   }
 }
@@ -135,9 +136,7 @@ export default function FinanceTransactions() {
   return (
     <>
       <h2>
-        <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: FINANCE_COLOR }}>
-          receipt_long
-        </span>
+        <Icon name="receipt" size={24} style={{ marginRight: 8, color: FINANCE_COLOR }} />
         {t('finance.transactions')}
       </h2>
 
@@ -228,7 +227,7 @@ export default function FinanceTransactions() {
             onClick={clearFilters}
             style={{ background: 'transparent', border: '1px solid var(--glass-border)' }}
           >
-            <span className="material-icons" style={{ fontSize: 16 }}>clear</span>
+            <Icon name="x" size={16} />
             {t('common.clear')}
           </button>
         </div>
@@ -239,9 +238,7 @@ export default function FinanceTransactions() {
         <SkeletonCard lines={8} />
       ) : transactions.length === 0 ? (
         <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
-          <span className="material-icons" style={{ fontSize: 48, color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }}>
-            receipt_long
-          </span>
+          <Icon name="receipt" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }} />
           <div style={{ color: 'var(--color-text-secondary)' }}>
             {t('finance.noTransactions')}
           </div>
@@ -250,7 +247,7 @@ export default function FinanceTransactions() {
             onClick={() => navigate('/finance/import')}
             style={{ marginTop: '1rem' }}
           >
-            <span className="material-icons" style={{ fontSize: 18 }}>file_download</span>
+            <Icon name="download" size={18} />
             {t('finance.importData')}
           </button>
         </div>
@@ -278,13 +275,7 @@ export default function FinanceTransactions() {
                       <td style={tdStyle}>{formatDate(tx.transactionDate || tx.date)}</td>
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span
-                            className="material-icons"
-                            style={{ fontSize: 18, color: txColor }}
-                            title={t(`finance.${txType}`)}
-                          >
-                            {txIcon}
-                          </span>
+                          <Icon name={txIcon} size={18} style={{ color: txColor }} />
                           <div>
                             <div style={{ fontWeight: 500 }}>{tx.name || tx.description || '—'}</div>
                             {tx.note && (
@@ -297,9 +288,7 @@ export default function FinanceTransactions() {
                       </td>
                       <td style={tdStyle}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span className="material-icons" style={{ fontSize: 16, color: FINANCE_COLOR }}>
-                            account_balance_wallet
-                          </span>
+                          <Icon name="wallet" size={16} style={{ color: FINANCE_COLOR }} />
                           {tx.wallet?.name || tx.walletName || '—'}
                         </span>
                       </td>
@@ -319,7 +308,7 @@ export default function FinanceTransactions() {
                         fontWeight: 700,
                         color: txColor,
                       }}>
-                        {txType === 'income' ? '+' : txType === 'expense' ? '-' : '⇄'}
+                        {txType === 'income' ? '+' : txType === 'expense' ? '-' : ''}
                         {formatCurrency(Math.abs(tx.amount))}
                       </td>
                     </tr>
@@ -344,7 +333,7 @@ export default function FinanceTransactions() {
                 disabled={page === 1}
                 style={{ opacity: page === 1 ? 0.4 : 1 }}
               >
-                <span className="material-icons" style={{ fontSize: 18 }}>chevron_left</span>
+                <Icon name="chevron-left" size={18} />
                 {t('common.previous')}
               </button>
               <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
@@ -357,7 +346,7 @@ export default function FinanceTransactions() {
                 style={{ opacity: page === totalPages ? 0.4 : 1 }}
               >
                 {t('common.next')}
-                <span className="material-icons" style={{ fontSize: 18 }}>chevron_right</span>
+                <Icon name="chevron-right" size={18} />
               </button>
             </div>
           )}

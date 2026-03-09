@@ -19,6 +19,7 @@ import {
   formatDate,
   formatNumberShort,
 } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -59,9 +60,9 @@ function getTransactionColor(tx) {
 function getTransactionIcon(tx) {
   const type = getTransactionType(tx)
   switch (type) {
-    case 'income': return 'arrow_downward'
-    case 'expense': return 'arrow_upward'
-    case 'transfer': return 'swap_horiz'
+    case 'income': return 'arrow-down'
+    case 'expense': return 'arrow-up'
+    case 'transfer': return 'arrow-left-right'
     default: return 'receipt'
   }
 }
@@ -138,9 +139,7 @@ export default function Finance() {
   return (
     <>
       <h2>
-        <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: FINANCE_COLOR }}>
-          account_balance_wallet
-        </span>
+        <Icon name="wallet" size={24} style={{ marginRight: 8, color: FINANCE_COLOR }} />
         {t('finance.title')}
       </h2>
 
@@ -176,9 +175,9 @@ export default function Finance() {
         <h3>{t('finance.quickActions')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: 'receipt_long', label: t('finance.transactions'), onClick: () => navigate('/finance/transactions'), accent: true },
-            { icon: 'account_balance', label: t('finance.wallets'), onClick: () => navigate('/finance/wallets') },
-            { icon: 'file_download', label: t('finance.importCashew'), onClick: () => navigate('/finance/import') },
+            { icon: 'receipt', label: t('finance.transactions'), onClick: () => navigate('/finance/transactions'), accent: true },
+            { icon: 'landmark', label: t('finance.wallets'), onClick: () => navigate('/finance/wallets') },
+            { icon: 'download', label: t('finance.importCashew'), onClick: () => navigate('/finance/import') },
           ].map(action => (
             <button
               key={action.label}
@@ -192,9 +191,7 @@ export default function Finance() {
               }}
               onClick={action.onClick}
             >
-              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: FINANCE_COLOR }}>
-                {action.icon}
-              </span>
+              <Icon name={action.icon} size={40} style={{ marginBottom: '.5rem', color: FINANCE_COLOR }} />
               <div style={{ fontWeight: 700 }}>{action.label}</div>
             </button>
           ))}
@@ -206,7 +203,7 @@ export default function Finance() {
         {/* Spending by Category */}
         <div className="card" style={{ padding: '1.25rem' }}>
           <h3 style={{ marginBottom: '1rem' }}>
-            <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>pie_chart</span>
+            <Icon name="pie-chart" size={20} style={{ marginRight: 8 }} />
             {t('finance.spendingByCategory')}
           </h3>
           {loading ? (
@@ -224,7 +221,7 @@ export default function Finance() {
         <div className="card" style={{ padding: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3>
-              <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>account_balance</span>
+              <Icon name="landmark" size={20} style={{ marginRight: 8 }} />
               {t('finance.wallets')}
             </h3>
             <button className="btn small" onClick={() => navigate('/finance/wallets')}>{t('common.viewAll')}</button>
@@ -248,15 +245,7 @@ export default function Finance() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span
-                      className="material-icons"
-                      style={{
-                        fontSize: 20,
-                        color: wallet.color || FINANCE_COLOR,
-                      }}
-                    >
-                      {wallet.icon || 'account_balance_wallet'}
-                    </span>
+                    <Icon name={wallet.icon || 'wallet'} size={20} style={{ color: wallet.color || FINANCE_COLOR }} />
                     <span style={{ fontWeight: 600 }}>{wallet.name}</span>
                   </div>
                   <span style={{
@@ -276,7 +265,7 @@ export default function Finance() {
       <div className="section" style={{ marginTop: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.75rem' }}>
           <h3>
-            <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>receipt_long</span>
+            <Icon name="receipt" size={20} style={{ marginRight: 8 }} />
             {t('finance.recentTransactions')}
           </h3>
           <button className="btn small" onClick={() => navigate('/finance/transactions')}>{t('common.viewAll')}</button>
@@ -309,13 +298,7 @@ export default function Finance() {
                       <td style={tdStyle}>{formatDate(tx.transactionDate || tx.date)}</td>
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span
-                            className="material-icons"
-                            style={{ fontSize: 16, color: txColor }}
-                            title={t(`finance.${txType}`)}
-                          >
-                            {txIcon}
-                          </span>
+                          <Icon name={txIcon} size={16} style={{ color: txColor }} />
                           {tx.name || tx.description || '—'}
                         </div>
                       </td>

@@ -10,6 +10,7 @@ import {
   formatDateTime,
   calculateVolume,
 } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 export default function WorkoutActive() {
   const navigate = useNavigate()
@@ -122,7 +123,7 @@ export default function WorkoutActive() {
 
   return (
     <>
-      <h2><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8 }}>fitness_center</span>Active Workout</h2>
+      <h2><Icon name="dumbbell" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Active Workout</h2>
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
@@ -140,7 +141,7 @@ export default function WorkoutActive() {
         </div>
       ) : !activeSession ? (
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: 'var(--color-accent)' }}>fitness_center</span>
+          <Icon name="dumbbell" size={48} style={{ marginBottom: '1rem', color: 'var(--color-accent)' }} />
           <h3>No active workout</h3>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: '2rem' }}>Start a new workout to begin tracking your sets</p>
           <button className="btn" onClick={startWorkout}>Start Workout</button>
@@ -162,10 +163,10 @@ export default function WorkoutActive() {
             </div>
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '.75rem' }}>
               <button className="btn" onClick={() => setShowAddSet(true)}>
-                <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 4, fontSize: 18 }}>add</span>Add Set
+                <Icon name="plus" size={18} style={{ verticalAlign: 'middle', marginRight: 4 }} />Add Set
               </button>
               <button className="btn btn-success" onClick={() => setShowEndModal(true)}>
-                <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 4, fontSize: 18 }}>check</span>End Workout
+                <Icon name="check" size={18} style={{ verticalAlign: 'middle', marginRight: 4 }} />End Workout
               </button>
             </div>
           </div>
@@ -335,7 +336,7 @@ export default function WorkoutActive() {
             </div>
             <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
               <button className="btn btn-success" onClick={endWorkout}>
-                <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 4, fontSize: 18 }}>check</span>Finish & Save
+                <Icon name="check" size={18} style={{ verticalAlign: 'middle', marginRight: 4 }} />Finish & Save
               </button>
               <button className="btn btn-ghost" onClick={() => setShowEndModal(false)}>Cancel</button>
             </div>

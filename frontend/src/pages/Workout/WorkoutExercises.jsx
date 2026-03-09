@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Modal } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 export default function WorkoutExercises() {
   const [exercises, setExercises] = useState([])
@@ -93,7 +94,7 @@ export default function WorkoutExercises() {
 
   return (
     <>
-      <h2><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8 }}>folder_open</span>Exercises & Categories</h2>
+      <h2><Icon name="folder-open" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Exercises & Categories</h2>
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
@@ -109,7 +110,7 @@ export default function WorkoutExercises() {
             <input type="text" className="input" placeholder={tab === 'exercises' ? 'Search exercises...' : 'Search categories...'} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <button className="btn" onClick={() => tab === 'exercises' ? openExerciseModal() : openCategoryModal()}>
-            <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 4, fontSize: 18 }}>add</span>Add {tab === 'exercises' ? 'Exercise' : 'Category'}
+            <Icon name="plus" size={18} style={{ verticalAlign: 'middle', marginRight: 4 }} />Add {tab === 'exercises' ? 'Exercise' : 'Category'}
           </button>
         </div>
       </div>
@@ -154,7 +155,7 @@ export default function WorkoutExercises() {
           {tab === 'exercises' ? (
             filteredExercises.length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-                <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: 'var(--color-accent)' }}>fitness_center</span>
+                <Icon name="dumbbell" size={48} style={{ marginBottom: '1rem', color: 'var(--color-accent)' }} />
                 <h3>No exercises found</h3>
                 <p style={{ color: 'var(--color-text-secondary)', marginTop: '.5rem' }}>{searchTerm ? 'Try adjusting your search' : 'Add your first exercise to get started'}</p>
               </div>
@@ -192,8 +193,8 @@ export default function WorkoutExercises() {
                                     {exercise.notes && <div style={{ fontSize: '.85rem', color: 'var(--color-text-muted)', marginTop: 6, fontStyle: 'italic' }}>{exercise.notes}</div>}
                                   </div>
                                   <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
-                                    <button className="btn small" onClick={() => openExerciseModal(exercise)}><span className="material-icons" style={{ fontSize: 18 }}>edit</span></button>
-                                    <button className="btn small btn-danger" onClick={() => deleteExercise(exercise)}><span className="material-icons" style={{ fontSize: 18 }}>delete</span></button>
+                                    <button className="btn small" onClick={() => openExerciseModal(exercise)}><Icon name="pencil" size={18} /></button>
+                                    <button className="btn small btn-danger" onClick={() => deleteExercise(exercise)}><Icon name="trash-2" size={18} /></button>
                                   </div>
                                 </div>
                               </div>
@@ -209,7 +210,7 @@ export default function WorkoutExercises() {
           ) : (
             filteredCategories.length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-                <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: 'var(--color-accent)' }}>folder</span>
+                <Icon name="folder" size={48} style={{ marginBottom: '1rem', color: 'var(--color-accent)' }} />
                 <h3>No categories found</h3>
                 <p style={{ color: 'var(--color-text-secondary)', marginTop: '.5rem' }}>{searchTerm ? 'Try adjusting your search' : 'Add your first category to organize exercises'}</p>
               </div>
@@ -228,8 +229,8 @@ export default function WorkoutExercises() {
                           {category.description && <div style={{ fontSize: '.85rem', color: 'var(--color-text-muted)', marginTop: 6 }}>{category.description}</div>}
                         </div>
                         <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
-                          <button className="btn small" onClick={() => openCategoryModal(category)}><span className="material-icons" style={{ fontSize: 18 }}>edit</span></button>
-                          <button className="btn small btn-danger" onClick={() => deleteCategory(category)}><span className="material-icons" style={{ fontSize: 18 }}>delete</span></button>
+                          <button className="btn small" onClick={() => openCategoryModal(category)}><Icon name="pencil" size={18} /></button>
+                          <button className="btn small btn-danger" onClick={() => deleteCategory(category)}><Icon name="trash-2" size={18} /></button>
                         </div>
                       </div>
                     </div>

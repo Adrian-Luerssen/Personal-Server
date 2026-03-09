@@ -18,6 +18,7 @@ import {
   Filler
 } from 'chart.js'
 import { api } from '../../api'
+import Icon from '../../components/icons/Icon'
 import '../../custom-scrollbar.css'
 import {
   LoadingDot,
@@ -306,7 +307,7 @@ export default function SpotifyPersonal() {
             <img src={avatarUrl} alt="avatar" style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', objectFit: 'cover' }} />
           ) : (
             <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', background: 'var(--color-accent-muted)', display: 'grid', placeItems: 'center' }}>
-              <span className="material-icons" style={{ fontSize: 28, color: 'var(--color-accent)' }}>music_note</span>
+              <Icon name="music" size={28} style={{ color: 'var(--color-accent)' }} />
             </div>
           )}
           <div style={{ flex: 1 }}>

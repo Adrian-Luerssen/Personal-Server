@@ -6,8 +6,9 @@ import {
   Param,
   Post,
   Query,
-  UseGuards,
+  Res,
 } from "@nestjs/common";
+import { Response } from "express";
 import { AuthService } from "./auth.service";
 import { IsEmail, IsNotEmpty, IsOptional, MinLength } from "class-validator";
 import { RefreshTokenService } from "./refreshToken.service";
@@ -15,6 +16,7 @@ import { NoAuth, ReqUser } from "./auth.decorator";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { SpotifyService } from "../spotify/spotify.service";
 import { SpotifyCredentials } from "../spotify/spotifyCredentials.entity";
+import { ConfigService } from "@nestjs/config";
 
 export class AuthenticateRequest {
   @IsNotEmpty()
@@ -61,7 +63,8 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private refreshTokenService: RefreshTokenService,
-    private spotifyService: SpotifyService
+    private spotifyService: SpotifyService,
+    private configService: ConfigService
   ) {}
 
   @Post("/register")
@@ -134,15 +137,73 @@ export class AuthController {
   @Get("/spotify/link")
   @ApiOperation({ summary: "Initiate Spotify OAuth linking" })
   @ApiResponse({
-    status: 302,
-    description: "Redirect to Spotify authorization",
+    status: 200,
+    description: "Returns Spotify authorization URL",
   })
-  @NoAuth()
-  async linkSpotify(): Promise<{ url: string }> {
-    // Optionally generate state to validate callback
-    const state = Math.random().toString(36).substring(2, 15);
+  async linkSpotify(@ReqUser() user: any): Promise<{ url: string }> {
+    // Encode accountId in state so the callback can associate tokens with the user
+    const state = Buffer.from(JSON.stringify({ accountId: user.id })).toString("base64url");
     const url = this.spotifyService.generateAuthUrl(state);
     return { url };
+  }
+
+  @Get("/spotify/callback")
+  @NoAuth()
+  @ApiOperation({
+    summary: "Spotify OAuth redirect callback - exchanges code and redirects to frontend",
+  })
+  async spotifyCallbackRedirect(
+    @Query("code") code: string,
+    @Query("state") state: string,
+    @Query("error") error: string,
+    @Res() res: Response
+  ): Promise<void> {
+    const frontendUrl = this.configService.get("DOMAIN_APP") || "http://localhost:4040";
+
+    if (error) {
+      res.redirect(`${frontendUrl}/settings?spotify_error=${encodeURIComponent(error)}`);
+      return;
+    }
+
+    if (!code || !state) {
+      res.redirect(`${frontendUrl}/settings?spotify_error=missing_code_or_state`);
+      return;
+    }
+
+    try {
+      // Decode accountId from state
+      const stateData = JSON.parse(Buffer.from(state, "base64url").toString());
+      const accountId = stateData.accountId;
+
+      if (!accountId) {
+        res.redirect(`${frontendUrl}/settings?spotify_error=invalid_state`);
+        return;
+      }
+
+      const tokenData = await this.spotifyService.exchangeCodeForTokens(code);
+      await this.spotifyService.upsertTokens(accountId, {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenType: tokenData.token_type,
+        scope: tokenData.scope,
+        expiresIn: tokenData.expires_in,
+      });
+
+      // Fetch profile and store basic info
+      const me = await this.spotifyService.getCurrentUser(tokenData.access_token);
+      await this.spotifyService.updateProfile(accountId, {
+        spotifyUserId: me.id,
+        displayName: me.display_name,
+        email: me.email,
+        profileUrl: me.external_urls?.spotify,
+        images: me.images,
+      });
+
+      res.redirect(`${frontendUrl}/spotify/personal?linked=true`);
+    } catch (e) {
+      console.error("Spotify callback error:", e);
+      res.redirect(`${frontendUrl}/settings?spotify_error=token_exchange_failed`);
+    }
   }
 
   @Post("/spotify/callback")

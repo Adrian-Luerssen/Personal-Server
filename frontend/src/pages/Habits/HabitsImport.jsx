@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { apiFetch } from '../../api'
 import { LoadingSpinner, StepIndicator, ProgressBar } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 const HABITS_COLOR = '#a78bfa'
 const STEPS = ['File', 'Preview', 'Import', 'Done']
@@ -34,7 +35,7 @@ function FileSelectStep({ file, setFile, onNext }) {
   return (
     <div className="card" style={{ marginBottom: '1.5rem' }}>
       <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span className="material-icons">upload_file</span>
+        <Icon name="upload" size={20} />
         Select HabitShare CSV
       </h3>
 
@@ -59,17 +60,15 @@ function FileSelectStep({ file, setFile, onNext }) {
           marginBottom: '1rem',
         }}
       >
-        <span
-          className="material-icons"
+        <Icon
+          name={file ? 'check-circle' : 'cloud-upload'}
+          size={48}
           style={{
-            fontSize: 48,
             color: file ? 'var(--color-success)' : HABITS_COLOR,
             marginBottom: '0.75rem',
             display: 'block',
           }}
-        >
-          {file ? 'check_circle' : 'cloud_upload'}
-        </span>
+        />
 
         {file ? (
           <>
@@ -109,9 +108,7 @@ function FileSelectStep({ file, setFile, onNext }) {
           userSelect: 'none',
           padding: '0.5rem 0',
         }}>
-          <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>
-            help_outline
-          </span>
+          <Icon name="help-circle" size={16} style={{ marginRight: 4 }} />
           How to export from HabitShare
         </summary>
         <ol style={{ paddingLeft: '1.5rem', lineHeight: 1.8, color: 'var(--color-text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>
@@ -129,7 +126,7 @@ function FileSelectStep({ file, setFile, onNext }) {
           disabled={!file}
           style={{ opacity: file ? 1 : 0.4, background: HABITS_COLOR, color: '#fff' }}
         >
-          <span className="material-icons" style={{ fontSize: 18 }}>search</span>
+          <Icon name="search" size={18} />
           Preview Import
         </button>
       </div>
@@ -156,7 +153,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
       <div className="card">
         <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>
         <button className="btn" onClick={onBack} style={{ background: 'var(--glass-border)' }}>
-          <span className="material-icons" style={{ fontSize: 18 }}>arrow_back</span>
+          <Icon name="arrow-left" size={18} />
           Back
         </button>
       </div>
@@ -170,7 +167,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
   return (
     <div className="card" style={{ marginBottom: '1.5rem' }}>
       <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span className="material-icons">preview</span>
+        <Icon name="eye" size={20} />
         Import Preview
       </h3>
 
@@ -187,16 +184,12 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
         color: 'var(--color-text-secondary)',
       }}>
         <span>
-          <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>
-            storage
-          </span>
+          <Icon name="hard-drive" size={16} style={{ marginRight: 4 }} />
           {preview.file?.name || 'HabitShare CSV'}
         </span>
         {preview.dateRange?.earliest && (
           <span>
-            <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>
-              date_range
-            </span>
+            <Icon name="calendar-range" size={16} style={{ marginRight: 4 }} />
             {preview.dateRange.earliest} → {preview.dateRange.latest}
           </span>
         )}
@@ -215,8 +208,8 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
           </thead>
           <tbody>
             {[
-              { label: 'Habits', icon: 'self_improvement', counts: counts.habits },
-              { label: 'Entries', icon: 'event_note', counts: counts.entries },
+              { label: 'Habits', icon: 'heart-pulse', counts: counts.habits },
+              { label: 'Entries', icon: 'calendar-check', counts: counts.entries },
             ].filter(r => r.counts).map(({ label, icon, counts: c }) => (
               <tr key={label}>
                 <td style={tdStyle}>
@@ -268,7 +261,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
       {/* Warnings */}
       {preview.warnings?.length > 0 && (
         <div className="alert-warning" style={{ marginBottom: '1.25rem' }}>
-          <div style={{ fontWeight: 700, marginBottom: '0.4rem' }}>⚠ Warnings</div>
+          <div style={{ fontWeight: 700, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="alert-triangle" size={16} /> Warnings</div>
           {preview.warnings.map((w, i) => (
             <div key={i} style={{ fontSize: '0.9rem' }}>{w}</div>
           ))}
@@ -277,11 +270,11 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
 
       <div style={{ display: 'flex', gap: '0.75rem' }}>
         <button className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)' }} onClick={onBack}>
-          <span className="material-icons" style={{ fontSize: 18 }}>arrow_back</span>
+          <Icon name="arrow-left" size={18} />
           Back
         </button>
         <button className="btn" onClick={onNext} style={{ background: HABITS_COLOR, color: '#fff' }}>
-          <span className="material-icons" style={{ fontSize: 18 }}>play_arrow</span>
+          <Icon name="play" size={18} />
           Start Import
         </button>
       </div>
@@ -328,18 +321,16 @@ function ProgressStep({ previewId, onComplete, onError }) {
 
   return (
     <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-      <span
-        className="material-icons"
+      <Icon
+        name={isError ? 'alert-circle' : isDone ? 'check-circle' : 'refresh-cw'}
+        size={56}
         style={{
-          fontSize: 56,
           color: isError ? 'var(--color-error)' : isDone ? 'var(--color-success)' : HABITS_COLOR,
           marginBottom: '1rem',
           display: 'block',
           animation: (!isError && !isDone) ? 'spin 2s linear infinite' : 'none',
         }}
-      >
-        {isError ? 'error' : isDone ? 'check_circle' : 'sync'}
-      </span>
+      />
 
       <h3 style={{ marginBottom: '0.5rem' }}>
         {isError ? 'Import Failed' : isDone ? 'Import Complete!' : 'Importing…'}
@@ -367,9 +358,7 @@ function SummaryStep({ summary, onReset }) {
   if (!summary) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-        <span className="material-icons" style={{ fontSize: 56, color: 'var(--color-success)', marginBottom: '1rem', display: 'block' }}>
-          check_circle
-        </span>
+        <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '1rem', display: 'block' }} />
         <h3>Import Complete!</h3>
         <p style={{ color: 'var(--color-text-secondary)' }}>Your HabitShare data has been imported.</p>
         <button className="btn" onClick={onReset} style={{ marginTop: '1.5rem' }}>
@@ -384,17 +373,15 @@ function SummaryStep({ summary, onReset }) {
     if (!obj) return
     rows.push({ label, icon, imported: obj.imported ?? obj.created ?? 0, skipped: obj.skipped ?? obj.existing ?? 0 })
   }
-  addRow('Habits', 'self_improvement', summary.habits)
-  addRow('Entries', 'event_note', summary.entries)
+  addRow('Habits', 'heart-pulse', summary.habits)
+  addRow('Entries', 'calendar-check', summary.entries)
 
   const totalImported = rows.reduce((s, r) => s + r.imported, 0)
 
   return (
     <div className="card">
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        <span className="material-icons" style={{ fontSize: 56, color: 'var(--color-success)', marginBottom: '0.75rem', display: 'block' }}>
-          check_circle
-        </span>
+        <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '0.75rem', display: 'block' }} />
         <h3 style={{ marginBottom: '0.25rem' }}>Import Complete!</h3>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
           Successfully imported <strong style={{ color: 'var(--color-success)' }}>{totalImported.toLocaleString()}</strong> records
@@ -415,9 +402,7 @@ function SummaryStep({ summary, onReset }) {
               {rows.map(({ label, icon, imported, skipped }) => (
                 <tr key={label}>
                   <td style={tdStyle}>
-                    <span className="material-icons" style={{ fontSize: 15, verticalAlign: 'middle', marginRight: 6, color: HABITS_COLOR }}>
-                      {icon}
-                    </span>
+                    <Icon name={icon} size={15} style={{ marginRight: 6, color: HABITS_COLOR }} />
                     {label}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--color-success)', fontWeight: 700 }}>
@@ -435,11 +420,11 @@ function SummaryStep({ summary, onReset }) {
 
       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
         <button className="btn" onClick={onReset}>
-          <span className="material-icons" style={{ fontSize: 18 }}>refresh</span>
+          <Icon name="refresh-cw" size={18} />
           Import Another File
         </button>
         <a href="/habits" className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <span className="material-icons" style={{ fontSize: 18 }}>self_improvement</span>
+          <Icon name="heart-pulse" size={18} />
           Go to Habits
         </a>
       </div>
@@ -506,9 +491,7 @@ export default function HabitsImport() {
   return (
     <>
       <h2>
-        <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: HABITS_COLOR }}>
-          file_download
-        </span>
+        <Icon name="download" size={24} style={{ marginRight: 8, color: HABITS_COLOR }} />
         Import HabitShare Data
       </h2>
 
@@ -541,11 +524,11 @@ export default function HabitsImport() {
           {importError && (
             <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
               <button className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)' }} onClick={() => setStep(2)}>
-                <span className="material-icons" style={{ fontSize: 18 }}>arrow_back</span>
+                <Icon name="arrow-left" size={18} />
                 Back to Preview
               </button>
               <button className="btn" onClick={handleReset}>
-                <span className="material-icons" style={{ fontSize: 18 }}>refresh</span>
+                <Icon name="refresh-cw" size={18} />
                 Start Over
               </button>
             </div>

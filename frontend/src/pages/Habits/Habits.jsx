@@ -8,6 +8,7 @@ import {
   SkeletonCard,
   ProgressBar,
 } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 // Habits accent color (purple)
 const HABITS_COLOR = '#a78bfa'
@@ -22,9 +23,9 @@ const STATUS_COLORS = {
 }
 
 const STATUS_ICONS = {
-  success: 'check_circle',
-  fail: 'cancel',
-  skip: 'remove_circle',
+  success: 'check-circle',
+  fail: 'x-circle',
+  skip: 'minus-circle',
 }
 
 function formatDate(date) {
@@ -92,9 +93,7 @@ export default function Habits() {
   return (
     <>
       <h2>
-        <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, color: HABITS_COLOR }}>
-          self_improvement
-        </span>
+        <Icon name="heart-pulse" size={24} style={{ marginRight: 8, color: HABITS_COLOR }} />
         {t('habits.title')}
       </h2>
 
@@ -117,7 +116,7 @@ export default function Habits() {
         <h3>{t('habits.quickActions')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: 'file_download', label: t('habits.importHabitShare'), onClick: () => navigate('/habits/import'), accent: true },
+            { icon: 'download', label: t('habits.importHabitShare'), onClick: () => navigate('/habits/import'), accent: true },
           ].map(action => (
             <button
               key={action.label}
@@ -131,9 +130,7 @@ export default function Habits() {
               }}
               onClick={action.onClick}
             >
-              <span className="material-icons" style={{ fontSize: '2.5rem', marginBottom: '.5rem', color: HABITS_COLOR }}>
-                {action.icon}
-              </span>
+              <Icon name={action.icon} size={40} style={{ marginBottom: '.5rem', color: HABITS_COLOR }} />
               <div style={{ fontWeight: 700 }}>{action.label}</div>
             </button>
           ))}
@@ -145,7 +142,7 @@ export default function Habits() {
         {/* Habits List */}
         <div className="card" style={{ padding: '1.25rem' }}>
           <h3 style={{ marginBottom: '1rem' }}>
-            <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>list</span>
+            <Icon name="list" size={20} style={{ marginRight: 8 }} />
             {t('habits.todaysHabits')}
           </h3>
 
@@ -153,9 +150,7 @@ export default function Habits() {
             <SkeletonCard lines={4} />
           ) : habits.length === 0 ? (
             <div className="empty-state">
-              <span className="material-icons" style={{ fontSize: 48, color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }}>
-                self_improvement
-              </span>
+              <Icon name="heart-pulse" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }} />
               {t('habits.noHabitsYet')}
             </div>
           ) : (
@@ -176,7 +171,7 @@ export default function Habits() {
         <div className="card" style={{ padding: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3>
-              <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8, fontSize: 20 }}>calendar_month</span>
+              <Icon name="calendar" size={20} style={{ marginRight: 8 }} />
               {t('habits.calendar')}
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -185,7 +180,7 @@ export default function Habits() {
                 onClick={() => setSelectedMonth(getPreviousMonth(selectedMonth))}
                 style={{ padding: '0.25rem' }}
               >
-                <span className="material-icons" style={{ fontSize: 18 }}>chevron_left</span>
+                <Icon name="chevron-left" size={18} />
               </button>
               <span style={{ fontSize: '0.9rem', fontWeight: 600, minWidth: '100px', textAlign: 'center' }}>
                 {formatMonthYear(selectedMonth, i18n.language)}
@@ -195,7 +190,7 @@ export default function Habits() {
                 onClick={() => setSelectedMonth(getNextMonth(selectedMonth))}
                 style={{ padding: '0.25rem' }}
               >
-                <span className="material-icons" style={{ fontSize: 18 }}>chevron_right</span>
+                <Icon name="chevron-right" size={18} />
               </button>
             </div>
           </div>
@@ -246,8 +241,8 @@ function HabitCard({ habit, onToggle, t }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontWeight: 600 }}>{habit.name}</span>
           {habit.currentStreak > 0 && (
-            <span style={{ fontSize: '0.85rem' }}>
-              🔥 {habit.currentStreak}
+            <span style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+              <Icon name="flame" size={14} style={{ color: 'var(--color-warning)' }} /> {habit.currentStreak}
             </span>
           )}
         </div>
@@ -282,9 +277,7 @@ function HabitCard({ habit, onToggle, t }) {
             }}
             title={t(`habits.${status === 'fail' ? 'failed' : status}`)}
           >
-            <span className="material-icons" style={{ fontSize: 18 }}>
-              {STATUS_ICONS[status]}
-            </span>
+            <Icon name={STATUS_ICONS[status]} size={18} />
           </button>
         ))}
       </div>

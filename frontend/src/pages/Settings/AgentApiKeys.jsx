@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Modal, LoadingSpinner } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 // Available scopes grouped by module
 const SCOPE_GROUPS = {
@@ -174,7 +175,7 @@ function CreateKeyModal({ onClose, onCreated }) {
               style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
             />
             <button className="btn small" onClick={handleCopy}>
-              <span className="material-icons" style={{ fontSize: '16px' }}>{copied ? 'check' : 'content_copy'}</span>
+              <Icon name={copied ? 'check' : 'copy'} size={16} />
             </button>
           </div>
         </div>
@@ -393,10 +394,10 @@ function ApiKeyRow({ apiKey, onEdit, onRevoke }) {
         
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn small btn-ghost" onClick={() => onEdit(apiKey)}>
-            <span className="material-icons" style={{ fontSize: '16px' }}>edit</span>
+            <Icon name="pencil" size={16} />
           </button>
           <button className="btn small btn-danger" onClick={() => onRevoke(apiKey)}>
-            <span className="material-icons" style={{ fontSize: '16px' }}>delete</span>
+            <Icon name="trash-2" size={16} />
           </button>
         </div>
       </div>
@@ -407,16 +408,16 @@ function ApiKeyRow({ apiKey, onEdit, onRevoke }) {
         </div>
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
           <span>
-            <span className="material-icons" style={{ fontSize: '14px', verticalAlign: 'middle', marginRight: '4px' }}>schedule</span>
+            <Icon name="clock" size={14} style={{ marginRight: '4px' }} />
             Last used: {formatDate(apiKey.lastUsedAt)}
           </span>
           <span>
-            <span className="material-icons" style={{ fontSize: '14px', verticalAlign: 'middle', marginRight: '4px' }}>event</span>
+            <Icon name="calendar" size={14} style={{ marginRight: '4px' }} />
             Created: {formatDate(apiKey.createdAt)}
           </span>
           {apiKey.expiresAt && (
             <span style={{ color: isExpired ? 'var(--color-error)' : undefined }}>
-              <span className="material-icons" style={{ fontSize: '14px', verticalAlign: 'middle', marginRight: '4px' }}>timer</span>
+              <Icon name="timer" size={14} style={{ marginRight: '4px' }} />
               Expires: {formatDate(apiKey.expiresAt)}
             </span>
           )}
@@ -461,7 +462,7 @@ export default function AgentApiKeys() {
           </p>
         </div>
         <button className="btn small" onClick={() => setShowCreate(true)}>
-          <span className="material-icons" style={{ fontSize: '16px' }}>add</span>
+          <Icon name="plus" size={16} />
           New Key
         </button>
       </div>
@@ -474,13 +475,13 @@ export default function AgentApiKeys() {
         </div>
       ) : keys.length === 0 ? (
         <div className="empty-state">
-          <span className="material-icons">key</span>
+          <Icon name="key-round" size={24} />
           <p>No API keys yet</p>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
             Create an API key to allow agents to access your data
           </p>
           <button className="btn" onClick={() => setShowCreate(true)} style={{ marginTop: '1rem' }}>
-            <span className="material-icons" style={{ fontSize: '16px' }}>add</span>
+            <Icon name="plus" size={16} />
             Create First Key
           </button>
         </div>

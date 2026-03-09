@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import AgentApiKeys from './AgentApiKeys'
 import Connections from './Connections'
+import Appearance from './Appearance'
 
 export default function Settings() {
   const { t, i18n } = useTranslation()
@@ -40,11 +41,20 @@ export default function Settings() {
           <span className="material-icons" style={{ fontSize: '16px', marginRight: '4px', verticalAlign: 'middle' }}>tune</span>
           {t('settings.preferences')}
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
+          onClick={() => setActiveTab('appearance')}
+        >
+          <span className="material-icons" style={{ fontSize: '16px', marginRight: '4px', verticalAlign: 'middle' }}>palette</span>
+          Appearance
+        </button>
       </div>
 
       {activeTab === 'agent-keys' && <AgentApiKeys />}
 
       {activeTab === 'connections' && <Connections />}
+
+      {activeTab === 'appearance' && <Appearance />}
 
       {activeTab === 'preferences' && (
         <div className="card section">

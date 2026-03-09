@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import AgentApiKeys from './AgentApiKeys'
+import Connections from './Connections'
 
 export default function Settings() {
   const { t, i18n } = useTranslation()
@@ -43,25 +44,7 @@ export default function Settings() {
 
       {activeTab === 'agent-keys' && <AgentApiKeys />}
 
-      {activeTab === 'connections' && (
-        <div className="card section">
-          <h2>{t('settings.connectedAccounts')}</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span style={{ fontSize: '1.5rem' }}>🎵</span>
-                <div>
-                  <div style={{ fontWeight: 600 }}>Spotify</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>{t('settings.musicIntegration')}</div>
-                </div>
-              </div>
-              <NavLink to="/profile" className="btn small btn-ghost">
-                {t('settings.manageInProfile')}
-              </NavLink>
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === 'connections' && <Connections />}
 
       {activeTab === 'preferences' && (
         <div className="card section">

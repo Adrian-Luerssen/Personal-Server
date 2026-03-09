@@ -213,9 +213,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
             ].filter(r => r.counts).map(({ label, icon, counts: c }) => (
               <tr key={label}>
                 <td style={tdStyle}>
-                  <span className="material-icons" style={{ fontSize: 15, verticalAlign: 'middle', marginRight: 6, color: HABITS_COLOR }}>
-                    {icon}
-                  </span>
+                  <Icon name={icon} size={15} style={{ marginRight: 6, color: HABITS_COLOR }} />
                   {label}
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{(c.total || 0).toLocaleString()}</td>

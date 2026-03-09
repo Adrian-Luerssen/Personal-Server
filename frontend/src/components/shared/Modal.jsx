@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { api } from '../../api'
 import { LoadingLine } from './LoadingLine'
 import { HistoryItem } from './HistoryItem'
+import Icon from '../icons/Icon'
 import '../../custom-scrollbar.css'
 
 export function Modal({ title, onClose, children, size = 'medium' }) {
@@ -14,7 +15,7 @@ export function Modal({ title, onClose, children, size = 'medium' }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ margin: 0 }}>{title}</h3>
           <button className="btn small btn-ghost" onClick={onClose}>
-            <span className="material-icons" style={{ fontSize: '18px' }}>close</span>
+            <Icon name="x" size={18} />
           </button>
         </div>
         {children}
@@ -90,7 +91,7 @@ export function HistoryModal({ onClose }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ margin: 0 }}>All Recent Streams</h3>
           <button className="btn small btn-ghost" onClick={onClose}>
-            <span className="material-icons" style={{ fontSize: '18px' }}>close</span>
+            <Icon name="x" size={18} />
           </button>
         </div>
         <div ref={containerRef} style={{ overflowY: 'auto', maxHeight: '60vh', paddingRight: 8 }} className="custom-scrollbar">

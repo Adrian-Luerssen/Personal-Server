@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { usePreferences } from '../../contexts/PreferencesContext'
+import Icon from '../../components/icons/Icon'
 
 const PRESET_COLORS = [
   '#7dd3fc', // sky
@@ -47,7 +48,7 @@ function SectionCard({ title, icon, children }) {
       }}
     >
       <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span className="material-icons" style={{ fontSize: '20px', color: 'var(--color-accent)' }}>{icon}</span>
+        <Icon name={icon} size={20} style={{ color: 'var(--color-accent)' }} />
         {title}
       </h3>
       {children}
@@ -109,7 +110,7 @@ function SegmentedControl({ options, value, onChange }) {
           }}
         >
           {opt.icon && (
-            <span className="material-icons" style={{ fontSize: '16px' }}>{opt.icon}</span>
+            <Icon name={opt.icon} size={16} />
           )}
           {opt.label}
         </button>
@@ -135,9 +136,7 @@ function RadioCard({ selected, onClick, icon, label, description }) {
         color: 'inherit',
       }}
     >
-      <span className="material-icons" style={{ fontSize: '28px', color: selected ? 'var(--color-accent)' : 'var(--color-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-        {icon}
-      </span>
+      <Icon name={icon} size={28} style={{ color: selected ? 'var(--color-accent)' : 'var(--color-text-secondary)', display: 'block', marginBottom: '0.5rem' }} />
       <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{label}</div>
       {description && (
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>{description}</div>
@@ -324,14 +323,14 @@ export default function Appearance() {
       </SectionCard>
 
       {/* Theme Mode */}
-      <SectionCard title="Theme Mode" icon="dark_mode">
+      <SectionCard title="Theme Mode" icon="moon">
         <SegmentedControl
           value={prefs.themeMode}
           onChange={handleThemeMode}
           options={[
-            { value: 'dark', label: 'Dark', icon: 'dark_mode' },
-            { value: 'light', label: 'Light', icon: 'light_mode' },
-            { value: 'auto', label: 'Auto', icon: 'brightness_auto' },
+            { value: 'dark', label: 'Dark', icon: 'moon' },
+            { value: 'light', label: 'Light', icon: 'sun' },
+            { value: 'auto', label: 'Auto', icon: 'sun-moon' },
           ]}
         />
         <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.75rem', marginBottom: 0 }}>
@@ -340,7 +339,7 @@ export default function Appearance() {
       </SectionCard>
 
       {/* Background */}
-      <SectionCard title="Background" icon="wallpaper">
+      <SectionCard title="Background" icon="image">
         <div style={{ marginBottom: '1rem' }}>
           <SegmentedControl
             value={bgSubTab}
@@ -456,45 +455,45 @@ export default function Appearance() {
             onClick={clearBackground}
             style={{ marginTop: '0.75rem' }}
           >
-            <span className="material-icons" style={{ fontSize: '14px' }}>close</span>
+            <Icon name="x" size={14} />
             Clear Background
           </button>
         )}
       </SectionCard>
 
       {/* Sidebar Position */}
-      <SectionCard title="Sidebar Position" icon="view_sidebar">
+      <SectionCard title="Sidebar Position" icon="panel-left">
         <SegmentedControl
           value={prefs.sidebarPosition}
           onChange={handleSidebarPosition}
           options={[
-            { value: 'left', label: 'Left', icon: 'format_indent_increase' },
-            { value: 'right', label: 'Right', icon: 'format_indent_decrease' },
+            { value: 'left', label: 'Left', icon: 'panel-left' },
+            { value: 'right', label: 'Right', icon: 'panel-right' },
           ]}
         />
       </SectionCard>
 
       {/* Density */}
-      <SectionCard title="Density" icon="density_medium">
+      <SectionCard title="Density" icon="rows-3">
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <RadioCard
             selected={prefs.density === 'compact'}
             onClick={() => handleDensity('compact')}
-            icon="density_small"
+            icon="rows-4"
             label="Compact"
             description="Tighter spacing"
           />
           <RadioCard
             selected={prefs.density === 'comfortable'}
             onClick={() => handleDensity('comfortable')}
-            icon="density_medium"
+            icon="rows-3"
             label="Comfortable"
             description="Default spacing"
           />
           <RadioCard
             selected={prefs.density === 'spacious'}
             onClick={() => handleDensity('spacious')}
-            icon="density_large"
+            icon="rows-2"
             label="Spacious"
             description="Wider spacing"
           />
@@ -528,11 +527,9 @@ export default function Appearance() {
             fontWeight: 600,
           }}
         >
-          <span className="material-icons" style={{ fontSize: '20px', color: 'var(--color-accent)' }}>code</span>
+          <Icon name="code" size={20} style={{ color: 'var(--color-accent)' }} />
           Custom CSS
-          <span className="material-icons" style={{ fontSize: '20px', marginLeft: 'auto', transition: 'transform 0.2s', transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)' }}>
-            expand_more
-          </span>
+          <Icon name="chevron-down" size={20} style={{ marginLeft: 'auto', transition: 'transform 0.2s', transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)' }} />
         </button>
 
         {showAdvanced && (
@@ -551,7 +548,7 @@ export default function Appearance() {
                 gap: '0.5rem',
               }}
             >
-              <span className="material-icons" style={{ fontSize: '18px' }}>warning</span>
+              <Icon name="alert-triangle" size={18} />
               Custom CSS may break the interface. Use at your own risk.
             </div>
             <textarea
@@ -579,7 +576,7 @@ export default function Appearance() {
       {/* Reset to Defaults */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
         <button className="btn btn-ghost" onClick={handleReset}>
-          <span className="material-icons" style={{ fontSize: '16px' }}>restart_alt</span>
+          <Icon name="rotate-ccw" size={16} />
           Reset to Defaults
         </button>
       </div>

@@ -1,6 +1,7 @@
 import React from 'react'
 import { AnimatedNumber } from './AnimatedNumber'
 import { formatNumberShort } from './formatters'
+import Icon from '../icons/Icon'
 
 const PODIUM_COLORS = {
   1: { border: '#FFD700', shine: '255,215,0' },
@@ -54,7 +55,7 @@ export function PodiumCard({ data, rank, type, details }) {
         {rank}
       </div>
       <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', background: 'var(--color-accent-muted)', overflow: 'hidden', flexShrink: 0 }}>
-        {img ? <img alt="cover" src={img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>🎧</div>}
+        {img ? <img alt="cover" src={img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}><Icon name="headphones" size={24} style={{ color: 'var(--color-accent)' }} /></div>}
       </div>
       <div style={{ flex: 1, paddingTop: '0.25rem', minWidth: 0 }}>
         <div style={{ fontWeight: 700, color: podium?.border, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>

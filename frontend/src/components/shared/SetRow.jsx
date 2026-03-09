@@ -1,5 +1,6 @@
 import React from 'react'
 import { formatDistance, formatDurationSec } from './formatters'
+import Icon from '../icons/Icon'
 
 export function SetRow({ set, exercise, onEdit, onDelete, showOrder = true }) {
   const exerciseName = exercise?.name || (set.exerciseId ? `Exercise ${set.exerciseId.slice(0, 8)}` : 'Unknown')
@@ -43,12 +44,12 @@ export function SetRow({ set, exercise, onEdit, onDelete, showOrder = true }) {
         <div style={{ display: 'flex', gap: '.5rem' }}>
           {onEdit && (
             <button className="btn small" onClick={() => onEdit(set)}>
-              <span className="material-icons" style={{ fontSize: '18px' }}>edit</span>
+              <Icon name="pencil" size={18} />
             </button>
           )}
           {onDelete && (
             <button className="btn small btn-danger" onClick={() => onDelete(set)}>
-              <span className="material-icons" style={{ fontSize: '18px' }}>delete</span>
+              <Icon name="trash-2" size={18} />
             </button>
           )}
         </div>

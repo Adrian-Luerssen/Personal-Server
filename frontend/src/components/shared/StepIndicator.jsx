@@ -1,4 +1,5 @@
 import React from 'react'
+import Icon from '../icons/Icon'
 
 /**
  * StepIndicator — horizontal stepper with icons/numbers.
@@ -72,7 +73,7 @@ export function StepIndicator({ current, steps }) {
                 transition: 'all var(--transition-normal)',
               }}>
                 {isComplete
-                  ? <span className="material-icons" style={{ fontSize: 16 }}>check</span>
+                  ? <Icon name="check" size={16} />
                   : stepNum}
               </div>
 

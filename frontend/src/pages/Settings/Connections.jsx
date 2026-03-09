@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { LoadingSpinner } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 export default function Connections() {
   const [loading, setLoading] = useState(true)
@@ -135,7 +136,7 @@ export default function Connections() {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-                <span className="material-icons" style={{ color: 'var(--color-accent)' }}>person</span>
+                <Icon name="user" size={20} style={{ color: 'var(--color-accent)' }} />
               </div>
             )}
             <div style={{ flex: 1 }}>
@@ -152,7 +153,7 @@ export default function Connections() {
           </div>
 
           <button className="btn btn-ghost btn-danger" onClick={handleDisconnect}>
-            <span className="material-icons" style={{ fontSize: '16px', marginRight: '4px' }}>link_off</span>
+            <Icon name="unlink" size={16} style={{ marginRight: '4px' }} />
             Disconnect Spotify
           </button>
         </div>
@@ -164,14 +165,14 @@ export default function Connections() {
               className={`btn small ${subTab === 'oauth' ? '' : 'btn-ghost'}`}
               onClick={() => setSubTab('oauth')}
             >
-              <span className="material-icons" style={{ fontSize: '16px', marginRight: '4px' }}>lock_open</span>
+              <Icon name="lock-open" size={16} style={{ marginRight: '4px' }} />
               OAuth
             </button>
             <button
               className={`btn small ${subTab === 'manual' ? '' : 'btn-ghost'}`}
               onClick={() => setSubTab('manual')}
             >
-              <span className="material-icons" style={{ fontSize: '16px', marginRight: '4px' }}>vpn_key</span>
+              <Icon name="key-round" size={16} style={{ marginRight: '4px' }} />
               Manual
             </button>
           </div>
@@ -183,14 +184,12 @@ export default function Connections() {
               borderRadius: 'var(--radius-md)',
               textAlign: 'center',
             }}>
-              <span className="material-icons" style={{ fontSize: '3rem', color: 'var(--color-accent)', marginBottom: '0.75rem', display: 'block' }}>
-                music_note
-              </span>
+              <Icon name="music" size={48} style={{ color: 'var(--color-accent)', marginBottom: '0.75rem', display: 'block' }} />
               <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
                 Securely connect your Spotify account using OAuth. You'll be redirected to Spotify to authorize access.
               </p>
               <button className="btn" onClick={handleOAuthConnect}>
-                <span className="material-icons" style={{ fontSize: '16px', marginRight: '4px' }}>link</span>
+                <Icon name="link" size={16} style={{ marginRight: '4px' }} />
                 Connect with Spotify
               </button>
             </div>

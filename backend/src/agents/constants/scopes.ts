@@ -8,6 +8,8 @@ export const AGENT_SCOPES: Record<string, string> = {
   'music:read': 'Read Spotify listening history',
   'dashboard:read': 'Read cross-domain analytics',
   'profile:read': 'Read basic profile info',
+  'chat:read': 'Read chat conversations and messages',
+  'chat:write': 'Send messages and update message status',
 };
 
 export const ALL_SCOPES = Object.keys(AGENT_SCOPES);

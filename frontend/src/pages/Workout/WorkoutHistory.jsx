@@ -14,6 +14,7 @@ import {
   calculateVolume,
   formatNumberShort,
 } from '../../components/shared'
+import Icon from '../../components/icons/Icon'
 
 export default function WorkoutHistory() {
   const [sessions, setSessions] = useState([])
@@ -108,7 +109,7 @@ export default function WorkoutHistory() {
 
   return (
     <>
-      <h2><span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 8 }}>bar_chart</span>Workout History</h2>
+      <h2><Icon name="bar-chart-3" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Workout History</h2>
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
@@ -148,7 +149,7 @@ export default function WorkoutHistory() {
         </div>
       ) : filteredSessions.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <span className="material-icons" style={{ fontSize: '3rem', marginBottom: '1rem', color: 'var(--color-accent)' }}>inbox</span>
+          <Icon name="inbox" size={48} style={{ marginBottom: '1rem', color: 'var(--color-accent)' }} />
           <h3>No workouts found</h3>
           <p style={{ color: 'var(--color-text-secondary)', marginTop: '.5rem' }}>
             {searchTerm || dateFilter ? 'Try adjusting your filters' : 'Start tracking to see your history here'}
@@ -172,7 +173,7 @@ export default function WorkoutHistory() {
           )}
           {!hasMore && sessions.length > 0 && (
             <div style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--color-text-muted)', fontSize: '.9rem' }}>
-              <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 4, fontSize: 16 }}>check_circle</span>
+              <Icon name="check" size={16} style={{ verticalAlign: 'middle', marginRight: 4 }} />
               You've reached the end of your workout history
             </div>
           )}
@@ -235,7 +236,7 @@ export default function WorkoutHistory() {
             </div>
             <div style={{ display: 'flex', gap: '.75rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem' }}>
               <button className="btn btn-danger" onClick={() => deleteSession(selectedSession.id)}>
-                <span className="material-icons" style={{ verticalAlign: 'middle', marginRight: 4, fontSize: 18 }}>delete</span>Delete Workout
+                <Icon name="trash-2" size={18} style={{ verticalAlign: 'middle', marginRight: 4 }} />Delete Workout
               </button>
               <button className="btn btn-ghost" onClick={closeDetail} style={{ marginLeft: 'auto' }}>Close</button>
             </div>

@@ -10,6 +10,7 @@ import { AbstractAccountOwnedEntity } from "./system/common/AbstractAccountOwned
 import { AbstractEntity } from "./system/common/AbstractEntity";
 import * as bodyParser from "body-parser";
 import * as bcrypt from "bcryptjs";
+import * as compression from "compression";
 
 async function setupInitialData(app: INestApplication) {
   const configService = app.get(ConfigService);
@@ -84,6 +85,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(bodyParser.json({ limit: "50mb" }));
   app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
+  app.use(compression());
   app.setGlobalPrefix("api");
   await setupInitialData(app);
   setupCors(app);

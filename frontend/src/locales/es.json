@@ -93,7 +93,20 @@
     "streamsDuringWorkouts": "Reproducciones Durante Entrenamientos",
     "timeStreamed": "Tiempo Reproducido",
     "moreDashboards": "Más paneles",
-    "moreDashboardsDesc": "Espacio reservado para gráficos rápidos e información cruzada."
+    "moreDashboardsDesc": "Espacio reservado para gráficos rápidos e información cruzada.",
+    "habitsToday": "Hábitos Hoy",
+    "monthlySpent": "Gasto Mensual",
+    "recentActivity": "Actividad Reciente",
+    "habitsProgress": "Progreso de Hábitos",
+    "quickActions": "Acciones Rápidas",
+    "startWorkout": "Iniciar Entrenamiento",
+    "logHabit": "Registrar Hábito",
+    "addTransaction": "Añadir Transacción",
+    "viewStreams": "Ver Reproducciones",
+    "ofTotal": "de",
+    "completedToday": "completados hoy",
+    "bestStreak": "Mejor Racha",
+    "activeStreaks": "Rachas Activas"
   },
   "profile": {
     "title": "Perfil",

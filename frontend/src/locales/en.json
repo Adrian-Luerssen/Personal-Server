@@ -93,7 +93,20 @@
     "streamsDuringWorkouts": "Streams During Workouts",
     "timeStreamed": "Time Streamed",
     "moreDashboards": "More dashboards",
-    "moreDashboardsDesc": "Space reserved for quick charts and cross-app insights."
+    "moreDashboardsDesc": "Space reserved for quick charts and cross-app insights.",
+    "habitsToday": "Habits Today",
+    "monthlySpent": "Monthly Spent",
+    "recentActivity": "Recent Activity",
+    "habitsProgress": "Habits Progress",
+    "quickActions": "Quick Actions",
+    "startWorkout": "Start Workout",
+    "logHabit": "Log Habit",
+    "addTransaction": "Add Transaction",
+    "viewStreams": "View Streams",
+    "ofTotal": "of",
+    "completedToday": "completed today",
+    "bestStreak": "Best Streak",
+    "activeStreaks": "Active Streaks"
   },
   "profile": {
     "title": "Profile",

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Modal } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import PageHeader from '../../components/PageHeader'
 
 export default function WorkoutExercises() {
   const [exercises, setExercises] = useState([])
@@ -94,7 +95,7 @@ export default function WorkoutExercises() {
 
   return (
     <>
-      <h2><Icon name="folder-open" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Exercises & Categories</h2>
+      <PageHeader icon="list" title="Exercises" accentColor="#4ade80" />
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

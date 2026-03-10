@@ -5,6 +5,7 @@ import Connections from './Connections'
 import Appearance from './Appearance'
 import Account from './Account'
 import Icon from '../../components/icons/Icon'
+import PageHeader from '../../components/PageHeader'
 
 export default function Settings() {
   const { t, i18n } = useTranslation()
@@ -18,7 +19,7 @@ export default function Settings() {
 
   return (
     <>
-      <h1>{t('settings.title')}</h1>
+      <PageHeader icon="settings" title="Settings" />
 
       <div className="tab-group" style={{ marginBottom: '1.5rem' }}>
         <button

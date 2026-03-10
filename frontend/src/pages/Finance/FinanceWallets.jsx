@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import { SkeletonCard } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import PageHeader from '../../components/PageHeader'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -39,10 +40,7 @@ export default function FinanceWallets() {
 
   return (
     <>
-      <h2>
-        <Icon name="landmark" size={24} style={{ marginRight: 8, color: FINANCE_COLOR }} />
-        {t('finance.wallets')}
-      </h2>
+      <PageHeader icon="credit-card" title="Wallets" accentColor="#fbbf24" />
 
       {/* Total Balance Card */}
       <div className="card" style={{

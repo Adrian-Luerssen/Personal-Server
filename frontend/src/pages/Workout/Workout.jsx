@@ -11,6 +11,7 @@ import {
   formatNumberShort,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import PageHeader from '../../components/PageHeader'
 
 export default function Workout() {
   const navigate = useNavigate()
@@ -75,7 +76,7 @@ export default function Workout() {
 
   return (
     <>
-      <h2><Icon name="dumbbell" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Workout Tracker</h2>
+      <PageHeader icon="dumbbell" title="Workout" accentColor="#4ade80" />
 
       {loading ? (
         <SkeletonCard lines={2} widths={["30%", "50%"]} />

@@ -8,6 +8,7 @@ import {
   formatDate,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import PageHeader from '../../components/PageHeader'
 
 export default function WorkoutBodyweight() {
   const [entries, setEntries] = useState([])
@@ -70,7 +71,7 @@ export default function WorkoutBodyweight() {
 
   return (
     <>
-      <h2><Icon name="scale" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Bodyweight</h2>
+      <PageHeader icon="scale" title="Body Weight" accentColor="#4ade80" />
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 

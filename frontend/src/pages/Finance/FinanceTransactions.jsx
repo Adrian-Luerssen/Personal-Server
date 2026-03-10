@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import { formatDate, SkeletonCard } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import PageHeader from '../../components/PageHeader'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -135,10 +136,7 @@ export default function FinanceTransactions() {
 
   return (
     <>
-      <h2>
-        <Icon name="receipt" size={24} style={{ marginRight: 8, color: FINANCE_COLOR }} />
-        {t('finance.transactions')}
-      </h2>
+      <PageHeader icon="receipt" title="Transactions" accentColor="#fbbf24" />
 
       {/* Filters */}
       <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem' }}>
@@ -254,7 +252,8 @@ export default function FinanceTransactions() {
       ) : (
         <>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
               <thead>
                 <tr style={{ background: 'var(--color-bg-elevated)' }}>
                   <th style={thStyle}>{t('finance.date')}</th>
@@ -316,6 +315,7 @@ export default function FinanceTransactions() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Pagination */}

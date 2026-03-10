@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { apiFetch } from '../../api'
 import { LoadingSpinner, StepIndicator, ProgressBar } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import PageHeader from '../../components/PageHeader'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -436,10 +437,7 @@ export default function FinanceImport() {
 
   return (
     <>
-      <h2>
-        <Icon name="download" size={24} style={{ marginRight: 8, color: FINANCE_COLOR }} />
-        {t('financeImport.title')}
-      </h2>
+      <PageHeader icon="upload" title="Import" accentColor="#fbbf24" />
 
       <StepIndicator current={step} steps={STEPS} />
 

@@ -158,7 +158,7 @@ export default function Habits() {
               {t('habits.noHabitsYet')}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {habits.map(habit => (
                 <HabitCard
                   key={habit.id}

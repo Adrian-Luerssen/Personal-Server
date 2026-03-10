@@ -164,7 +164,7 @@ export default function WorkoutHistory() {
         </div>
       ) : (
         <div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {filteredSessions.map(session => <SessionCard key={session.id} session={session} onClick={() => openDetail(session)} />)}
           </div>
           {hasMore && !searchTerm && !dateFilter && (

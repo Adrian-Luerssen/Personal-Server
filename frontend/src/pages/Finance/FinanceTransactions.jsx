@@ -263,7 +263,7 @@ export default function FinanceTransactions() {
                   <th style={{ ...thStyle, textAlign: 'right' }}>{t('finance.amount')}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="stagger-list">
                 {transactions.map(tx => {
                   const txType = getTransactionType(tx)
                   const txColor = getTransactionColor(tx)

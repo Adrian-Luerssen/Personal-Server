@@ -263,14 +263,24 @@ export class HabitsService {
 
   async getAllStreaks(account: Account): Promise<HabitSummaryItem[]> {
     const habits = await this.findAll(account);
+
+    // Fetch all entries for all habits in a single query
+    const allEntries = await this.entryRepo.find({
+      where: { accountId: account.id },
+      order: { date: "DESC" },
+    });
+
+    // Group entries by habitId
+    const entriesByHabit = new Map<string, HabitEntry[]>();
+    for (const entry of allEntries) {
+      const list = entriesByHabit.get(entry.habitId) || [];
+      list.push(entry);
+      entriesByHabit.set(entry.habitId, list);
+    }
+
     const results: HabitSummaryItem[] = [];
-
     for (const habit of habits) {
-      const entries = await this.entryRepo.find({
-        where: { habitId: habit.id, accountId: account.id },
-        order: { date: "DESC" },
-      });
-
+      const entries = entriesByHabit.get(habit.id) || [];
       const streak = this.calculateStreak(entries);
       const stats = this.computeStats(entries);
 

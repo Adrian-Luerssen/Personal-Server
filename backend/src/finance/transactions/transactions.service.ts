@@ -70,7 +70,13 @@ export class TransactionsService {
     const qb = this.repo
       .createQueryBuilder("t")
       .leftJoinAndSelect("t.category", "category")
-      .leftJoinAndSelect("t.wallet", "wallet");
+      .leftJoinAndSelect("t.wallet", "wallet")
+      .select([
+        't.id', 't.name', 't.amount', 't.isIncome', 't.type',
+        't.transactionDate', 't.note',
+        'category.id', 'category.name', 'category.colour',
+        'wallet.id', 'wallet.name',
+      ]);
 
     this.applyFilters(qb, account.id, filters);
 

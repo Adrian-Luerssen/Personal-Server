@@ -1,6 +1,21 @@
 import { getApiBase } from "./config";
 import { getTokens, refreshIfPossible, clearTokens } from "./auth";
 
+// Stale-while-revalidate cache
+const swrCache = new Map(); // key: url, value: { data, timestamp }
+const SWR_MAX_AGE = 30_000; // 30s before background refresh
+
+function invalidateCache(path) {
+  const prefix = '/' + path.split('/').filter(Boolean)[0]; // e.g. "/finance"
+  for (const key of swrCache.keys()) {
+    if (key.startsWith(prefix)) swrCache.delete(key);
+  }
+}
+
+export function clearApiCache() {
+  swrCache.clear();
+}
+
 // apiFetch: attaches Authorization header and retries once on 401 after refresh
 export async function apiFetch(path, options = {}) {
   const base = getApiBase();
@@ -52,12 +67,37 @@ export async function apiFetch(path, options = {}) {
 }
 
 export const api = {
-  get: (path) => apiFetch(path),
-  post: (path, body) =>
-    apiFetch(path, { method: "POST", body: JSON.stringify(body ?? {}) }),
-  put: (path, body) =>
-    apiFetch(path, { method: "PUT", body: JSON.stringify(body ?? {}) }),
-  delete: (path) => apiFetch(path, { method: "DELETE" }),
-  patch: (path, body) =>
-    apiFetch(path, { method: "PATCH", body: JSON.stringify(body ?? {}) }),
+  get: async (path) => {
+    const cached = swrCache.get(path);
+    if (cached && Date.now() - cached.timestamp < SWR_MAX_AGE) {
+      // Return cached data immediately, refresh in background
+      apiFetch(path).then(fresh => {
+        swrCache.set(path, { data: fresh, timestamp: Date.now() });
+      }).catch(() => {}); // silent background refresh
+      return cached.data;
+    }
+    const data = await apiFetch(path);
+    swrCache.set(path, { data, timestamp: Date.now() });
+    return data;
+  },
+  post: async (path, body) => {
+    const data = await apiFetch(path, { method: "POST", body: JSON.stringify(body ?? {}) });
+    invalidateCache(path);
+    return data;
+  },
+  put: async (path, body) => {
+    const data = await apiFetch(path, { method: "PUT", body: JSON.stringify(body ?? {}) });
+    invalidateCache(path);
+    return data;
+  },
+  delete: async (path) => {
+    const data = await apiFetch(path, { method: "DELETE" });
+    invalidateCache(path);
+    return data;
+  },
+  patch: async (path, body) => {
+    const data = await apiFetch(path, { method: "PATCH", body: JSON.stringify(body ?? {}) });
+    invalidateCache(path);
+    return data;
+  },
 };

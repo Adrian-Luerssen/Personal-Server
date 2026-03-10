@@ -1,4 +1,6 @@
 import {
+  CacheInterceptor,
+  CacheTTL,
   Controller,
   Get,
   Post,
@@ -6,6 +8,7 @@ import {
   Delete,
   Body,
   Param,
+  UseInterceptors,
 } from "@nestjs/common";
 import { CrudController } from "@nestjsx/crud";
 import { ApiBearerAuth } from "@nestjs/swagger";
@@ -23,6 +26,8 @@ export class WorkoutCategoriesController
 {
   constructor(public service: WorkoutCategoriesService) {}
   @Get()
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300)
   async getAll() {
     return this.service.getAllCategories();
   }

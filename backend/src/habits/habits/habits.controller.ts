@@ -1,4 +1,6 @@
 import {
+  CacheInterceptor,
+  CacheTTL,
   Controller,
   Get,
   Post,
@@ -8,6 +10,7 @@ import {
   Body,
   Query,
   ParseUUIDPipe,
+  UseInterceptors,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -36,6 +39,8 @@ export class HabitsController {
   }
 
   @Get("summary")
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(30)
   @ApiOperation({
     summary: "Get all habits with current streak, longest streak, and success rate",
   })

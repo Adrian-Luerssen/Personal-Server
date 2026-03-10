@@ -1,4 +1,6 @@
 import {
+  CacheInterceptor,
+  CacheTTL,
   Controller,
   Get,
   Post,
@@ -6,6 +8,7 @@ import {
   Delete,
   Body,
   Param,
+  UseInterceptors,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { WalletsService } from "./wallets.service";
@@ -19,6 +22,8 @@ export class WalletsController {
   constructor(private readonly service: WalletsService) {}
 
   @Get()
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(15)
   @ApiOperation({ summary: "Get all wallets" })
   getAll(@ReqUser() account: Account) {
     return this.service.findAll(account);

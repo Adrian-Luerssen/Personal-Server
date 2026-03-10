@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { CacheModule, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { SystemModule } from "./system/system.module";
 import { ConfigModule } from "@nestjs/config";
@@ -31,6 +31,11 @@ import { ChatModule } from "./chat/chat.module";
   exports: [],
   imports: [
     ConfigModule.forRoot(),
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 30,
+      max: 500,
+    }),
     TypeOrmModule.forRoot({
       ...AppDataSource.options,
       autoLoadEntities: true,

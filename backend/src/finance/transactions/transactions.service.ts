@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { CACHE_MANAGER, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, SelectQueryBuilder } from "typeorm";
 import { FinanceTransaction } from "../entities/transaction.entity";
 import { Account } from "../../system/accounts/account.entity";
+import { Cache } from "cache-manager";
 
 export interface TransactionFilters {
   walletId?: string;
@@ -21,7 +22,8 @@ export interface TransactionFilters {
 export class TransactionsService {
   constructor(
     @InjectRepository(FinanceTransaction)
-    private readonly repo: Repository<FinanceTransaction>
+    private readonly repo: Repository<FinanceTransaction>,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
   private applyFilters(
@@ -94,24 +96,29 @@ export class TransactionsService {
     return tx;
   }
 
-  create(account: Account, dto: Partial<FinanceTransaction>) {
+  async create(account: Account, dto: Partial<FinanceTransaction>) {
     const tx = this.repo.create({
       ...dto,
       accountId: account.id,
       account,
     });
-    return this.repo.save(tx);
+    const result = await this.repo.save(tx);
+    await this.cacheManager.reset();
+    return result;
   }
 
   async update(account: Account, id: string, dto: Partial<FinanceTransaction>) {
     const tx = await this.findOne(account, id);
     Object.assign(tx, dto);
-    return this.repo.save(tx);
+    const result = await this.repo.save(tx);
+    await this.cacheManager.reset();
+    return result;
   }
 
   async remove(account: Account, id: string) {
     const tx = await this.findOne(account, id);
     await this.repo.remove(tx);
+    await this.cacheManager.reset();
     return { success: true };
   }
 

@@ -1,4 +1,6 @@
 import {
+  CACHE_MANAGER,
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -8,6 +10,7 @@ import { Repository } from "typeorm";
 import { Habit } from "../entities/habit.entity";
 import { HabitEntry, HabitStatus } from "../entities/habit-entry.entity";
 import { Account } from "../../system/accounts/account.entity";
+import { Cache } from "cache-manager";
 
 export interface HabitStreak {
   current: number;
@@ -46,7 +49,8 @@ export class HabitsService {
     @InjectRepository(Habit)
     private readonly habitRepo: Repository<Habit>,
     @InjectRepository(HabitEntry)
-    private readonly entryRepo: Repository<HabitEntry>
+    private readonly entryRepo: Repository<HabitEntry>,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
   // ========== HABIT CRUD ==========
@@ -82,7 +86,9 @@ export class HabitsService {
       account,
       isActive: dto.isActive ?? true,
     });
-    return this.habitRepo.save(habit);
+    const result = await this.habitRepo.save(habit);
+    await this.cacheManager.reset();
+    return result;
   }
 
   async update(
@@ -98,12 +104,15 @@ export class HabitsService {
   ): Promise<Habit> {
     const habit = await this.findOne(account, id);
     Object.assign(habit, dto);
-    return this.habitRepo.save(habit);
+    const result = await this.habitRepo.save(habit);
+    await this.cacheManager.reset();
+    return result;
   }
 
   async remove(account: Account, id: string): Promise<void> {
     const habit = await this.findOne(account, id);
     await this.habitRepo.remove(habit);
+    await this.cacheManager.reset();
   }
 
   // ========== STREAK CALCULATION ==========

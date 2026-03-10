@@ -1,4 +1,6 @@
 import {
+  CacheInterceptor,
+  CacheTTL,
   Controller,
   Get,
   Post,
@@ -7,6 +9,7 @@ import {
   Body,
   Param,
   Query,
+  UseInterceptors,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { TransactionsService, TransactionFilters } from "./transactions.service";
@@ -20,6 +23,8 @@ export class TransactionsController {
   constructor(private readonly service: TransactionsService) {}
 
   @Get("summary")
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(30)
   @ApiOperation({ summary: "Get financial summary / analytics" })
   @ApiQuery({ name: "walletId", required: false })
   @ApiQuery({ name: "categoryId", required: false })

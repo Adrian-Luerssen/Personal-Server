@@ -1,11 +1,15 @@
-import { Injectable } from "@nestjs/common";
+import { CACHE_MANAGER, Inject, Injectable } from "@nestjs/common";
 import { TypeOrmCrudService } from "@nestjsx/crud-typeorm";
 import { InjectRepository } from "@nestjs/typeorm";
 import { WorkoutExercise } from "./exercise.entity";
+import { Cache } from "cache-manager";
 
 @Injectable()
 export class WorkoutExercisesService extends TypeOrmCrudService<WorkoutExercise> {
-  constructor(@InjectRepository(WorkoutExercise) repo) {
+  constructor(
+    @InjectRepository(WorkoutExercise) repo,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
+  ) {
     super(repo);
   }
   /**
@@ -31,7 +35,9 @@ export class WorkoutExercisesService extends TypeOrmCrudService<WorkoutExercise>
       categoryId: body.categoryId,
       muscleGroup: body.muscleGroup,
     });
-    return this.repo.save(exercise);
+    const result = await this.repo.save(exercise);
+    await this.cacheManager.reset();
+    return result;
   }
 
   /**
@@ -46,7 +52,9 @@ export class WorkoutExercisesService extends TypeOrmCrudService<WorkoutExercise>
     exercise.name = body.name;
     exercise.categoryId = body.categoryId;
     exercise.muscleGroup = body.muscleGroup;
-    return this.repo.save(exercise);
+    const result = await this.repo.save(exercise);
+    await this.cacheManager.reset();
+    return result;
   }
 
   /**
@@ -54,6 +62,7 @@ export class WorkoutExercisesService extends TypeOrmCrudService<WorkoutExercise>
    */
   async deleteExercise(exerciseId: string) {
     await this.repo.delete(exerciseId);
+    await this.cacheManager.reset();
     return { success: true };
   }
 

@@ -1,20 +1,49 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useTheme } from '../contexts/PreferencesContext'
 import Icon from './icons/Icon'
 
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= breakpoint)
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`)
+    const handler = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [breakpoint])
+  return isMobile
+}
+
 export default function Sidebar({ collapsed, onToggle }) {
   const { t } = useTranslation()
   const nav = useNavigate()
   const location = useLocation()
   const { theme, toggleTheme } = useTheme()
+  const isMobile = useIsMobile()
   const [spotifyLinked, setSpotifyLinked] = useState(null)
   const [spotifyMenuOpen, setSpotifyMenuOpen] = useState(false)
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false)
   const [financeMenuOpen, setFinanceMenuOpen] = useState(false)
   const [habitsMenuOpen, setHabitsMenuOpen] = useState(false)
+  const [incompleteHabits, setIncompleteHabits] = useState(0)
+  const [hasActiveWorkout, setHasActiveWorkout] = useState(false)
+
+  useEffect(() => {
+    let ignore = false
+    api.get('/habits/summary')
+      .then(data => {
+        if (!ignore && Array.isArray(data)) {
+          setIncompleteHabits(data.filter(h => h.todayStatus !== 'success').length)
+        }
+      })
+      .catch(() => {})
+    api.get('/workout/sessions/active')
+      .then(session => { if (!ignore) setHasActiveWorkout(!!session) })
+      .catch(() => { if (!ignore) setHasActiveWorkout(false) })
+    return () => { ignore = true }
+  }, [location.pathname])
 
   useEffect(() => {
     let ignore = false
@@ -60,6 +89,10 @@ export default function Sidebar({ collapsed, onToggle }) {
   const isHabitsActive = location.pathname.startsWith('/habits')
 
   const handleSpotifyClick = () => {
+    if (isMobile) {
+      nav(spotifyLinked ? '/spotify/personal' : '/spotify/global')
+      return
+    }
     if (spotifyLinked) {
       setSpotifyMenuOpen(o => !o)
     } else {
@@ -68,14 +101,17 @@ export default function Sidebar({ collapsed, onToggle }) {
   }
 
   const handleWorkoutClick = () => {
+    if (isMobile) { nav('/workout'); return }
     setWorkoutMenuOpen(o => !o)
   }
 
   const handleFinanceClick = () => {
+    if (isMobile) { nav('/finance'); return }
     setFinanceMenuOpen(o => !o)
   }
 
   const handleHabitsClick = () => {
+    if (isMobile) { nav('/habits'); return }
     setHabitsMenuOpen(o => !o)
   }
 
@@ -126,6 +162,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         >
           <Icon name="dumbbell" size={20} />
           {!collapsed && <span>{t('nav.workout')} {workoutMenuOpen ? '▾' : '▸'}</span>}
+          {hasActiveWorkout && <span className="nav-badge-dot" />}
         </div>
         {workoutMenuOpen && (
           <div className="subnav" role="menu">
@@ -200,6 +237,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         >
           <Icon name="heart-pulse" size={20} style={{ color: isHabitsActive ? '#a78bfa' : undefined }} />
           {!collapsed && <span>{t('nav.habits')} {habitsMenuOpen ? '▾' : '▸'}</span>}
+          {incompleteHabits > 0 && <span className="nav-badge">{incompleteHabits}</span>}
         </div>
         {habitsMenuOpen && (
           <div className="subnav" role="menu">

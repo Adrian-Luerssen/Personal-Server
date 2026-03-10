@@ -275,6 +275,33 @@ p { margin: 0 0 0.5rem 0; line-height: 1.6; }
   border-top: 1px solid var(--glass-border);
 }
 
+/* ===== Nav Badges ===== */
+.nav-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border-radius: var(--radius-full);
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+  line-height: 1.4;
+  margin-left: auto;
+}
+.nav-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+  margin-left: auto;
+  flex-shrink: 0;
+  animation: badgePulse 2s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
 /* ===== Cards (Glassmorphism) ===== */
 .card {
   background: var(--glass-bg);

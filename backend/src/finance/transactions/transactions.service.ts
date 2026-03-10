@@ -171,12 +171,29 @@ export class TransactionsService {
       .limit(10)
       .getRawMany();
 
+    // Daily expense totals for sparkline (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const dailyQb = this.repo.createQueryBuilder("t");
+    this.applyFilters(dailyQb, account.id, {
+      from: sevenDaysAgo.toISOString().slice(0, 10),
+    });
+    dailyQb.andWhere("t.isIncome = false");
+    const dailyRows = await dailyQb
+      .select("DATE(t.transactionDate)", "date")
+      .addSelect("COALESCE(SUM(t.amount), 0)", "total")
+      .groupBy("date")
+      .orderBy("date", "ASC")
+      .getRawMany();
+    const dailyTotals = dailyRows.map((r) => parseFloat(r.total) || 0);
+
     return {
       totalIncome,
       totalExpense,
       netBalance: totalIncome - totalExpense,
       incomeCount,
       expenseCount,
+      dailyTotals,
       topExpenseCategories: categoryBreakdown.map((r) => ({
         categoryId: r.categoryId,
         categoryName: r.categoryName || "Uncategorized",

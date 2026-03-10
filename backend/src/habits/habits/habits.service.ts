@@ -297,6 +297,27 @@ export class HabitsService {
     return results;
   }
 
+  // ========== DAILY COMPLETIONS (sparkline) ==========
+
+  async getDailyCompletions(account: Account): Promise<number[]> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const from = sevenDaysAgo.toISOString().slice(0, 10);
+
+    const rows = await this.entryRepo
+      .createQueryBuilder("e")
+      .select("e.date", "date")
+      .addSelect("COUNT(*)", "count")
+      .where("e.accountId = :accountId", { accountId: account.id })
+      .andWhere("e.status = 'success'")
+      .andWhere("e.date >= :from", { from })
+      .groupBy("e.date")
+      .orderBy("e.date", "ASC")
+      .getRawMany();
+
+    return rows.map((r) => parseInt(r.count) || 0);
+  }
+
   // ========== CALENDAR VIEW ==========
 
   async getCalendar(

@@ -267,6 +267,29 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
   }
 
   /**
+   * Returns daily workout volume for the last 7 days (sparkline data)
+   */
+  async getWeeklyVolumeTrend(account: Account): Promise<number[]> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const from = sevenDaysAgo.toISOString().slice(0, 10);
+
+    const setRepo = this.repo.manager.getRepository(WorkoutSet);
+    const rows = await setRepo
+      .createQueryBuilder("st")
+      .innerJoin("st.session", "s")
+      .select("DATE(s.startAt)", "date")
+      .addSelect("COALESCE(SUM(st.weight * st.reps), 0)", "volume")
+      .where("st.accountId = :aid", { aid: account.id })
+      .andWhere("s.startAt >= :from", { from })
+      .groupBy("date")
+      .orderBy("date", "ASC")
+      .getRawMany();
+
+    return rows.map((r) => parseFloat(r.volume) || 0);
+  }
+
+  /**
    * Deletes a session by id for the account
    */
   async deleteSession(account: Account, id: string) {

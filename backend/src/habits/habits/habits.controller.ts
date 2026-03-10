@@ -48,6 +48,18 @@ export class HabitsController {
     return this.habitsService.getAllStreaks(account);
   }
 
+  @Get("trends")
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(30)
+  @ApiOperation({
+    summary: "Get daily habit completions for the last 7 days (sparkline data)",
+  })
+  async getTrends(@ReqUser() account: Account) {
+    const dailyCompletions =
+      await this.habitsService.getDailyCompletions(account);
+    return { dailyCompletions };
+  }
+
   @Get("calendar/:month")
   @ApiOperation({
     summary: "Get calendar view for all habits for a given month",

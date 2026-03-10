@@ -26,6 +26,12 @@ export class WorkoutSessionsController
 {
   constructor(public service: WorkoutSessionsService) {}
 
+  @Get("trends")
+  async getTrends(@ReqUser() account: Account) {
+    const dailyVolume = await this.service.getWeeklyVolumeTrend(account);
+    return { dailyVolume };
+  }
+
   @Get("active")
   async getActive(@ReqUser() account: Account) {
     return await this.service.getActiveSession(account);

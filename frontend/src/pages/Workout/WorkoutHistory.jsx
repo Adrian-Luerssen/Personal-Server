@@ -15,6 +15,8 @@ import {
   formatNumberShort,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import ScrollReveal from '../../components/ScrollReveal'
+import PageHeader from '../../components/PageHeader'
 
 export default function WorkoutHistory() {
   const [sessions, setSessions] = useState([])
@@ -109,26 +111,29 @@ export default function WorkoutHistory() {
 
   return (
     <>
-      <h2><Icon name="bar-chart-3" size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Workout History</h2>
+      <PageHeader icon="bar-chart-3" title="Workout History" accentColor="#4ade80" />
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
-      <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
-        {loading && page === 1 ? (
-          Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)
-        ) : (
-          <>
-            <StatCard label="Total Workouts" value={totalWorkouts} />
-            <StatCard label="Total Sets" value={totalSets} />
-            <StatCard label="Total Reps" value={totalReps} />
-            <StatCard label="Total Volume" value={`${totalVolume} kg`} />
-            <StatCard label="Total Time" value={totalTimeSeconds > 0 ? `${Math.floor(totalTimeSeconds / 3600)}h ${Math.floor((totalTimeSeconds % 3600) / 60)}m` : '—'} />
-          </>
-        )}
-      </div>
+      <ScrollReveal>
+        <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
+          {loading && page === 1 ? (
+            Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)
+          ) : (
+            <>
+              <StatCard label="Total Workouts" value={totalWorkouts} />
+              <StatCard label="Total Sets" value={totalSets} />
+              <StatCard label="Total Reps" value={totalReps} />
+              <StatCard label="Total Volume" value={`${totalVolume} kg`} />
+              <StatCard label="Total Time" value={totalTimeSeconds > 0 ? `${Math.floor(totalTimeSeconds / 3600)}h ${Math.floor((totalTimeSeconds % 3600) / 60)}m` : '—'} />
+            </>
+          )}
+        </div>
+      </ScrollReveal>
 
+      <ScrollReveal delay={100}>
       <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <div className="filter-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Search</label>
             <input type="text" className="input" placeholder="Search title, notes, date..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -142,7 +147,9 @@ export default function WorkoutHistory() {
           <button className="btn small" onClick={() => { setSearchTerm(''); setDateFilter('') }} style={{ marginTop: '.75rem' }}>Clear Filters</button>
         )}
       </div>
+      </ScrollReveal>
 
+      <ScrollReveal delay={200}>
       {loading && page === 1 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {Array.from({ length: 4 }).map((_, i) => <SkeletonSessionCard key={i} />)}
@@ -179,6 +186,7 @@ export default function WorkoutHistory() {
           )}
         </div>
       )}
+      </ScrollReveal>
 
       {showDetail && selectedSession && (
         <Modal title="Workout Details" onClose={closeDetail} size="large">
@@ -192,7 +200,7 @@ export default function WorkoutHistory() {
                 {selectedSession.endAt ? formatSessionDuration(selectedSession.startAt, selectedSession.endAt) : 'In Progress'}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+            <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
               <StatCard label="Sets" value={(selectedSession.sets || []).length} />
               <StatCard label="Exercises" value={new Set((selectedSession.sets || []).filter(s => s.exerciseId).map(s => s.exerciseId)).size} />
               <StatCard label="Volume" value={calculateVolume(selectedSession.sets || []) > 0 ? `${calculateVolume(selectedSession.sets || []).toFixed(0)} kg` : '—'} />

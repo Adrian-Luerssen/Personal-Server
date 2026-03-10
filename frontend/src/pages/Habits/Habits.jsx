@@ -9,6 +9,8 @@ import {
   ProgressBar,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import ScrollReveal from '../../components/ScrollReveal'
+import PageHeader from '../../components/PageHeader'
 
 // Habits accent color (purple)
 const HABITS_COLOR = '#a78bfa'
@@ -92,26 +94,26 @@ export default function Habits() {
 
   return (
     <>
-      <h2>
-        <Icon name="heart-pulse" size={24} style={{ marginRight: 8, color: HABITS_COLOR }} />
-        {t('habits.title')}
-      </h2>
+      <PageHeader icon="heart-pulse" title="Habits" accentColor="#a78bfa" />
 
       {/* Stats Grid */}
-      <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
-        ) : (
-          <>
-            <StatCard label={t('habits.totalHabits')} value={totalHabits} />
-            <StatCard label={t('habits.avgSuccessRate')} value={`${avgSuccessRate}%`} />
-            <StatCard label={t('habits.activeToday')} value={activeToday} />
-            <StatCard label={t('habits.totalStreak')} value={totalCurrentStreak} />
-          </>
-        )}
-      </div>
+      <ScrollReveal>
+        <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
+          ) : (
+            <>
+              <StatCard label={t('habits.totalHabits')} value={totalHabits} />
+              <StatCard label={t('habits.avgSuccessRate')} value={`${avgSuccessRate}%`} />
+              <StatCard label={t('habits.activeToday')} value={activeToday} />
+              <StatCard label={t('habits.totalStreak')} value={totalCurrentStreak} />
+            </>
+          )}
+        </div>
+      </ScrollReveal>
 
       {/* Quick Actions */}
+      <ScrollReveal delay={100}>
       <div className="section">
         <h3>{t('habits.quickActions')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
@@ -136,8 +138,10 @@ export default function Habits() {
           ))}
         </div>
       </div>
+      </ScrollReveal>
 
       {/* Two columns: Habits List & Calendar */}
+      <ScrollReveal delay={200}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
         {/* Habits List */}
         <div className="card" style={{ padding: '1.25rem' }}>
@@ -216,6 +220,7 @@ export default function Habits() {
           </div>
         </div>
       </div>
+      </ScrollReveal>
     </>
   )
 }

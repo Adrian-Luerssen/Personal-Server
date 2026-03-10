@@ -20,6 +20,8 @@ import {
   formatNumberShort,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import ScrollReveal from '../../components/ScrollReveal'
+import PageHeader from '../../components/PageHeader'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -120,16 +122,17 @@ export default function Finance() {
     }]
   }
 
+  const isMobile = window.innerWidth <= 640
   const pieOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'right',
+        position: isMobile ? 'bottom' : 'right',
         labels: {
           color: '#b0bec5',
           font: { size: 11 },
-          padding: 12,
+          padding: isMobile ? 8 : 12,
           usePointStyle: true,
         }
       },
@@ -143,39 +146,39 @@ export default function Finance() {
 
   return (
     <>
-      <h2>
-        <Icon name="wallet" size={24} style={{ marginRight: 8, color: FINANCE_COLOR }} />
-        {t('finance.title')}
-      </h2>
+      <PageHeader icon="wallet" title="Finance" accentColor="#fbbf24" />
 
       {/* Stats Grid */}
-      <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
-        ) : (
-          <>
-            <StatCard
-              label={t('finance.totalBalance')}
-              value={formatCurrency(totalBalance)}
-            />
-            <StatCard
-              label={t('finance.thisMonthIncome')}
-              value={formatCurrency(totalIncome)}
-            />
-            <StatCard
-              label={t('finance.thisMonthExpenses')}
-              value={formatCurrency(Math.abs(totalExpenses))}
-            />
-            <StatCard
-              label={t('finance.netFlow')}
-              value={formatCurrency(netFlow)}
-              subtitle={netFlow >= 0 ? t('finance.positive') : t('finance.negative')}
-            />
-          </>
-        )}
-      </div>
+      <ScrollReveal>
+        <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
+          ) : (
+            <>
+              <StatCard
+                label={t('finance.totalBalance')}
+                value={formatCurrency(totalBalance)}
+              />
+              <StatCard
+                label={t('finance.thisMonthIncome')}
+                value={formatCurrency(totalIncome)}
+              />
+              <StatCard
+                label={t('finance.thisMonthExpenses')}
+                value={formatCurrency(Math.abs(totalExpenses))}
+              />
+              <StatCard
+                label={t('finance.netFlow')}
+                value={formatCurrency(netFlow)}
+                subtitle={netFlow >= 0 ? t('finance.positive') : t('finance.negative')}
+              />
+            </>
+          )}
+        </div>
+      </ScrollReveal>
 
       {/* Quick Actions */}
+      <ScrollReveal delay={100}>
       <div className="section">
         <h3>{t('finance.quickActions')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
@@ -202,8 +205,10 @@ export default function Finance() {
           ))}
         </div>
       </div>
+      </ScrollReveal>
 
       {/* Two columns: Chart & Wallets */}
+      <ScrollReveal delay={200}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
         {/* Spending by Category */}
         <div className="card" style={{ padding: '1.25rem' }}>
@@ -265,8 +270,10 @@ export default function Finance() {
           )}
         </div>
       </div>
+      </ScrollReveal>
 
       {/* Recent Transactions */}
+      <ScrollReveal delay={300}>
       <div className="section" style={{ marginTop: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.75rem' }}>
           <h3>
@@ -282,7 +289,8 @@ export default function Finance() {
           <div className="empty-state">{t('finance.noTransactionsYet')}</div>
         ) : (
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
               <thead>
                 <tr style={{ background: 'var(--color-bg-elevated)' }}>
                   <th style={thStyle}>{t('finance.date')}</th>
@@ -331,9 +339,11 @@ export default function Finance() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
+      </ScrollReveal>
     </>
   )
 }

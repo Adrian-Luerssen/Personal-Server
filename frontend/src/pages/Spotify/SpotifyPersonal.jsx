@@ -19,6 +19,8 @@ import {
 } from 'chart.js'
 import { api } from '../../api'
 import Icon from '../../components/icons/Icon'
+import ScrollReveal from '../../components/ScrollReveal'
+import PageHeader from '../../components/PageHeader'
 import '../../custom-scrollbar.css'
 import {
   LoadingDot,
@@ -296,8 +298,9 @@ export default function SpotifyPersonal() {
 
   return (
     <>
-      <h2>Spotify - Personal</h2>
+      <PageHeader icon="music" title="Spotify" />
 
+      <ScrollReveal>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', alignItems: 'stretch', marginBottom: '2rem' }}>
         <CurrentlyPlayingBox loading={currentlyPlayingLoading} data={currentlyPlaying} />
         <div className="card" style={{ display: 'flex', gap: '1rem', alignItems: 'center', height: '100%' }}>
@@ -324,6 +327,7 @@ export default function SpotifyPersonal() {
           </div>
         </div>
       </div>
+      </ScrollReveal>
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
@@ -344,7 +348,7 @@ export default function SpotifyPersonal() {
               ))}
             </div>
             {timeframe === 'custom' && (
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginTop: '1rem' }}>
                 <input type="date" className="input" value={customStart} onChange={e => setCustomStart(e.target.value)} />
                 <span style={{ color: 'var(--color-text-secondary)' }}>to</span>
                 <input type="date" className="input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
@@ -352,6 +356,7 @@ export default function SpotifyPersonal() {
             )}
           </div>
 
+          <ScrollReveal delay={100}>
           <div className="section">
             <h3>General Statistics</h3>
             <div className="stat-grid">
@@ -385,7 +390,7 @@ export default function SpotifyPersonal() {
               )}
             </div>
 
-            <div style={{ marginTop: '2rem', width: '100%', display: 'flex', gap: '2rem', alignItems: 'stretch' }}>
+            <div style={{ marginTop: '2rem', width: '100%', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'stretch' }}>
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                 <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--color-accent)', marginBottom: 8, textAlign: 'center' }}>Listening Clock</div>
                 <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', maxWidth: 340, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, boxSizing: 'border-box' }}>
@@ -419,7 +424,9 @@ export default function SpotifyPersonal() {
               </div>
             </div>
           </div>
+          </ScrollReveal>
 
+          <ScrollReveal delay={200}>
           <div className="section">
             <div className="card">
               <h3>Recent Streaming History</h3>
@@ -442,9 +449,11 @@ export default function SpotifyPersonal() {
               <button className="btn small" style={{ marginTop: '0.5rem' }} onClick={() => setShowHistoryModal(true)}>Show all recent streams</button>
             </div>
           </div>
+          </ScrollReveal>
 
           {showHistoryModal && <HistoryModal onClose={() => setShowHistoryModal(false)} />}
 
+          <ScrollReveal delay={300}>
           <div className="section">
             <div className="card">
               <div className="tab-group" style={{ marginBottom: '1rem' }}>
@@ -471,6 +480,7 @@ export default function SpotifyPersonal() {
               </div>
             </div>
           </div>
+          </ScrollReveal>
         </>
       )}
     </>

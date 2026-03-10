@@ -104,13 +104,13 @@ export default function Workout() {
           Array.from({ length: 6 }).map((_, i) => <SkeletonStatCard key={i} />)
         ) : (
           <>
-            <StatCard label="Total Workouts" value={stats.totalSessions} />
-            <StatCard label="This Week" value={stats.thisWeek} />
-            <StatCard label="Total Sets" value={stats.totalSets} />
-            <StatCard label="Total Reps" value={stats.totalReps} />
-            <StatCard label="Total Volume" value={`${stats.totalVolume} kg`} />
+            <StatCard icon="dumbbell" accentColor="#4ade80" label="Total Workouts" value={stats.totalSessions} />
+            <StatCard icon="calendar" accentColor="#4ade80" label="This Week" value={stats.thisWeek} />
+            <StatCard icon="layers" accentColor="#4ade80" label="Total Sets" value={stats.totalSets} />
+            <StatCard icon="repeat" accentColor="#4ade80" label="Total Reps" value={stats.totalReps} />
+            <StatCard icon="weight" accentColor="#4ade80" label="Total Volume" value={`${stats.totalVolume} kg`} />
             {latestWeight && (
-              <StatCard label="Latest Weight" value={`${latestWeight.weightKg} kg`} subtitle={formatDate(latestWeight.date)} />
+              <StatCard icon="scale" accentColor="#4ade80" label="Latest Weight" value={`${latestWeight.weightKg} kg`} subtitle={formatDate(latestWeight.date)} />
             )}
           </>
         )}

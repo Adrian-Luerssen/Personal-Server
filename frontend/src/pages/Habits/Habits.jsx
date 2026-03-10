@@ -103,10 +103,10 @@ export default function Habits() {
             Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
           ) : (
             <>
-              <StatCard label={t('habits.totalHabits')} value={totalHabits} />
-              <StatCard label={t('habits.avgSuccessRate')} value={`${avgSuccessRate}%`} />
-              <StatCard label={t('habits.activeToday')} value={activeToday} />
-              <StatCard label={t('habits.totalStreak')} value={totalCurrentStreak} />
+              <StatCard icon="list-checks" accentColor="#a78bfa" label={t('habits.totalHabits')} value={totalHabits} />
+              <StatCard icon="percent" accentColor="#a78bfa" label={t('habits.avgSuccessRate')} value={`${avgSuccessRate}%`} />
+              <StatCard icon="calendar-check" accentColor="#a78bfa" label={t('habits.activeToday')} value={activeToday} />
+              <StatCard icon="flame" accentColor="#a78bfa" label={t('habits.totalStreak')} value={totalCurrentStreak} />
             </>
           )}
         </div>

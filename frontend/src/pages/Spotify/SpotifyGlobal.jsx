@@ -63,11 +63,11 @@ export default function SpotifyGlobal() {
             Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)
           ) : (
             <>
-              <StatCard label="Total Streams" value={<AnimatedNumber value={globalStats?.totalStreams ?? 0} formatter={formatNumberShort} />} />
-              <StatCard label="Unique Tracks" value={<AnimatedNumber value={globalStats?.uniqueTracks ?? 0} formatter={formatNumberShort} />} />
-              <StatCard label="Unique Artists" value={<AnimatedNumber value={globalStats?.uniqueArtists ?? 0} formatter={formatNumberShort} />} />
-              <StatCard label="Total Minutes" value={<AnimatedNumber value={Math.floor((globalStats?.msListened ?? 0) / 1000 / 60)} formatter={formatNumberShort} />} />
-              <StatCard label="Total Time" value={<AnimatedNumber value={globalStats?.msListened ?? 0} formatter={formatDuration} />} />
+              <StatCard icon="play-circle" accentColor="var(--color-accent)" label="Total Streams" value={<AnimatedNumber value={globalStats?.totalStreams ?? 0} formatter={formatNumberShort} />} />
+              <StatCard icon="disc" accentColor="var(--color-accent)" label="Unique Tracks" value={<AnimatedNumber value={globalStats?.uniqueTracks ?? 0} formatter={formatNumberShort} />} />
+              <StatCard icon="mic" accentColor="var(--color-accent)" label="Unique Artists" value={<AnimatedNumber value={globalStats?.uniqueArtists ?? 0} formatter={formatNumberShort} />} />
+              <StatCard icon="clock" accentColor="var(--color-accent)" label="Total Minutes" value={<AnimatedNumber value={Math.floor((globalStats?.msListened ?? 0) / 1000 / 60)} formatter={formatNumberShort} />} />
+              <StatCard icon="timer" accentColor="var(--color-accent)" label="Total Time" value={<AnimatedNumber value={globalStats?.msListened ?? 0} formatter={formatDuration} />} />
             </>
           )}
         </div>

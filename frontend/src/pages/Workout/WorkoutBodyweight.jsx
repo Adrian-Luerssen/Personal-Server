@@ -80,10 +80,10 @@ export default function WorkoutBodyweight() {
           Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
         ) : (
           <>
-            <StatCard label="Latest Weight" value={latestEntry ? `${latestEntry.weightKg} kg` : '—'} subtitle={latestEntry ? formatDate(latestEntry.date) : ''} />
-            <StatCard label="30-Day Average" value={avg30 ? `${avg30} kg` : '—'} />
-            <StatCard label="Total Change" value={change !== null ? `${change > 0 ? '+' : ''}${change} kg` : '—'} subtitle={oldest && latestEntry ? `since ${formatDate(oldest.date)}` : ''} />
-            <StatCard label="Total Entries" value={entries.length} />
+            <StatCard icon="scale" accentColor="#4ade80" label="Latest Weight" value={latestEntry ? `${latestEntry.weightKg} kg` : '—'} subtitle={latestEntry ? formatDate(latestEntry.date) : ''} />
+            <StatCard icon="calculator" accentColor="#4ade80" label="30-Day Average" value={avg30 ? `${avg30} kg` : '—'} />
+            <StatCard icon="trending-up" accentColor="#4ade80" label="Total Change" value={change !== null ? `${change > 0 ? '+' : ''}${change} kg` : '—'} subtitle={oldest && latestEntry ? `since ${formatDate(oldest.date)}` : ''} />
+            <StatCard icon="hash" accentColor="#4ade80" label="Total Entries" value={entries.length} />
           </>
         )}
       </div>

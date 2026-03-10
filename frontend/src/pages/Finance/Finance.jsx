@@ -156,18 +156,26 @@ export default function Finance() {
           ) : (
             <>
               <StatCard
+                icon="wallet"
+                accentColor="#fbbf24"
                 label={t('finance.totalBalance')}
                 value={formatCurrency(totalBalance)}
               />
               <StatCard
+                icon="trending-up"
+                accentColor="#fbbf24"
                 label={t('finance.thisMonthIncome')}
                 value={formatCurrency(totalIncome)}
               />
               <StatCard
+                icon="trending-down"
+                accentColor="#fbbf24"
                 label={t('finance.thisMonthExpenses')}
                 value={formatCurrency(Math.abs(totalExpenses))}
               />
               <StatCard
+                icon="arrow-right-left"
+                accentColor="#fbbf24"
                 label={t('finance.netFlow')}
                 value={formatCurrency(netFlow)}
                 subtitle={netFlow >= 0 ? t('finance.positive') : t('finance.negative')}

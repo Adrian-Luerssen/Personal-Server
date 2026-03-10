@@ -121,11 +121,11 @@ export default function WorkoutHistory() {
             Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)
           ) : (
             <>
-              <StatCard label="Total Workouts" value={totalWorkouts} />
-              <StatCard label="Total Sets" value={totalSets} />
-              <StatCard label="Total Reps" value={totalReps} />
-              <StatCard label="Total Volume" value={`${totalVolume} kg`} />
-              <StatCard label="Total Time" value={totalTimeSeconds > 0 ? `${Math.floor(totalTimeSeconds / 3600)}h ${Math.floor((totalTimeSeconds % 3600) / 60)}m` : '—'} />
+              <StatCard icon="dumbbell" accentColor="#4ade80" label="Total Workouts" value={totalWorkouts} />
+              <StatCard icon="layers" accentColor="#4ade80" label="Total Sets" value={totalSets} />
+              <StatCard icon="repeat" accentColor="#4ade80" label="Total Reps" value={totalReps} />
+              <StatCard icon="weight" accentColor="#4ade80" label="Total Volume" value={`${totalVolume} kg`} />
+              <StatCard icon="timer" accentColor="#4ade80" label="Total Time" value={totalTimeSeconds > 0 ? `${Math.floor(totalTimeSeconds / 3600)}h ${Math.floor((totalTimeSeconds % 3600) / 60)}m` : '—'} />
             </>
           )}
         </div>
@@ -201,9 +201,9 @@ export default function WorkoutHistory() {
               </div>
             </div>
             <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-              <StatCard label="Sets" value={(selectedSession.sets || []).length} />
-              <StatCard label="Exercises" value={new Set((selectedSession.sets || []).filter(s => s.exerciseId).map(s => s.exerciseId)).size} />
-              <StatCard label="Volume" value={calculateVolume(selectedSession.sets || []) > 0 ? `${calculateVolume(selectedSession.sets || []).toFixed(0)} kg` : '—'} />
+              <StatCard icon="layers" accentColor="#4ade80" label="Sets" value={(selectedSession.sets || []).length} />
+              <StatCard icon="list" accentColor="#4ade80" label="Exercises" value={new Set((selectedSession.sets || []).filter(s => s.exerciseId).map(s => s.exerciseId)).size} />
+              <StatCard icon="weight" accentColor="#4ade80" label="Volume" value={calculateVolume(selectedSession.sets || []) > 0 ? `${calculateVolume(selectedSession.sets || []).toFixed(0)} kg` : '—'} />
             </div>
             {selectedSession.notes && (
               <div className="card" style={{ background: 'var(--color-accent-muted)', padding: '1rem' }}>

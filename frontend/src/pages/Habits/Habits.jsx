@@ -6,11 +6,11 @@ import {
   StatCard,
   SkeletonStatCard,
   SkeletonCard,
-  ProgressBar,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
 import ScrollReveal from '../../components/ScrollReveal'
 import PageHeader from '../../components/PageHeader'
+import ProgressRing from '../../components/ProgressRing'
 
 // Habits accent color (purple)
 const HABITS_COLOR = '#a78bfa'
@@ -251,13 +251,11 @@ function HabitCard({ habit, onToggle, t }) {
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+          <ProgressRing value={habit.successRate || 0} size={36} color={HABITS_COLOR} />
+          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
             {habit.successRate || 0}%
           </span>
-          <div style={{ flex: 1, maxWidth: 80 }}>
-            <ProgressBar value={habit.successRate || 0} height={4} color={HABITS_COLOR} />
-          </div>
         </div>
       </div>
 
@@ -330,6 +328,7 @@ function CalendarGrid({ days, habits, t }) {
             color: day.empty ? 'transparent' : (day.stats?.total > 0 ? '#fff' : 'var(--color-text-muted)'),
             cursor: day.empty ? 'default' : 'pointer',
             position: 'relative',
+            transition: 'background 0.3s ease, transform 0.2s ease',
           }}
           title={day.empty ? '' : `${day.date}: ${day.stats?.success || 0}/${day.stats?.total || 0} ${t('habits.complete')}`}
         >

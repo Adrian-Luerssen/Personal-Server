@@ -25,6 +25,9 @@ import HabitsImport from './pages/Habits/HabitsImport'
 import Settings from './pages/Settings/Settings'
 import SpotifyCallback from './pages/Spotify/SpotifyCallback'
 import { PreferencesProvider } from './contexts/PreferencesContext'
+import { applyChartTheme } from './chartTheme'
+
+applyChartTheme()
 
 // BUG FIX B1: Move HOC calls to module scope to prevent unmount/remount on every render
 const GuardedHome = withRefreshGuard(Home)

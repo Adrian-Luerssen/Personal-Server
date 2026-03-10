@@ -28,6 +28,7 @@ export default function ApiStatus() {
     <div
       onClick={checkHealth}
       title="API status — click to refresh"
+      className="api-status"
       style={{
         position: 'fixed',
         top: '0.75rem',
@@ -59,7 +60,7 @@ export default function ApiStatus() {
           flexShrink: 0,
         }}
       />
-      {label}
+      <span className="api-status-label">{label}</span>
     </div>
   )
 }

@@ -337,3 +337,18 @@
   cursor: not-allowed;
   transform: none;
 }
+
+/* Mobile: move chat toggle above bottom nav */
+@media (max-width: 640px) {
+  .chat-toggle-btn {
+    bottom: 4.5rem;
+    right: 0.75rem;
+    width: 42px;
+    height: 42px;
+  }
+
+  .chat-panel {
+    width: 100%;
+    max-width: 100vw;
+  }
+}

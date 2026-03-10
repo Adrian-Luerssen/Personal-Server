@@ -57,7 +57,7 @@ export default function Login() {
 
   return (
     <div className="landing">
-      <div className="card" style={{ minWidth: 360, maxWidth: 420, width: '100%' }}>
+      <div className="card" style={{ maxWidth: 420, width: '100%' }}>
         <h2 style={{ marginBottom: '1rem' }}>{t('auth.signIn')}</h2>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
           {!mfaRequired ? (

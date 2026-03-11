@@ -1,9 +1,43 @@
-
-/airflow/logs
-/backend/dist
+# Dependencies
 /backend/node_modules
 /frontend/node_modules
+node_modules/
+
+# Build output
+/backend/dist
 frontend/dist/
+
+# Environment files (NEVER commit secrets)
 .env
 .env.*
 *.env.local
+!.env.example
+
+# Airflow (removed)
+/airflow/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test artifacts
+/test/
+/frontend/mobile-screenshots/
+/frontend/mobile-test.mjs
+/frontend/mobile-screenshot.js
+mobile-landing.png
+
+# Claude/Superpowers working files
+.claude/
+.playwright-mcp/
+.superpowers/

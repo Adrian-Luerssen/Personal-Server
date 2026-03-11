@@ -114,6 +114,8 @@ export default function Landing() {
         </div>
 
         <div className="hero-content">
+          <img src="/logo.svg" alt="Personal Server" className="hero-logo" style={{ width: 64, height: 64, marginBottom: '1rem' }} />
+
           <span className="hero-badge">
             <Icon name="sparkles" size={14} />
             All-in-one personal platform

@@ -1,9 +1,0 @@
-__pycache__
-*.pyc
-.env
-.env.*
-airflow.cfg
-logs
-.dockerignore
-*.db
-*.sqlite3

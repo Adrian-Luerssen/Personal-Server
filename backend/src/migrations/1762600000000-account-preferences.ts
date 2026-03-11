@@ -5,16 +5,16 @@ export class AccountPreferences1762600000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      CREATE TYPE "app_theme_mode" AS ENUM ('dark', 'light', 'auto')
+      DO $$ BEGIN CREATE TYPE "app_theme_mode" AS ENUM ('dark', 'light', 'auto'); EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
     await queryRunner.query(`
-      CREATE TYPE "app_sidebar_position" AS ENUM ('left', 'right')
+      DO $$ BEGIN CREATE TYPE "app_sidebar_position" AS ENUM ('left', 'right'); EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
     await queryRunner.query(`
-      CREATE TYPE "app_density" AS ENUM ('compact', 'comfortable', 'spacious')
+      DO $$ BEGIN CREATE TYPE "app_density" AS ENUM ('compact', 'comfortable', 'spacious'); EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
     await queryRunner.query(`
-      CREATE TABLE "app_account_preferences" (
+      CREATE TABLE IF NOT EXISTS "app_account_preferences" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "accountId" uuid NOT NULL,
         "accentColor" varchar(7) NOT NULL DEFAULT '#7dd3fc',

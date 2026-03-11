@@ -5,13 +5,13 @@ export class Chat1762700000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      CREATE TYPE "app_chat_sender" AS ENUM ('user', 'agent')
+      DO $$ BEGIN CREATE TYPE "app_chat_sender" AS ENUM ('user', 'agent'); EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
     await queryRunner.query(`
-      CREATE TYPE "app_chat_status" AS ENUM ('sent', 'read', 'thinking', 'delivered', 'error')
+      DO $$ BEGIN CREATE TYPE "app_chat_status" AS ENUM ('sent', 'read', 'thinking', 'delivered', 'error'); EXCEPTION WHEN duplicate_object THEN null; END $$
     `);
     await queryRunner.query(`
-      CREATE TABLE "app_chat_conversation" (
+      CREATE TABLE IF NOT EXISTS "app_chat_conversation" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "accountId" uuid NOT NULL,
         "title" varchar(200),
@@ -23,7 +23,7 @@ export class Chat1762700000000 implements MigrationInterface {
       )
     `);
     await queryRunner.query(`
-      CREATE TABLE "app_chat_message" (
+      CREATE TABLE IF NOT EXISTS "app_chat_message" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "conversationId" uuid NOT NULL,
         "accountId" uuid NOT NULL,
@@ -46,8 +46,8 @@ export class Chat1762700000000 implements MigrationInterface {
           REFERENCES "app_chat_message"("id") ON DELETE SET NULL
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_chat_message_conversation" ON "app_chat_message" ("conversationId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_chat_message_account_status" ON "app_chat_message" ("accountId", "status")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_chat_message_conversation" ON "app_chat_message" ("conversationId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_chat_message_account_status" ON "app_chat_message" ("accountId", "status")`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

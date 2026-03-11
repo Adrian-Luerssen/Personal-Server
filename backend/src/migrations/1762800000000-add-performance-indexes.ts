@@ -3,16 +3,16 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class AddPerformanceIndexes1762800000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Transaction indexes
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_transaction_date" ON "app_transaction" ("transactionDate")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_transaction_wallet" ON "app_transaction" ("walletId")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_transaction_category" ON "app_transaction" ("categoryId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_transaction_date" ON "app_finance_transactions" ("transactionDate")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_transaction_wallet" ON "app_finance_transactions" ("walletId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_transaction_category" ON "app_finance_transactions" ("categoryId")`);
 
     // Habit entry indexes
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_habit_entry_date" ON "app_habit_entry" ("date")`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_habit_entry_habit" ON "app_habit_entry" ("habitId")`);
 
     // Stream indexes
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_stream_played_at" ON "app_stream" ("playedAt")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_stream_streamed_at" ON "app_stream" ("streamedAt")`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -21,6 +21,6 @@ export class AddPerformanceIndexes1762800000000 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_transaction_category"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_habit_entry_date"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_habit_entry_habit"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_stream_played_at"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_stream_streamed_at"`);
   }
 }

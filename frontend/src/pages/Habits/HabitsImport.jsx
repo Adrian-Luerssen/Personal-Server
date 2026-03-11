@@ -68,6 +68,7 @@ function FileSelectStep({ file, setFile, onNext }) {
             color: file ? 'var(--color-success)' : HABITS_COLOR,
             marginBottom: '0.75rem',
             display: 'block',
+            margin: '0 auto 0.75rem',
           }}
         />
 
@@ -327,6 +328,7 @@ function ProgressStep({ previewId, onComplete, onError }) {
           color: isError ? 'var(--color-error)' : isDone ? 'var(--color-success)' : HABITS_COLOR,
           marginBottom: '1rem',
           display: 'block',
+          margin: '0 auto 1rem',
           animation: (!isError && !isDone) ? 'spin 2s linear infinite' : 'none',
         }}
       />
@@ -357,7 +359,7 @@ function SummaryStep({ summary, onReset }) {
   if (!summary) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-        <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '1rem', display: 'block' }} />
+        <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '1rem', display: 'block', margin: '0 auto 1rem' }} />
         <h3>Import Complete!</h3>
         <p style={{ color: 'var(--color-text-secondary)' }}>Your HabitShare data has been imported.</p>
         <button className="btn" onClick={onReset} style={{ marginTop: '1.5rem' }}>
@@ -380,7 +382,7 @@ function SummaryStep({ summary, onReset }) {
   return (
     <div className="card">
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '0.75rem', display: 'block' }} />
+        <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '0.75rem', display: 'block', margin: '0 auto 0.75rem' }} />
         <h3 style={{ marginBottom: '0.25rem' }}>Import Complete!</h3>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
           Successfully imported <strong style={{ color: 'var(--color-success)' }}>{totalImported.toLocaleString()}</strong> records

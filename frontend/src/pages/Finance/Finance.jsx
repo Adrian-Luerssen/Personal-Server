@@ -22,6 +22,9 @@ import {
 import Icon from '../../components/icons/Icon'
 import ScrollReveal from '../../components/ScrollReveal'
 import PageHeader from '../../components/PageHeader'
+import PeriodSelector, { getDateRange, getPeriodLabel } from '../../components/finance/PeriodSelector'
+import CategoryIcon from '../../components/finance/CategoryIcon'
+import TransactionForm from '../../components/finance/TransactionForm'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -33,7 +36,7 @@ const FINANCE_COLOR_MUTED = 'rgba(251, 191, 36, 0.15)'
 const TYPE_COLORS = {
   income: 'var(--color-success)',
   expense: 'var(--color-error)',
-  transfer: '#60a5fa', // blue for transfers
+  transfer: '#60a5fa',
 }
 
 // Category colors for charts
@@ -47,16 +50,13 @@ function formatCurrency(amount, currency = '€') {
   return `${amount < 0 ? '-' : ''}${currency}${formatted}`
 }
 
-// Determine transaction display type based on backend data
 function getTransactionType(tx) {
-  // type 1 or 3 in Cashew = transfer
   if (tx.type === 1 || tx.type === 3) return 'transfer'
   return tx.isIncome ? 'income' : 'expense'
 }
 
 function getTransactionColor(tx) {
-  const type = getTransactionType(tx)
-  return TYPE_COLORS[type]
+  return TYPE_COLORS[getTransactionType(tx)]
 }
 
 function getTransactionIcon(tx) {
@@ -78,22 +78,28 @@ export default function Finance() {
   const [categories, setCategories] = useState([])
   const [summary, setSummary] = useState(null)
   const [recentTransactions, setRecentTransactions] = useState([])
+  const [period, setPeriod] = useState('month')
+  const [showTxForm, setShowTxForm] = useState(false)
 
-  useEffect(() => { loadDashboard() }, [])
+  useEffect(() => { loadDashboard() }, [period])
 
   async function loadDashboard() {
     setLoading(true)
     try {
+      const { from, to } = getDateRange(period)
+      const summaryParams = new URLSearchParams()
+      if (from) summaryParams.set('from', from)
+      if (to) summaryParams.set('to', to)
+
+      const txParams = new URLSearchParams({ limit: '5' })
+      if (from) txParams.set('from', from)
+      if (to) txParams.set('to', to)
+
       const [walletsData, categoriesData, summaryData, transactionsData] = await Promise.all([
         api.get('/finance/wallets'),
         api.get('/finance/categories'),
-        (() => {
-          const now = new Date();
-          const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-          const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-          return api.get(`/finance/transactions/summary?from=${from}&to=${to}`);
-        })(),
-        api.get('/finance/transactions?limit=5'),
+        api.get(`/finance/transactions/summary?${summaryParams}`),
+        api.get(`/finance/transactions?${txParams}`),
       ])
       setWallets(walletsData || [])
       setCategories(categoriesData || [])
@@ -117,7 +123,7 @@ export default function Finance() {
     labels: categorySpending.map(c => c.categoryName || c.name || t('finance.uncategorized')),
     datasets: [{
       data: categorySpending.map(c => Math.abs(c.total || c.amount || 0)),
-      backgroundColor: categorySpending.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length]),
+      backgroundColor: categorySpending.map((c, i) => c.categoryColour || CATEGORY_COLORS[i % CATEGORY_COLORS.length]),
       borderWidth: 0,
     }]
   }
@@ -146,7 +152,18 @@ export default function Finance() {
 
   return (
     <>
-      <PageHeader icon="wallet" title="Finance" accentColor="#fbbf24" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+        <PageHeader icon="wallet" title="Finance" accentColor="#fbbf24" />
+        <button className="btn btn-primary" onClick={() => setShowTxForm(true)}>
+          <Icon name="plus" size={16} /> Add Transaction
+        </button>
+      </div>
+
+      {/* Period Selector */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <PeriodSelector value={period} onChange={setPeriod} />
+        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{getPeriodLabel(period)}</span>
+      </div>
 
       {/* Stats Grid */}
       <ScrollReveal>
@@ -155,30 +172,15 @@ export default function Finance() {
             Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
           ) : (
             <>
-              <StatCard
-                icon="wallet"
-                accentColor="#fbbf24"
-                label={t('finance.totalBalance')}
-                value={formatCurrency(totalBalance)}
-              />
-              <StatCard
-                icon="trending-up"
-                accentColor="#fbbf24"
-                label={t('finance.thisMonthIncome')}
-                value={formatCurrency(totalIncome)}
-              />
-              <StatCard
-                icon="trending-down"
-                accentColor="#fbbf24"
-                label={t('finance.thisMonthExpenses')}
-                value={formatCurrency(Math.abs(totalExpenses))}
-              />
+              <StatCard icon="wallet" accentColor="#fbbf24" label={t('finance.totalBalance')} value={formatCurrency(totalBalance)} />
+              <StatCard icon="trending-up" accentColor="#4ade80" label="Income" value={formatCurrency(totalIncome)} />
+              <StatCard icon="trending-down" accentColor="#f87171" label="Expenses" value={formatCurrency(Math.abs(totalExpenses))} />
               <StatCard
                 icon="arrow-right-left"
                 accentColor="#fbbf24"
-                label={t('finance.netFlow')}
+                label="Net Flow"
                 value={formatCurrency(netFlow)}
-                subtitle={netFlow >= 0 ? t('finance.positive') : t('finance.negative')}
+                subtitle={netFlow >= 0 ? 'Positive' : 'Negative'}
               />
             </>
           )}
@@ -189,10 +191,11 @@ export default function Finance() {
       <ScrollReveal delay={100}>
       <div className="section">
         <h3>{t('finance.quickActions')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: 'receipt', label: t('finance.transactions'), onClick: () => navigate('/finance/transactions'), accent: true },
+            { icon: 'receipt', label: 'Transactions', onClick: () => navigate('/finance/transactions'), accent: true },
             { icon: 'landmark', label: t('finance.wallets'), onClick: () => navigate('/finance/wallets') },
+            { icon: 'layers', label: 'Categories', onClick: () => navigate('/finance/categories') },
             { icon: 'download', label: t('finance.importCashew'), onClick: () => navigate('/finance/import') },
           ].map(action => (
             <button
@@ -231,6 +234,18 @@ export default function Finance() {
           ) : (
             <div style={{ height: 220 }}>
               <Pie data={pieData} options={pieOptions} />
+            </div>
+          )}
+          {/* Category legend with icons */}
+          {!loading && categorySpending.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem' }}>
+              {categorySpending.slice(0, 5).map((c, i) => (
+                <div key={c.categoryId || i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                  <CategoryIcon category={{ colour: c.categoryColour || CATEGORY_COLORS[i % CATEGORY_COLORS.length], iconName: c.categoryIcon }} size={24} />
+                  <span style={{ flex: 1 }}>{c.categoryName || 'Uncategorized'}</span>
+                  <span style={{ fontWeight: 600 }}>{formatCurrency(Math.abs(c.total || 0))}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -312,7 +327,6 @@ export default function Finance() {
                   const txType = getTransactionType(tx)
                   const txColor = getTransactionColor(tx)
                   const txIcon = getTransactionIcon(tx)
-                  const displayAmount = tx.isIncome ? tx.amount : -tx.amount
 
                   return (
                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
@@ -324,14 +338,12 @@ export default function Finance() {
                         </div>
                       </td>
                       <td style={tdStyle}>
-                        <span style={{
-                          padding: '0.2rem 0.5rem',
-                          borderRadius: 'var(--radius-full)',
-                          background: 'var(--color-accent-muted)',
-                          fontSize: '0.8rem',
-                        }}>
-                          {tx.category?.name || tx.categoryName || t('finance.uncategorized')}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <CategoryIcon category={tx.category} size={22} />
+                          <span style={{ fontSize: '0.85rem' }}>
+                            {tx.category?.name || tx.categoryName || t('finance.uncategorized')}
+                          </span>
+                        </div>
                       </td>
                       <td style={{
                         ...tdStyle,
@@ -352,6 +364,15 @@ export default function Finance() {
         )}
       </div>
       </ScrollReveal>
+
+      {showTxForm && (
+        <TransactionForm
+          wallets={wallets}
+          categories={categories}
+          onClose={() => setShowTxForm(false)}
+          onSaved={loadDashboard}
+        />
+      )}
     </>
   )
 }

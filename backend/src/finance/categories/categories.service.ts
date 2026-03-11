@@ -19,6 +19,15 @@ export class CategoriesService {
     });
   }
 
+  async findTree(account: Account) {
+    const all = await this.findAll(account);
+    const parents = all.filter((c) => !c.parentCategoryId);
+    return parents.map((parent) => ({
+      ...parent,
+      subcategories: all.filter((c) => c.parentCategoryId === parent.id),
+    }));
+  }
+
   async findOne(account: Account, id: string) {
     const category = await this.repo.findOne({
       where: { id, accountId: account.id },

@@ -20,6 +20,7 @@ import Finance from './pages/Finance/Finance'
 import FinanceTransactions from './pages/Finance/FinanceTransactions'
 import FinanceWallets from './pages/Finance/FinanceWallets'
 import FinanceImport from './pages/Finance/FinanceImport'
+import FinanceCategories from './pages/Finance/FinanceCategories'
 import Habits from './pages/Habits/Habits'
 import HabitsImport from './pages/Habits/HabitsImport'
 import Settings from './pages/Settings/Settings'
@@ -44,6 +45,7 @@ const GuardedFinance = withRefreshGuard(Finance)
 const GuardedFinanceTransactions = withRefreshGuard(FinanceTransactions)
 const GuardedFinanceWallets = withRefreshGuard(FinanceWallets)
 const GuardedFinanceImport = withRefreshGuard(FinanceImport)
+const GuardedFinanceCategories = withRefreshGuard(FinanceCategories)
 const GuardedHabits = withRefreshGuard(Habits)
 const GuardedHabitsImport = withRefreshGuard(HabitsImport)
 const GuardedSettings = withRefreshGuard(Settings)
@@ -76,6 +78,7 @@ export default function AppRouter() {
               <Route path="/finance/transactions" element={<GuardedFinanceTransactions />} />
               <Route path="/finance/wallets" element={<GuardedFinanceWallets />} />
               <Route path="/finance/import" element={<GuardedFinanceImport />} />
+              <Route path="/finance/categories" element={<GuardedFinanceCategories />} />
               <Route path="/habits" element={<GuardedHabits />} />
               <Route path="/habits/import" element={<GuardedHabitsImport />} />
               <Route path="/settings" element={<GuardedSettings />} />

@@ -24,6 +24,12 @@ export class CategoriesController {
     return this.service.findAll(account);
   }
 
+  @Get("tree")
+  @ApiOperation({ summary: "Get categories as tree" })
+  findTree(@ReqUser() account: Account) {
+    return this.service.findTree(account);
+  }
+
   @Get(":id")
   @ApiOperation({ summary: "Get category by ID" })
   getOne(@ReqUser() account: Account, @Param("id") id: string) {

@@ -37,7 +37,11 @@ export class TransactionsService {
       qb.andWhere("t.walletId = :walletId", { walletId: filters.walletId });
     }
     if (filters.categoryId) {
-      qb.andWhere("t.categoryId = :categoryId", { categoryId: filters.categoryId });
+      qb.andWhere(
+        "(t.categoryId = :categoryId OR t.categoryId IN " +
+        "(SELECT id FROM app_finance_categories WHERE \"parentCategoryId\" = :categoryId))",
+        { categoryId: filters.categoryId }
+      );
     }
     if (filters.from) {
       qb.andWhere("t.transactionDate >= :from", { from: new Date(filters.from) });

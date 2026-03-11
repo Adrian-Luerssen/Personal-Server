@@ -194,8 +194,9 @@ export default function Finance() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
           {[
             { icon: 'receipt', label: 'Transactions', onClick: () => navigate('/finance/transactions'), accent: true },
-            { icon: 'landmark', label: t('finance.wallets'), onClick: () => navigate('/finance/wallets') },
-            { icon: 'layers', label: 'Categories', onClick: () => navigate('/finance/categories') },
+            { icon: 'landmark', label: t('finance.wallets'), onClick: () => navigate('/finance/settings?tab=wallets') },
+            { icon: 'layers', label: 'Categories', onClick: () => navigate('/finance/settings?tab=categories') },
+            { icon: 'repeat', label: 'Subscriptions', onClick: () => navigate('/finance/settings?tab=subscriptions') },
             { icon: 'download', label: t('finance.importCashew'), onClick: () => navigate('/finance/import') },
           ].map(action => (
             <button
@@ -257,7 +258,7 @@ export default function Finance() {
               <Icon name="landmark" size={20} style={{ marginRight: 8 }} />
               {t('finance.wallets')}
             </h3>
-            <button className="btn small" onClick={() => navigate('/finance/wallets')}>{t('common.viewAll')}</button>
+            <button className="btn small" onClick={() => navigate('/finance/settings?tab=wallets')}>{t('common.viewAll')}</button>
           </div>
           {loading ? (
             <SkeletonCard lines={3} />

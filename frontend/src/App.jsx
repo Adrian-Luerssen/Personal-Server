@@ -18,9 +18,8 @@ import WorkoutBodyweight from './pages/Workout/WorkoutBodyweight'
 import WorkoutImport from './pages/Workout/WorkoutImport'
 import Finance from './pages/Finance/Finance'
 import FinanceTransactions from './pages/Finance/FinanceTransactions'
-import FinanceWallets from './pages/Finance/FinanceWallets'
 import FinanceImport from './pages/Finance/FinanceImport'
-import FinanceCategories from './pages/Finance/FinanceCategories'
+import FinanceSettings from './pages/Finance/FinanceSettings'
 import Habits from './pages/Habits/Habits'
 import HabitsImport from './pages/Habits/HabitsImport'
 import Settings from './pages/Settings/Settings'
@@ -43,9 +42,8 @@ const GuardedWorkoutBodyweight = withRefreshGuard(WorkoutBodyweight)
 const GuardedWorkoutImport = withRefreshGuard(WorkoutImport)
 const GuardedFinance = withRefreshGuard(Finance)
 const GuardedFinanceTransactions = withRefreshGuard(FinanceTransactions)
-const GuardedFinanceWallets = withRefreshGuard(FinanceWallets)
 const GuardedFinanceImport = withRefreshGuard(FinanceImport)
-const GuardedFinanceCategories = withRefreshGuard(FinanceCategories)
+const GuardedFinanceSettings = withRefreshGuard(FinanceSettings)
 const GuardedHabits = withRefreshGuard(Habits)
 const GuardedHabitsImport = withRefreshGuard(HabitsImport)
 const GuardedSettings = withRefreshGuard(Settings)
@@ -76,9 +74,8 @@ export default function AppRouter() {
               <Route path="/workout/import" element={<GuardedWorkoutImport />} />
               <Route path="/finance" element={<GuardedFinance />} />
               <Route path="/finance/transactions" element={<GuardedFinanceTransactions />} />
-              <Route path="/finance/wallets" element={<GuardedFinanceWallets />} />
               <Route path="/finance/import" element={<GuardedFinanceImport />} />
-              <Route path="/finance/categories" element={<GuardedFinanceCategories />} />
+              <Route path="/finance/settings" element={<GuardedFinanceSettings />} />
               <Route path="/habits" element={<GuardedHabits />} />
               <Route path="/habits/import" element={<GuardedHabitsImport />} />
               <Route path="/settings" element={<GuardedSettings />} />

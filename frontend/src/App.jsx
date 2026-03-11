@@ -21,7 +21,7 @@ import FinanceTransactions from './pages/Finance/FinanceTransactions'
 import FinanceImport from './pages/Finance/FinanceImport'
 import FinanceSettings from './pages/Finance/FinanceSettings'
 import Habits from './pages/Habits/Habits'
-import HabitsImport from './pages/Habits/HabitsImport'
+import HabitsSettings from './pages/Habits/HabitsSettings'
 import Settings from './pages/Settings/Settings'
 import SpotifyCallback from './pages/Spotify/SpotifyCallback'
 import { PreferencesProvider } from './contexts/PreferencesContext'
@@ -45,7 +45,7 @@ const GuardedFinanceTransactions = withRefreshGuard(FinanceTransactions)
 const GuardedFinanceImport = withRefreshGuard(FinanceImport)
 const GuardedFinanceSettings = withRefreshGuard(FinanceSettings)
 const GuardedHabits = withRefreshGuard(Habits)
-const GuardedHabitsImport = withRefreshGuard(HabitsImport)
+const GuardedHabitsSettings = withRefreshGuard(HabitsSettings)
 const GuardedSettings = withRefreshGuard(Settings)
 const GuardedSpotifyCallback = withRefreshGuard(SpotifyCallback)
 
@@ -77,7 +77,7 @@ export default function AppRouter() {
               <Route path="/finance/import" element={<GuardedFinanceImport />} />
               <Route path="/finance/settings" element={<GuardedFinanceSettings />} />
               <Route path="/habits" element={<GuardedHabits />} />
-              <Route path="/habits/import" element={<GuardedHabitsImport />} />
+              <Route path="/habits/settings" element={<GuardedHabitsSettings />} />
               <Route path="/settings" element={<GuardedSettings />} />
             </Route>
 

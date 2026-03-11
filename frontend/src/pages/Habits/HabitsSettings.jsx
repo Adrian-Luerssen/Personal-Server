@@ -1,10 +1,261 @@
-import React, { useState, useRef, useCallback } from 'react'
-import { apiFetch } from '../../api'
-import { LoadingSpinner, StepIndicator, ProgressBar } from '../../components/shared'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { api, apiFetch } from '../../api'
+import { SkeletonCard, LoadingSpinner, StepIndicator, ProgressBar } from '../../components/shared'
+import { Modal } from '../../components/shared/Modal'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 
 const HABITS_COLOR = '#a78bfa'
+
+const TABS = [
+  { key: 'habits', label: 'Habits', icon: 'heart-pulse' },
+  { key: 'import', label: 'Import', icon: 'upload' },
+]
+
+// ─── Habit Form Modal ─────────────────────────────────────────────────────────
+
+function HabitForm({ habit, onClose, onSaved }) {
+  const isEdit = !!habit?.id
+  const [form, setForm] = useState({
+    name: '',
+    emoji: '',
+    description: '',
+    color: HABITS_COLOR,
+    active: true,
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [showDelete, setShowDelete] = useState(false)
+
+  useEffect(() => {
+    if (habit) {
+      setForm({
+        name: habit.name || '',
+        emoji: habit.emoji || '',
+        description: habit.description || '',
+        color: habit.color || HABITS_COLOR,
+        active: habit.active !== false,
+      })
+    }
+  }, [habit])
+
+  const setField = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError(null)
+    setSaving(true)
+    try {
+      const payload = {
+        name: form.name.trim(),
+        emoji: form.emoji.trim() || null,
+        description: form.description.trim() || null,
+        color: form.color,
+        active: form.active,
+      }
+      if (isEdit) {
+        await api.patch(`/habits/${habit.id}`, payload)
+      } else {
+        await api.post('/habits', payload)
+      }
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    setSaving(true)
+    try {
+      await api.delete(`/habits/${habit.id}`)
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Failed to delete')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title={isEdit ? 'Edit Habit' : 'Add Habit'} onClose={onClose} size="medium">
+      <form onSubmit={handleSubmit}>
+        {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+
+        <label className="form-label">Name</label>
+        <input className="input" type="text" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Meditate" required style={{ marginBottom: '0.75rem' }} />
+
+        <label className="form-label">Emoji</label>
+        <input className="input" type="text" value={form.emoji} onChange={e => setField('emoji', e.target.value)} placeholder="e.g. 🧘" style={{ marginBottom: '0.75rem' }} />
+
+        <label className="form-label">Description</label>
+        <textarea className="input" value={form.description} onChange={e => setField('description', e.target.value)} placeholder="Optional description..." rows={2} style={{ marginBottom: '0.75rem', resize: 'vertical' }} />
+
+        <label className="form-label">Color</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <input type="color" value={form.color} onChange={e => setField('color', e.target.value)} style={{ width: 40, height: 40, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{form.color}</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          <input type="checkbox" id="habit-active" checked={form.active} onChange={e => setField('active', e.target.checked)} />
+          <label htmlFor="habit-active" style={{ fontSize: '0.9rem' }}>Active</label>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+          {isEdit && !showDelete && (
+            <button type="button" className="btn small btn-ghost" style={{ color: 'var(--color-danger)', marginRight: 'auto' }} onClick={() => setShowDelete(true)}>
+              <Icon name="trash-2" size={14} /> Delete
+            </button>
+          )}
+          {isEdit && showDelete && (
+            <div style={{ marginRight: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-danger)' }}>Delete?</span>
+              <button type="button" className="btn small btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={handleDelete} disabled={saving}>Yes</button>
+              <button type="button" className="btn small btn-ghost" onClick={() => setShowDelete(false)}>No</button>
+            </div>
+          )}
+          <button type="button" className="btn small btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn small btn-primary" disabled={saving}>
+            {saving ? 'Saving...' : isEdit ? 'Update' : 'Add'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ─── Habits Tab ───────────────────────────────────────────────────────────────
+
+function HabitsTab() {
+  const [loading, setLoading] = useState(true)
+  const [habits, setHabits] = useState([])
+  const [editHabit, setEditHabit] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await api.get('/habits')
+      setHabits(Array.isArray(data) ? data : data?.items || [])
+    } catch (e) {
+      console.error('Failed to load habits:', e)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  function openAdd() {
+    setEditHabit(null)
+    setShowForm(true)
+  }
+
+  function openEdit(habit) {
+    setEditHabit(habit)
+    setShowForm(true)
+  }
+
+  const activeCount = habits.filter(h => h.active !== false).length
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
+          {activeCount} active habit{activeCount !== 1 ? 's' : ''}
+        </div>
+        <button className="btn btn-primary" onClick={openAdd}>
+          <Icon name="plus" size={16} /> Add Habit
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} lines={2} />)}
+        </div>
+      ) : habits.length === 0 ? (
+        <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <Icon name="heart-pulse" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }} />
+          <div style={{ color: 'var(--color-text-secondary)' }}>No habits yet. Add your first habit to get started!</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {habits.map(habit => {
+            const isInactive = habit.active === false
+
+            return (
+              <div
+                key={habit.id}
+                className="card"
+                style={{
+                  padding: '1rem 1.25rem',
+                  cursor: 'pointer',
+                  opacity: isInactive ? 0.6 : 1,
+                }}
+                onClick={() => openEdit(habit)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {/* Emoji / color icon */}
+                  <div style={{
+                    width: 44, height: 44,
+                    borderRadius: 'var(--radius-md)',
+                    background: `${habit.color || HABITS_COLOR}22`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: habit.emoji ? '1.4rem' : '1rem',
+                    flexShrink: 0,
+                  }}>
+                    {habit.emoji || <Icon name="heart-pulse" size={22} style={{ color: habit.color || HABITS_COLOR }} />}
+                  </div>
+
+                  {/* Name & description */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>{habit.name}</div>
+                    {habit.description && (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {habit.description}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status badge */}
+                  <div style={{ flexShrink: 0 }}>
+                    <span style={{
+                      fontSize: '0.7rem', padding: '0.15rem 0.5rem',
+                      borderRadius: '999px',
+                      background: isInactive ? 'var(--color-error)22' : 'var(--color-success)22',
+                      color: isInactive ? 'var(--color-error)' : 'var(--color-success)',
+                      fontWeight: 600,
+                    }}>
+                      {isInactive ? 'Inactive' : 'Active'}
+                    </span>
+                  </div>
+
+                  <Icon name="chevron-right" size={16} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {showForm && (
+        <HabitForm
+          habit={editHabit}
+          onClose={() => setShowForm(false)}
+          onSaved={load}
+        />
+      )}
+    </>
+  )
+}
+
+// ─── Import Tab (migrated from HabitsImport.jsx) ─────────────────────────────
+
 const STEPS = ['File', 'Preview', 'Import', 'Done']
 
 function formatFileSize(bytes) {
@@ -13,7 +264,22 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-// ─── Step 1: File Select ─────────────────────────────────────────────────────
+const thStyle = {
+  textAlign: 'left',
+  padding: '0.5rem 0.75rem',
+  fontSize: '0.8rem',
+  color: 'var(--color-text-muted)',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  borderBottom: '1px solid var(--glass-border)',
+}
+
+const tdStyle = {
+  padding: '0.6rem 0.75rem',
+  fontSize: '0.9rem',
+  borderBottom: '1px solid var(--glass-border)',
+}
 
 function FileSelectStep({ file, setFile, onNext }) {
   const [dragging, setDragging] = useState(false)
@@ -40,7 +306,6 @@ function FileSelectStep({ file, setFile, onNext }) {
         Select HabitShare CSV
       </h3>
 
-      {/* Drag & drop zone */}
       <div
         onClick={() => inputRef.current?.click()}
         onDrop={onDrop}
@@ -101,7 +366,6 @@ function FileSelectStep({ file, setFile, onNext }) {
         />
       </div>
 
-      {/* Instructions */}
       <details style={{ marginBottom: '1.5rem' }}>
         <summary style={{
           cursor: 'pointer',
@@ -136,15 +400,13 @@ function FileSelectStep({ file, setFile, onNext }) {
   )
 }
 
-// ─── Step 2: Preview ─────────────────────────────────────────────────────────
-
 function PreviewStep({ preview, loading, error, onNext, onBack }) {
   if (loading) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
         <LoadingSpinner size={40} />
         <div style={{ marginTop: '1rem', color: 'var(--color-text-secondary)' }}>
-          Analysing your HabitShare data…
+          Analysing your HabitShare data...
         </div>
       </div>
     )
@@ -173,7 +435,6 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
         Import Preview
       </h3>
 
-      {/* File info */}
       <div style={{
         display: 'flex',
         gap: '1rem',
@@ -197,7 +458,6 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
         )}
       </div>
 
-      {/* Counts table */}
       <div style={{ overflowX: 'auto', marginBottom: '1.25rem' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -227,7 +487,6 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
         </table>
       </div>
 
-      {/* Habits list preview */}
       {preview.habits?.length > 0 && (
         <div style={{ marginBottom: '1.25rem' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
@@ -258,7 +517,6 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
         </div>
       )}
 
-      {/* Warnings */}
       {preview.warnings?.length > 0 && (
         <div className="alert-warning" style={{ marginBottom: '1.25rem' }}>
           <div style={{ fontWeight: 700, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="alert-triangle" size={16} /> Warnings</div>
@@ -282,8 +540,6 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
   )
 }
 
-// ─── Step 3: Progress ────────────────────────────────────────────────────────
-
 function ProgressStep({ previewId, onComplete, onError }) {
   const [progress, setProgress] = useState({ stage: 'starting', progress: 0, message: 'Starting import...' })
   const [errorMsg, setErrorMsg] = useState(null)
@@ -295,7 +551,7 @@ function ProgressStep({ previewId, onComplete, onError }) {
 
     const run = async () => {
       try {
-        const result = await apiFetch(`/habits/import/habitshare/execute`, {
+        const result = await apiFetch('/habits/import/habitshare/execute', {
           method: 'POST',
           body: JSON.stringify({ previewId }),
         })
@@ -334,7 +590,7 @@ function ProgressStep({ previewId, onComplete, onError }) {
       />
 
       <h3 style={{ marginBottom: '0.5rem' }}>
-        {isError ? 'Import Failed' : isDone ? 'Import Complete!' : 'Importing…'}
+        {isError ? 'Import Failed' : isDone ? 'Import Complete!' : 'Importing...'}
       </h3>
 
       {errorMsg ? (
@@ -352,8 +608,6 @@ function ProgressStep({ previewId, onComplete, onError }) {
     </div>
   )
 }
-
-// ─── Step 4: Summary ─────────────────────────────────────────────────────────
 
 function SummaryStep({ summary, onReset }) {
   if (!summary) {
@@ -433,9 +687,7 @@ function SummaryStep({ summary, onReset }) {
   )
 }
 
-// ─── Main Wizard ─────────────────────────────────────────────────────────────
-
-export default function HabitsImport() {
+function ImportTab() {
   const [step, setStep] = useState(1)
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
@@ -491,8 +743,6 @@ export default function HabitsImport() {
 
   return (
     <>
-      <PageHeader icon="upload" title="Import Habits" accentColor="#a78bfa" />
-
       <StepIndicator current={step} steps={STEPS} />
 
       {step === 1 && (
@@ -541,19 +791,55 @@ export default function HabitsImport() {
   )
 }
 
-const thStyle = {
-  textAlign: 'left',
-  padding: '0.5rem 0.75rem',
-  fontSize: '0.8rem',
-  color: 'var(--color-text-muted)',
-  fontWeight: 600,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  borderBottom: '1px solid var(--glass-border)',
-}
+// ─── Main Settings Page ───────────────────────────────────────────────────────
 
-const tdStyle = {
-  padding: '0.6rem 0.75rem',
-  fontSize: '0.9rem',
-  borderBottom: '1px solid var(--glass-border)',
+export default function HabitsSettings() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'habits'
+
+  function setTab(tab) {
+    setSearchParams({ tab })
+  }
+
+  return (
+    <>
+      <PageHeader icon="settings" title="Habits Settings" accentColor={HABITS_COLOR} />
+
+      {/* Tab Bar */}
+      <div style={{
+        display: 'flex',
+        borderBottom: '1px solid var(--glass-border)',
+        marginBottom: '1.5rem',
+        gap: '0.5rem',
+      }}>
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setTab(tab.key)}
+            style={{
+              padding: '0.75rem 1.25rem',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === tab.key ? `2px solid ${HABITS_COLOR}` : '2px solid transparent',
+              color: activeTab === tab.key ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+              fontWeight: activeTab === tab.key ? 700 : 400,
+              cursor: 'pointer',
+              fontSize: '0.95rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'color 0.2s, border-color 0.2s',
+            }}
+          >
+            <Icon name={tab.icon} size={16} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'habits' && <HabitsTab />}
+      {activeTab === 'import' && <ImportTab />}
+    </>
+  )
 }

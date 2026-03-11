@@ -285,7 +285,7 @@ function SubscriptionForm({ subscription, wallets, categories, onClose, onSaved 
     walletId: '',
     categoryId: '',
     note: '',
-    active: true,
+    isActive: true,
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -303,7 +303,7 @@ function SubscriptionForm({ subscription, wallets, categories, onClose, onSaved 
         walletId: subscription.walletId || '',
         categoryId: subscription.categoryId || '',
         note: subscription.note || '',
-        active: subscription.active !== false,
+        isActive: subscription.isActive !== false,
       })
     }
   }, [subscription])
@@ -329,7 +329,7 @@ function SubscriptionForm({ subscription, wallets, categories, onClose, onSaved 
         walletId: form.walletId || null,
         categoryId: form.categoryId || null,
         note: form.note.trim() || null,
-        active: form.active,
+        isActive: form.isActive,
       }
       if (isEdit) {
         await api.patch(`/finance/subscriptions/${subscription.id}`, payload)
@@ -410,7 +410,7 @@ function SubscriptionForm({ subscription, wallets, categories, onClose, onSaved 
         <textarea className="input" value={form.note} onChange={e => setField('note', e.target.value)} placeholder="Optional note..." rows={2} style={{ marginBottom: '0.75rem', resize: 'vertical' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <input type="checkbox" id="sub-active" checked={form.active} onChange={e => setField('active', e.target.checked)} />
+          <input type="checkbox" id="sub-active" checked={form.isActive} onChange={e => setField('isActive', e.target.checked)} />
           <label htmlFor="sub-active" style={{ fontSize: '0.9rem' }}>Active</label>
         </div>
 
@@ -781,9 +781,9 @@ function SubscriptionsTab() {
     setShowForm(true)
   }
 
-  const activeCount = subscriptions.filter(s => s.active !== false).length
+  const activeCount = subscriptions.filter(s => s.isActive !== false).length
   const monthlyTotal = subscriptions
-    .filter(s => s.active !== false && !s.isIncome)
+    .filter(s => s.isActive !== false && !s.isIncome)
     .reduce((sum, s) => sum + computeMonthlyAmount(s), 0)
 
   const walletMap = Object.fromEntries((wallets || []).map(w => [w.id, w]))
@@ -822,7 +822,7 @@ function SubscriptionsTab() {
           {subscriptions.map(sub => {
             const wallet = walletMap[sub.walletId]
             const nextBilling = computeNextBilling(sub)
-            const isPaused = sub.active === false
+            const isPaused = sub.isActive === false
 
             return (
               <div

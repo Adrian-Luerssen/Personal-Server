@@ -215,7 +215,7 @@ export default function Sidebar({ collapsed, onToggle }) {
               <Icon name="receipt" size={20} />
               {!collapsed && <span>{t('nav.financeTransactions')}</span>}
             </NavLink>
-            <NavLink to="/finance/wallets" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+            <NavLink to="/finance/settings?tab=wallets" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
               <Icon name="landmark" size={20} />
               {!collapsed && <span>{t('nav.financeWallets')}</span>}
             </NavLink>
@@ -245,7 +245,7 @@ export default function Sidebar({ collapsed, onToggle }) {
               <Icon name="layout-dashboard" size={20} />
               {!collapsed && <span>{t('nav.habitsDashboard')}</span>}
             </NavLink>
-            <NavLink to="/habits/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+            <NavLink to="/habits/settings?tab=import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
               <Icon name="download" size={20} />
               {!collapsed && <span>{t('nav.habitsImport')}</span>}
             </NavLink>

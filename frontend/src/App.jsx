@@ -76,8 +76,11 @@ export default function AppRouter() {
               <Route path="/finance/transactions" element={<GuardedFinanceTransactions />} />
               <Route path="/finance/import" element={<GuardedFinanceImport />} />
               <Route path="/finance/settings" element={<GuardedFinanceSettings />} />
+              <Route path="/finance/wallets" element={<Navigate to="/finance/settings?tab=wallets" replace />} />
+              <Route path="/finance/categories" element={<Navigate to="/finance/settings?tab=categories" replace />} />
               <Route path="/habits" element={<GuardedHabits />} />
               <Route path="/habits/settings" element={<GuardedHabitsSettings />} />
+              <Route path="/habits/import" element={<Navigate to="/habits/settings?tab=import" replace />} />
               <Route path="/settings" element={<GuardedSettings />} />
             </Route>
 

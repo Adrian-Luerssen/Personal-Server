@@ -229,7 +229,8 @@ export class TransactionsService {
     account: Account,
     body: {
       name: string;
-      amount: number;
+      amountSent: number;
+      amountReceived: number;
       fromWalletId: string;
       toWalletId: string;
       transactionDate: Date;
@@ -247,7 +248,7 @@ export class TransactionsService {
     try {
       const outgoing = queryRunner.manager.create(FinanceTransaction, {
         name: body.name,
-        amount: body.amount,
+        amount: body.amountSent,
         isIncome: false,
         type: 1,
         walletId: body.fromWalletId,
@@ -260,7 +261,7 @@ export class TransactionsService {
 
       const incoming = queryRunner.manager.create(FinanceTransaction, {
         name: body.name,
-        amount: body.amount,
+        amount: body.amountReceived,
         isIncome: true,
         type: 1,
         walletId: body.toWalletId,

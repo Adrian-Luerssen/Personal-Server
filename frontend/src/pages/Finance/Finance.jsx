@@ -81,6 +81,11 @@ export default function Finance() {
   const [period, setPeriod] = useState('month')
   const [showTxForm, setShowTxForm] = useState(false)
 
+  // Fire-and-forget: generate any pending subscription transactions on mount
+  useEffect(() => {
+    api.post('/finance/subscriptions/generate').catch(() => {})
+  }, [])
+
   useEffect(() => { loadDashboard() }, [period])
 
   async function loadDashboard() {

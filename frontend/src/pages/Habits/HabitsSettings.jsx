@@ -4,9 +4,20 @@ import { api, apiFetch } from '../../api'
 import { SkeletonCard, LoadingSpinner, StepIndicator, ProgressBar } from '../../components/shared'
 import { Modal } from '../../components/shared/Modal'
 import Icon from '../../components/icons/Icon'
+import IconPicker from '../../components/finance/IconPicker'
 import PageHeader from '../../components/PageHeader'
 
 const HABITS_COLOR = '#a78bfa'
+
+function getFrequencyLabel(habit) {
+  const ft = habit.frequencyType || 'daily'
+  const target = habit.frequencyTarget || 1
+  if (ft === 'daily') return 'Daily'
+  if (ft === 'weekly') return `${target}x/week`
+  if (ft === 'monthly') return `${target}x/month`
+  if (ft === 'yearly') return `${target}x/year`
+  return ft
+}
 
 const TABS = [
   { key: 'habits', label: 'Habits', icon: 'heart-pulse' },
@@ -19,10 +30,16 @@ function HabitForm({ habit, onClose, onSaved }) {
   const isEdit = !!habit?.id
   const [form, setForm] = useState({
     name: '',
-    emoji: '',
+    iconName: 'circle-check',
     description: '',
     color: HABITS_COLOR,
-    active: true,
+    isActive: true,
+    trackingType: 'boolean',
+    frequencyType: 'daily',
+    frequencyTarget: 1,
+    numericPassThreshold: '',
+    numericSkipThreshold: '',
+    numericUnit: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -32,10 +49,16 @@ function HabitForm({ habit, onClose, onSaved }) {
     if (habit) {
       setForm({
         name: habit.name || '',
-        emoji: habit.emoji || '',
+        iconName: habit.iconName || 'circle-check',
         description: habit.description || '',
         color: habit.color || HABITS_COLOR,
-        active: habit.active !== false,
+        isActive: habit.isActive !== false,
+        trackingType: habit.trackingType || 'boolean',
+        frequencyType: habit.frequencyType || 'daily',
+        frequencyTarget: habit.frequencyTarget || 1,
+        numericPassThreshold: habit.numericPassThreshold ?? '',
+        numericSkipThreshold: habit.numericSkipThreshold ?? '',
+        numericUnit: habit.numericUnit || '',
       })
     }
   }, [habit])
@@ -49,10 +72,18 @@ function HabitForm({ habit, onClose, onSaved }) {
     try {
       const payload = {
         name: form.name.trim(),
-        emoji: form.emoji.trim() || null,
+        iconName: form.iconName,
         description: form.description.trim() || null,
         color: form.color,
-        active: form.active,
+        isActive: form.isActive,
+        trackingType: form.trackingType,
+        frequencyType: form.frequencyType,
+        frequencyTarget: form.frequencyType === 'daily' ? 1 : Math.max(1, parseInt(form.frequencyTarget) || 1),
+      }
+      if (form.trackingType === 'numeric') {
+        payload.numericPassThreshold = form.numericPassThreshold !== '' ? parseFloat(form.numericPassThreshold) : null
+        payload.numericSkipThreshold = form.numericSkipThreshold !== '' ? parseFloat(form.numericSkipThreshold) : null
+        payload.numericUnit = form.numericUnit.trim() || null
       }
       if (isEdit) {
         await api.patch(`/habits/${habit.id}`, payload)
@@ -81,6 +112,10 @@ function HabitForm({ habit, onClose, onSaved }) {
     }
   }
 
+  const isNumeric = form.trackingType === 'numeric'
+  const passT = parseFloat(form.numericPassThreshold)
+  const skipT = parseFloat(form.numericSkipThreshold)
+
   return (
     <Modal title={isEdit ? 'Edit Habit' : 'Add Habit'} onClose={onClose} size="medium">
       <form onSubmit={handleSubmit}>
@@ -89,20 +124,102 @@ function HabitForm({ habit, onClose, onSaved }) {
         <label className="form-label">Name</label>
         <input className="input" type="text" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Meditate" required style={{ marginBottom: '0.75rem' }} />
 
-        <label className="form-label">Emoji</label>
-        <input className="input" type="text" value={form.emoji} onChange={e => setField('emoji', e.target.value)} placeholder="e.g. 🧘" style={{ marginBottom: '0.75rem' }} />
+        {/* Icon & Color row */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
+          <div style={{ flex: 1 }}>
+            <label className="form-label">Icon</label>
+            <IconPicker value={form.iconName} onChange={val => setField('iconName', val)} color={form.color} />
+          </div>
+          <div>
+            <label className="form-label">Color</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input type="color" value={form.color} onChange={e => setField('color', e.target.value)} style={{ width: 40, height: 40, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
+            </div>
+          </div>
+        </div>
 
         <label className="form-label">Description</label>
         <textarea className="input" value={form.description} onChange={e => setField('description', e.target.value)} placeholder="Optional description..." rows={2} style={{ marginBottom: '0.75rem', resize: 'vertical' }} />
 
-        <label className="form-label">Color</label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-          <input type="color" value={form.color} onChange={e => setField('color', e.target.value)} style={{ width: 40, height: 40, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{form.color}</span>
+        {/* Tracking Type */}
+        <label className="form-label">Tracking Type</label>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            className={`btn small ${form.trackingType === 'boolean' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setField('trackingType', 'boolean')}
+          >
+            <Icon name="check" size={14} /> Yes / No
+          </button>
+          <button
+            type="button"
+            className={`btn small ${form.trackingType === 'numeric' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setField('trackingType', 'numeric')}
+          >
+            <Icon name="hash" size={14} /> Numeric
+          </button>
         </div>
 
+        {/* Numeric Thresholds */}
+        {isNumeric && (
+          <div style={{ padding: '0.75rem', background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', marginBottom: '0.75rem' }}>
+            <label className="form-label">Unit</label>
+            <input className="input" type="text" value={form.numericUnit} onChange={e => setField('numericUnit', e.target.value)} placeholder="e.g. cigarettes, drinks" style={{ marginBottom: '0.5rem' }} />
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Pass if &le;</label>
+                <input className="input" type="number" step="0.01" value={form.numericPassThreshold} onChange={e => setField('numericPassThreshold', e.target.value)} placeholder="0" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Skip if &le;</label>
+                <input className="input" type="number" step="0.01" value={form.numericSkipThreshold} onChange={e => setField('numericSkipThreshold', e.target.value)} placeholder="1" />
+              </div>
+            </div>
+
+            {/* Live preview */}
+            {!isNaN(passT) && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                <span style={{ color: '#4ade80' }}>Pass: &le; {passT}{form.numericUnit ? ` ${form.numericUnit}` : ''}</span>
+                {!isNaN(skipT) && skipT > passT && (
+                  <> &middot; <span style={{ color: '#fbbf24' }}>Skip: &le; {skipT}{form.numericUnit ? ` ${form.numericUnit}` : ''}</span></>
+                )}
+                <> &middot; <span style={{ color: '#f87171' }}>Fail: &gt; {!isNaN(skipT) && skipT > passT ? skipT : passT}{form.numericUnit ? ` ${form.numericUnit}` : ''}</span></>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Frequency */}
+        <label className="form-label">Frequency</label>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+          {[
+            { value: 'daily', label: 'Every day' },
+            { value: 'weekly', label: 'Per week' },
+            { value: 'monthly', label: 'Per month' },
+            { value: 'yearly', label: 'Per year' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`btn small ${form.frequencyType === opt.value ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setField('frequencyType', opt.value)}
+              style={{ fontSize: '0.8rem' }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {form.frequencyType !== 'daily' && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <label className="form-label">Times per {form.frequencyType === 'weekly' ? 'week' : form.frequencyType === 'monthly' ? 'month' : 'year'}</label>
+            <input className="input" type="number" min="1" value={form.frequencyTarget} onChange={e => setField('frequencyTarget', e.target.value)} style={{ width: 100 }} />
+          </div>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <input type="checkbox" id="habit-active" checked={form.active} onChange={e => setField('active', e.target.checked)} />
+          <input type="checkbox" id="habit-active" checked={form.isActive} onChange={e => setField('isActive', e.target.checked)} />
           <label htmlFor="habit-active" style={{ fontSize: '0.9rem' }}>Active</label>
         </div>
 
@@ -161,7 +278,7 @@ function HabitsTab() {
     setShowForm(true)
   }
 
-  const activeCount = habits.filter(h => h.active !== false).length
+  const activeCount = habits.filter(h => h.isActive !== false).length
 
   return (
     <>
@@ -186,7 +303,7 @@ function HabitsTab() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {habits.map(habit => {
-            const isInactive = habit.active === false
+            const isInactive = habit.isActive === false
 
             return (
               <div
@@ -200,26 +317,25 @@ function HabitsTab() {
                 onClick={() => openEdit(habit)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  {/* Emoji / color icon */}
+                  {/* Icon */}
                   <div style={{
                     width: 44, height: 44,
                     borderRadius: 'var(--radius-md)',
                     background: `${habit.color || HABITS_COLOR}22`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: habit.emoji ? '1.4rem' : '1rem',
                     flexShrink: 0,
                   }}>
-                    {habit.emoji || <Icon name="heart-pulse" size={22} style={{ color: habit.color || HABITS_COLOR }} />}
+                    <Icon name={habit.iconName || 'circle-check'} size={22} style={{ color: habit.color || HABITS_COLOR }} />
                   </div>
 
                   {/* Name & description */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: '1rem' }}>{habit.name}</div>
-                    {habit.description && (
-                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {habit.description}
-                      </div>
-                    )}
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.15rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span>{getFrequencyLabel(habit)}</span>
+                      {habit.trackingType === 'numeric' && <span>· Numeric</span>}
+                      {habit.description && <span>· {habit.description}</span>}
+                    </div>
                   </div>
 
                   {/* Status badge */}

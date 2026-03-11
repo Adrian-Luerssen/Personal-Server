@@ -29,18 +29,36 @@ export interface HabitStats {
 export interface HabitSummaryItem {
   habitId: string;
   habitName: string;
+  habitIconName: string;
+  habitColor: string;
+  frequencyType: string;
+  frequencyTarget: number;
+  trackingType: string;
+  numericUnit: string | null;
   currentStreak: number;
   longestStreak: number;
   successRate: number;
   lastSuccess: string | null;
 }
 
-export interface CalendarEntry {
-  habitId: string;
-  habitName: string;
-  date: string;
-  status: HabitStatus;
-  comment?: string;
+export interface CalendarResponse {
+  habits: Record<
+    string,
+    {
+      name: string;
+      iconName: string;
+      color: string;
+      frequencyType: string;
+      trackingType: string;
+    }
+  >;
+  entries: {
+    habitId: string;
+    date: string;
+    status: HabitStatus;
+    numericValue: number | null;
+    comment: string | null;
+  }[];
 }
 
 @Injectable()
@@ -76,8 +94,15 @@ export class HabitsService {
       name: string;
       description?: string;
       emoji?: string;
-      isActive?: boolean;
+      iconName?: string;
       color?: string;
+      isActive?: boolean;
+      trackingType?: string;
+      frequencyType?: string;
+      frequencyTarget?: number;
+      numericPassThreshold?: number;
+      numericSkipThreshold?: number;
+      numericUnit?: string;
     }
   ): Promise<Habit> {
     const habit = this.habitRepo.create({
@@ -85,6 +110,10 @@ export class HabitsService {
       accountId: account.id,
       account,
       isActive: dto.isActive ?? true,
+      iconName: dto.iconName ?? "circle-check",
+      trackingType: dto.trackingType ?? "boolean",
+      frequencyType: dto.frequencyType ?? "daily",
+      frequencyTarget: dto.frequencyTarget ?? 1,
     });
     const result = await this.habitRepo.save(habit);
     await this.cacheManager.reset();
@@ -98,8 +127,15 @@ export class HabitsService {
       name: string;
       description: string;
       emoji: string;
-      isActive: boolean;
+      iconName: string;
       color: string;
+      isActive: boolean;
+      trackingType: string;
+      frequencyType: string;
+      frequencyTarget: number;
+      numericPassThreshold: number;
+      numericSkipThreshold: number;
+      numericUnit: string;
     }>
   ): Promise<Habit> {
     const habit = await this.findOne(account, id);
@@ -117,14 +153,6 @@ export class HabitsService {
 
   // ========== STREAK CALCULATION ==========
 
-  /**
-   * Calculate current streak and longest streak for a habit.
-   * Rules:
-   *   - 'success' continues streak
-   *   - 'skip' doesn't break streak (neutral)
-   *   - 'fail' breaks streak
-   * Current streak counts from today (or yesterday if today has no entry) backwards.
-   */
   async getStreak(account: Account, habitId: string): Promise<HabitStreak> {
     await this.findOne(account, habitId);
 
@@ -136,16 +164,13 @@ export class HabitsService {
     return this.calculateStreak(entries);
   }
 
-  private calculateStreak(
-    entries: HabitEntry[]
-  ): HabitStreak {
+  private calculateStreak(entries: HabitEntry[]): HabitStreak {
     if (entries.length === 0) {
       return { current: 0, longest: 0, lastSuccess: null };
     }
 
     const today = new Date().toISOString().slice(0, 10);
 
-    // Build a date -> status map for easier lookup
     const dateMap = new Map<string, HabitStatus>();
     let lastSuccess: string | null = null;
 
@@ -157,11 +182,9 @@ export class HabitsService {
     }
 
     // -- Current streak --
-    // Start from today and walk backwards
     let currentStreak = 0;
     let checkDate = new Date(today);
 
-    // If today has no entry, skip to yesterday as starting point
     if (!dateMap.has(today)) {
       checkDate.setDate(checkDate.getDate() - 1);
     }
@@ -170,20 +193,17 @@ export class HabitsService {
       const dateStr = checkDate.toISOString().slice(0, 10);
       const status = dateMap.get(dateStr);
 
-      if (!status) break; // No entry for this date, streak ends
-
+      if (!status) break;
       if (status === "success") {
         currentStreak++;
       } else if (status === "fail") {
-        break; // Streak broken
+        break;
       }
-      // skip: continue without incrementing
 
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
     // -- Longest streak --
-    // Sort entries by date ASC to scan forward
     const sortedEntries = [...entries].sort((a, b) =>
       a.date.localeCompare(b.date)
     );
@@ -198,7 +218,6 @@ export class HabitsService {
       } else if (entry.status === "fail") {
         runningStreak = 0;
       }
-      // skip: continue without resetting
     }
 
     return { current: currentStreak, longest: longestStreak, lastSuccess };
@@ -248,7 +267,7 @@ export class HabitsService {
       else if (e.status === "fail") fail++;
       else skip++;
     }
-    const denominator = success + fail; // exclude skips from rate
+    const denominator = success + fail;
     const successRate = denominator > 0 ? (success / denominator) * 100 : 0;
     return {
       total: entries.length,
@@ -264,13 +283,11 @@ export class HabitsService {
   async getAllStreaks(account: Account): Promise<HabitSummaryItem[]> {
     const habits = await this.findAll(account);
 
-    // Fetch all entries for all habits in a single query
     const allEntries = await this.entryRepo.find({
       where: { accountId: account.id },
       order: { date: "DESC" },
     });
 
-    // Group entries by habitId
     const entriesByHabit = new Map<string, HabitEntry[]>();
     for (const entry of allEntries) {
       const list = entriesByHabit.get(entry.habitId) || [];
@@ -287,6 +304,12 @@ export class HabitsService {
       results.push({
         habitId: habit.id,
         habitName: habit.name,
+        habitIconName: habit.iconName || "circle-check",
+        habitColor: habit.color || "#a78bfa",
+        frequencyType: habit.frequencyType || "daily",
+        frequencyTarget: habit.frequencyTarget || 1,
+        trackingType: habit.trackingType || "boolean",
+        numericUnit: habit.numericUnit || null,
         currentStreak: streak.current,
         longestStreak: streak.longest,
         successRate: stats.successRate,
@@ -322,8 +345,8 @@ export class HabitsService {
 
   async getCalendar(
     account: Account,
-    month: string // format: YYYY-MM
-  ): Promise<CalendarEntry[]> {
+    month: string
+  ): Promise<CalendarResponse> {
     if (!/^\d{4}-\d{2}$/.test(month)) {
       throw new BadRequestException(
         "Invalid month format. Use YYYY-MM (e.g. 2024-01)"
@@ -331,27 +354,174 @@ export class HabitsService {
     }
 
     const from = `${month}-01`;
-    // Last day of month
     const [year, mon] = month.split("-").map(Number);
     const lastDay = new Date(year, mon, 0).getDate();
     const to = `${month}-${String(lastDay).padStart(2, "0")}`;
 
-    const entries = await this.entryRepo
+    // Get all active habits
+    const allHabits = await this.habitRepo.find({
+      where: { accountId: account.id },
+    });
+
+    // Build habits metadata map
+    const habits: CalendarResponse["habits"] = {};
+    for (const h of allHabits) {
+      habits[h.id] = {
+        name: h.name,
+        iconName: h.iconName || "circle-check",
+        color: h.color || "#a78bfa",
+        frequencyType: h.frequencyType || "daily",
+        trackingType: h.trackingType || "boolean",
+      };
+    }
+
+    // Get entries for the month
+    const rawEntries = await this.entryRepo
       .createQueryBuilder("e")
-      .leftJoinAndSelect("e.habit", "h")
       .where("e.accountId = :accountId", { accountId: account.id })
       .andWhere("e.date >= :from", { from })
       .andWhere("e.date <= :to", { to })
       .orderBy("e.date", "ASC")
-      .addOrderBy("h.name", "ASC")
       .getMany();
 
-    return entries.map((e) => ({
+    const entries = rawEntries.map((e) => ({
       habitId: e.habitId,
-      habitName: e.habit?.name ?? "",
       date: e.date,
       status: e.status,
-      comment: e.comment,
+      numericValue: e.numericValue != null ? Number(e.numericValue) : null,
+      comment: e.comment || null,
     }));
+
+    return { habits, entries };
+  }
+
+  // ========== FREQUENCY PROGRESS ==========
+
+  async getProgress(
+    account: Account,
+    month: string
+  ): Promise<{
+    weekly: Record<string, any[]>;
+    monthly: any[];
+    yearly: any[];
+  }> {
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      throw new BadRequestException("Invalid month format. Use YYYY-MM");
+    }
+
+    const [year, mon] = month.split("-").map(Number);
+    const habits = await this.habitRepo.find({
+      where: { accountId: account.id, isActive: true },
+    });
+
+    const weeklyHabits = habits.filter((h) => h.frequencyType === "weekly");
+    const monthlyHabits = habits.filter((h) => h.frequencyType === "monthly");
+    const yearlyHabits = habits.filter((h) => h.frequencyType === "yearly");
+
+    // Get all entries for relevant date ranges
+    const monthStart = `${month}-01`;
+    const lastDay = new Date(year, mon, 0).getDate();
+    const monthEnd = `${month}-${String(lastDay).padStart(2, "0")}`;
+
+    const allEntries = await this.entryRepo.find({
+      where: { accountId: account.id },
+      order: { date: "ASC" },
+    });
+
+    // === WEEKLY ===
+    const weekly: Record<string, any[]> = {};
+    if (weeklyHabits.length > 0) {
+      // Find all week start dates (Mondays) that overlap with this month
+      const firstDate = new Date(year, mon - 1, 1);
+      const lastDate = new Date(year, mon - 1, lastDay);
+
+      // Find the Monday of the week containing the 1st
+      const startMonday = new Date(firstDate);
+      const dayOfWeek = startMonday.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      startMonday.setDate(startMonday.getDate() + diff);
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      for (
+        let monday = new Date(startMonday);
+        monday <= lastDate;
+        monday.setDate(monday.getDate() + 7)
+      ) {
+        const weekStart = monday.toISOString().slice(0, 10);
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
+        const weekEnd = sunday.toISOString().slice(0, 10);
+        const weekPassed = weekEnd < today;
+
+        const weekEntries = allEntries.filter(
+          (e) => e.date >= weekStart && e.date <= weekEnd
+        );
+
+        weekly[weekStart] = weeklyHabits.map((h) => {
+          const completed = weekEntries.filter(
+            (e) => e.habitId === h.id && e.status === "success"
+          ).length;
+          return {
+            habitId: h.id,
+            habitName: h.name,
+            habitIconName: h.iconName || "circle-check",
+            habitColor: h.color || "#a78bfa",
+            target: h.frequencyTarget,
+            completed,
+            passed: weekPassed
+              ? completed >= h.frequencyTarget
+              : completed >= h.frequencyTarget,
+          };
+        });
+      }
+    }
+
+    // === MONTHLY ===
+    const monthEntries = allEntries.filter(
+      (e) => e.date >= monthStart && e.date <= monthEnd
+    );
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const monthPassed = monthEnd < todayStr;
+
+    const monthly = monthlyHabits.map((h) => {
+      const completed = monthEntries.filter(
+        (e) => e.habitId === h.id && e.status === "success"
+      ).length;
+      return {
+        habitId: h.id,
+        habitName: h.name,
+        habitIconName: h.iconName || "circle-check",
+        habitColor: h.color || "#a78bfa",
+        target: h.frequencyTarget,
+        completed,
+        passed: monthPassed
+          ? completed >= h.frequencyTarget
+          : completed >= h.frequencyTarget,
+      };
+    });
+
+    // === YEARLY ===
+    const yearStart = `${year}-01-01`;
+    const yearEnd = `${year}-12-31`;
+    const yearEntries = allEntries.filter(
+      (e) => e.date >= yearStart && e.date <= yearEnd
+    );
+
+    const yearly = yearlyHabits.map((h) => {
+      const completed = yearEntries.filter(
+        (e) => e.habitId === h.id && e.status === "success"
+      ).length;
+      return {
+        habitId: h.id,
+        habitName: h.name,
+        habitIconName: h.iconName || "circle-check",
+        habitColor: h.color || "#a78bfa",
+        target: h.frequencyTarget,
+        completed,
+      };
+    });
+
+    return { weekly, monthly, yearly };
   }
 }

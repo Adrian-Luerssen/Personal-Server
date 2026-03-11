@@ -36,4 +36,11 @@ export class HabitEntry extends AbstractAccountOwnedEntity {
   @ApiProperty({ description: "Optional comment", required: false })
   @Column({ type: "text", nullable: true })
   comment?: string;
+
+  @ApiProperty({
+    description: "Raw numeric value for numeric-type habits",
+    required: false,
+  })
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  numericValue?: number;
 }

@@ -26,6 +26,26 @@ export class EntriesService {
     return habit;
   }
 
+  /**
+   * Auto-evaluate status from numeric value and habit thresholds.
+   * Lower is better: value <= pass → success, value <= skip → skip, else fail.
+   */
+  private evaluateNumericStatus(habit: Habit, numericValue: number): HabitStatus {
+    if (
+      habit.numericPassThreshold != null &&
+      numericValue <= Number(habit.numericPassThreshold)
+    ) {
+      return "success";
+    }
+    if (
+      habit.numericSkipThreshold != null &&
+      numericValue <= Number(habit.numericSkipThreshold)
+    ) {
+      return "skip";
+    }
+    return "fail";
+  }
+
   async findByHabit(
     account: Account,
     habitId: string,
@@ -49,11 +69,15 @@ export class EntriesService {
   async addEntry(
     account: Account,
     habitId: string,
-    dto: { date: string; status: HabitStatus; comment?: string }
+    dto: {
+      date: string;
+      status?: HabitStatus;
+      numericValue?: number;
+      comment?: string;
+    }
   ): Promise<HabitEntry> {
     const habit = await this.verifyHabit(account, habitId);
 
-    // Check for conflict
     const existing = await this.entryRepo.findOne({
       where: { habitId, date: dto.date, accountId: account.id },
     });
@@ -63,13 +87,25 @@ export class EntriesService {
       );
     }
 
+    // Auto-evaluate status for numeric habits
+    let status = dto.status;
+    if (
+      habit.trackingType === "numeric" &&
+      dto.numericValue != null &&
+      !status
+    ) {
+      status = this.evaluateNumericStatus(habit, dto.numericValue);
+    }
+    if (!status) status = "success";
+
     const entry = this.entryRepo.create({
       habitId,
       habit,
       accountId: account.id,
       account,
       date: dto.date,
-      status: dto.status,
+      status,
+      numericValue: dto.numericValue ?? undefined,
       comment: dto.comment,
     });
     return this.entryRepo.save(entry);
@@ -79,9 +115,13 @@ export class EntriesService {
     account: Account,
     habitId: string,
     date: string,
-    dto: { status?: HabitStatus; comment?: string }
+    dto: {
+      status?: HabitStatus;
+      numericValue?: number;
+      comment?: string;
+    }
   ): Promise<HabitEntry> {
-    await this.verifyHabit(account, habitId);
+    const habit = await this.verifyHabit(account, habitId);
 
     const entry = await this.entryRepo.findOne({
       where: { habitId, date, accountId: account.id },
@@ -91,7 +131,20 @@ export class EntriesService {
         `Entry for habit ${habitId} on date ${date} not found`
       );
 
-    if (dto.status !== undefined) entry.status = dto.status;
+    if (dto.numericValue !== undefined) {
+      entry.numericValue = dto.numericValue;
+    }
+
+    if (dto.status !== undefined) {
+      entry.status = dto.status;
+    } else if (
+      habit.trackingType === "numeric" &&
+      dto.numericValue != null
+    ) {
+      // Auto-evaluate if numericValue changed but status wasn't explicitly set
+      entry.status = this.evaluateNumericStatus(habit, dto.numericValue);
+    }
+
     if (dto.comment !== undefined) entry.comment = dto.comment;
 
     return this.entryRepo.save(entry);
@@ -115,9 +168,6 @@ export class EntriesService {
     await this.entryRepo.remove(entry);
   }
 
-  /**
-   * Upsert: create or update an entry. Used by import service.
-   */
   async upsertEntry(
     account: Account,
     habit: Habit,

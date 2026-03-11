@@ -42,7 +42,8 @@ export class HabitsController {
   @UseInterceptors(CacheInterceptor)
   @CacheTTL(30)
   @ApiOperation({
-    summary: "Get all habits with current streak, longest streak, and success rate",
+    summary:
+      "Get all habits with current streak, longest streak, and success rate",
   })
   async getSummary(@ReqUser() account: Account) {
     return this.habitsService.getAllStreaks(account);
@@ -63,7 +64,8 @@ export class HabitsController {
   @Get("calendar/:month")
   @ApiOperation({
     summary: "Get calendar view for all habits for a given month",
-    description: "Returns all entries for all habits in a given month (YYYY-MM)",
+    description:
+      "Returns habits metadata and all entries for all habits in a given month (YYYY-MM)",
   })
   @ApiParam({ name: "month", description: "Month in YYYY-MM format" })
   async getCalendar(
@@ -71,6 +73,20 @@ export class HabitsController {
     @Param("month") month: string
   ) {
     return this.habitsService.getCalendar(account, month);
+  }
+
+  @Get("progress/:month")
+  @ApiOperation({
+    summary: "Get frequency progress for non-daily habits",
+    description:
+      "Returns weekly, monthly, and yearly progress for habits with those frequencies",
+  })
+  @ApiParam({ name: "month", description: "Month in YYYY-MM format" })
+  async getProgress(
+    @ReqUser() account: Account,
+    @Param("month") month: string
+  ) {
+    return this.habitsService.getProgress(account, month);
   }
 
   @Get(":id")
@@ -116,8 +132,15 @@ export class HabitsController {
       name: string;
       description?: string;
       emoji?: string;
-      isActive?: boolean;
+      iconName?: string;
       color?: string;
+      isActive?: boolean;
+      trackingType?: string;
+      frequencyType?: string;
+      frequencyTarget?: number;
+      numericPassThreshold?: number;
+      numericSkipThreshold?: number;
+      numericUnit?: string;
     }
   ) {
     return this.habitsService.create(account, body);
@@ -133,8 +156,15 @@ export class HabitsController {
       name: string;
       description: string;
       emoji: string;
-      isActive: boolean;
+      iconName: string;
       color: string;
+      isActive: boolean;
+      trackingType: string;
+      frequencyType: string;
+      frequencyTarget: number;
+      numericPassThreshold: number;
+      numericSkipThreshold: number;
+      numericUnit: string;
     }>
   ) {
     return this.habitsService.update(account, id, body);

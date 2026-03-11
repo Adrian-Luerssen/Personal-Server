@@ -50,7 +50,8 @@ export class EntriesController {
     @Body()
     body: {
       date: string;
-      status: HabitStatus;
+      status?: HabitStatus;
+      numericValue?: number;
       comment?: string;
     }
   ) {
@@ -68,6 +69,7 @@ export class EntriesController {
     @Body()
     body: {
       status?: HabitStatus;
+      numericValue?: number;
       comment?: string;
     }
   ) {

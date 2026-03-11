@@ -11,6 +11,8 @@ import Icon from '../../components/icons/Icon'
 import ScrollReveal from '../../components/ScrollReveal'
 import PageHeader from '../../components/PageHeader'
 import ProgressRing from '../../components/ProgressRing'
+import HabitCalendarGrid from '../../components/habits/HabitCalendarGrid'
+import HabitDayModal from '../../components/habits/HabitDayModal'
 
 const HABITS_COLOR = '#a78bfa'
 const HABITS_COLOR_MUTED = 'rgba(167, 139, 250, 0.15)'
@@ -32,44 +34,74 @@ function getToday() {
   return new Date().toISOString().split('T')[0]
 }
 
+function getCurrentMonth() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function formatMonthYear(monthStr, locale = 'en') {
+  const [year, month] = monthStr.split('-').map(Number)
+  return new Date(year, month - 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+}
+
+function getPreviousMonth(monthStr) {
+  const [year, month] = monthStr.split('-').map(Number)
+  const d = new Date(year, month - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function getNextMonth(monthStr) {
+  const [year, month] = monthStr.split('-').map(Number)
+  const d = new Date(year, month, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function getFrequencyLabel(habit) {
+  const ft = habit.frequencyType || 'daily'
+  const target = habit.frequencyTarget || 1
+  if (ft === 'daily') return 'Daily'
+  if (ft === 'weekly') return `${target}x/week`
+  if (ft === 'monthly') return `${target}x/month`
+  if (ft === 'yearly') return `${target}x/year`
+  return ft
+}
+
 export default function Habits() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
-  const [habits, setHabits] = useState([])       // full habit objects from GET /habits
-  const [summary, setSummary] = useState([])      // summary stats per habit
-  const [todayEntries, setTodayEntries] = useState({}) // { habitId: status }
-  const [calendarEntries, setCalendarEntries] = useState([]) // raw calendar entries
+  const [habits, setHabits] = useState([])
+  const [summary, setSummary] = useState([])
+  const [calendarData, setCalendarData] = useState({ habits: {}, entries: [] })
+  const [progress, setProgress] = useState({ weekly: {}, monthly: [], yearly: [] })
+  const [todayEntries, setTodayEntries] = useState({})
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
-
-  function getCurrentMonth() {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  }
+  const [selectedDay, setSelectedDay] = useState(null) // date string for modal
 
   useEffect(() => { loadData() }, [selectedMonth])
 
   async function loadData() {
     setLoading(true)
     try {
-      const [habitsData, summaryData, calendarData] = await Promise.all([
+      const [habitsData, summaryData, calData, progressData] = await Promise.all([
         api.get('/habits'),
         api.get('/habits/summary'),
         api.get(`/habits/calendar/${selectedMonth}`),
+        api.get(`/habits/progress/${selectedMonth}`),
       ])
 
       setHabits(habitsData || [])
       setSummary(summaryData || [])
-      setCalendarEntries(Array.isArray(calendarData) ? calendarData : [])
+      setCalendarData(calData || { habits: {}, entries: [] })
+      setProgress(progressData || { weekly: {}, monthly: [], yearly: [] })
 
-      // Build today's entry map from calendar data
+      // Build today's entry map
       const today = getToday()
       const todayMap = {}
-      const entries = Array.isArray(calendarData) ? calendarData : []
-      for (const entry of entries) {
+      for (const entry of (calData?.entries || [])) {
         if (entry.date === today) {
-          todayMap[entry.habitId] = entry.status
+          todayMap[entry.habitId] = { status: entry.status, numericValue: entry.numericValue }
         }
       }
       setTodayEntries(todayMap)
@@ -82,14 +114,14 @@ export default function Habits() {
 
   async function toggleHabitEntry(habitId, status) {
     const today = getToday()
-    const currentStatus = todayEntries[habitId]
+    const current = todayEntries[habitId]
+    const currentStatus = current?.status
 
     // Optimistic update
-    setTodayEntries(prev => ({ ...prev, [habitId]: status }))
+    setTodayEntries(prev => ({ ...prev, [habitId]: { status } }))
 
     try {
       if (currentStatus) {
-        // Entry exists — use PATCH to update, or DELETE if same status (toggle off)
         if (currentStatus === status) {
           await api.delete(`/habits/${habitId}/entries/${today}`)
           setTodayEntries(prev => {
@@ -101,17 +133,14 @@ export default function Habits() {
           await api.patch(`/habits/${habitId}/entries/${today}`, { status })
         }
       } else {
-        // No entry yet — POST to create
         await api.post(`/habits/${habitId}/entries`, { date: today, status })
       }
-      // Refresh summary (streaks etc may have changed)
       const newSummary = await api.get('/habits/summary')
       setSummary(newSummary || [])
     } catch (e) {
       console.error('Failed to toggle habit entry:', e)
-      // Revert optimistic update
       if (currentStatus) {
-        setTodayEntries(prev => ({ ...prev, [habitId]: currentStatus }))
+        setTodayEntries(prev => ({ ...prev, [habitId]: current }))
       } else {
         setTodayEntries(prev => {
           const next = { ...prev }
@@ -133,7 +162,7 @@ export default function Habits() {
         longestStreak: s.longestStreak || 0,
         successRate: s.successRate || 0,
         lastSuccess: s.lastSuccess,
-        todayStatus: todayEntries[h.id] || 'none',
+        todayStatus: todayEntries[h.id]?.status || 'none',
       }
     })
 
@@ -144,9 +173,21 @@ export default function Habits() {
   const totalCurrentStreak = mergedHabits.reduce((sum, h) => sum + h.currentStreak, 0)
   const activeToday = mergedHabits.filter(h => h.todayStatus === 'success').length
 
-  // Aggregate calendar data by date
-  const calendarAgg = aggregateCalendar(calendarEntries)
-  const calendarDays = generateCalendarDays(selectedMonth, calendarAgg)
+  // Build entries map for selected day modal
+  const dayEntries = {}
+  if (selectedDay) {
+    for (const entry of (calendarData.entries || [])) {
+      if (entry.date === selectedDay) {
+        dayEntries[entry.habitId] = entry
+      }
+    }
+  }
+
+  // Build full habit objects for the modal (merge entity data with calendar metadata)
+  const modalHabits = habits.map(h => ({
+    ...h,
+    ...(calendarData.habits?.[h.id] || {}),
+  }))
 
   return (
     <>
@@ -259,25 +300,31 @@ export default function Habits() {
           {loading ? (
             <SkeletonCard lines={6} />
           ) : (
-            <CalendarGrid days={calendarDays} t={t} />
+            <HabitCalendarGrid
+              month={selectedMonth}
+              habitsMap={calendarData.habits || {}}
+              entries={calendarData.entries || []}
+              progress={progress}
+              onDayClick={setSelectedDay}
+            />
           )}
-
-          {/* Legend */}
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            {[
-              { color: STATUS_COLORS.success, label: t('habits.success') },
-              { color: STATUS_COLORS.fail, label: t('habits.failed') },
-              { color: STATUS_COLORS.skip, label: t('habits.skipped') },
-            ].map(item => (
-              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}>
-                <div style={{ width: 12, height: 12, borderRadius: 2, background: item.color }} />
-                <span style={{ color: 'var(--color-text-muted)' }}>{item.label}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
       </ScrollReveal>
+
+      {/* Day Detail Modal */}
+      {selectedDay && (
+        <HabitDayModal
+          date={selectedDay}
+          habits={modalHabits}
+          entries={dayEntries}
+          progress={progress}
+          onClose={() => setSelectedDay(null)}
+          onChanged={() => {
+            loadData()
+          }}
+        />
+      )}
     </>
   )
 }
@@ -287,6 +334,7 @@ export default function Habits() {
 function HabitCard({ habit, onToggle, t }) {
   const todayStatus = habit.todayStatus || 'none'
   const habitColor = habit.color || HABITS_COLOR
+  const isNumeric = habit.trackingType === 'numeric'
 
   return (
     <div
@@ -300,7 +348,7 @@ function HabitCard({ habit, onToggle, t }) {
         borderLeft: `3px solid ${habitColor}`,
       }}
     >
-      {/* Emoji / Icon */}
+      {/* Icon */}
       <div style={{
         width: 40, height: 40, minWidth: 40,
         borderRadius: '50%',
@@ -308,9 +356,8 @@ function HabitCard({ habit, onToggle, t }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: habit.emoji ? '1.2rem' : undefined,
       }}>
-        {habit.emoji || <Icon name="heart-pulse" size={18} style={{ color: habitColor }} />}
+        <Icon name={habit.iconName || 'circle-check'} size={18} style={{ color: habitColor }} />
       </div>
 
       {/* Habit Info */}
@@ -340,194 +387,58 @@ function HabitCard({ habit, onToggle, t }) {
           <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
             {habit.successRate || 0}%
           </span>
+          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+            {getFrequencyLabel(habit)}
+          </span>
         </div>
       </div>
 
-      {/* Quick Toggle Buttons */}
-      <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
-        {['success', 'fail', 'skip'].map(status => {
-          const isActive = todayStatus === status
-          return (
-            <button
-              key={status}
-              onClick={(e) => { e.stopPropagation(); onToggle(status) }}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 'var(--radius-md)',
-                border: isActive ? 'none' : '1.5px solid var(--glass-border)',
-                background: isActive ? STATUS_COLORS[status] : 'transparent',
-                color: isActive ? '#fff' : STATUS_COLORS[status],
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease',
-                transform: isActive ? 'scale(1.1)' : 'scale(1)',
-              }}
-              title={t(`habits.${status === 'fail' ? 'failed' : status}`)}
-            >
-              <Icon name={STATUS_ICONS[status]} size={18} />
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+      {/* Quick Toggle Buttons (boolean habits only) */}
+      {!isNumeric && (
+        <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+          {['success', 'fail', 'skip'].map(status => {
+            const isActive = todayStatus === status
+            return (
+              <button
+                key={status}
+                onClick={(e) => { e.stopPropagation(); onToggle(status) }}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 'var(--radius-md)',
+                  border: isActive ? 'none' : '1.5px solid var(--glass-border)',
+                  background: isActive ? STATUS_COLORS[status] : 'transparent',
+                  color: isActive ? '#fff' : STATUS_COLORS[status],
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                }}
+                title={t(`habits.${status === 'fail' ? 'failed' : status}`)}
+              >
+                <Icon name={STATUS_ICONS[status]} size={18} />
+              </button>
+            )
+          })}
+        </div>
+      )}
 
-// ─── Calendar Grid ────────────────────────────────────────────────────────────
-
-function CalendarGrid({ days, t }) {
-  const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-  const today = getToday()
-
-  return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(7, 1fr)',
-      gap: '3px',
-    }}>
-      {/* Weekday headers */}
-      {weekDays.map((d, i) => (
-        <div key={i} style={{
-          textAlign: 'center',
+      {/* Numeric status badge (for numeric habits show today's status) */}
+      {isNumeric && todayStatus !== 'none' && (
+        <span style={{
+          padding: '0.2rem 0.5rem',
+          borderRadius: 6,
+          background: `${STATUS_COLORS[todayStatus]}33`,
+          color: STATUS_COLORS[todayStatus],
           fontSize: '0.7rem',
-          fontWeight: 600,
-          color: 'var(--color-text-muted)',
-          padding: '0.25rem',
+          fontWeight: 700,
+          textTransform: 'uppercase',
         }}>
-          {d}
-        </div>
-      ))}
-
-      {/* Days */}
-      {days.map((day, i) => {
-        if (day.empty) {
-          return <div key={i} style={{ aspectRatio: '1' }} />
-        }
-
-        const { stats } = day
-        const total = stats.total || 0
-        const isToday = day.date === today
-        const bg = getDayColor(stats)
-
-        // Build tooltip
-        const parts = []
-        if (stats.success) parts.push(`${stats.success} ${t('habits.success').toLowerCase()}`)
-        if (stats.fail) parts.push(`${stats.fail} ${t('habits.failed').toLowerCase()}`)
-        if (stats.skip) parts.push(`${stats.skip} ${t('habits.skipped').toLowerCase()}`)
-        const tooltip = total > 0
-          ? `${day.date}: ${parts.join(', ')}`
-          : day.date
-
-        return (
-          <div
-            key={i}
-            title={tooltip}
-            style={{
-              aspectRatio: '1',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 6,
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              background: bg,
-              color: total > 0 ? '#fff' : 'var(--color-text-muted)',
-              position: 'relative',
-              transition: 'background 0.2s ease',
-              outline: isToday ? `2px solid ${HABITS_COLOR}` : 'none',
-              outlineOffset: -1,
-            }}
-          >
-            {day.dayNum}
-            {/* Small dots showing proportion */}
-            {total > 0 && (
-              <div style={{ display: 'flex', gap: 1, marginTop: 1 }}>
-                {stats.success > 0 && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#fff', opacity: 0.9 }} />}
-                {stats.fail > 0 && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#fff', opacity: 0.5 }} />}
-                {stats.skip > 0 && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#fff', opacity: 0.3 }} />}
-              </div>
-            )}
-          </div>
-        )
-      })}
+          {todayStatus}
+        </span>
+      )}
     </div>
   )
-}
-
-function getDayColor(stats) {
-  if (!stats || stats.total === 0) return 'var(--color-bg-elevated)'
-
-  const total = stats.success + stats.fail + stats.skip
-  if (total === 0) return 'var(--color-bg-elevated)'
-
-  const successRate = stats.success / total
-
-  if (successRate >= 0.8) return STATUS_COLORS.success
-  if (successRate >= 0.5) return HABITS_COLOR
-  if (stats.fail > stats.success) return STATUS_COLORS.fail
-  if (stats.skip > 0) return STATUS_COLORS.skip
-  return 'var(--color-bg-elevated)'
-}
-
-// ─── Calendar Helpers ────────────────────────────────────────────────────────
-
-// Convert flat array of { habitId, date, status } into { date: { total, success, fail, skip } }
-function aggregateCalendar(entries) {
-  const agg = {}
-  for (const entry of entries) {
-    if (!agg[entry.date]) {
-      agg[entry.date] = { total: 0, success: 0, fail: 0, skip: 0 }
-    }
-    agg[entry.date].total++
-    if (entry.status === 'success') agg[entry.date].success++
-    else if (entry.status === 'fail') agg[entry.date].fail++
-    else if (entry.status === 'skip') agg[entry.date].skip++
-  }
-  return agg
-}
-
-function generateCalendarDays(monthStr, calendarAgg) {
-  const [year, month] = monthStr.split('-').map(Number)
-  const firstDay = new Date(year, month - 1, 1)
-  const lastDay = new Date(year, month, 0)
-  const daysInMonth = lastDay.getDate()
-  const startDayOfWeek = firstDay.getDay()
-
-  const days = []
-
-  for (let i = 0; i < startDayOfWeek; i++) {
-    days.push({ empty: true })
-  }
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    days.push({
-      dayNum: d,
-      date: dateStr,
-      stats: calendarAgg[dateStr] || { total: 0, success: 0, fail: 0, skip: 0 },
-    })
-  }
-
-  return days
-}
-
-function formatMonthYear(monthStr, locale = 'en') {
-  const [year, month] = monthStr.split('-').map(Number)
-  return new Date(year, month - 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
-}
-
-function getPreviousMonth(monthStr) {
-  const [year, month] = monthStr.split('-').map(Number)
-  const d = new Date(year, month - 2, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function getNextMonth(monthStr) {
-  const [year, month] = monthStr.split('-').map(Number)
-  const d = new Date(year, month, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }

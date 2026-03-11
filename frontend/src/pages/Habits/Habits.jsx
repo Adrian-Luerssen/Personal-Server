@@ -118,7 +118,7 @@ export default function Habits() {
         <h3>{t('habits.quickActions')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: 'settings', label: t('habits.settings') || 'Settings', onClick: () => navigate('/habits/settings'), accent: false },
+            { icon: 'settings', label: t('habits.settings'), onClick: () => navigate('/habits/settings'), accent: false },
             { icon: 'download', label: t('habits.importHabitShare'), onClick: () => navigate('/habits/settings?tab=import'), accent: true },
           ].map(action => (
             <button

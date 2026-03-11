@@ -824,7 +824,7 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
 
   // ========== Scheduled Tasks ==========
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   async handleStreamSync() {
     try {
       const result = await this.syncLatestStreamsForAllUsers();
@@ -837,7 +837,7 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
     }
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron("*/45 * * * *")
   async handleTokenRefresh() {
     try {
       await this.refreshAllTokens();

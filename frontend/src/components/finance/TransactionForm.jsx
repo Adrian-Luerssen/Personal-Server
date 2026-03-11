@@ -324,7 +324,15 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
             <label className="form-label">Category</label>
             <div style={{ marginBottom: '0.75rem' }}>
               <CategoryPicker
-                categories={(categories || []).filter(c => c.isIncome === form.isIncome)}
+                categories={(categories || []).filter(c => {
+                  if (c.isIncome === form.isIncome) return true
+                  // Include subcategories whose parent has the matching isIncome
+                  if (c.parentCategoryId) {
+                    const parent = (categories || []).find(p => p.id === c.parentCategoryId)
+                    return parent?.isIncome === form.isIncome
+                  }
+                  return false
+                })}
                 value={form.categoryId}
                 onChange={val => setField('categoryId', val)}
               />

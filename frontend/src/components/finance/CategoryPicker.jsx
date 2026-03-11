@@ -138,7 +138,7 @@ export default function CategoryPicker({ categories, value, onChange, placeholde
               return (
                 <div key={parent.id}>
                   <div
-                    onClick={() => select(parent)}
+                    onClick={(e) => { e.stopPropagation(); select(parent) }}
                     style={{
                       ...optionStyle,
                       fontWeight: 600,
@@ -151,7 +151,7 @@ export default function CategoryPicker({ categories, value, onChange, placeholde
                   {children.map(child => (
                     <div
                       key={child.id}
-                      onClick={() => select(child)}
+                      onClick={(e) => { e.stopPropagation(); select(child) }}
                       style={{
                         ...optionStyle,
                         paddingLeft: '2rem',

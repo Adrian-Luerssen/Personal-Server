@@ -29,8 +29,8 @@ function WalletForm({ wallet, onClose, onSaved }) {
   const isEdit = !!wallet?.id
   const [form, setForm] = useState({
     name: '',
-    icon: 'wallet',
-    color: FINANCE_COLOR,
+    iconName: 'wallet',
+    colour: FINANCE_COLOR,
     currency: 'EUR',
   })
   const [saving, setSaving] = useState(false)
@@ -41,8 +41,8 @@ function WalletForm({ wallet, onClose, onSaved }) {
     if (wallet) {
       setForm({
         name: wallet.name || '',
-        icon: wallet.icon || 'wallet',
-        color: wallet.color || FINANCE_COLOR,
+        iconName: wallet.iconName || 'wallet',
+        colour: wallet.colour || FINANCE_COLOR,
         currency: wallet.currency || 'EUR',
       })
     }
@@ -55,7 +55,7 @@ function WalletForm({ wallet, onClose, onSaved }) {
     setError(null)
     setSaving(true)
     try {
-      const payload = { name: form.name.trim(), icon: form.icon, color: form.color, currency: form.currency }
+      const payload = { name: form.name.trim(), iconName: form.iconName, colour: form.colour, currency: form.currency }
       if (isEdit) {
         await api.patch(`/finance/wallets/${wallet.id}`, payload)
       } else {
@@ -93,13 +93,13 @@ function WalletForm({ wallet, onClose, onSaved }) {
 
         <label className="form-label">Icon</label>
         <div style={{ marginBottom: '0.75rem' }}>
-          <IconPicker value={form.icon} onChange={val => setField('icon', val)} colour={form.color} />
+          <IconPicker value={form.iconName} onChange={val => setField('iconName', val)} colour={form.colour} />
         </div>
 
         <label className="form-label">Color</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-          <input type="color" value={form.color} onChange={e => setField('color', e.target.value)} style={{ width: 40, height: 40, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
-          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{form.color}</span>
+          <input type="color" value={form.colour} onChange={e => setField('colour', e.target.value)} style={{ width: 40, height: 40, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{form.colour}</span>
         </div>
 
         <label className="form-label">Currency</label>
@@ -527,10 +527,10 @@ function WalletsTab() {
                 <div style={{
                   width: 48, height: 48,
                   borderRadius: 'var(--radius-md)',
-                  background: `${wallet.color || FINANCE_COLOR}22`,
+                  background: `${wallet.colour || FINANCE_COLOR}22`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Icon name={wallet.icon || 'wallet'} size={24} style={{ color: wallet.color || FINANCE_COLOR }} />
+                  <Icon name={wallet.iconName || 'wallet'} size={24} style={{ color: wallet.colour || FINANCE_COLOR }} />
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{wallet.name}</div>

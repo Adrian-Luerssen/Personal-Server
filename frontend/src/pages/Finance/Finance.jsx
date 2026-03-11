@@ -284,7 +284,7 @@ export default function Finance() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Icon name={wallet.icon || 'wallet'} size={20} style={{ color: wallet.color || FINANCE_COLOR }} />
+                    <Icon name={wallet.iconName || 'wallet'} size={20} style={{ color: wallet.colour || FINANCE_COLOR }} />
                     <span style={{ fontWeight: 600 }}>{wallet.name}</span>
                   </div>
                   <span style={{

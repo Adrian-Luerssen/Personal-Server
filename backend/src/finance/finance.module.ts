@@ -9,22 +9,25 @@ import { FinanceSubscription } from "./entities/subscription.entity";
 import { WalletsService } from "./wallets/wallets.service";
 import { CategoriesService } from "./categories/categories.service";
 import { TransactionsService } from "./transactions/transactions.service";
+import { SubscriptionsService } from "./subscriptions/subscriptions.service";
 import { CashewImportService } from "./import/cashew-import.service";
 
 import { WalletsController } from "./wallets/wallets.controller";
 import { CategoriesController } from "./categories/categories.controller";
 import { TransactionsController } from "./transactions/transactions.controller";
+import { SubscriptionsController } from "./subscriptions/subscriptions.controller";
 import { FinanceImportController } from "./import/import.controller";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([FinanceWallet, FinanceCategory, FinanceTransaction, FinanceSubscription]),
   ],
-  providers: [WalletsService, CategoriesService, TransactionsService, CashewImportService],
+  providers: [WalletsService, CategoriesService, TransactionsService, SubscriptionsService, CashewImportService],
   controllers: [
     WalletsController,
     CategoriesController,
     TransactionsController,
+    SubscriptionsController,
     FinanceImportController,
   ],
 })

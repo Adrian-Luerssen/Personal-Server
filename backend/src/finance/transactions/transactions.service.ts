@@ -1,6 +1,12 @@
-import { CACHE_MANAGER, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  CACHE_MANAGER,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, SelectQueryBuilder } from "typeorm";
+import { DataSource, Repository, SelectQueryBuilder } from "typeorm";
 import { FinanceTransaction } from "../entities/transaction.entity";
 import { Account } from "../../system/accounts/account.entity";
 import { Cache } from "cache-manager";
@@ -23,6 +29,7 @@ export class TransactionsService {
   constructor(
     @InjectRepository(FinanceTransaction)
     private readonly repo: Repository<FinanceTransaction>,
+    private readonly dataSource: DataSource,
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
@@ -78,6 +85,7 @@ export class TransactionsService {
       .select([
         't.id', 't.name', 't.amount', 't.isIncome', 't.type',
         't.transactionDate', 't.note', 't.createdAt',
+        't.linkedTransferId', 't.subscriptionId',
         'category.id', 'category.name', 'category.colour',
         'wallet.id', 'wallet.name',
       ]);
@@ -127,6 +135,14 @@ export class TransactionsService {
 
   async remove(account: Account, id: string) {
     const tx = await this.findOne(account, id);
+    if (tx.linkedTransferId) {
+      const linked = await this.repo.findOne({
+        where: { id: tx.linkedTransferId, accountId: account.id },
+      });
+      if (linked) {
+        await this.repo.remove(linked);
+      }
+    }
     await this.repo.remove(tx);
     await this.cacheManager.reset();
     return { success: true };
@@ -135,6 +151,7 @@ export class TransactionsService {
   async getSummary(account: Account, filters: TransactionFilters = {}) {
     const qb = this.repo.createQueryBuilder("t");
     this.applyFilters(qb, account.id, filters);
+    qb.andWhere("(t.type IS NULL OR t.type NOT IN (1, 3))");
 
     const result = await qb
       .select("t.isIncome", "isIncome")
@@ -206,5 +223,68 @@ export class TransactionsService {
         count: parseInt(r.count) || 0,
       })),
     };
+  }
+
+  async createTransfer(
+    account: Account,
+    body: {
+      name: string;
+      amount: number;
+      fromWalletId: string;
+      toWalletId: string;
+      transactionDate: Date;
+      note?: string;
+    }
+  ) {
+    if (body.fromWalletId === body.toWalletId) {
+      throw new BadRequestException("Source and destination wallets must be different");
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const outgoing = queryRunner.manager.create(FinanceTransaction, {
+        name: body.name,
+        amount: body.amount,
+        isIncome: false,
+        type: 1,
+        walletId: body.fromWalletId,
+        transactionDate: body.transactionDate,
+        isPaid: true,
+        note: body.note,
+        accountId: account.id,
+      });
+      const savedOutgoing = await queryRunner.manager.save(outgoing);
+
+      const incoming = queryRunner.manager.create(FinanceTransaction, {
+        name: body.name,
+        amount: body.amount,
+        isIncome: true,
+        type: 1,
+        walletId: body.toWalletId,
+        transactionDate: body.transactionDate,
+        isPaid: true,
+        note: body.note,
+        accountId: account.id,
+        linkedTransferId: savedOutgoing.id,
+      });
+      const savedIncoming = await queryRunner.manager.save(incoming);
+
+      // Update outgoing with linked ID
+      savedOutgoing.linkedTransferId = savedIncoming.id;
+      await queryRunner.manager.save(savedOutgoing);
+
+      await queryRunner.commitTransaction();
+      await this.cacheManager.reset();
+
+      return { outgoing: savedOutgoing, incoming: savedIncoming };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

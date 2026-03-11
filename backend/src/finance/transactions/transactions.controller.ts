@@ -95,6 +95,12 @@ export class TransactionsController {
     return this.service.findOne(account, id);
   }
 
+  @Post("transfer")
+  @ApiOperation({ summary: "Create a transfer between wallets" })
+  createTransfer(@ReqUser() account: Account, @Body() body: any) {
+    return this.service.createTransfer(account, body);
+  }
+
   @Post()
   @ApiOperation({ summary: "Create transaction" })
   create(@ReqUser() account: Account, @Body() body: any) {

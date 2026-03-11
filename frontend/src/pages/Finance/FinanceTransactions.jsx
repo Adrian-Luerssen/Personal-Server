@@ -8,6 +8,7 @@ import PageHeader from '../../components/PageHeader'
 import MonthNavigator, { getMonthRange } from '../../components/finance/MonthNavigator'
 import CategoryIcon from '../../components/finance/CategoryIcon'
 import CategoryPicker from '../../components/finance/CategoryPicker'
+import WalletPicker from '../../components/finance/WalletPicker'
 import TransactionForm from '../../components/finance/TransactionForm'
 
 const FINANCE_COLOR = '#fbbf24'
@@ -218,14 +219,14 @@ export default function FinanceTransactions() {
           </div>
 
           {/* Wallet */}
-          <div style={{ flex: '0 1 180px' }}>
+          <div style={{ flex: '0 1 200px' }}>
             <label style={labelStyle}>{t('finance.wallet')}</label>
-            <select value={filters.walletId} onChange={e => handleFilterChange('walletId', e.target.value)} style={inputStyle}>
-              <option value="">{t('finance.allWallets')}</option>
-              {wallets.map(w => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </select>
+            <WalletPicker
+              wallets={wallets}
+              value={filters.walletId}
+              onChange={val => handleFilterChange('walletId', val || '')}
+              placeholder={t('finance.allWallets')}
+            />
           </div>
 
           {/* Category */}
@@ -307,7 +308,7 @@ export default function FinanceTransactions() {
                       </td>
                       <td style={tdStyle}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <Icon name="wallet" size={16} style={{ color: FINANCE_COLOR }} />
+                          <Icon name={tx.wallet?.iconName || 'wallet'} size={16} style={{ color: tx.wallet?.colour || FINANCE_COLOR }} />
                           {tx.wallet?.name || tx.walletName || '—'}
                         </span>
                       </td>

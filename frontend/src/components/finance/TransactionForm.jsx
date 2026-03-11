@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Modal } from '../shared/Modal'
 import { api } from '../../api'
 import CategoryPicker from './CategoryPicker'
+import WalletPicker from './WalletPicker'
 import Icon from '../icons/Icon'
 
 export default function TransactionForm({ transaction, wallets, categories, onClose, onSaved }) {
@@ -43,7 +44,6 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
           walletId: walletId,
           categoryId: transaction.category?.id || transaction.categoryId || '',
           note: transaction.note || '',
-          // For transfers: infer from/to based on isIncome
           fromWalletId: transaction.isIncome ? '' : walletId,
           toWalletId: transaction.isIncome ? walletId : '',
           amountReceived: transaction.amount?.toString() || '',
@@ -103,7 +103,6 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
     setSaving(true)
     try {
       if (mode === 'transfer' && !isEdit) {
-        // Create transfer via dedicated endpoint
         const payload = {
           name: form.name.trim(),
           fromWalletId: form.fromWalletId || null,
@@ -115,13 +114,12 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
         }
         await api.post('/finance/transactions/transfer', payload)
       } else {
-        // Normal income/expense create or any edit (including transfer edit)
         const payload = {
           name: form.name.trim(),
           amount: parseFloat(form.amount),
           isIncome: mode === 'income' ? true : mode === 'expense' ? false : form.isIncome,
           transactionDate: form.transactionDate,
-          walletId: mode === 'transfer' ? (form.walletId || null) : (form.walletId || null),
+          walletId: form.walletId || null,
           categoryId: mode === 'transfer' ? null : (form.categoryId || null),
           note: form.note.trim() || null,
         }
@@ -201,7 +199,6 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
         {/* Amount fields */}
         {isTransfer ? (
           <>
-            {/* Amount Sent */}
             <label className="form-label">
               Amount Sent {fromWallet ? `(${fromWallet.currency || '€'})` : ''}
             </label>
@@ -217,7 +214,6 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
               style={{ marginBottom: '0.75rem' }}
             />
 
-            {/* Amount Received */}
             <label className="form-label">
               Amount Received {toWallet ? `(${toWallet.currency || '€'})` : ''}
             </label>
@@ -268,37 +264,29 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
         {/* Wallet(s) */}
         {isTransfer ? (
           <>
-            {/* From Wallet */}
             <label className="form-label">From Wallet</label>
-            <select
-              className="input"
-              value={form.fromWalletId}
-              onChange={e => setField('fromWalletId', e.target.value)}
-              required
-              style={{ marginBottom: '0.75rem' }}
-            >
-              <option value="">Select source wallet...</option>
-              {(wallets || []).map(w => (
-                <option key={w.id} value={w.id}>{w.name} {w.currency ? `(${w.currency})` : ''}</option>
-              ))}
-            </select>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <WalletPicker
+                wallets={wallets}
+                value={form.fromWalletId}
+                onChange={val => setField('fromWalletId', val)}
+                placeholder="Select source wallet..."
+                required
+              />
+            </div>
 
-            {/* To Wallet */}
             <label className="form-label">To Wallet</label>
-            <select
-              className="input"
-              value={form.toWalletId}
-              onChange={e => setField('toWalletId', e.target.value)}
-              required
-              style={{ marginBottom: '0.75rem' }}
-            >
-              <option value="">Select destination wallet...</option>
-              {(wallets || []).filter(w => w.id !== form.fromWalletId).map(w => (
-                <option key={w.id} value={w.id}>{w.name} {w.currency ? `(${w.currency})` : ''}</option>
-              ))}
-            </select>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <WalletPicker
+                wallets={wallets}
+                value={form.toWalletId}
+                onChange={val => setField('toWalletId', val)}
+                placeholder="Select destination wallet..."
+                exclude={form.fromWalletId}
+                required
+              />
+            </div>
 
-            {/* Info text */}
             {!isEdit && (
               <div style={{
                 fontSize: '0.8rem',
@@ -319,17 +307,14 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
         ) : (
           <>
             <label className="form-label">Wallet</label>
-            <select
-              className="input"
-              value={form.walletId}
-              onChange={e => setField('walletId', e.target.value)}
-              style={{ marginBottom: '0.75rem' }}
-            >
-              <option value="">Select wallet...</option>
-              {(wallets || []).map(w => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </select>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <WalletPicker
+                wallets={wallets}
+                value={form.walletId}
+                onChange={val => setField('walletId', val)}
+                placeholder="Select wallet..."
+              />
+            </div>
           </>
         )}
 

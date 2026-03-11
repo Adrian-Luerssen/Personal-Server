@@ -324,6 +324,7 @@ export default function Finance() {
                 <tr style={{ background: 'var(--color-bg-elevated)' }}>
                   <th style={thStyle}>{t('finance.date')}</th>
                   <th style={thStyle}>{t('finance.description')}</th>
+                  <th style={thStyle}>{t('finance.wallet')}</th>
                   <th style={thStyle}>{t('finance.category')}</th>
                   <th style={{ ...thStyle, textAlign: 'right' }}>{t('finance.amount')}</th>
                 </tr>
@@ -342,6 +343,12 @@ export default function Finance() {
                           <Icon name={txIcon} size={16} style={{ color: txColor }} />
                           {tx.name || tx.description || '—'}
                         </div>
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <Icon name={tx.wallet?.iconName || 'wallet'} size={16} style={{ color: tx.wallet?.colour || FINANCE_COLOR }} />
+                          {tx.wallet?.name || '—'}
+                        </span>
                       </td>
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

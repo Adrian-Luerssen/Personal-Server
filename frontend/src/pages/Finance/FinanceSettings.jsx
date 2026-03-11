@@ -6,6 +6,7 @@ import { SkeletonCard } from '../../components/shared'
 import { Modal } from '../../components/shared/Modal'
 import CategoryIcon from '../../components/finance/CategoryIcon'
 import CategoryPicker from '../../components/finance/CategoryPicker'
+import WalletPicker from '../../components/finance/WalletPicker'
 import IconPicker from '../../components/finance/IconPicker'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
@@ -396,10 +397,14 @@ function SubscriptionForm({ subscription, wallets, categories, onClose, onSaved 
         )}
 
         <label className="form-label">Wallet</label>
-        <select className="input" value={form.walletId} onChange={e => setField('walletId', e.target.value)} style={{ marginBottom: '0.75rem' }}>
-          <option value="">Select wallet...</option>
-          {(wallets || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-        </select>
+        <div style={{ marginBottom: '0.75rem' }}>
+          <WalletPicker
+            wallets={wallets}
+            value={form.walletId}
+            onChange={val => setField('walletId', val)}
+            placeholder="Select wallet..."
+          />
+        </div>
 
         <label className="form-label">Category</label>
         <div style={{ marginBottom: '0.75rem' }}>

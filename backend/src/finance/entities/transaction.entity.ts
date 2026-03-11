@@ -1,6 +1,7 @@
 import { Column, Entity, Index, ManyToOne, JoinColumn } from "typeorm";
 import { AbstractAccountOwnedEntity } from "../../system/common/AbstractAccountOwnedEntity";
 import { FinanceCategory } from "./category.entity";
+import { FinanceSubscription } from "./subscription.entity";
 import { FinanceWallet } from "./wallet.entity";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -55,4 +56,16 @@ export class FinanceTransaction extends AbstractAccountOwnedEntity {
   @ApiProperty({ description: "Cashew transaction_pk", required: false })
   @Column({ nullable: true })
   externalId?: string;
+
+  @ApiProperty({ description: "Linked transfer transaction ID", required: false })
+  @Column({ nullable: true })
+  linkedTransferId?: string | null;
+
+  @ApiProperty({ description: "Subscription", required: false })
+  @ManyToOne(() => FinanceSubscription, { nullable: true, onDelete: "SET NULL", eager: false })
+  @JoinColumn({ name: "subscriptionId" })
+  subscription?: FinanceSubscription | null;
+
+  @Column({ nullable: true })
+  subscriptionId?: string | null;
 }

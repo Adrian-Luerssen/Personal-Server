@@ -1,8 +1,9 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { TypeOrmCrudService } from "@nestjsx/crud-typeorm";
 import { ConfigService } from "@nestjs/config";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import axios, { AxiosInstance } from "axios";
 import { SpotifyCredentials } from "./spotifyCredentials.entity";
 import { Track } from "../../music/tracks/track.entity";
@@ -819,5 +820,30 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
     }
     existing.streamTrackingEnabled = enabled;
     return await this.repo.save(existing);
+  }
+
+  // ========== Scheduled Tasks ==========
+
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async handleStreamSync() {
+    try {
+      const result = await this.syncLatestStreamsForAllUsers();
+      Logger.log(
+        `Stream sync: saved=${result.saved}, skipped=${result.skipped}`,
+        "SpotifyCron"
+      );
+    } catch (err) {
+      Logger.warn(`Stream sync failed: ${err}`, "SpotifyCron");
+    }
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async handleTokenRefresh() {
+    try {
+      await this.refreshAllTokens();
+      Logger.log("Token refresh completed", "SpotifyCron");
+    } catch (err) {
+      Logger.warn(`Token refresh failed: ${err}`, "SpotifyCron");
+    }
   }
 }

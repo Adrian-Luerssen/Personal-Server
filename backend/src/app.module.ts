@@ -1,4 +1,5 @@
 import { CacheModule, Module } from "@nestjs/common";
+import { ScheduleModule } from "@nestjs/schedule";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { SystemModule } from "./system/system.module";
 import { ConfigModule } from "@nestjs/config";
@@ -31,6 +32,7 @@ import { ChatModule } from "./chat/chat.module";
   exports: [],
   imports: [
     ConfigModule.forRoot(),
+    ScheduleModule.forRoot(),
     CacheModule.register({
       isGlobal: true,
       ttl: 30,

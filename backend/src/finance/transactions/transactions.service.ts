@@ -81,6 +81,7 @@ export class TransactionsService {
     const qb = this.repo
       .createQueryBuilder("t")
       .leftJoinAndSelect("t.category", "category")
+      .leftJoin("category.parentCategory", "parentCategory")
       .leftJoinAndSelect("t.wallet", "wallet")
       .select([
         't.id', 't.name', 't.amount', 't.isIncome', 't.type',
@@ -88,6 +89,7 @@ export class TransactionsService {
         't.linkedTransferId', 't.subscriptionId',
         'category.id', 'category.name', 'category.colour', 'category.iconName',
         'category.parentCategoryId',
+        'parentCategory.id', 'parentCategory.name', 'parentCategory.colour', 'parentCategory.iconName',
         'wallet.id', 'wallet.name', 'wallet.colour', 'wallet.iconName',
       ]);
 
@@ -176,19 +178,22 @@ export class TransactionsService {
       }
     }
 
-    // Category breakdown
+    // Category breakdown — group subcategories under their parent
     const categoryQb = this.repo.createQueryBuilder("t");
     this.applyFilters(categoryQb, account.id, { ...filters, isIncome: false });
     const categoryBreakdown = await categoryQb
       .leftJoin("t.category", "cat")
-      .select("cat.id", "categoryId")
-      .addSelect("cat.name", "categoryName")
-      .addSelect("cat.colour", "categoryColour")
+      .leftJoin("cat.parentCategory", "parentCat")
+      .select("COALESCE(parentCat.id, cat.id)", "categoryId")
+      .addSelect("COALESCE(parentCat.name, cat.name)", "categoryName")
+      .addSelect("COALESCE(parentCat.colour, cat.colour)", "categoryColour")
+      .addSelect("COALESCE(parentCat.\"iconName\", cat.\"iconName\")", "categoryIcon")
       .addSelect("SUM(t.amount)", "total")
       .addSelect("COUNT(t.id)", "count")
-      .groupBy("cat.id")
-      .addGroupBy("cat.name")
-      .addGroupBy("cat.colour")
+      .groupBy("COALESCE(parentCat.id, cat.id)")
+      .addGroupBy("COALESCE(parentCat.name, cat.name)")
+      .addGroupBy("COALESCE(parentCat.colour, cat.colour)")
+      .addGroupBy("COALESCE(parentCat.\"iconName\", cat.\"iconName\")")
       .orderBy("SUM(t.amount)", "DESC")
       .limit(10)
       .getRawMany();
@@ -220,6 +225,7 @@ export class TransactionsService {
         categoryId: r.categoryId,
         categoryName: r.categoryName || "Uncategorized",
         categoryColour: r.categoryColour,
+        categoryIcon: r.categoryIcon,
         total: parseFloat(r.total) || 0,
         count: parseInt(r.count) || 0,
       })),

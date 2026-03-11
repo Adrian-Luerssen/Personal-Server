@@ -72,7 +72,7 @@ export default function WalletPicker({ wallets, value, onChange, placeholder = '
           top: '100%',
           left: 0,
           right: 0,
-          zIndex: 100,
+          zIndex: 9999,
           marginTop: 4,
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--glass-border)',

@@ -581,7 +581,7 @@ function CategoriesTab() {
 
   const load = useCallback(async () => {
     try {
-      const data = await api.get('/finance/categories/tree')
+      const data = await api.get('/finance/categories')
       setCategories(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error('Failed to load categories', err)

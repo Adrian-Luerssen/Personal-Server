@@ -76,7 +76,7 @@ export default function CategoryPicker({ categories, value, onChange, placeholde
           top: '100%',
           left: 0,
           right: 0,
-          zIndex: 100,
+          zIndex: 9999,
           marginTop: 4,
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--glass-border)',

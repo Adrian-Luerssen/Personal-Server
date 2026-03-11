@@ -7,6 +7,7 @@ import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 import MonthNavigator, { getMonthRange } from '../../components/finance/MonthNavigator'
 import CategoryIcon from '../../components/finance/CategoryIcon'
+import CategoryLabel from '../../components/finance/CategoryLabel'
 import CategoryPicker from '../../components/finance/CategoryPicker'
 import WalletPicker from '../../components/finance/WalletPicker'
 import TransactionForm from '../../components/finance/TransactionForm'
@@ -313,12 +314,7 @@ export default function FinanceTransactions() {
                         </span>
                       </td>
                       <td style={tdStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <CategoryIcon category={tx.category} size={22} />
-                          <span style={{ fontSize: '0.85rem' }}>
-                            {tx.category?.name || tx.categoryName || t('finance.uncategorized')}
-                          </span>
-                        </div>
+                        <CategoryLabel category={tx.category} fallback={t('finance.uncategorized')} />
                       </td>
                       <td style={{
                         ...tdStyle,

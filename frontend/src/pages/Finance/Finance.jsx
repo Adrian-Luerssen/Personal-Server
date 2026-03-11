@@ -24,6 +24,7 @@ import ScrollReveal from '../../components/ScrollReveal'
 import PageHeader from '../../components/PageHeader'
 import PeriodSelector, { getDateRange, getPeriodLabel } from '../../components/finance/PeriodSelector'
 import CategoryIcon from '../../components/finance/CategoryIcon'
+import CategoryLabel from '../../components/finance/CategoryLabel'
 import TransactionForm from '../../components/finance/TransactionForm'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
@@ -351,12 +352,7 @@ export default function Finance() {
                         </span>
                       </td>
                       <td style={tdStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <CategoryIcon category={tx.category} size={22} />
-                          <span style={{ fontSize: '0.85rem' }}>
-                            {tx.category?.name || tx.categoryName || t('finance.uncategorized')}
-                          </span>
-                        </div>
+                        <CategoryLabel category={tx.category} fallback={t('finance.uncategorized')} />
                       </td>
                       <td style={{
                         ...tdStyle,

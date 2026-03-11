@@ -73,7 +73,7 @@ export class TransactionsService {
       .leftJoinAndSelect("t.wallet", "wallet")
       .select([
         't.id', 't.name', 't.amount', 't.isIncome', 't.type',
-        't.transactionDate', 't.note',
+        't.transactionDate', 't.note', 't.createdAt',
         'category.id', 'category.name', 'category.colour',
         'wallet.id', 'wallet.name',
       ]);

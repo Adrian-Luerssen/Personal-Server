@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { CacheModule, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AgentsModule } from '../../agents/agents.module';
@@ -22,6 +22,16 @@ import { Stream } from '../../music/streams/stream.entity';
 import { Track } from '../../music/tracks/track.entity';
 import { DashboardService } from '../../dashboard/dashboard.service';
 
+// Finance dependencies
+import { FinanceTransaction } from '../../finance/entities/transaction.entity';
+import { FinanceWallet } from '../../finance/entities/wallet.entity';
+import { FinanceCategory } from '../../finance/entities/category.entity';
+import { FinanceSubscription } from '../../finance/entities/subscription.entity';
+import { TransactionsService } from '../../finance/transactions/transactions.service';
+import { WalletsService } from '../../finance/wallets/wallets.service';
+import { CategoriesService } from '../../finance/categories/categories.service';
+import { SubscriptionsService } from '../../finance/subscriptions/subscriptions.service';
+
 /**
  * API v1 module — REST endpoints for agent (AI) access.
  * All endpoints require X-API-Key authentication with appropriate scopes.
@@ -30,7 +40,7 @@ import { DashboardService } from '../../dashboard/dashboard.service';
  *
  * Endpoints:
  *  - /api/v1/workout/*    (scope: workout:read)
- *  - /api/v1/finance/*   (scope: finance:read)  [stub, task-06]
+ *  - /api/v1/finance/*   (scope: finance:read)
  *  - /api/v1/habits/*    (scope: habits:read)   [stub, task-07]
  *  - /api/v1/dashboard/* (scope: dashboard:read)
  */
@@ -47,6 +57,11 @@ import { DashboardService } from '../../dashboard/dashboard.service';
       // Dashboard
       Stream,
       Track,
+      // Finance
+      FinanceTransaction,
+      FinanceWallet,
+      FinanceCategory,
+      FinanceSubscription,
     ]),
   ],
   providers: [
@@ -54,6 +69,10 @@ import { DashboardService } from '../../dashboard/dashboard.service';
     WorkoutExercisesService,
     BodyWeightService,
     DashboardService,
+    TransactionsService,
+    WalletsService,
+    CategoriesService,
+    SubscriptionsService,
   ],
   controllers: [
     AgentWorkoutController,

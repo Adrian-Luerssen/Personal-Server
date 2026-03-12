@@ -187,9 +187,11 @@ ${keyScopes.includes('workout:read') ? `**Workout** (workout:read)
 - \`GET /api/v1/workout/exercises\` — All exercises
 - \`GET /api/v1/workout/bodyweight\` — Bodyweight entries
 ` : ''}${keyScopes.includes('finance:read') ? `**Finance** (finance:read)
-- \`GET /api/v1/finance/transactions\` — Transactions (?page, ?limit, ?type, ?walletId, ?categoryId)
-- \`GET /api/v1/finance/wallets\` — Wallets
-- \`GET /api/v1/finance/categories\` — Categories
+- \`GET /api/v1/finance/transactions\` — Paginated transactions (?page, ?limit, ?walletId, ?categoryId, ?from, ?to, ?isIncome, ?search)
+- \`GET /api/v1/finance/transactions/summary\` — Income/expense totals & category breakdown (?walletId, ?from, ?to)
+- \`GET /api/v1/finance/wallets\` — All wallets with computed balances
+- \`GET /api/v1/finance/categories\` — Categories as hierarchical tree
+- \`GET /api/v1/finance/subscriptions\` — All subscriptions
 ` : ''}${keyScopes.includes('habits:read') ? `**Habits** (habits:read)
 - \`GET /api/v1/habits/summary\` — All habits with streaks
 - \`GET /api/v1/habits/calendar/:month\` — Calendar view (YYYY-MM)

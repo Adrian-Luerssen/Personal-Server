@@ -151,6 +151,42 @@ export default function Habits() {
     }
   }
 
+  async function handleNumericEntry(habitId, numericValue, habit) {
+    const today = getToday()
+    const current = todayEntries[habitId]
+
+    // Auto-evaluate status based on thresholds
+    let status = 'fail'
+    if (habit.numericPassThreshold != null && numericValue <= Number(habit.numericPassThreshold)) {
+      status = 'success'
+    } else if (habit.numericSkipThreshold != null && numericValue <= Number(habit.numericSkipThreshold)) {
+      status = 'skip'
+    }
+
+    setTodayEntries(prev => ({ ...prev, [habitId]: { status, numericValue } }))
+
+    try {
+      if (current) {
+        await api.patch(`/habits/${habitId}/entries/${today}`, { numericValue })
+      } else {
+        await api.post(`/habits/${habitId}/entries`, { date: today, numericValue })
+      }
+      const newSummary = await api.get('/habits/summary')
+      setSummary(newSummary || [])
+    } catch (e) {
+      console.error('Failed to save numeric entry:', e)
+      if (current) {
+        setTodayEntries(prev => ({ ...prev, [habitId]: current }))
+      } else {
+        setTodayEntries(prev => {
+          const next = { ...prev }
+          delete next[habitId]
+          return next
+        })
+      }
+    }
+  }
+
   // Merge habits with summary data
   const mergedHabits = habits
     .filter(h => h.isActive !== false)
@@ -163,6 +199,7 @@ export default function Habits() {
         successRate: s.successRate || 0,
         lastSuccess: s.lastSuccess,
         todayStatus: todayEntries[h.id]?.status || 'none',
+        todayNumericValue: todayEntries[h.id]?.numericValue,
       }
     })
 
@@ -262,6 +299,7 @@ export default function Habits() {
                   key={habit.id}
                   habit={habit}
                   onToggle={(status) => toggleHabitEntry(habit.id, status)}
+                  onNumericSubmit={handleNumericEntry}
                   t={t}
                 />
               ))}
@@ -331,10 +369,37 @@ export default function Habits() {
 
 // ─── Habit Card ─────────────────────────────────────────────────────────────
 
-function HabitCard({ habit, onToggle, t }) {
+const STATUS_LABELS = {
+  success: 'Pass',
+  fail: 'Fail',
+  skip: 'Skip',
+}
+
+function HabitCard({ habit, onToggle, onNumericSubmit, t }) {
   const todayStatus = habit.todayStatus || 'none'
+  const todayValue = habit.todayNumericValue
   const habitColor = habit.color || HABITS_COLOR
   const isNumeric = habit.trackingType === 'numeric'
+  const [numValue, setNumValue] = React.useState(todayValue ?? '')
+
+  React.useEffect(() => {
+    setNumValue(todayValue ?? '')
+  }, [todayValue])
+
+  function handleNumericKey(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const num = parseFloat(numValue)
+      if (!isNaN(num) && num >= 0) onNumericSubmit(habit.id, num, habit)
+    }
+  }
+
+  function handleNumericBlur() {
+    const num = parseFloat(numValue)
+    if (!isNaN(num) && num >= 0 && num !== todayValue) {
+      onNumericSubmit(habit.id, num, habit)
+    }
+  }
 
   return (
     <div
@@ -393,18 +458,59 @@ function HabitCard({ habit, onToggle, t }) {
         </div>
       </div>
 
-      {/* Quick Toggle Buttons (boolean habits only) */}
-      {!isNumeric && (
+      {/* Numeric input */}
+      {isNumeric ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={numValue}
+            onChange={e => setNumValue(e.target.value)}
+            onKeyDown={handleNumericKey}
+            onBlur={handleNumericBlur}
+            placeholder="0"
+            style={{
+              width: 52,
+              padding: '0.3rem 0.4rem',
+              borderRadius: 6,
+              border: '1px solid var(--glass-border)',
+              background: 'var(--color-bg)',
+              color: 'var(--color-text-primary)',
+              textAlign: 'center',
+              fontSize: '0.85rem',
+            }}
+          />
+          {habit.numericUnit && (
+            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+              {habit.numericUnit}
+            </span>
+          )}
+          {todayStatus !== 'none' && (
+            <span style={{
+              padding: '0.15rem 0.4rem',
+              borderRadius: 6,
+              background: `${STATUS_COLORS[todayStatus]}33`,
+              color: STATUS_COLORS[todayStatus],
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+            }}>
+              {STATUS_LABELS[todayStatus]}
+            </span>
+          )}
+        </div>
+      ) : (
+        /* Boolean toggle buttons with labels */
         <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
-          {['success', 'fail', 'skip'].map(status => {
+          {['success', 'skip', 'fail'].map(status => {
             const isActive = todayStatus === status
             return (
               <button
                 key={status}
                 onClick={(e) => { e.stopPropagation(); onToggle(status) }}
                 style={{
-                  width: 34,
-                  height: 34,
+                  padding: '0.3rem 0.5rem',
                   borderRadius: 'var(--radius-md)',
                   border: isActive ? 'none' : '1.5px solid var(--glass-border)',
                   background: isActive ? STATUS_COLORS[status] : 'transparent',
@@ -412,32 +518,20 @@ function HabitCard({ habit, onToggle, t }) {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  gap: '0.2rem',
                   transition: 'all 0.2s ease',
-                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
                 }}
-                title={t(`habits.${status === 'fail' ? 'failed' : status}`)}
+                title={STATUS_LABELS[status]}
               >
-                <Icon name={STATUS_ICONS[status]} size={18} />
+                <Icon name={STATUS_ICONS[status]} size={15} />
+                <span>{STATUS_LABELS[status]}</span>
               </button>
             )
           })}
         </div>
-      )}
-
-      {/* Numeric status badge (for numeric habits show today's status) */}
-      {isNumeric && todayStatus !== 'none' && (
-        <span style={{
-          padding: '0.2rem 0.5rem',
-          borderRadius: 6,
-          background: `${STATUS_COLORS[todayStatus]}33`,
-          color: STATUS_COLORS[todayStatus],
-          fontSize: '0.7rem',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-        }}>
-          {todayStatus}
-        </span>
       )}
     </div>
   )

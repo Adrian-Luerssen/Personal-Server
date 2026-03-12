@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../../api'
+import { getApiBase } from '../../config'
 import { Modal, LoadingSpinner } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
 
@@ -153,7 +154,7 @@ function CreateKeyModal({ onClose, onCreated }) {
     const keyData = createdKey.agentKey || createdKey
     const keyScopes = keyData.scopes || scopes
     const keyName = keyData.name || name
-    const serverBase = window.location.origin
+    const serverBase = getApiBase().replace(/\/api$/, '')
 
     const agentSnippet = `## Personal Server Agent Setup
 

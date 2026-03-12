@@ -60,10 +60,16 @@ export class AgentKeysController {
     return this.service.updateKey(account.id, id, dto);
   }
 
-  @ApiOperation({ summary: 'Revoke (deactivate) an API key' })
+  @ApiOperation({ summary: 'Toggle API key active/inactive state' })
+  @Patch(':id/toggle')
+  async toggleKey(@ReqUser() account: Account, @Param('id') id: string) {
+    return this.service.toggleKey(account.id, id);
+  }
+
+  @ApiOperation({ summary: 'Permanently delete an API key' })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async revokeKey(@ReqUser() account: Account, @Param('id') id: string) {
-    await this.service.revokeKey(account.id, id);
+  async deleteKey(@ReqUser() account: Account, @Param('id') id: string) {
+    await this.service.deleteKey(account.id, id);
   }
 }

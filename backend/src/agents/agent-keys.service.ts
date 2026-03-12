@@ -104,12 +104,22 @@ export class AgentKeysService {
   }
 
   /**
-   * Revoke (deactivate) a key.
+   * Toggle a key's active state.
    */
-  async revokeKey(accountId: string, keyId: string): Promise<void> {
+  async toggleKey(accountId: string, keyId: string): Promise<Partial<AgentKey>> {
     const key = await this.repo.findOne({ where: { id: keyId, accountId } });
     if (!key) throw new NotFoundException('Key not found');
-    await this.repo.update({ id: keyId, accountId }, { isActive: false });
+    await this.repo.update({ id: keyId, accountId }, { isActive: !key.isActive });
+    return this.getKey(accountId, keyId);
+  }
+
+  /**
+   * Permanently delete a key.
+   */
+  async deleteKey(accountId: string, keyId: string): Promise<void> {
+    const key = await this.repo.findOne({ where: { id: keyId, accountId } });
+    if (!key) throw new NotFoundException('Key not found');
+    await this.repo.remove(key);
   }
 
   /**

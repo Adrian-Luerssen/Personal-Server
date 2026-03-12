@@ -408,47 +408,47 @@ function EditKeyModal({ apiKey, onClose, onUpdated }) {
   )
 }
 
-function RevokeKeyModal({ apiKey, onClose, onRevoked }) {
-  const [revoking, setRevoking] = useState(false)
+function DeleteKeyModal({ apiKey, onClose, onDeleted }) {
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
-  const handleRevoke = async () => {
-    setRevoking(true)
+  const handleDelete = async () => {
+    setDeleting(true)
     setError('')
-    
+
     try {
       await api.delete(`/agents/keys/${apiKey.id}`)
-      onRevoked()
+      onDeleted()
       onClose()
     } catch (e) {
-      setError(e.message || 'Failed to revoke API key')
+      setError(e.message || 'Failed to delete API key')
     } finally {
-      setRevoking(false)
+      setDeleting(false)
     }
   }
 
   return (
-    <Modal title="Revoke API Key" onClose={onClose} size="small">
+    <Modal title="Delete API Key" onClose={onClose} size="small">
       {error && <div className="alert-error">{error}</div>}
-      
+
       <p style={{ color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-        Are you sure you want to revoke the API key <strong>"{apiKey.name}"</strong>?
+        Are you sure you want to permanently delete the API key <strong>"{apiKey.name}"</strong>?
       </p>
       <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem', fontSize: '0.9rem' }}>
-        This action cannot be undone. Any applications using this key will lose access.
+        This action cannot be undone. The key will be permanently removed.
       </p>
-      
+
       <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-        <button className="btn btn-ghost" onClick={onClose} disabled={revoking}>Cancel</button>
-        <button className="btn btn-danger" onClick={handleRevoke} disabled={revoking}>
-          {revoking ? 'Revoking...' : 'Revoke Key'}
+        <button className="btn btn-ghost" onClick={onClose} disabled={deleting}>Cancel</button>
+        <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+          {deleting ? 'Deleting...' : 'Delete Permanently'}
         </button>
       </div>
     </Modal>
   )
 }
 
-function ApiKeyRow({ apiKey, onEdit, onRevoke }) {
+function ApiKeyRow({ apiKey, onEdit, onDelete, onToggle, toggling }) {
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Never'
     const date = new Date(dateStr)
@@ -477,14 +477,19 @@ function ApiKeyRow({ apiKey, onEdit, onRevoke }) {
         <div style={{ flex: 1, minWidth: '200px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
             <span style={{ fontWeight: 600 }}>{apiKey.name}</span>
-            {isInactive && (
+            {isExpired && (
               <span className="badge" style={{ background: 'var(--color-error-muted)', color: 'var(--color-error)' }}>
-                {isExpired ? 'Expired' : 'Inactive'}
+                Expired
               </span>
             )}
-            {apiKey.isActive && !isExpired && (
+            {!isExpired && apiKey.isActive && (
               <span className="badge" style={{ background: 'var(--color-success-muted)', color: 'var(--color-success)' }}>
                 Active
+              </span>
+            )}
+            {!isExpired && !apiKey.isActive && (
+              <span className="badge" style={{ background: 'var(--color-error-muted)', color: 'var(--color-error)' }}>
+                Inactive
               </span>
             )}
           </div>
@@ -492,17 +497,25 @@ function ApiKeyRow({ apiKey, onEdit, onRevoke }) {
             {apiKey.keyPrefix}...
           </code>
         </div>
-        
+
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn small btn-ghost" onClick={() => onEdit(apiKey)}>
+          <button
+            className="btn small btn-ghost"
+            onClick={() => onToggle(apiKey)}
+            disabled={toggling}
+            title={apiKey.isActive ? 'Deactivate' : 'Activate'}
+          >
+            <Icon name={apiKey.isActive ? 'pause' : 'play'} size={16} />
+          </button>
+          <button className="btn small btn-ghost" onClick={() => onEdit(apiKey)} title="Edit">
             <Icon name="pencil" size={16} />
           </button>
-          <button className="btn small btn-danger" onClick={() => onRevoke(apiKey)}>
+          <button className="btn small btn-danger" onClick={() => onDelete(apiKey)} title="Delete permanently">
             <Icon name="trash-2" size={16} />
           </button>
         </div>
       </div>
-      
+
       <div style={{ marginTop: '0.75rem' }}>
         <div style={{ marginBottom: '0.5rem' }}>
           {(apiKey.scopes || []).map(s => <ScopeBadge key={s} scope={s} />)}
@@ -534,7 +547,20 @@ export default function AgentApiKeys() {
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [editKey, setEditKey] = useState(null)
-  const [revokeKey, setRevokeKey] = useState(null)
+  const [deleteKey, setDeleteKey] = useState(null)
+  const [toggling, setToggling] = useState(false)
+
+  const handleToggle = async (apiKey) => {
+    setToggling(true)
+    try {
+      await api.patch(`/agents/keys/${apiKey.id}/toggle`)
+      await loadKeys()
+    } catch (e) {
+      setError(e.message || 'Failed to toggle key')
+    } finally {
+      setToggling(false)
+    }
+  }
 
   const loadKeys = async () => {
     setLoading(true)
@@ -593,7 +619,9 @@ export default function AgentApiKeys() {
               key={key.id}
               apiKey={key}
               onEdit={setEditKey}
-              onRevoke={setRevokeKey}
+              onDelete={setDeleteKey}
+              onToggle={handleToggle}
+              toggling={toggling}
             />
           ))}
         </div>
@@ -614,11 +642,11 @@ export default function AgentApiKeys() {
         />
       )}
 
-      {revokeKey && (
-        <RevokeKeyModal
-          apiKey={revokeKey}
-          onClose={() => setRevokeKey(null)}
-          onRevoked={loadKeys}
+      {deleteKey && (
+        <DeleteKeyModal
+          apiKey={deleteKey}
+          onClose={() => setDeleteKey(null)}
+          onDeleted={loadKeys}
         />
       )}
     </div>

@@ -4,6 +4,7 @@ import AgentApiKeys from './AgentApiKeys'
 import Connections from './Connections'
 import Appearance from './Appearance'
 import Account from './Account'
+import DataManagement from './DataManagement'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 
@@ -57,6 +58,13 @@ export default function Settings() {
           <Icon name="sliders-horizontal" size={16} style={{ marginRight: '4px' }} />
           {t('settings.preferences')}
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'data' ? 'active' : ''}`}
+          onClick={() => setActiveTab('data')}
+        >
+          <Icon name="database" size={16} style={{ marginRight: '4px' }} />
+          Data
+        </button>
       </div>
 
       {activeTab === 'account' && <Account />}
@@ -66,6 +74,8 @@ export default function Settings() {
       {activeTab === 'connections' && <Connections />}
 
       {activeTab === 'appearance' && <Appearance />}
+
+      {activeTab === 'data' && <DataManagement />}
 
       {activeTab === 'preferences' && (
         <div className="card section">

@@ -12,7 +12,7 @@ export class SkillController {
   @ApiOperation({ summary: 'Get the agent skill document (no auth required)' })
   @ApiTags('Agent')
   getSkill() {
-    const skillPath = path.join(process.cwd(), 'docs', 'agent-skill.md');
+    const skillPath = path.join(process.cwd(), '..', 'docs', 'agent-skill.md');
     return fs.readFileSync(skillPath, 'utf-8');
   }
 }

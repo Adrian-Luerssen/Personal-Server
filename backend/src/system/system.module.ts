@@ -17,6 +17,8 @@ import { RequestContextProvider } from "./auth/requestContext.provider";
 
 import { AccountsModules } from "./accounts/accounts.module";
 import { SpotifyModules } from "./spotify/spotify.module";
+import { DataService } from "./data/data.service";
+import { DataController } from "./data/data.controller";
 import { Track } from "../music/tracks/track.entity";
 import { Album } from "../music/albums/album.entity";
 import { Artist } from "../music/artists/artist.entity";
@@ -55,6 +57,7 @@ import { JwtModule } from "@nestjs/jwt";
     RefreshTokenService,
     RequestContextMiddleware,
     RequestContextProvider,
+    DataService,
 
     {
       provide: APP_GUARD,
@@ -66,6 +69,7 @@ import { JwtModule } from "@nestjs/jwt";
     ...AccountsModules.AccountControllers,
     ...SpotifyModules.SpotifyControllers,
     AuthController,
+    DataController,
   ],
 })
 export class SystemModule {

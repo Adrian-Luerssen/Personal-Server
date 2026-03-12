@@ -7,6 +7,7 @@ import ScrollReveal from '../components/ScrollReveal'
 import PageHeader from '../components/PageHeader'
 import ProgressRing from '../components/ProgressRing'
 import Icon from '../components/icons/Icon'
+import { usePreferences } from '../contexts/PreferencesContext'
 
 export default function Home() {
   const { t } = useTranslation()
@@ -23,6 +24,12 @@ export default function Home() {
   const [workoutTrends, setWorkoutTrends] = useState(null)
   const [financeSummary, setFinanceSummary] = useState(null)
   const [recentSessions, setRecentSessions] = useState(null)
+  const [weeklySummary, setWeeklySummary] = useState(null)
+  const [workoutHabitCorrelation, setWorkoutHabitCorrelation] = useState(null)
+  const [budgetStatus, setBudgetStatus] = useState(null)
+  const [workoutPRs, setWorkoutPRs] = useState(null)
+  const [showWidgetConfig, setShowWidgetConfig] = useState(false)
+  const { prefs, updatePrefs } = usePreferences()
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -37,10 +44,14 @@ export default function Home() {
           apiFetch('/workout/sessions/trends', { signal: ctrl.signal }),
           apiFetch('/finance/transactions/summary', { signal: ctrl.signal }),
           apiFetch('/workout/sessions/recent', { signal: ctrl.signal }),
+          apiFetch('/dashboard/insights/weekly', { signal: ctrl.signal }),
+          apiFetch('/dashboard/insights/workout-habits', { signal: ctrl.signal }),
+          apiFetch('/finance/budgets/status', { signal: ctrl.signal }),
+          apiFetch('/workout/sessions/prs', { signal: ctrl.signal }),
         ])
         if (ctrl.signal.aborted) return
 
-        const [sp, wk, wms, hs, ht, wt, fs, rs] = results.map(r =>
+        const [sp, wk, wms, hs, ht, wt, fs, rs, ws, whc, bs, prs] = results.map(r =>
           r.status === 'fulfilled' ? r.value : null
         )
 
@@ -58,6 +69,10 @@ export default function Home() {
         if (wt) setWorkoutTrends(wt)
         if (fs) setFinanceSummary(fs)
         if (rs) setRecentSessions(rs)
+        if (ws) setWeeklySummary(ws)
+        if (whc) setWorkoutHabitCorrelation(whc)
+        if (bs) setBudgetStatus(bs)
+        if (prs) setWorkoutPRs(prs)
         if (!hasLoadedOnceRef.current) { setHasLoadedOnce(true); hasLoadedOnceRef.current = true }
       } catch {
         // ignore for home summary
@@ -81,6 +96,33 @@ export default function Home() {
   // Build recent activity feed
   const activityItems = buildActivityFeed(habitsArray, recentSessions)
 
+  // Widget configuration
+  const DEFAULT_WIDGETS = [
+    { id: 'weekly-summary', label: 'Weekly Summary', visible: true, order: 0 },
+    { id: 'recent-activity', label: 'Recent Activity', visible: true, order: 1 },
+    { id: 'habits-progress', label: 'Habits Progress', visible: true, order: 2 },
+    { id: 'quick-actions', label: 'Quick Actions', visible: true, order: 3 },
+    { id: 'insights', label: 'Cross-Domain Insights', visible: true, order: 4 },
+    { id: 'budget-status', label: 'Budget Status', visible: true, order: 5 },
+    { id: 'workout-prs', label: 'Workout PRs', visible: true, order: 6 },
+    { id: 'spotify-detail', label: 'Spotify Stats', visible: true, order: 7 },
+    { id: 'workout-detail', label: 'Workout Stats', visible: true, order: 8 },
+    { id: 'music-workouts', label: 'Music During Workouts', visible: true, order: 9 },
+  ]
+
+  const widgetConfig = prefs.dashboardWidgets || DEFAULT_WIDGETS
+  const isWidgetVisible = (id) => {
+    const w = widgetConfig.find(w => w.id === id)
+    return w ? w.visible !== false : true
+  }
+
+  const toggleWidget = (id) => {
+    const updated = (widgetConfig.length ? widgetConfig : DEFAULT_WIDGETS).map(w =>
+      w.id === id ? { ...w, visible: !w.visible } : w
+    )
+    updatePrefs({ dashboardWidgets: updated })
+  }
+
   // Quick action links
   const quickActions = [
     { icon: 'dumbbell', label: t('home.startWorkout'), color: '#4ade80', path: '/workout/active' },
@@ -92,6 +134,52 @@ export default function Home() {
   return (
     <>
       <PageHeader icon="home" title="Dashboard" />
+
+      {/* Customize button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+        <button
+          onClick={() => setShowWidgetConfig(!showWidgetConfig)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.4rem',
+            padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--glass-border)',
+            background: showWidgetConfig ? 'var(--color-accent-muted)' : 'transparent',
+            color: showWidgetConfig ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+            fontSize: '0.8rem', cursor: 'pointer',
+          }}
+        >
+          <Icon name="settings-2" size={14} />
+          Customize
+        </button>
+      </div>
+
+      {/* Widget config panel */}
+      {showWidgetConfig && (
+        <div className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>
+          <h4 style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>Dashboard Widgets</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem' }}>
+            {(widgetConfig.length ? widgetConfig : DEFAULT_WIDGETS).map(w => (
+              <label
+                key={w.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(255,255,255,0.03)', cursor: 'pointer',
+                  fontSize: '0.8rem',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={w.visible !== false}
+                  onChange={() => toggleWidget(w.id)}
+                  style={{ accentColor: 'var(--color-accent)' }}
+                />
+                {w.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* === Top Stat Cards === */}
       <ScrollReveal>
@@ -126,11 +214,23 @@ export default function Home() {
         </div>
       </ScrollReveal>
 
+      {/* === Weekly Summary === */}
+      {isWidgetVisible('weekly-summary') && weeklySummary && (
+        <ScrollReveal delay={50}>
+          <div className="stat-grid" style={{ marginTop: '1rem' }}>
+            <StatCard icon="calendar-days" accentColor="#60a5fa" label="This Week: Workouts" value={weeklySummary.workouts} />
+            <StatCard icon="check-circle" accentColor="#a78bfa" label="This Week: Habits" value={`${weeklySummary.habitsCompleted}/${weeklySummary.habitsTotal}`} />
+            <StatCard icon="wallet" accentColor="#fbbf24" label="This Week: Spent" value={<AnimatedNumber value={weeklySummary.spending} formatter={(n) => `$${formatNumberShort(n)}`} />} />
+            <StatCard icon="headphones" accentColor="var(--color-accent)" label="This Week: Streams" value={<AnimatedNumber value={weeklySummary.streams} formatter={formatNumberShort} />} />
+          </div>
+        </ScrollReveal>
+      )}
+
       {/* === Widget Grid === */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem', marginTop: '1.5rem' }}>
 
         {/* Recent Activity */}
-        <ScrollReveal delay={100}>
+        {isWidgetVisible('recent-activity') && <ScrollReveal delay={100}>
           <div className="card" style={{ minHeight: 220 }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <Icon name="activity" size={18} />
@@ -170,10 +270,10 @@ export default function Home() {
               </div>
             )}
           </div>
-        </ScrollReveal>
+        </ScrollReveal>}
 
         {/* Habits Progress */}
-        <ScrollReveal delay={200}>
+        {isWidgetVisible('habits-progress') && <ScrollReveal delay={200}>
           <div className="card" style={{ minHeight: 220 }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <Icon name="target" size={18} />
@@ -216,10 +316,10 @@ export default function Home() {
               </div>
             )}
           </div>
-        </ScrollReveal>
+        </ScrollReveal>}
 
         {/* Quick Actions */}
-        <ScrollReveal delay={300}>
+        {isWidgetVisible('quick-actions') && <ScrollReveal delay={300}>
           <div className="card" style={{ minHeight: 220 }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <Icon name="zap" size={18} />
@@ -253,11 +353,136 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </ScrollReveal>
+        </ScrollReveal>}
+
+        {/* Cross-Domain Insights */}
+        {isWidgetVisible('insights') && workoutHabitCorrelation && (
+          <ScrollReveal delay={350}>
+            <div className="card" style={{ minHeight: 220 }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <Icon name="sparkles" size={18} />
+                Insights
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.6rem 0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: 8,
+                }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>Habits on workout days</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#4ade80' }}>
+                      {workoutHabitCorrelation.workoutDays.completionRate}%
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>vs rest days</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                      {workoutHabitCorrelation.restDays.completionRate}%
+                    </div>
+                  </div>
+                </div>
+                {workoutHabitCorrelation.workoutDays.completionRate > workoutHabitCorrelation.restDays.completionRate ? (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: 0 }}>
+                    You complete <strong style={{ color: '#4ade80' }}>
+                      {workoutHabitCorrelation.workoutDays.completionRate - workoutHabitCorrelation.restDays.completionRate}% more
+                    </strong> habits on workout days!
+                  </p>
+                ) : (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: 0 }}>
+                    Your habit completion is consistent across workout and rest days.
+                  </p>
+                )}
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  Based on {workoutHabitCorrelation.totalWorkoutDays} workout days in the last 90 days
+                </div>
+              </div>
+            </div>
+          </ScrollReveal>
+        )}
+
+        {/* Budget Status */}
+        {isWidgetVisible('budget-status') && Array.isArray(budgetStatus) && budgetStatus.length > 0 && (
+          <ScrollReveal delay={400}>
+            <div className="card" style={{ minHeight: 220 }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <Icon name="piggy-bank" size={18} />
+                Budget Status
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {budgetStatus.slice(0, 5).map(b => (
+                  <div key={b.id}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: '0.8rem' }}>
+                      <span>{b.categoryName}</span>
+                      <span style={{ color: b.isOver ? '#f87171' : 'var(--color-text-secondary)' }}>
+                        ${b.spent.toFixed(0)} / ${b.amount.toFixed(0)}
+                      </span>
+                    </div>
+                    <div style={{
+                      height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        height: '100%', borderRadius: 3,
+                        width: `${Math.min(b.percentage, 100)}%`,
+                        background: b.isOver ? '#f87171' : b.percentage > 80 ? '#fbbf24' : '#4ade80',
+                        transition: 'width 0.5s ease',
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </ScrollReveal>
+        )}
+
+        {/* Workout PRs */}
+        {isWidgetVisible('workout-prs') && Array.isArray(workoutPRs) && workoutPRs.length > 0 && (
+          <ScrollReveal delay={450}>
+            <div className="card" style={{ minHeight: 220 }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <Icon name="trophy" size={18} />
+                Personal Records
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {workoutPRs.slice(0, 6).map((pr, i) => (
+                  <div key={pr.exerciseId} style={{
+                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    padding: '0.4rem 0',
+                    borderBottom: i < Math.min(workoutPRs.length, 6) - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: 6,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: i < 3 ? '#fbbf2420' : 'rgba(255,255,255,0.04)',
+                      color: i < 3 ? '#fbbf24' : 'var(--color-text-muted)',
+                      fontSize: '0.7rem', fontWeight: 700,
+                    }}>
+                      {i + 1}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {pr.exerciseName}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#4ade80' }}>
+                        {pr.maxWeight}kg
+                      </div>
+                      {pr.reps && (
+                        <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>
+                          {pr.reps} reps
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </ScrollReveal>
+        )}
       </div>
 
       {/* === Domain Detail Sections === */}
-      <ScrollReveal delay={400}>
+      {isWidgetVisible('spotify-detail') && <ScrollReveal delay={400}>
         <div className="section" style={{ marginTop: '1.5rem' }}>
           <h3>{t('home.spotify')}</h3>
           <div className="stat-grid">
@@ -268,9 +493,9 @@ export default function Home() {
             <StatCard icon="timer" accentColor="var(--color-accent)" label={t('home.totalTime')} value={!hasLoadedOnce ? <LoadingLine width={120} /> : <AnimatedNumber value={spotifyStats?.msListened ?? 0} formatter={formatDuration} />} />
           </div>
         </div>
-      </ScrollReveal>
+      </ScrollReveal>}
 
-      <ScrollReveal delay={500}>
+      {isWidgetVisible('workout-detail') && <ScrollReveal delay={500}>
         <div className="section">
           <h3>{t('home.workout')}</h3>
           <div className="stat-grid">
@@ -281,9 +506,9 @@ export default function Home() {
             <StatCard icon="timer" accentColor="#4ade80" label={t('home.totalTime')} value={!hasLoadedOnce ? <LoadingLine width={120} /> : <AnimatedNumber value={(workoutTotals?.totalTimeSeconds ?? 0) * 1000} formatter={formatDuration} />} />
           </div>
         </div>
-      </ScrollReveal>
+      </ScrollReveal>}
 
-      <ScrollReveal delay={600}>
+      {isWidgetVisible('music-workouts') && <ScrollReveal delay={600}>
         <div className="section">
           <h3>{t('home.musicDuringWorkouts')}</h3>
           <div className="stat-grid">
@@ -291,7 +516,7 @@ export default function Home() {
             <StatCard icon="clock" accentColor="var(--color-accent)" label={t('home.timeStreamed')} value={!hasLoadedOnce ? <LoadingLine width={200} /> : <AnimatedNumber value={(workoutStreamStats?.totalTimeSeconds ?? 0) * 1000} formatter={formatDuration} />} />
           </div>
         </div>
-      </ScrollReveal>
+      </ScrollReveal>}
     </>
   )
 }

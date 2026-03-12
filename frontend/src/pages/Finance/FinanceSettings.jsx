@@ -22,6 +22,7 @@ const TABS = [
   { key: 'wallets', label: 'Wallets', icon: 'landmark' },
   { key: 'categories', label: 'Categories', icon: 'layers' },
   { key: 'subscriptions', label: 'Subscriptions', icon: 'repeat' },
+  { key: 'budgets', label: 'Budgets', icon: 'piggy-bank' },
 ]
 
 // ─── Wallet Form Modal ──────────────────────────────────────────────────────
@@ -910,6 +911,223 @@ function SubscriptionsTab() {
   )
 }
 
+// ─── Budget Form Modal ──────────────────────────────────────────────────────
+
+const PERIOD_OPTIONS = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'weekly', label: 'Weekly' },
+]
+
+function BudgetForm({ categories, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    amount: '',
+    period: 'monthly',
+    categoryId: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  const setField = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError(null)
+    setSaving(true)
+    try {
+      const payload = {
+        amount: parseFloat(form.amount),
+        period: form.period,
+        categoryId: form.categoryId || undefined,
+      }
+      await api.post('/finance/budgets', payload)
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Failed to create budget')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Add Budget" onClose={onClose} size="medium">
+      <form onSubmit={handleSubmit}>
+        {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+
+        <label className="form-label">Amount</label>
+        <input className="input" type="number" step="0.01" min="0" value={form.amount} onChange={e => setField('amount', e.target.value)} placeholder="0.00" required style={{ marginBottom: '0.75rem' }} />
+
+        <label className="form-label">Period</label>
+        <select className="input" value={form.period} onChange={e => setField('period', e.target.value)} style={{ marginBottom: '0.75rem' }}>
+          {PERIOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+
+        <label className="form-label">Category (optional)</label>
+        <div style={{ marginBottom: '1rem' }}>
+          <CategoryPicker categories={categories} value={form.categoryId} onChange={val => setField('categoryId', val)} placeholder="All categories (overall budget)" />
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn small btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn small btn-primary" disabled={saving}>
+            {saving ? 'Saving...' : 'Add'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ─── Budgets Tab ────────────────────────────────────────────────────────────
+
+function BudgetsTab() {
+  const [budgetStatus, setBudgetStatus] = useState([])
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [statusData, catsData] = await Promise.all([
+        api.get('/finance/budgets/status'),
+        api.get('/finance/categories'),
+      ])
+      setBudgetStatus(Array.isArray(statusData) ? statusData : statusData?.items || [])
+      setCategories(Array.isArray(catsData) ? catsData : [])
+    } catch (err) {
+      console.error('Failed to load budgets', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function handleDelete(id) {
+    setDeletingId(id)
+    try {
+      await api.delete(`/finance/budgets/${id}`)
+      setConfirmDeleteId(null)
+      load()
+    } catch (err) {
+      console.error('Failed to delete budget', err)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+          <Icon name="plus" size={16} /> Add Budget
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} lines={2} />)}
+        </div>
+      ) : budgetStatus.length === 0 ? (
+        <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <Icon name="piggy-bank" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }} />
+          <div style={{ color: 'var(--color-text-secondary)' }}>No budgets yet. Create one to start tracking your spending.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {budgetStatus.map(budget => {
+            const spent = budget.spent || 0
+            const amount = budget.amount || 0
+            const remaining = budget.remaining != null ? budget.remaining : amount - spent
+            const progress = amount > 0 ? Math.min((spent / amount) * 100, 100) : 0
+            const isOver = spent > amount
+            const progressColor = isOver ? 'var(--color-error)' : progress > 80 ? '#f59e0b' : 'var(--color-success)'
+            const categoryName = budget.category?.name || budget.categoryName || null
+
+            return (
+              <div key={budget.id} className="card" style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  {budget.category ? (
+                    <CategoryIcon category={budget.category} size={36} />
+                  ) : (
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 'var(--radius-md)',
+                      background: `${FINANCE_COLOR}22`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Icon name="piggy-bank" size={18} style={{ color: FINANCE_COLOR }} />
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>
+                      {categoryName || 'Overall Budget'}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>
+                      {budget.period}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '1.1rem', color: isOver ? 'var(--color-error)' : 'var(--color-text-primary)' }}>
+                      {formatCurrency(spent)} <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>/ {formatCurrency(amount)}</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: isOver ? 'var(--color-error)' : 'var(--color-success)', fontWeight: 600 }}>
+                      {isOver ? `${formatCurrency(Math.abs(remaining))} over` : `${formatCurrency(remaining)} left`}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{
+                  height: 6, borderRadius: 3,
+                  background: 'var(--color-bg-elevated)',
+                  overflow: 'hidden',
+                  marginBottom: '0.5rem',
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.min(progress, 100)}%`,
+                    background: progressColor,
+                    borderRadius: 3,
+                    transition: 'width 0.3s ease',
+                  }} />
+                </div>
+
+                {/* Delete */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem' }}>
+                  {confirmDeleteId === budget.id ? (
+                    <>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-danger)' }}>Delete?</span>
+                      <button className="btn small btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => handleDelete(budget.id)} disabled={deletingId === budget.id}>
+                        Yes
+                      </button>
+                      <button className="btn small btn-ghost" onClick={() => setConfirmDeleteId(null)}>No</button>
+                    </>
+                  ) : (
+                    <button className="btn small btn-ghost" style={{ color: 'var(--color-danger)' }} onClick={() => setConfirmDeleteId(budget.id)}>
+                      <Icon name="trash-2" size={14} /> Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {showForm && (
+        <BudgetForm
+          categories={categories}
+          onClose={() => setShowForm(false)}
+          onSaved={load}
+        />
+      )}
+    </>
+  )
+}
+
 // ─── Main Settings Page ─────────────────────────────────────────────────────
 
 export default function FinanceSettings() {
@@ -960,6 +1178,7 @@ export default function FinanceSettings() {
       {activeTab === 'wallets' && <WalletsTab />}
       {activeTab === 'categories' && <CategoriesTab />}
       {activeTab === 'subscriptions' && <SubscriptionsTab />}
+      {activeTab === 'budgets' && <BudgetsTab />}
     </>
   )
 }

@@ -13,6 +13,7 @@ import PageHeader from '../../components/PageHeader'
 import ProgressRing from '../../components/ProgressRing'
 import HabitCalendarGrid from '../../components/habits/HabitCalendarGrid'
 import HabitDayModal from '../../components/habits/HabitDayModal'
+import HabitHeatmap from '../../components/habits/HabitHeatmap'
 
 const HABITS_COLOR = '#a78bfa'
 const HABITS_COLOR_MUTED = 'rgba(167, 139, 250, 0.15)'
@@ -243,6 +244,17 @@ export default function Habits() {
               <StatCard icon="flame" accentColor="#a78bfa" label={t('habits.totalStreak')} value={totalCurrentStreak} />
             </>
           )}
+        </div>
+      </ScrollReveal>
+
+      {/* Yearly Heatmap */}
+      <ScrollReveal delay={50}>
+        <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
+          <h3 style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Icon name="grid-3x3" size={20} style={{ color: '#a78bfa' }} />
+            {t('habits.yearlyOverview') || 'Yearly Overview'}
+          </h3>
+          <HabitHeatmap />
         </div>
       </ScrollReveal>
 

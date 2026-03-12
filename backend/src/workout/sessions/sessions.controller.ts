@@ -32,6 +32,19 @@ export class WorkoutSessionsController
     return { dailyVolume };
   }
 
+  @Get("prs")
+  async getPersonalRecords(@ReqUser() account: Account) {
+    return this.service.getPersonalRecords(account);
+  }
+
+  @Get(":id/prs")
+  async getSessionPRs(
+    @ReqUser() account: Account,
+    @Param("id") id: string
+  ) {
+    return this.service.checkSessionPRs(account, id);
+  }
+
   @Get("active")
   async getActive(@ReqUser() account: Account) {
     return await this.service.getActiveSession(account);

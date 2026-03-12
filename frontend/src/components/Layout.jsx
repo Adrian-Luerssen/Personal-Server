@@ -6,6 +6,7 @@ import ApiStatus from './ApiStatus'
 import GradientMesh from './GradientMesh'
 import PageTransition from './PageTransition'
 import { preloadDashboardData } from '../api'
+import PWAInstallPrompt from './PWAInstallPrompt'
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -24,6 +25,7 @@ export default function Layout() {
       </main>
       <ApiStatus />
       <ChatPanel />
+      <PWAInstallPrompt />
     </div>
   )
 }

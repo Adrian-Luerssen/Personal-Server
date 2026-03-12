@@ -35,6 +35,9 @@ export class AccountPreferences {
   @Column({ type: "text", nullable: true })
   customCss: string | null;
 
+  @Column({ type: "jsonb", nullable: true })
+  dashboardWidgets: { id: string; visible: boolean; order: number }[] | null;
+
   @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 

@@ -40,4 +40,14 @@ export class DashboardController {
     });
     return res;
   }
+
+  @Get("insights/workout-habits")
+  async getWorkoutHabitCorrelation(@ReqUser() account: Account) {
+    return this.dashboard.getWorkoutHabitCorrelation(account.id);
+  }
+
+  @Get("insights/weekly")
+  async getWeeklySummary(@ReqUser() account: Account) {
+    return this.dashboard.getWeeklySummary(account.id);
+  }
 }

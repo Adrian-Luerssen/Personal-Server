@@ -32,6 +32,8 @@ export default function WorkoutActive() {
 
   const [showEndModal, setShowEndModal] = useState(false)
   const [endForm, setEndForm] = useState({ title: '', notes: '' })
+  const [sessionPRs, setSessionPRs] = useState([])
+  const [showPRCelebration, setShowPRCelebration] = useState(false)
 
   useEffect(() => {
     loadActiveSession()
@@ -110,9 +112,25 @@ export default function WorkoutActive() {
   async function endWorkout() {
     if (!activeSession) return
     setError('')
+    const sessionId = activeSession.id
     try {
-      await api.patch(`/workout/sessions/${activeSession.id}/end`, { title: endForm.title || null, notes: endForm.notes || null })
-      setActiveSession(null); setSets([]); setShowEndModal(false); setEndForm({ title: '', notes: '' })
+      await api.patch(`/workout/sessions/${sessionId}/end`, { title: endForm.title || null, notes: endForm.notes || null })
+      setShowEndModal(false)
+
+      // Check for new PRs in this session
+      try {
+        const prData = await api.get(`/workout/sessions/${sessionId}/prs`)
+        if (prData && prData.length > 0) {
+          setSessionPRs(prData)
+          setShowPRCelebration(true)
+          setActiveSession(null); setSets([]); setEndForm({ title: '', notes: '' })
+          // Auto-navigate after showing celebration
+          setTimeout(() => navigate('/workout/history'), 3000)
+          return
+        }
+      } catch { /* PR check failed, continue normally */ }
+
+      setActiveSession(null); setSets([]); setEndForm({ title: '', notes: '' })
       navigate('/workout/history')
     } catch (e) { setError(e.message || 'Failed to end workout') }
   }
@@ -313,6 +331,41 @@ export default function WorkoutActive() {
             )}
           </div>
         </Modal>
+      )}
+
+      {showPRCelebration && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
+        }}>
+          <div style={{
+            textAlign: 'center', padding: '3rem 2rem', maxWidth: 420,
+            background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)',
+            border: '2px solid #4ade80', boxShadow: '0 0 60px rgba(74,222,128,0.3)',
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
+              <Icon name="trophy" size={56} style={{ color: '#FFD700' }} />
+            </div>
+            <h2 style={{ color: '#4ade80', margin: '0 0 .5rem', fontSize: '1.5rem' }}>New PR{sessionPRs.length > 1 ? 's' : ''}!</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem', marginTop: '1rem' }}>
+              {sessionPRs.map((pr, i) => (
+                <div key={i} style={{
+                  padding: '.75rem 1rem', borderRadius: 'var(--radius-md)',
+                  background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)',
+                }}>
+                  <div style={{ fontWeight: 700 }}>{pr.exerciseName || 'Exercise'}</div>
+                  <div style={{ color: '#4ade80', fontWeight: 700, fontSize: '1.1rem' }}>
+                    {pr.maxWeight} kg {pr.reps != null ? ` x ${pr.reps} reps` : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="btn" style={{ marginTop: '1.5rem' }} onClick={() => navigate('/workout/history')}>
+              Continue
+            </button>
+          </div>
+        </div>
       )}
 
       {showEndModal && (

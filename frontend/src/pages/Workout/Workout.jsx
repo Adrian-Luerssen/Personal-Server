@@ -27,8 +27,10 @@ export default function Workout() {
     thisWeek: 0
   })
   const [latestWeight, setLatestWeight] = useState(null)
+  const [prs, setPrs] = useState([])
+  const [prsLoading, setPrsLoading] = useState(true)
 
-  useEffect(() => { loadDashboard() }, [])
+  useEffect(() => { loadDashboard(); loadPRs() }, [])
 
   async function loadDashboard() {
     setLoading(true)
@@ -62,6 +64,18 @@ export default function Workout() {
       console.error('Failed to load dashboard:', e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadPRs() {
+    setPrsLoading(true)
+    try {
+      const data = await api.get('/workout/sessions/prs')
+      setPrs(data || [])
+    } catch (e) {
+      console.error('Failed to load PRs:', e)
+    } finally {
+      setPrsLoading(false)
     }
   }
 
@@ -137,6 +151,80 @@ export default function Workout() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="section">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginBottom: '.75rem' }}>
+          <Icon name="trophy" size={20} style={{ color: '#4ade80' }} />
+          <h3 style={{ margin: 0 }}>Personal Records</h3>
+        </div>
+
+        {prsLoading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
+            {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} lines={2} widths={["40%", "60%"]} />)}
+          </div>
+        ) : prs.length === 0 ? (
+          <div className="empty-state">No personal records yet. Start lifting to set your first PR!</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
+            {prs.map((pr, index) => {
+              const isTop3 = index < 3
+              const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32']
+              const medalColor = isTop3 ? medalColors[index] : null
+              return (
+                <div
+                  key={pr.exerciseId || index}
+                  className="card"
+                  style={{
+                    padding: '1rem 1.25rem',
+                    borderLeft: isTop3 ? `4px solid ${medalColor}` : '4px solid var(--glass-border)',
+                    background: isTop3 ? `${medalColor}08` : undefined,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
+                    {isTop3 && (
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: `${medalColor}20`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <Icon name="trophy" size={18} style={{ color: medalColor }} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>{pr.exerciseName || 'Unknown Exercise'}</span>
+                        {isTop3 && (
+                          <span style={{
+                            fontSize: '.75rem', fontWeight: 700, padding: '2px 8px',
+                            borderRadius: 'var(--radius-md)', background: `${medalColor}20`, color: medalColor,
+                          }}>
+                            #{index + 1}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: 4, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#4ade80' }}>
+                          {pr.maxWeight} kg
+                        </span>
+                        {pr.reps != null && (
+                          <span style={{ fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>
+                            {pr.reps} rep{pr.reps !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {pr.date && (
+                          <span style={{ fontSize: '.85rem', color: 'var(--color-text-muted)' }}>
+                            {formatDate(pr.date)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="section">

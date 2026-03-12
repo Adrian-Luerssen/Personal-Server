@@ -1,0 +1,431 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { DashboardService } from './dashboard.service';
+import { Stream, StreamPlatform } from '../music/streams/stream.entity';
+import { Track } from '../music/tracks/track.entity';
+import { WorkoutSession } from '../workout/sessions/session.entity';
+import { Account } from '../system/accounts/account.entity';
+
+describe('DashboardService', () => {
+  let service: DashboardService;
+  let mockDataSource: { query: jest.Mock };
+  let mockStreamRepo: { createQueryBuilder: jest.Mock };
+  let mockQb: Record<string, jest.Mock>;
+
+  const accountId = 'test-account-id';
+  const account = { id: accountId } as Account;
+
+  function buildMockQueryBuilder(rawResult: any) {
+    const qb: Record<string, jest.Mock> = {};
+    const self = () => qb;
+    qb.innerJoin = jest.fn().mockImplementation(self);
+    qb.where = jest.fn().mockImplementation(self);
+    qb.andWhere = jest.fn().mockImplementation(self);
+    qb.select = jest.fn().mockImplementation(self);
+    qb.addSelect = jest.fn().mockImplementation(self);
+    qb.getRawOne = jest.fn().mockResolvedValue(rawResult);
+    return qb;
+  }
+
+  beforeEach(async () => {
+    mockQb = buildMockQueryBuilder({ streams: '5', timeSeconds: '1200' });
+    mockStreamRepo = {
+      createQueryBuilder: jest.fn().mockReturnValue(mockQb),
+    };
+
+    mockDataSource = {
+      query: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        DashboardService,
+        { provide: getRepositoryToken(Stream), useValue: mockStreamRepo },
+        { provide: getRepositoryToken(Track), useValue: {} },
+        { provide: getRepositoryToken(WorkoutSession), useValue: {} },
+        { provide: DataSource, useValue: mockDataSource },
+      ],
+    }).compile();
+
+    service = module.get<DashboardService>(DashboardService);
+  });
+
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  describe('getSpotifyStreamsDuringWorkouts', () => {
+    it('should return parsed stream count and total time from the query', async () => {
+      const result = await service.getSpotifyStreamsDuringWorkouts(account);
+
+      expect(result).toEqual({ streams: 5, totalTimeSeconds: 1200 });
+      expect(mockStreamRepo.createQueryBuilder).toHaveBeenCalledWith('st');
+    });
+
+    it('should filter by accountId and Spotify platform', async () => {
+      await service.getSpotifyStreamsDuringWorkouts(account);
+
+      expect(mockQb.where).toHaveBeenCalledWith(
+        'st."accountId" = :accountId',
+        { accountId },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'st.platform = :platform',
+        { platform: StreamPlatform.SPOTIFY },
+      );
+    });
+
+    it('should join on WorkoutSession and Track', async () => {
+      await service.getSpotifyStreamsDuringWorkouts(account);
+
+      expect(mockQb.innerJoin).toHaveBeenCalledTimes(2);
+      // First join is WorkoutSession
+      expect(mockQb.innerJoin.mock.calls[0][0]).toBe(WorkoutSession);
+      expect(mockQb.innerJoin.mock.calls[0][1]).toBe('ws');
+      // Second join is Track
+      expect(mockQb.innerJoin.mock.calls[1][0]).toBe(Track);
+      expect(mockQb.innerJoin.mock.calls[1][1]).toBe('t');
+    });
+
+    it('should apply from date filter when provided', async () => {
+      const from = new Date('2025-01-01');
+      await service.getSpotifyStreamsDuringWorkouts(account, { from });
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'st."streamedAt" >= :from',
+        { from },
+      );
+    });
+
+    it('should apply to date filter when provided', async () => {
+      const to = new Date('2025-12-31');
+      await service.getSpotifyStreamsDuringWorkouts(account, { to });
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'st."streamedAt" <= :to',
+        { to },
+      );
+    });
+
+    it('should apply both from and to filters together', async () => {
+      const from = new Date('2025-01-01');
+      const to = new Date('2025-12-31');
+      await service.getSpotifyStreamsDuringWorkouts(account, { from, to });
+
+      const andWhereCalls = mockQb.andWhere.mock.calls;
+      const fromCall = andWhereCalls.find((c: any[]) => c[0].includes('>= :from'));
+      const toCall = andWhereCalls.find((c: any[]) => c[0].includes('<= :to'));
+      expect(fromCall).toBeDefined();
+      expect(toCall).toBeDefined();
+    });
+
+    it('should not apply date filters when opts is empty object', async () => {
+      await service.getSpotifyStreamsDuringWorkouts(account, {});
+
+      const andWhereCalls = mockQb.andWhere.mock.calls;
+      const dateFilters = andWhereCalls.filter(
+        (c: any[]) => c[0].includes(':from') || c[0].includes(':to'),
+      );
+      expect(dateFilters).toHaveLength(0);
+    });
+
+    it('should return zeros when getRawOne returns null', async () => {
+      mockQb.getRawOne.mockResolvedValue(null);
+
+      const result = await service.getSpotifyStreamsDuringWorkouts(account);
+
+      expect(result).toEqual({ streams: 0, totalTimeSeconds: 0 });
+    });
+
+    it('should correctly parse string "0" values from the database', async () => {
+      mockQb.getRawOne.mockResolvedValue({ streams: '0', timeSeconds: '0' });
+
+      const result = await service.getSpotifyStreamsDuringWorkouts(account);
+
+      expect(result).toEqual({ streams: 0, totalTimeSeconds: 0 });
+    });
+
+    it('should select COUNT and COALESCE(SUM) aggregates', async () => {
+      await service.getSpotifyStreamsDuringWorkouts(account);
+
+      expect(mockQb.select).toHaveBeenCalledWith('COUNT(*)', 'streams');
+      expect(mockQb.addSelect).toHaveBeenCalledWith(
+        'COALESCE(SUM(t.duration), 0)',
+        'timeSeconds',
+      );
+    });
+  });
+
+  describe('getWorkoutHabitCorrelation', () => {
+    it('should compute correlation when habits exist on both workout and rest days', async () => {
+      mockDataSource.query
+        // workout days query
+        .mockResolvedValueOnce([
+          { date: '2026-01-10' },
+          { date: '2026-01-12' },
+        ])
+        // habit entries query
+        .mockResolvedValueOnce([
+          { date: '2026-01-10', status: 'success' },
+          { date: '2026-01-10', status: 'failed' },
+          { date: '2026-01-12', status: 'success' },
+          { date: '2026-01-11', status: 'success' },
+          { date: '2026-01-13', status: 'failed' },
+        ]);
+
+      const result = await service.getWorkoutHabitCorrelation(accountId);
+
+      // Workout days: 2 success out of 3 entries = 67%
+      expect(result.workoutDays.successful).toBe(2);
+      expect(result.workoutDays.total).toBe(3);
+      expect(result.workoutDays.completionRate).toBe(67);
+
+      // Rest days: 1 success out of 2 entries = 50%
+      expect(result.restDays.successful).toBe(1);
+      expect(result.restDays.total).toBe(2);
+      expect(result.restDays.completionRate).toBe(50);
+
+      expect(result.totalWorkoutDays).toBe(2);
+    });
+
+    it('should pass accountId and 90-day-ago date to both queries', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      await service.getWorkoutHabitCorrelation(accountId);
+
+      expect(mockDataSource.query).toHaveBeenCalledTimes(2);
+
+      // Both calls should use the accountId as first param
+      expect(mockDataSource.query.mock.calls[0][1][0]).toBe(accountId);
+      expect(mockDataSource.query.mock.calls[1][1][0]).toBe(accountId);
+
+      // Both calls should have a date string as second param (YYYY-MM-DD format)
+      const dateParam0 = mockDataSource.query.mock.calls[0][1][1];
+      const dateParam1 = mockDataSource.query.mock.calls[1][1][1];
+      expect(dateParam0).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(dateParam1).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it('should return zero completion rates when there are no habit entries', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([{ date: '2026-01-10' }])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getWorkoutHabitCorrelation(accountId);
+
+      expect(result.workoutDays.completionRate).toBe(0);
+      expect(result.workoutDays.total).toBe(0);
+      expect(result.restDays.completionRate).toBe(0);
+      expect(result.restDays.total).toBe(0);
+      expect(result.totalWorkoutDays).toBe(1);
+    });
+
+    it('should return zero workout days when there are no workouts', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { date: '2026-01-11', status: 'success' },
+          { date: '2026-01-13', status: 'failed' },
+        ]);
+
+      const result = await service.getWorkoutHabitCorrelation(accountId);
+
+      expect(result.totalWorkoutDays).toBe(0);
+      expect(result.workoutDays.total).toBe(0);
+      expect(result.workoutDays.successful).toBe(0);
+      // All entries fall on rest days
+      expect(result.restDays.total).toBe(2);
+      expect(result.restDays.successful).toBe(1);
+      expect(result.restDays.completionRate).toBe(50);
+    });
+
+    it('should handle all habits being successful on workout days (100%)', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([{ date: '2026-02-01' }])
+        .mockResolvedValueOnce([
+          { date: '2026-02-01', status: 'success' },
+          { date: '2026-02-01', status: 'success' },
+        ]);
+
+      const result = await service.getWorkoutHabitCorrelation(accountId);
+
+      expect(result.workoutDays.completionRate).toBe(100);
+      expect(result.workoutDays.successful).toBe(2);
+      expect(result.workoutDays.total).toBe(2);
+    });
+
+    it('should round completion rate to nearest integer', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([{ date: '2026-02-01' }])
+        .mockResolvedValueOnce([
+          { date: '2026-02-01', status: 'success' },
+          { date: '2026-02-01', status: 'failed' },
+          { date: '2026-02-01', status: 'failed' },
+        ]);
+
+      const result = await service.getWorkoutHabitCorrelation(accountId);
+
+      // 1/3 = 33.33...% -> rounds to 33
+      expect(result.workoutDays.completionRate).toBe(33);
+    });
+
+    it('should deduplicate workout dates via Set', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([
+          { date: '2026-02-01' },
+          { date: '2026-02-01' }, // duplicate from DB (shouldn't happen with DISTINCT, but Set handles it)
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getWorkoutHabitCorrelation(accountId);
+
+      expect(result.totalWorkoutDays).toBe(1);
+    });
+  });
+
+  describe('getWeeklySummary', () => {
+    function setupWeeklyMocks(overrides?: {
+      workouts?: any[];
+      habits?: any[];
+      spending?: any[];
+      streams?: any[];
+    }) {
+      mockDataSource.query
+        .mockResolvedValueOnce(overrides?.workouts ?? [{ count: '3' }])
+        .mockResolvedValueOnce(overrides?.habits ?? [{ total: '10', completed: '7' }])
+        .mockResolvedValueOnce(overrides?.spending ?? [{ total: '250.50' }])
+        .mockResolvedValueOnce(overrides?.streams ?? [{ count: '42' }]);
+    }
+
+    it('should aggregate weekly data from all four domain queries', async () => {
+      setupWeeklyMocks();
+
+      const result = await service.getWeeklySummary(accountId);
+
+      expect(result).toEqual({
+        workouts: 3,
+        habitsCompleted: 7,
+        habitsTotal: 10,
+        spending: 250.50,
+        streams: 42,
+      });
+    });
+
+    it('should pass accountId and 7-day-ago date to all queries', async () => {
+      setupWeeklyMocks();
+
+      await service.getWeeklySummary(accountId);
+
+      expect(mockDataSource.query).toHaveBeenCalledTimes(4);
+      for (let i = 0; i < 4; i++) {
+        const params = mockDataSource.query.mock.calls[i][1];
+        expect(params[0]).toBe(accountId);
+        expect(params[1]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      }
+    });
+
+    it('should return zeros when all queries return empty results', async () => {
+      setupWeeklyMocks({
+        workouts: [{}],
+        habits: [{}],
+        spending: [{}],
+        streams: [{}],
+      });
+
+      const result = await service.getWeeklySummary(accountId);
+
+      expect(result).toEqual({
+        workouts: 0,
+        habitsCompleted: 0,
+        habitsTotal: 0,
+        spending: 0,
+        streams: 0,
+      });
+    });
+
+    it('should return zeros when queries return empty arrays', async () => {
+      setupWeeklyMocks({
+        workouts: [],
+        habits: [],
+        spending: [],
+        streams: [],
+      });
+
+      const result = await service.getWeeklySummary(accountId);
+
+      // parseInt(undefined[0]?.count) || 0 => 0
+      expect(result).toEqual({
+        workouts: 0,
+        habitsCompleted: 0,
+        habitsTotal: 0,
+        spending: 0,
+        streams: 0,
+      });
+    });
+
+    it('should parse spending as float for decimal amounts', async () => {
+      setupWeeklyMocks({
+        spending: [{ total: '99.99' }],
+      });
+
+      const result = await service.getWeeklySummary(accountId);
+
+      expect(result.spending).toBe(99.99);
+    });
+
+    it('should query workouts from app_workout_sessions', async () => {
+      setupWeeklyMocks();
+
+      await service.getWeeklySummary(accountId);
+
+      const workoutQuery = mockDataSource.query.mock.calls[0][0];
+      expect(workoutQuery).toContain('app_workout_sessions');
+    });
+
+    it('should query habits with join on app_habits for account scoping', async () => {
+      setupWeeklyMocks();
+
+      await service.getWeeklySummary(accountId);
+
+      const habitsQuery = mockDataSource.query.mock.calls[1][0];
+      expect(habitsQuery).toContain('app_habit_entries');
+      expect(habitsQuery).toContain('app_habits');
+    });
+
+    it('should exclude income and transfer/refund types from spending', async () => {
+      setupWeeklyMocks();
+
+      await service.getWeeklySummary(accountId);
+
+      const spendingQuery = mockDataSource.query.mock.calls[2][0];
+      expect(spendingQuery).toContain('finance_transactions');
+      expect(spendingQuery).toContain('"isIncome" = false');
+      expect(spendingQuery).toContain('NOT IN (1, 3)');
+    });
+
+    it('should query streams with track join for account filtering', async () => {
+      setupWeeklyMocks();
+
+      await service.getWeeklySummary(accountId);
+
+      const streamsQuery = mockDataSource.query.mock.calls[3][0];
+      expect(streamsQuery).toContain('app_streams');
+      expect(streamsQuery).toContain('app_tracks');
+    });
+
+    it('should handle zero spending as numeric 0 not string', async () => {
+      setupWeeklyMocks({
+        spending: [{ total: '0' }],
+      });
+
+      const result = await service.getWeeklySummary(accountId);
+
+      // parseFloat('0') is 0, which is falsy, so || 0 applies -> still 0
+      expect(result.spending).toBe(0);
+      expect(typeof result.spending).toBe('number');
+    });
+  });
+});

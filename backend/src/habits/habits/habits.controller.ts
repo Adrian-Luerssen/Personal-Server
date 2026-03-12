@@ -61,6 +61,17 @@ export class HabitsController {
     return { dailyCompletions };
   }
 
+  @Get("heatmap")
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(60)
+  @ApiOperation({
+    summary: "Get heatmap data for the last 365 days",
+    description: "Returns daily success counts for GitHub-style contribution graph",
+  })
+  async getHeatmap(@ReqUser() account: Account) {
+    return this.habitsService.getHeatmap(account);
+  }
+
   @Get("calendar/:month")
   @ApiOperation({
     summary: "Get calendar view for all habits for a given month",

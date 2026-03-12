@@ -290,6 +290,101 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
   }
 
   /**
+   * Returns personal records for each exercise the user has performed.
+   * PR = max weight for a given exercise (with the rep count for that set).
+   * Also returns the date when the PR was set.
+   */
+  async getPersonalRecords(account: Account) {
+    const setRepo = this.repo.manager.getRepository(WorkoutSet);
+
+    // Get max weight per exercise with the set details
+    const prs = await setRepo
+      .createQueryBuilder("st")
+      .innerJoin("st.session", "s")
+      .innerJoin("st.exercise", "e")
+      .select("e.id", "exerciseId")
+      .addSelect("e.name", "exerciseName")
+      .addSelect("MAX(st.weight)", "maxWeight")
+      .where("st.accountId = :aid", { aid: account.id })
+      .andWhere("st.weight IS NOT NULL")
+      .andWhere("st.weight > 0")
+      .groupBy("e.id")
+      .addGroupBy("e.name")
+      .orderBy("MAX(st.weight)", "DESC")
+      .getRawMany();
+
+    // For each exercise, get the specific set that achieved the PR
+    const results = await Promise.all(
+      prs.map(async (pr) => {
+        const prSet = await setRepo
+          .createQueryBuilder("st")
+          .innerJoin("st.session", "s")
+          .select(["st.reps", "st.weight", "s.date"])
+          .where("st.accountId = :aid", { aid: account.id })
+          .andWhere("st.exerciseId = :eid", { eid: pr.exerciseId })
+          .andWhere("st.weight = :maxW", { maxW: pr.maxWeight })
+          .orderBy("s.date", "DESC")
+          .limit(1)
+          .getRawOne();
+
+        return {
+          exerciseId: pr.exerciseId,
+          exerciseName: pr.exerciseName,
+          maxWeight: parseFloat(pr.maxWeight),
+          reps: prSet?.st_reps ?? null,
+          date: prSet?.s_date ?? null,
+        };
+      })
+    );
+
+    return results;
+  }
+
+  /**
+   * Check if any sets in a session are new PRs
+   */
+  async checkSessionPRs(account: Account, sessionId: string) {
+    const setRepo = this.repo.manager.getRepository(WorkoutSet);
+
+    // Get all sets from this session
+    const sessionSets = await setRepo.find({
+      where: { sessionId, accountId: account.id },
+      relations: ["exercise"],
+    });
+
+    const newPRs = [];
+
+    for (const set of sessionSets) {
+      if (!set.exerciseId || !set.weight || set.weight <= 0) continue;
+
+      // Get previous max weight for this exercise (excluding this session)
+      const prevMax = await setRepo
+        .createQueryBuilder("st")
+        .select("MAX(st.weight)", "maxWeight")
+        .where("st.accountId = :aid", { aid: account.id })
+        .andWhere("st.exerciseId = :eid", { eid: set.exerciseId })
+        .andWhere("st.sessionId != :sid", { sid: sessionId })
+        .andWhere("st.weight IS NOT NULL")
+        .getRawOne();
+
+      const previousMax = prevMax?.maxWeight ? parseFloat(prevMax.maxWeight) : 0;
+
+      if (set.weight > previousMax) {
+        newPRs.push({
+          exerciseId: set.exerciseId,
+          exerciseName: set.exercise?.name ?? "Unknown",
+          previousMax,
+          newMax: set.weight,
+          reps: set.reps,
+          improvement: previousMax > 0 ? set.weight - previousMax : null,
+        });
+      }
+    }
+
+    return newPRs;
+  }
+
+  /**
    * Deletes a session by id for the account
    */
   async deleteSession(account: Account, id: string) {

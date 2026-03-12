@@ -395,6 +395,31 @@ export class HabitsService {
     return { habits, entries };
   }
 
+  // ========== HEATMAP (365-day view) ==========
+
+  async getHeatmap(account: Account): Promise<{ date: string; count: number; total: number }[]> {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const from = oneYearAgo.toISOString().slice(0, 10);
+
+    const rows = await this.entryRepo
+      .createQueryBuilder("e")
+      .select("e.date", "date")
+      .addSelect("SUM(CASE WHEN e.status = 'success' THEN 1 ELSE 0 END)", "count")
+      .addSelect("COUNT(*)", "total")
+      .where("e.accountId = :accountId", { accountId: account.id })
+      .andWhere("e.date >= :from", { from })
+      .groupBy("e.date")
+      .orderBy("e.date", "ASC")
+      .getRawMany();
+
+    return rows.map((r) => ({
+      date: r.date,
+      count: parseInt(r.count) || 0,
+      total: parseInt(r.total) || 0,
+    }));
+  }
+
   // ========== FREQUENCY PROGRESS ==========
 
   async getProgress(

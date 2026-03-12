@@ -21,6 +21,7 @@ function getFrequencyLabel(habit) {
 
 const TABS = [
   { key: 'habits', label: 'Habits', icon: 'heart-pulse' },
+  { key: 'reminders', label: 'Reminders', icon: 'bell' },
   { key: 'import', label: 'Import', icon: 'upload' },
 ]
 
@@ -907,6 +908,153 @@ function ImportTab() {
   )
 }
 
+// ─── Reminders Tab ───────────────────────────────────────────────────────────
+
+function RemindersTab() {
+  const [permission, setPermission] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+  )
+  const [reminderTime, setReminderTime] = useState(
+    () => localStorage.getItem('habits-reminder-time') || '20:00'
+  )
+  const [enabled, setEnabled] = useState(
+    () => localStorage.getItem('habits-reminder-enabled') === 'true'
+  )
+  const [testSent, setTestSent] = useState(false)
+
+  const isSupported = typeof Notification !== 'undefined'
+
+  async function requestPermission() {
+    if (!isSupported) return
+    const result = await Notification.requestPermission()
+    setPermission(result)
+    if (result === 'granted' && !enabled) {
+      setEnabled(true)
+      localStorage.setItem('habits-reminder-enabled', 'true')
+    }
+  }
+
+  function toggleEnabled(val) {
+    setEnabled(val)
+    localStorage.setItem('habits-reminder-enabled', val ? 'true' : 'false')
+    if (val && permission !== 'granted') {
+      requestPermission()
+    }
+  }
+
+  function updateTime(time) {
+    setReminderTime(time)
+    localStorage.setItem('habits-reminder-time', time)
+  }
+
+  function sendTestNotification() {
+    if (permission !== 'granted') return
+    new Notification('Habit Reminder', {
+      body: "Don't forget to log your habits today!",
+      icon: '/icon-192.png',
+    })
+    setTestSent(true)
+    setTimeout(() => setTestSent(false), 3000)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {/* Permission status */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <Icon name="bell" size={18} style={{ color: HABITS_COLOR }} />
+          Notification Permission
+        </h4>
+
+        {!isSupported ? (
+          <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+            Your browser does not support notifications.
+          </div>
+        ) : permission === 'granted' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+            <Icon name="check-circle" size={16} style={{ color: 'var(--color-success)' }} />
+            <span style={{ color: 'var(--color-success)' }}>Notifications allowed</span>
+          </div>
+        ) : permission === 'denied' ? (
+          <div style={{ fontSize: '0.9rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-error)', marginBottom: '0.5rem' }}>
+              <Icon name="x-circle" size={16} />
+              Notifications blocked
+            </div>
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+              Please enable notifications in your browser settings for this site.
+            </div>
+          </div>
+        ) : (
+          <button className="btn btn-primary" onClick={requestPermission} style={{ background: HABITS_COLOR }}>
+            <Icon name="bell" size={16} /> Enable Notifications
+          </button>
+        )}
+      </div>
+
+      {/* Reminder settings */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <Icon name="clock" size={18} style={{ color: HABITS_COLOR }} />
+          Daily Reminder
+        </h4>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={e => toggleEnabled(e.target.checked)}
+              style={{ accentColor: HABITS_COLOR }}
+            />
+            Enable daily reminder
+          </label>
+        </div>
+
+        {enabled && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div>
+              <label className="form-label" style={{ marginBottom: '0.25rem' }}>Reminder time</label>
+              <input
+                type="time"
+                className="input"
+                value={reminderTime}
+                onChange={e => updateTime(e.target.value)}
+                style={{ width: 140 }}
+              />
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '1.25rem' }}>
+              You'll be reminded daily at {reminderTime} to log your habits.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Test notification */}
+      {permission === 'granted' && (
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <Icon name="send" size={18} style={{ color: HABITS_COLOR }} />
+            Test
+          </h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button className="btn btn-ghost" onClick={sendTestNotification}>
+              <Icon name="bell-ring" size={16} /> Send Test Notification
+            </button>
+            {testSent && (
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-success)' }}>Sent!</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', padding: '0 0.25rem' }}>
+        Reminders use browser notifications and require this tab to be open. For more reliable reminders, install the app as a PWA.
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 
 export default function HabitsSettings() {
@@ -955,6 +1103,7 @@ export default function HabitsSettings() {
 
       {/* Tab Content */}
       {activeTab === 'habits' && <HabitsTab />}
+      {activeTab === 'reminders' && <RemindersTab />}
       {activeTab === 'import' && <ImportTab />}
     </>
   )

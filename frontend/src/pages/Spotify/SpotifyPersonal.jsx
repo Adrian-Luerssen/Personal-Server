@@ -89,6 +89,7 @@ export default function SpotifyPersonal() {
   const [customEnd, setCustomEnd] = useState(initialTo)
   const [perDay, setPerDay] = useState([])
   const [perHour, setPerHour] = useState([])
+  const [moodData, setMoodData] = useState(null)
 
   const timeframeRef = useRef(timeframe)
   const customStartRef = useRef(customStart)
@@ -139,7 +140,7 @@ export default function SpotifyPersonal() {
         statsParams = `?timeframe=${currentTimeframe}`
       }
 
-      const [me, topTracksData, topAlbumsData, topArtistsData, topPlaylistsData, statsData, historyData, perDayData, perHourData] = await Promise.all([
+      const [me, topTracksData, topAlbumsData, topArtistsData, topPlaylistsData, statsData, historyData, perDayData, perHourData, moodResult] = await Promise.all([
         api.get('/spotify/me'),
         api.get('/streams/top?platform=spotify&limit=10&type=track' + (statsParams ? '&' + statsParams.slice(1) : '')),
         api.get('/albums/top-albums?platform=spotify&limit=10' + (statsParams ? '&' + statsParams.slice(1) : '')),
@@ -149,6 +150,7 @@ export default function SpotifyPersonal() {
         api.get('/streams/history?page=1&pageSize=10'),
         api.get('/streams/per-day' + statsParams),
         api.get('/streams/per-hour' + statsParams),
+        api.get('/streams/mood' + statsParams),
       ])
       if (loadRequestIdRef.current !== myId) return
       setProfile(me)
@@ -160,6 +162,7 @@ export default function SpotifyPersonal() {
       setHistory(Array.isArray(historyData.items) ? historyData.items : historyData)
       setPerDay(perDayData)
       setPerHour(perHourData)
+      setMoodData(moodResult)
 
       const [trackDetails, albumDetails, artistDetails, playlistDetails] = await Promise.all([
         Promise.all((topTracksData || []).map(t => api.get(`/tracks/${t.trackId}`))),
@@ -481,6 +484,109 @@ export default function SpotifyPersonal() {
             </div>
           </div>
           </ScrollReveal>
+
+          {/* Mood & Energy Analysis */}
+          {moodData?.averages && (
+            <ScrollReveal delay={400}>
+              <div className="section" style={{ marginTop: '1.5rem' }}>
+                <div className="card" style={{ padding: '1.25rem' }}>
+                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <Icon name="heart" size={20} />
+                    Mood & Energy Analysis
+                  </h3>
+
+                  {/* Audio feature bars */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                    {[
+                      { key: 'energy', label: 'Energy', color: '#f97316', icon: 'zap' },
+                      { key: 'danceability', label: 'Danceability', color: '#a78bfa', icon: 'music' },
+                      { key: 'valence', label: 'Happiness', color: '#fbbf24', icon: 'smile' },
+                      { key: 'acousticness', label: 'Acoustic', color: '#4ade80', icon: 'guitar' },
+                      { key: 'instrumentalness', label: 'Instrumental', color: '#60a5fa', icon: 'piano' },
+                      { key: 'speechiness', label: 'Speechiness', color: '#f472b6', icon: 'mic' },
+                    ].map(feat => {
+                      const val = moodData.averages[feat.key] || 0
+                      const pct = Math.round(val * 100)
+                      return (
+                        <div key={feat.key}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: '0.8rem' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Icon name={feat.icon} size={12} style={{ color: feat.color }} />
+                              {feat.label}
+                            </span>
+                            <span style={{ fontWeight: 700, color: feat.color }}>{pct}%</span>
+                          </div>
+                          <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%', borderRadius: 3,
+                              width: `${pct}%`, background: feat.color,
+                              transition: 'width 0.5s ease',
+                            }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* BPM and distribution */}
+                  <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                    {moodData.averages.bpm > 0 && (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-accent)' }}>{moodData.averages.bpm}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Avg BPM</div>
+                      </div>
+                    )}
+                    {moodData.distribution?.energy && (
+                      <div style={{ flex: 1, minWidth: 120 }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>Energy Distribution</div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {[
+                            { label: 'Chill', value: moodData.distribution.energy.low, color: '#60a5fa' },
+                            { label: 'Medium', value: moodData.distribution.energy.medium, color: '#fbbf24' },
+                            { label: 'High', value: moodData.distribution.energy.high, color: '#f97316' },
+                          ].map(b => {
+                            const total = moodData.distribution.energy.low + moodData.distribution.energy.medium + moodData.distribution.energy.high
+                            const pct = total > 0 ? Math.round((b.value / total) * 100) : 0
+                            return (
+                              <div key={b.label} style={{ flex: 1, textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: b.color }}>{pct}%</div>
+                                <div style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>{b.label}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {moodData.distribution?.mood && (
+                      <div style={{ flex: 1, minWidth: 120 }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>Mood Distribution</div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {[
+                            { label: 'Melancholy', value: moodData.distribution.mood.sad, color: '#60a5fa' },
+                            { label: 'Neutral', value: moodData.distribution.mood.neutral, color: '#a78bfa' },
+                            { label: 'Happy', value: moodData.distribution.mood.happy, color: '#fbbf24' },
+                          ].map(b => {
+                            const total = moodData.distribution.mood.sad + moodData.distribution.mood.neutral + moodData.distribution.mood.happy
+                            const pct = total > 0 ? Math.round((b.value / total) * 100) : 0
+                            return (
+                              <div key={b.label} style={{ flex: 1, textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: b.color }}>{pct}%</div>
+                                <div style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>{b.label}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '0.75rem' }}>
+                    Based on {moodData.totalTracks} tracks with audio feature data
+                  </div>
+                </div>
+              </div>
+            </ScrollReveal>
+          )}
         </>
       )}
     </>

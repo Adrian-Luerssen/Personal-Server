@@ -46,9 +46,17 @@ const CATEGORY_COLORS = [
   '#fb923c', '#22d3ee', '#e879f9', '#84cc16', '#f87171',
 ]
 
-function formatCurrency(amount, currency = '€') {
+const CURRENCY_SYMBOLS = {
+  EUR: '€', USD: '$', GBP: '£', JPY: '¥', CNY: '¥',
+  KRW: '₩', INR: '₹', BRL: 'R$', RUB: '₽', CHF: 'CHF ',
+  CAD: 'C$', AUD: 'A$', MXN: 'MX$', SEK: 'kr', NOK: 'kr',
+  DKK: 'kr', PLN: 'zł', CZK: 'Kč', HUF: 'Ft', TRY: '₺',
+}
+
+function formatCurrency(amount, currency = 'EUR') {
+  const symbol = CURRENCY_SYMBOLS[currency] || currency + ' '
   const formatted = Math.abs(amount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return `${amount < 0 ? '-' : ''}${currency}${formatted}`
+  return `${amount < 0 ? '-' : ''}${symbol}${formatted}`
 }
 
 function getTransactionType(tx) {
@@ -292,8 +300,13 @@ export default function Finance() {
                     fontWeight: 700,
                     color: wallet.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)',
                   }}>
-                    {formatCurrency(wallet.balance || 0)}
+                    {formatCurrency(wallet.balance || 0, wallet.currency || 'EUR')}
                   </span>
+                  {wallet.currency && wallet.currency !== 'EUR' && (
+                    <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', marginLeft: 4 }}>
+                      {wallet.currency}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -361,7 +374,7 @@ export default function Finance() {
                         color: txColor,
                       }}>
                         {txType === 'income' ? '+' : txType === 'expense' ? '-' : ''}
-                        {formatCurrency(Math.abs(tx.amount))}
+                        {formatCurrency(Math.abs(tx.amount), tx.wallet?.currency || 'EUR')}
                       </td>
                     </tr>
                   )

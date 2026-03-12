@@ -331,6 +331,82 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
     };
   }
 
+  /**
+   * Returns average audio features (mood/energy) for user's streams in a timeframe.
+   */
+  async getMoodAnalysis(
+    accountId: string,
+    opts: { timeframe?: string; from?: string; to?: string }
+  ) {
+    const { timeframe, from, to } = opts || {};
+    const { start, end } = resolveTimeframe(timeframe, from, to);
+
+    const qb = this.repo
+      .createQueryBuilder("stream")
+      .innerJoin("stream.track", "track")
+      .where("stream.accountId = :accountId", { accountId })
+      .andWhere("track.audioFeatures IS NOT NULL");
+
+    if (start) {
+      qb.andWhere("stream.streamedAt BETWEEN :start AND :end", { start, end });
+    }
+
+    const rows = await qb
+      .select("track.audioFeatures", "audioFeatures")
+      .addSelect("track.bpm", "bpm")
+      .getRawMany();
+
+    if (rows.length === 0) {
+      return { totalTracks: 0, averages: null, distribution: null };
+    }
+
+    // Aggregate averages
+    const sums = { danceability: 0, energy: 0, valence: 0, acousticness: 0, instrumentalness: 0, speechiness: 0, liveness: 0 };
+    const bpmSum = { total: 0, count: 0 };
+    let count = 0;
+
+    for (const row of rows) {
+      const af = typeof row.audioFeatures === 'string' ? JSON.parse(row.audioFeatures) : row.audioFeatures;
+      if (!af) continue;
+      count++;
+      for (const key of Object.keys(sums)) {
+        if (af[key] != null) sums[key] += af[key];
+      }
+      if (row.bpm) { bpmSum.total += Number(row.bpm); bpmSum.count++; }
+    }
+
+    const averages = {} as Record<string, number>;
+    for (const [key, sum] of Object.entries(sums)) {
+      averages[key] = count > 0 ? Math.round((sum / count) * 100) / 100 : 0;
+    }
+    averages.bpm = bpmSum.count > 0 ? Math.round(bpmSum.total / bpmSum.count) : 0;
+
+    // Energy distribution buckets
+    const energyBuckets = { low: 0, medium: 0, high: 0 };
+    const valenceBuckets = { sad: 0, neutral: 0, happy: 0 };
+
+    for (const row of rows) {
+      const af = typeof row.audioFeatures === 'string' ? JSON.parse(row.audioFeatures) : row.audioFeatures;
+      if (!af) continue;
+      if (af.energy != null) {
+        if (af.energy < 0.33) energyBuckets.low++;
+        else if (af.energy < 0.66) energyBuckets.medium++;
+        else energyBuckets.high++;
+      }
+      if (af.valence != null) {
+        if (af.valence < 0.33) valenceBuckets.sad++;
+        else if (af.valence < 0.66) valenceBuckets.neutral++;
+        else valenceBuckets.happy++;
+      }
+    }
+
+    return {
+      totalTracks: count,
+      averages,
+      distribution: { energy: energyBuckets, mood: valenceBuckets },
+    };
+  }
+
   // ===== GLOBAL METHODS (all users) =====
 
   async getGlobalStats(opts: {

@@ -135,6 +135,19 @@ export class StreamsController implements CrudController<Stream> {
     return this.service.ingestStream(user.id, body);
   }
 
+  @Get("mood")
+  @ApiQuery({ name: "timeframe", required: false, description: "today | 7d | 30d | 90d | 1y | all" })
+  @ApiQuery({ name: "from", required: false })
+  @ApiQuery({ name: "to", required: false })
+  async mood(
+    @ReqUser() user: any,
+    @Query("timeframe") timeframe?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string
+  ) {
+    return this.service.getMoodAnalysis(user.id, { timeframe, from, to });
+  }
+
   @Get("stats")
   @ApiQuery({
     name: "timeframe",

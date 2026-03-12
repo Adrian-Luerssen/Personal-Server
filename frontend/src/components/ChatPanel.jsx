@@ -8,8 +8,8 @@ import { api } from '../api'
 import { usePageContext } from '../hooks/usePageContext'
 import './ChatPanel.css'
 
-const POLL_OPEN_MS = 3000
-const POLL_CLOSED_MS = 30000
+const POLL_OPEN_MS = 5000   // 5s when panel is open (was 3s)
+const POLL_CLOSED_MS = 60000 // 60s when closed (was 30s)
 
 function formatTime(ts) {
   if (!ts) return ''

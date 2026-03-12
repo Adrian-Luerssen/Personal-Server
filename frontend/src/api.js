@@ -1,22 +1,118 @@
 import { getApiBase } from "./config";
 import { getTokens, refreshIfPossible, clearTokens } from "./auth";
 
-// Stale-while-revalidate cache
-const swrCache = new Map(); // key: url, value: { data, timestamp }
-const SWR_MAX_AGE = 30_000; // 30s before background refresh
+// ---------------------------------------------------------------------------
+// Cache configuration — tiered TTLs based on data volatility
+// ---------------------------------------------------------------------------
+
+const CACHE_TIERS = {
+  // Static/slow-changing data — 5 minutes
+  static: 5 * 60_000,
+  // Semi-static data — 2 minutes
+  moderate: 2 * 60_000,
+  // Dynamic data — 30 seconds
+  dynamic: 30_000,
+};
+
+// Paths matching these prefixes use longer cache TTLs
+const STATIC_PATHS = [
+  '/workout/exercises',
+  '/workout/categories',
+  '/finance/wallets',
+  '/finance/categories',
+  '/finance/subscriptions',
+  '/spotify/linked',
+  '/spotify/me',
+  '/accounts/preferences',
+  '/accounts',
+];
+
+const MODERATE_PATHS = [
+  '/habits',           // habit definitions (not entries)
+  '/streams/stats',
+  '/streams/per-hour',
+  '/streams/per-day',
+  '/streams/top',
+  '/albums/top',
+  '/artists/top',
+  '/playlists/top',
+  '/workout/sessions/trends',
+  '/habits/trends',
+  '/habits/summary',
+  '/habits/progress',
+];
+
+function getCacheTTL(path) {
+  if (STATIC_PATHS.some(p => path.startsWith(p))) return CACHE_TIERS.static;
+  if (MODERATE_PATHS.some(p => path.startsWith(p))) return CACHE_TIERS.moderate;
+  return CACHE_TIERS.dynamic;
+}
+
+// ---------------------------------------------------------------------------
+// In-memory SWR cache with localStorage persistence
+// ---------------------------------------------------------------------------
+
+const LS_CACHE_KEY = 'ps-api-cache';
+const LS_MAX_ENTRIES = 60;
+
+const swrCache = new Map();
+const inflightRequests = new Map(); // deduplication: path → Promise
+
+// Restore cache from localStorage on startup
+try {
+  const stored = localStorage.getItem(LS_CACHE_KEY);
+  if (stored) {
+    const entries = JSON.parse(stored);
+    const now = Date.now();
+    for (const [key, val] of entries) {
+      // Only restore entries that haven't exceeded their TTL
+      const ttl = getCacheTTL(key);
+      if (now - val.timestamp < ttl) {
+        swrCache.set(key, val);
+      }
+    }
+  }
+} catch {
+  // corrupted cache, ignore
+}
+
+function persistCache() {
+  try {
+    const entries = [...swrCache.entries()].slice(-LS_MAX_ENTRIES);
+    localStorage.setItem(LS_CACHE_KEY, JSON.stringify(entries));
+  } catch {
+    // storage full or unavailable
+  }
+}
+
+// Debounce persistence so we don't thrash localStorage
+let persistTimer = null;
+function schedulePersist() {
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistCache();
+  }, 2000);
+}
 
 function invalidateCache(path) {
   const prefix = '/' + path.split('/').filter(Boolean)[0]; // e.g. "/finance"
   for (const key of swrCache.keys()) {
     if (key.startsWith(prefix)) swrCache.delete(key);
   }
+  schedulePersist();
 }
 
 export function clearApiCache() {
   swrCache.clear();
+  inflightRequests.clear();
+  localStorage.removeItem(LS_CACHE_KEY);
 }
 
-// apiFetch: attaches Authorization header and retries once on 401 after refresh
+// ---------------------------------------------------------------------------
+// Core fetch with auth retry
+// ---------------------------------------------------------------------------
+
 export async function apiFetch(path, options = {}) {
   const base = getApiBase();
   const url = path.startsWith("http") ? path : `${base}${path}`;
@@ -42,7 +138,6 @@ export async function apiFetch(path, options = {}) {
   if (res.status === 401) {
     const refreshed = await refreshIfPossible();
     if (refreshed) {
-      // retry with new token
       const { accessToken: newAccess } = getTokens();
       if (newAccess) headers.set("Authorization", `Bearer ${newAccess}`);
       res = await doFetch();
@@ -66,20 +161,52 @@ export async function apiFetch(path, options = {}) {
   return res.text();
 }
 
+// ---------------------------------------------------------------------------
+// API object with SWR caching + request deduplication
+// ---------------------------------------------------------------------------
+
 export const api = {
   get: async (path) => {
+    const ttl = getCacheTTL(path);
     const cached = swrCache.get(path);
-    if (cached && Date.now() - cached.timestamp < SWR_MAX_AGE) {
-      // Return cached data immediately, refresh in background
-      apiFetch(path).then(fresh => {
-        swrCache.set(path, { data: fresh, timestamp: Date.now() });
-      }).catch(() => {}); // silent background refresh
+
+    if (cached && Date.now() - cached.timestamp < ttl) {
+      // Return stale data immediately, refresh in background
+      if (!inflightRequests.has(path)) {
+        const bgRefresh = apiFetch(path).then(fresh => {
+          swrCache.set(path, { data: fresh, timestamp: Date.now() });
+          schedulePersist();
+          inflightRequests.delete(path);
+          return fresh;
+        }).catch(() => {
+          inflightRequests.delete(path);
+        });
+        inflightRequests.set(path, bgRefresh);
+      }
       return cached.data;
     }
-    const data = await apiFetch(path);
-    swrCache.set(path, { data, timestamp: Date.now() });
-    return data;
+
+    // Deduplicate: if this exact request is already in-flight, reuse it
+    if (inflightRequests.has(path)) {
+      return inflightRequests.get(path);
+    }
+
+    const request = apiFetch(path).then(data => {
+      swrCache.set(path, { data, timestamp: Date.now() });
+      schedulePersist();
+      inflightRequests.delete(path);
+      return data;
+    }).catch(err => {
+      inflightRequests.delete(path);
+      // If we have stale data and the request failed, return stale
+      if (cached) return cached.data;
+      throw err;
+    });
+
+    inflightRequests.set(path, request);
+    return request;
   },
+
   post: async (path, body) => {
     const data = await apiFetch(path, { method: "POST", body: JSON.stringify(body ?? {}) });
     invalidateCache(path);
@@ -101,3 +228,29 @@ export const api = {
     return data;
   },
 };
+
+// ---------------------------------------------------------------------------
+// Preload — call from Layout on mount to warm the cache
+// ---------------------------------------------------------------------------
+
+const PRELOAD_PATHS = [
+  '/streams/stats?timeframe=all',
+  '/workout/sessions?page=1&limit=1',
+  '/habits/summary',
+  '/finance/transactions/summary',
+  '/workout/sessions/recent',
+  '/finance/wallets',
+  '/finance/categories',
+  '/workout/exercises',
+];
+
+export function preloadDashboardData() {
+  for (const path of PRELOAD_PATHS) {
+    // Only preload if not already cached
+    const cached = swrCache.get(path);
+    const ttl = getCacheTTL(path);
+    if (!cached || Date.now() - cached.timestamp >= ttl) {
+      api.get(path).catch(() => {}); // silent, best-effort
+    }
+  }
+}

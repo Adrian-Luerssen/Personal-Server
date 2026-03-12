@@ -144,26 +144,96 @@ function CreateKeyModal({ onClose, onCreated }) {
     }
   }
 
-  const handleCopy = async () => {
-    if (createdKey?.key) {
-      await navigator.clipboard.writeText(createdKey.key)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
   const handleDone = () => {
     onCreated()
     onClose()
   }
 
   if (createdKey) {
+    const keyData = createdKey.agentKey || createdKey
+    const keyScopes = keyData.scopes || scopes
+    const keyName = keyData.name || name
+    const serverBase = window.location.origin
+
+    const agentSnippet = `## Personal Server Agent Setup
+
+**Name:** ${keyName}
+**Server:** ${serverBase}
+**API Key:** ${createdKey.key}
+
+### Authentication
+
+All API requests use the \`X-API-Key\` header:
+
+\`\`\`
+X-API-Key: ${createdKey.key}
+\`\`\`
+
+### Granted Scopes
+
+${keyScopes.map(s => `- \`${s}\``).join('\n')}
+
+### Available Endpoints
+
+Base path: \`${serverBase}/api/v1/\`
+
+${keyScopes.includes('workout:read') ? `**Workout** (workout:read)
+- \`GET /api/v1/workout/sessions\` — List sessions (?page=1&limit=20)
+- \`GET /api/v1/workout/sessions/recent\` — Recent sessions (?limit=5)
+- \`GET /api/v1/workout/sessions/active\` — Current active session
+- \`GET /api/v1/workout/sessions/:id\` — Specific session
+- \`GET /api/v1/workout/stats\` — Aggregate stats
+- \`GET /api/v1/workout/exercises\` — All exercises
+- \`GET /api/v1/workout/bodyweight\` — Bodyweight entries
+` : ''}${keyScopes.includes('finance:read') ? `**Finance** (finance:read)
+- \`GET /api/v1/finance/transactions\` — Transactions (?page, ?limit, ?type, ?walletId, ?categoryId)
+- \`GET /api/v1/finance/wallets\` — Wallets
+- \`GET /api/v1/finance/categories\` — Categories
+` : ''}${keyScopes.includes('habits:read') ? `**Habits** (habits:read)
+- \`GET /api/v1/habits/summary\` — All habits with streaks
+- \`GET /api/v1/habits/calendar/:month\` — Calendar view (YYYY-MM)
+` : ''}${keyScopes.includes('music:read') ? `**Music** (music:read)
+- Read-only access to Spotify listening history via dashboard
+` : ''}${keyScopes.includes('dashboard:read') ? `**Dashboard** (dashboard:read)
+- \`GET /api/v1/dashboard/streams/workout\` — Spotify during workouts (?timeframe=30d)
+` : ''}${keyScopes.includes('chat:read') || keyScopes.includes('chat:write') ? `**Chat** (${[keyScopes.includes('chat:read') && 'chat:read', keyScopes.includes('chat:write') && 'chat:write'].filter(Boolean).join(', ')})
+${keyScopes.includes('chat:read') ? `- \`GET /api/v1/chat/unread\` — Poll for unread messages
+- \`GET /api/v1/chat/conversations/:id/messages\` — Conversation messages` : ''}
+${keyScopes.includes('chat:write') ? `- \`PATCH /api/v1/chat/messages/:id\` — Update message status
+- \`POST /api/v1/chat/conversations/:id/messages\` — Send reply` : ''}
+` : ''}${keyScopes.includes('profile:read') ? `**Profile** (profile:read)
+- Read basic profile information
+` : ''}
+### Example Request
+
+\`\`\`bash
+curl -H "X-API-Key: ${createdKey.key}" "${serverBase}/api/v1/${keyScopes.includes('workout:read') ? 'workout/stats' : keyScopes.includes('habits:read') ? 'habits/summary' : keyScopes.includes('finance:read') ? 'finance/wallets' : keyScopes.includes('chat:read') ? 'chat/unread' : 'dashboard/streams/workout'}"
+\`\`\`
+
+### Full Skill Document
+
+The complete agent skill document is available at:
+\`GET ${serverBase}/api/agent-skill\` (no auth required)
+`
+
+    const handleCopySnippet = async () => {
+      await navigator.clipboard.writeText(agentSnippet)
+      setCopied('snippet')
+      setTimeout(() => setCopied(false), 2000)
+    }
+
+    const handleCopyKey = async () => {
+      await navigator.clipboard.writeText(createdKey.key)
+      setCopied('key')
+      setTimeout(() => setCopied(false), 2000)
+    }
+
     return (
-      <Modal title="API Key Created" onClose={handleDone} size="medium">
+      <Modal title="API Key Created" onClose={handleDone} size="large">
         <div className="alert-warning" style={{ marginBottom: '1rem' }}>
           <strong>Important:</strong> Copy this key now. You won't be able to see it again!
         </div>
-        
+
         <div className="field">
           <label>API Key</label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -174,22 +244,52 @@ function CreateKeyModal({ onClose, onCreated }) {
               readOnly
               style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
             />
-            <button className="btn small" onClick={handleCopy}>
-              <Icon name={copied ? 'check' : 'copy'} size={16} />
+            <button className="btn small" onClick={handleCopyKey}>
+              <Icon name={copied === 'key' ? 'check' : 'copy'} size={16} />
             </button>
           </div>
         </div>
-        
+
         <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)' }}>
-          <div><strong>Name:</strong> {createdKey.name}</div>
+          <div><strong>Name:</strong> {keyName}</div>
           <div style={{ marginTop: '0.5rem' }}>
             <strong>Scopes:</strong>
             <div style={{ marginTop: '0.25rem' }}>
-              {createdKey.scopes.map(s => <ScopeBadge key={s} scope={s} />)}
+              {keyScopes.map(s => <ScopeBadge key={s} scope={s} />)}
             </div>
           </div>
         </div>
-        
+
+        <div style={{ marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <label style={{ fontWeight: 600, fontSize: '0.95rem' }}>Agent Setup Instructions</label>
+            <button className="btn small" onClick={handleCopySnippet}>
+              <Icon name={copied === 'snippet' ? 'check' : 'copy'} size={16} />
+              {copied === 'snippet' ? 'Copied!' : 'Copy All'}
+            </button>
+          </div>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem 0' }}>
+            Copy and paste this to your agent so it knows how to interact with your server.
+          </p>
+          <textarea
+            readOnly
+            value={agentSnippet}
+            style={{
+              width: '100%',
+              minHeight: '280px',
+              fontFamily: 'monospace',
+              fontSize: '0.8rem',
+              padding: '0.75rem',
+              background: 'rgba(0,0,0,0.2)',
+              color: 'var(--color-text)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 'var(--radius-md)',
+              resize: 'vertical',
+              lineHeight: 1.5,
+            }}
+          />
+        </div>
+
         <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
           <button className="btn" onClick={handleDone}>Done</button>
         </div>

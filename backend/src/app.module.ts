@@ -4,8 +4,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { SystemModule } from "./system/system.module";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
-import { ClassSerializerInterceptor } from "@nestjs/common";
-import { Reflector } from "@nestjs/core";
 import { AppExceptionFilter } from "./app-exception.filter";
 import { HealthModule } from "./health/health.module";
 import { TimeoutInterceptor } from "./timeout.interceptor";
@@ -29,14 +27,6 @@ import { ChatModule } from "./chat/chat.module";
       useClass: AppExceptionFilter,
     },
     { provide: APP_INTERCEPTOR, useClass: TimeoutInterceptor },
-    {
-      provide: APP_INTERCEPTOR,
-      useFactory: (reflector: Reflector) =>
-        new ClassSerializerInterceptor(reflector, {
-          excludeExtraneousValues: false,
-        }),
-      inject: [Reflector],
-    },
     ToolService,
   ],
   exports: [],

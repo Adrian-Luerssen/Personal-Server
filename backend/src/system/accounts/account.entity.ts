@@ -1,5 +1,4 @@
-import { Column, Entity, ManyToOne } from "typeorm";
-import { Exclude } from "class-transformer";
+import { Column, Entity } from "typeorm";
 import { AbstractEntity } from "../common/AbstractEntity";
 
 @Entity()
@@ -13,14 +12,17 @@ export class Account extends AbstractEntity {
   @Column({ nullable: false })
   email: string;
 
-  @Exclude()
   @Column({ nullable: false })
   password: string;
 
-  @Exclude()
   @Column({ nullable: true })
   mfaSecret?: string;
 
   @Column({ default: false })
   mfaEnabled: boolean;
+
+  toJSON() {
+    const { password, mfaSecret, ...safe } = this as any;
+    return safe;
+  }
 }

@@ -9,6 +9,7 @@ const SCOPE_GROUPS = {
   'Workout': ['workout:read', 'workout:write'],
   'Finance': ['finance:read', 'finance:write'],
   'Habits': ['habits:read', 'habits:write'],
+  'Chat': ['chat:read', 'chat:write'],
   'Music': ['music:read'],
   'Dashboard': ['dashboard:read'],
   'Profile': ['profile:read'],
@@ -23,7 +24,8 @@ function ScopeBadge({ scope }) {
     finance: { bg: 'rgba(251, 191, 36, 0.15)', text: '#fbbf24' },
     habits: { bg: 'rgba(167, 139, 250, 0.15)', text: '#a78bfa' },
     music: { bg: 'rgba(96, 165, 250, 0.15)', text: '#60a5fa' },
-    dashboard: { bg: 'rgba(248, 113, 113, 0.15)', text: '#f87171' },
+    chat: { bg: 'rgba(248, 113, 113, 0.15)', text: '#f87171' },
+    dashboard: { bg: 'rgba(244, 114, 182, 0.15)', text: '#f472b6' },
     profile: { bg: 'rgba(125, 211, 252, 0.15)', text: '#7dd3fc' },
   }
   const color = colors[module] || { bg: 'var(--color-accent-muted)', text: 'var(--color-accent)' }
@@ -101,7 +103,7 @@ function ScopeSelector({ selected, onChange }) {
 
 function CreateKeyModal({ onClose, onCreated }) {
   const [name, setName] = useState('')
-  const [scopes, setScopes] = useState([])
+  const [scopes, setScopes] = useState([...ALL_SCOPES])
   const [expiresIn, setExpiresIn] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')

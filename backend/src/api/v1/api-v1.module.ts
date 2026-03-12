@@ -6,6 +6,7 @@ import { AgentWorkoutController } from './workout.controller';
 import { AgentDashboardController } from './dashboard.controller';
 import { AgentFinanceController } from './finance.controller';
 import { AgentHabitsController } from './habits.controller';
+import { AgentDiscoverController } from './discover.controller';
 
 // Workout dependencies
 import { WorkoutSession } from '../../workout/sessions/session.entity';
@@ -79,6 +80,7 @@ import { SubscriptionsService } from '../../finance/subscriptions/subscriptions.
     AgentDashboardController,
     AgentFinanceController,
     AgentHabitsController,
+    AgentDiscoverController,
   ],
 })
 export class ApiV1Module {}

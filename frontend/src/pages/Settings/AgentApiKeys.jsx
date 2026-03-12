@@ -207,11 +207,15 @@ ${keyScopes.includes('chat:write') ? `- \`PATCH /api/v1/chat/messages/:id\` — 
 ` : ''}${keyScopes.includes('profile:read') ? `**Profile** (profile:read)
 - Read basic profile information
 ` : ''}
-### Example Request
+### Auto-Discovery
+
+Call this endpoint at any time to get an up-to-date list of all endpoints available to your key:
 
 \`\`\`bash
-curl -H "X-API-Key: ${createdKey.key}" "${serverBase}/api/v1/${keyScopes.includes('workout:read') ? 'workout/stats' : keyScopes.includes('habits:read') ? 'habits/summary' : keyScopes.includes('finance:read') ? 'finance/wallets' : keyScopes.includes('chat:read') ? 'chat/unread' : 'dashboard/streams/workout'}"
+curl -H "X-API-Key: ${createdKey.key}" "${serverBase}/api/v1/discover"
 \`\`\`
+
+Returns your granted scopes and every endpoint you can call, with parameters and descriptions. Use this to stay in sync when new endpoints are added.
 
 ### Full Skill Document
 

@@ -5,43 +5,42 @@ jest.mock('@nestjsx/crud-typeorm', () => ({
   },
 }));
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { WorkoutSessionsService } from './sessions.service';
 import { WorkoutSession } from './session.entity';
 import { WorkoutSet } from '../sets/set.entity';
 import { Account } from '../../system/accounts/account.entity';
+import { Repository } from 'typeorm';
+
+/** Helper: builds a chainable query-builder mock */
+function makeQB(result: any, isList = false) {
+  const qb: any = {};
+  const chainMethods = [
+    'innerJoin',
+    'select',
+    'addSelect',
+    'where',
+    'andWhere',
+    'groupBy',
+    'addGroupBy',
+    'orderBy',
+    'limit',
+  ];
+  for (const m of chainMethods) {
+    qb[m] = jest.fn().mockReturnValue(qb);
+  }
+  qb.getRawOne = jest.fn().mockResolvedValue(result);
+  qb.getRawMany = jest.fn().mockResolvedValue(isList ? result : [result]);
+  return qb;
+}
 
 describe('WorkoutSessionsService – PR methods', () => {
   let service: WorkoutSessionsService;
   let mockSetRepo: any;
-  let mockSessionRepo: any;
+  let mockSessionRepo: Partial<Repository<WorkoutSession>>;
 
   const account = { id: 'acct-1' } as Account;
 
-  /** Helper: builds a chainable query-builder mock that resolves to `result` */
-  function makeQB(result: any, isList = false) {
-    const qb: any = {};
-    const chainMethods = [
-      'innerJoin',
-      'select',
-      'addSelect',
-      'where',
-      'andWhere',
-      'groupBy',
-      'addGroupBy',
-      'orderBy',
-      'limit',
-    ];
-    for (const m of chainMethods) {
-      qb[m] = jest.fn().mockReturnValue(qb);
-    }
-    qb.getRawOne = jest.fn().mockResolvedValue(result);
-    qb.getRawMany = jest.fn().mockResolvedValue(isList ? result : [result]);
-    return qb;
-  }
-
-  beforeEach(async () => {
+  beforeEach(() => {
     mockSetRepo = {
       createQueryBuilder: jest.fn(),
       find: jest.fn(),
@@ -59,23 +58,15 @@ describe('WorkoutSessionsService – PR methods', () => {
         columns: [],
         relations: [],
         connection: { options: { type: 'postgres' } },
-      },
+      } as any,
       manager: {
         getRepository: jest.fn().mockReturnValue(mockSetRepo),
-      },
+      } as any,
     };
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        WorkoutSessionsService,
-        {
-          provide: getRepositoryToken(WorkoutSession),
-          useValue: mockSessionRepo,
-        },
-      ],
-    }).compile();
-
-    service = module.get<WorkoutSessionsService>(WorkoutSessionsService);
+    service = new WorkoutSessionsService(
+      mockSessionRepo as Repository<WorkoutSession>,
+    );
   });
 
   afterEach(() => jest.resetAllMocks());
@@ -125,11 +116,18 @@ describe('WorkoutSessionsService – PR methods', () => {
       const aggWhereCalls = aggregateQB.where.mock.calls;
       expect(aggWhereCalls[0][1]).toEqual({ aid: 'acct-1' });
       const andWhereCalls = aggregateQB.andWhere.mock.calls;
-      expect(andWhereCalls.some((c: any[]) => c[0].includes('weight IS NOT NULL'))).toBe(true);
-      expect(andWhereCalls.some((c: any[]) => c[0].includes('weight > 0'))).toBe(true);
+      expect(
+        andWhereCalls.some((c: any[]) => c[0].includes('weight IS NOT NULL')),
+      ).toBe(true);
+      expect(
+        andWhereCalls.some((c: any[]) => c[0].includes('weight > 0')),
+      ).toBe(true);
 
       // Verify ordering is by max weight descending
-      expect(aggregateQB.orderBy).toHaveBeenCalledWith('MAX(st.weight)', 'DESC');
+      expect(aggregateQB.orderBy).toHaveBeenCalledWith(
+        'MAX(st.weight)',
+        'DESC',
+      );
     });
 
     it('should return an empty array when user has no sets', async () => {
@@ -146,7 +144,7 @@ describe('WorkoutSessionsService – PR methods', () => {
         [{ exerciseId: 'ex-3', exerciseName: 'Deadlift', maxWeight: '200' }],
         true,
       );
-      // Detail lookup returns null (no matching set found — edge case)
+      // Detail lookup returns null (no matching set found)
       const detailQB = makeQB(null);
       mockSetRepo.createQueryBuilder
         .mockReturnValueOnce(aggregateQB)
@@ -230,7 +228,7 @@ describe('WorkoutSessionsService – PR methods', () => {
         },
       ]);
 
-      // No previous record → maxWeight is null
+      // No previous record -> maxWeight is null
       const prevMaxQB = makeQB({ maxWeight: null });
       mockSetRepo.createQueryBuilder.mockReturnValueOnce(prevMaxQB);
 
@@ -244,9 +242,24 @@ describe('WorkoutSessionsService – PR methods', () => {
     it('should skip sets with no exerciseId, null weight, or weight <= 0', async () => {
       mockSetRepo.find.mockResolvedValue([
         { exerciseId: null, weight: 50, reps: 10, exercise: null },
-        { exerciseId: 'ex-1', weight: null, reps: 10, exercise: { name: 'Bench' } },
-        { exerciseId: 'ex-2', weight: 0, reps: 10, exercise: { name: 'Squat' } },
-        { exerciseId: 'ex-3', weight: -5, reps: 10, exercise: { name: 'Curl' } },
+        {
+          exerciseId: 'ex-1',
+          weight: null,
+          reps: 10,
+          exercise: { name: 'Bench' },
+        },
+        {
+          exerciseId: 'ex-2',
+          weight: 0,
+          reps: 10,
+          exercise: { name: 'Squat' },
+        },
+        {
+          exerciseId: 'ex-3',
+          weight: -5,
+          reps: 10,
+          exercise: { name: 'Curl' },
+        },
       ]);
 
       const result = await service.checkSessionPRs(account, sessionId);
@@ -276,7 +289,7 @@ describe('WorkoutSessionsService – PR methods', () => {
         },
       ]);
 
-      // Previous max is also 100 — this is NOT a new PR
+      // Previous max is also 100 -- strict greater-than required
       const prevMaxQB = makeQB({ maxWeight: '100' });
       mockSetRepo.createQueryBuilder.mockReturnValueOnce(prevMaxQB);
 
@@ -305,9 +318,9 @@ describe('WorkoutSessionsService – PR methods', () => {
         },
       ]);
 
-      // ex-1: previous max 100 → 110 is a new PR
+      // ex-1: previous max 100 -> 110 is a new PR
       const qb1 = makeQB({ maxWeight: '100' });
-      // ex-2: previous max 90 → 80 is NOT a new PR
+      // ex-2: previous max 90 -> 80 is NOT a new PR
       const qb2 = makeQB({ maxWeight: '90' });
       mockSetRepo.createQueryBuilder
         .mockReturnValueOnce(qb1)

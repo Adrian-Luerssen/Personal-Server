@@ -27,7 +27,7 @@ import { ChatStatus } from './entities/message.entity';
 @ApiTags('API v1 - Chat')
 @ApiSecurity('api-key')
 @UseGuards(AgentKeyGuard, ScopeGuard)
-@Controller('api/v1/chat')
+@Controller('v1/chat')
 export class ChatAgentController {
   constructor(private readonly chatService: ChatService) {}
 

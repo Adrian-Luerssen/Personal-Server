@@ -25,7 +25,7 @@ import { ApiKey } from '../../system/auth/auth.decorator';
 @ApiTags('API v1 - Workout')
 @ApiSecurity('api-key')
 @UseGuards(AgentKeyGuard, ScopeGuard)
-@Controller('api/v1/workout')
+@Controller('v1/workout')
 export class AgentWorkoutController {
   constructor(
     private readonly sessionsService: WorkoutSessionsService,

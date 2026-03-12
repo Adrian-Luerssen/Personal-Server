@@ -21,7 +21,7 @@ import { ApiKey } from '../../system/auth/auth.decorator';
 @ApiTags('API v1 - Finance')
 @ApiSecurity('api-key')
 @UseGuards(AgentKeyGuard, ScopeGuard)
-@Controller('api/v1/finance')
+@Controller('v1/finance')
 export class AgentFinanceController {
   // TODO: inject FinanceService once task-06 is merged
 

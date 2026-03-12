@@ -21,7 +21,7 @@ import { ApiKey } from '../../system/auth/auth.decorator';
 @ApiTags('API v1 - Habits')
 @ApiSecurity('api-key')
 @UseGuards(AgentKeyGuard, ScopeGuard)
-@Controller('api/v1/habits')
+@Controller('v1/habits')
 export class AgentHabitsController {
   // TODO: inject HabitsService once task-07 is merged
 

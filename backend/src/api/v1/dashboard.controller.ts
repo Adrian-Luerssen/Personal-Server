@@ -22,7 +22,7 @@ import { ApiKey } from '../../system/auth/auth.decorator';
 @ApiTags('API v1 - Dashboard')
 @ApiSecurity('api-key')
 @UseGuards(AgentKeyGuard, ScopeGuard)
-@Controller('api/v1/dashboard')
+@Controller('v1/dashboard')
 export class AgentDashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 

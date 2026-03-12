@@ -220,6 +220,7 @@
   border: 1px solid var(--glass-border);
   color: var(--color-text-primary);
   border-bottom-left-radius: var(--radius-sm);
+  max-width: 92%;
 }
 
 .chat-msg-status {
@@ -232,9 +233,28 @@
   vertical-align: middle;
 }
 
+.chat-msg-status.delivered,
+.chat-msg-status.read {
+  opacity: 1;
+}
+
 .chat-msg-status.error {
   color: var(--color-error);
   opacity: 1;
+}
+
+/* Context badge on sent messages */
+.chat-msg-context-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 10px;
+  opacity: 0.8;
+  width: fit-content;
 }
 
 /* Thinking dots animation */
@@ -266,18 +286,46 @@
   30% { opacity: 1; transform: translateY(-4px); }
 }
 
-/* Page context chip */
+/* Page context chip (toggleable) */
 .chat-context-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   margin: 0 var(--density-padding-md) var(--density-padding-xs);
   border-radius: var(--radius-full);
-  background: var(--color-accent-muted);
-  color: var(--color-accent);
   font-size: var(--font-size-xs);
   font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.chat-context-chip.active {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.chat-context-chip.inactive {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-muted);
+  border-color: rgba(255, 255, 255, 0.08);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.chat-context-chip:hover {
+  opacity: 1;
+}
+
+.chat-context-dismiss {
+  opacity: 0.5;
+  margin-left: 2px;
+}
+
+.chat-context-chip:hover .chat-context-dismiss {
+  opacity: 1;
 }
 
 /* Input area */
@@ -336,6 +384,141 @@
   opacity: 0.4;
   cursor: not-allowed;
   transform: none;
+}
+
+/* ===== Markdown styles for agent messages ===== */
+.chat-markdown {
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+}
+
+.chat-markdown > *:first-child {
+  margin-top: 0;
+}
+
+.chat-markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown p {
+  margin: 0.4rem 0;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  margin: 0.6rem 0 0.3rem;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.chat-markdown h1 { font-size: 1.05rem; }
+.chat-markdown h2 { font-size: 0.95rem; }
+.chat-markdown h3 { font-size: 0.88rem; }
+.chat-markdown h4 { font-size: 0.83rem; }
+
+.chat-markdown strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.chat-markdown em {
+  font-style: italic;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.3rem 0;
+  padding-left: 1.2rem;
+}
+
+.chat-markdown li {
+  margin: 0.15rem 0;
+}
+
+.chat-markdown li > ul,
+.chat-markdown li > ol {
+  margin: 0.1rem 0;
+}
+
+/* Tables */
+.chat-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.78rem;
+}
+
+.chat-markdown thead tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.chat-markdown th {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.chat-markdown td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-markdown tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Inline code */
+.chat-inline-code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.8em;
+  font-family: 'Fira Code', 'Consolas', monospace;
+}
+
+/* Block quotes */
+.chat-markdown blockquote {
+  margin: 0.4rem 0;
+  padding: 0.3rem 0.6rem;
+  border-left: 3px solid var(--color-accent);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.chat-markdown blockquote p {
+  margin: 0;
+}
+
+/* Horizontal rules */
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid var(--glass-border);
+  margin: 0.5rem 0;
+}
+
+/* Links */
+.chat-markdown a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.chat-markdown a:hover {
+  text-decoration: underline;
+}
+
+/* Task lists */
+.chat-markdown input[type="checkbox"] {
+  margin-right: 0.3rem;
+}
+
+/* Strikethrough */
+.chat-markdown del {
+  opacity: 0.6;
 }
 
 /* Mobile: move chat toggle above bottom nav */

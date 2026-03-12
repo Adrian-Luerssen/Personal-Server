@@ -176,27 +176,41 @@ curl -H "X-API-Key: ps_live_..." "https://your-server.com/api/v1/workout/bodywei
 
 All finance endpoints require the `finance:read` scope.
 
-> **Note:** Finance endpoints are currently stubs returning empty data. They will be fully implemented in an upcoming release.
-
 #### GET /api/v1/finance/transactions
 
-Get transactions.
+Get paginated transactions with optional filters.
+
+**Query Parameters:**
+- `page` (number, default: 1) - Page number
+- `limit` (number, default: 50, max: 200) - Items per page
+- `walletId` (UUID, optional) - Filter by wallet
+- `categoryId` (UUID, optional) - Filter by category (includes subcategories)
+- `from` (ISO date, optional) - Start date
+- `to` (ISO date, optional) - End date
+- `isIncome` ("true" or "false", optional) - Filter by income/expense
+- `search` (string, optional) - Search transaction names
 
 ```bash
-curl -H "X-API-Key: ps_live_..." "https://your-server.com/api/v1/finance/transactions"
+curl -H "X-API-Key: ps_live_..." "https://your-server.com/api/v1/finance/transactions?from=2026-02-01&to=2026-02-28&limit=100"
 ```
 
-**Response:**
-```json
-{
-  "message": "Finance module coming soon",
-  "data": []
-}
+#### GET /api/v1/finance/transactions/summary
+
+Get financial summary: income/expense totals, net balance, top expense categories, daily sparkline.
+
+**Query Parameters:**
+- `walletId` (UUID, optional) - Filter by wallet
+- `categoryId` (UUID, optional) - Filter by category
+- `from` (ISO date, optional) - Start date
+- `to` (ISO date, optional) - End date
+
+```bash
+curl -H "X-API-Key: ps_live_..." "https://your-server.com/api/v1/finance/transactions/summary?from=2026-02-01&to=2026-02-28"
 ```
 
 #### GET /api/v1/finance/wallets
 
-Get wallets.
+Get all wallets with computed balances.
 
 ```bash
 curl -H "X-API-Key: ps_live_..." "https://your-server.com/api/v1/finance/wallets"
@@ -204,10 +218,18 @@ curl -H "X-API-Key: ps_live_..." "https://your-server.com/api/v1/finance/wallets
 
 #### GET /api/v1/finance/categories
 
-Get spending categories.
+Get spending categories as a hierarchical tree (parents with subcategories).
 
 ```bash
 curl -H "X-API-Key: ps_live_..." "https://your-server.com/api/v1/finance/categories"
+```
+
+#### GET /api/v1/finance/subscriptions
+
+Get all subscriptions with wallet and category details.
+
+```bash
+curl -H "X-API-Key: ps_live_..." "https://your-server.com/api/v1/finance/subscriptions"
 ```
 
 ### 3.3 Habits Endpoints
@@ -407,7 +429,10 @@ When a user sends a message, it flows through these statuses:
    - **Mark as thinking:** `PATCH /api/v1/chat/messages/:id` with `{"status": "thinking"}`
    - **Process** the message (query data, reason, prepare response)
    - **Send reply:** `POST /api/v1/chat/conversations/:conversationId/messages` with the reply text and `replyToId`
-3. The reply is automatically created with status `delivered`.
+   - **Mark original message as delivered:** `PATCH /api/v1/chat/messages/:id` with `{"status": "delivered"}`
+3. The reply message is automatically created with status `delivered`.
+
+> **CRITICAL:** You MUST mark the original user message as `delivered` (step 2.5) after sending your reply. If you skip this step, the user will see infinite "thinking" dots and their original message text will be hidden. The complete status flow for the user's message is: `sent → read → thinking → delivered`.
 
 ### Polling Schedule
 
@@ -452,7 +477,9 @@ When a user sends a message, it flows through these statuses:
 
 ### Page Context Interpretation
 
-When a user sends a message, it may include a `pageContext` object indicating where in the app the user is currently viewing. Use this context to provide more relevant responses.
+When a user sends a message, it **may or may not** include a `pageContext` object. The user has a toggle to control whether their current page context is attached. Always check for its presence before using it — if `pageContext` is `null` or absent, the user chose not to share it. Do not ask about it.
+
+When present, `pageContext` indicates where in the app the user is currently viewing. Use this context to provide more relevant responses.
 
 **pageContext structure:**
 ```json
@@ -510,7 +537,57 @@ Habits page:
 
 ---
 
-## 7. Example Flows
+## 7. Response Formatting
+
+The chat UI renders agent replies as **Markdown**. Use proper Markdown formatting to make your responses clear and readable.
+
+### Formatting Rules
+
+- Use `##` or `###` headers to separate sections in longer responses
+- Use **bold** for key numbers and important terms
+- Use bullet lists (`-`) for itemized data
+- Use numbered lists (`1.`) for sequential steps
+- Use Markdown tables for comparisons (keep to **4 columns max** to fit mobile screens)
+- Use `` `inline code` `` for IDs, values, or technical terms
+- Use fenced code blocks (` ``` `) for raw data, with language tags for syntax highlighting
+- Use `>` blockquotes for notes or caveats
+- Use `---` horizontal rules to separate major sections
+
+### Do NOT
+
+- Use ASCII-art tables (pipes and dashes drawn manually) — use proper Markdown tables
+- Send walls of unformatted text — break it up with headers and lists
+- Overuse emojis — one or two per response is fine as visual anchors, not more
+- Use HTML tags — only standard Markdown is supported
+
+### Example Response
+
+```markdown
+## February Finance Summary
+
+**Income:** €3,416/month
+**Expenses:** €2,041/month
+**Net savings:** €1,375/month
+
+### Savings Scenarios
+
+| Scenario | Monthly savings | Time to €60k |
+|----------|----------------|--------------|
+| Current pace | €1,375 | 44 months |
+| Moderate cuts | €1,600 | 38 months |
+| Aggressive cuts | €2,000 | 30 months |
+
+### Recommendations
+
+- **Night Out** (€126): could reduce to €50
+- **Online Services** (€224): review subscriptions
+
+> Note: Health expenses (€598) include therapy — not recommended to cut.
+```
+
+---
+
+## 8. Example Flows
 
 ### Flow 1: Poll, Read, Think, Reply
 
@@ -571,6 +648,17 @@ curl -X POST \
   "https://your-server.com/api/v1/chat/conversations/conv-001/messages"
 ```
 
+**Step 6: Mark original message as delivered (REQUIRED)**
+```bash
+curl -X PATCH \
+  -H "X-API-Key: ps_live_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"status": "delivered"}' \
+  "https://your-server.com/api/v1/chat/messages/msg-001"
+```
+
+> This clears the "thinking" indicator and restores the user's original message text in the UI.
+
 ### Flow 2: Querying Workout Data to Answer a Question
 
 The user asks: "What's my heaviest bench press?"
@@ -592,8 +680,17 @@ curl -H "X-API-Key: ps_live_abc123..." \
 curl -X POST \
   -H "X-API-Key: ps_live_abc123..." \
   -H "Content-Type: application/json" \
-  -d '{"text": "Your heaviest bench press was 100 kg for 3 reps on March 2nd, 2026.", "replyToId": "msg-001"}' \
+  -d '{"text": "Your heaviest bench press was **100 kg** for 3 reps on March 2nd, 2026.", "replyToId": "msg-001"}' \
   "https://your-server.com/api/v1/chat/conversations/conv-001/messages"
+```
+
+**Step 6:** Mark original message as delivered:
+```bash
+curl -X PATCH \
+  -H "X-API-Key: ps_live_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"status": "delivered"}' \
+  "https://your-server.com/api/v1/chat/messages/msg-001"
 ```
 
 ---

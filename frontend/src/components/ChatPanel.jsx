@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Icon } from './icons'
 import { api } from '../api'
 import { usePageContext } from '../hooks/usePageContext'
@@ -23,9 +27,9 @@ function StatusIndicator({ status }) {
     case 'sent':
       return <span className="chat-msg-status"><Icon name="check" size={12} /></span>
     case 'delivered':
-      return <span className="chat-msg-status"><Icon name="check-check" size={12} /></span>
+      return <span className="chat-msg-status delivered"><Icon name="check-check" size={12} /></span>
     case 'read':
-      return <span className="chat-msg-status"><Icon name="check-check" size={12} style={{ opacity: 1 }} /></span>
+      return <span className="chat-msg-status read"><Icon name="check-check" size={12} /></span>
     case 'thinking':
       return (
         <span className="chat-msg-status">
@@ -41,6 +45,67 @@ function StatusIndicator({ status }) {
   }
 }
 
+function ContextBadge({ pageContext }) {
+  if (!pageContext || !pageContext.pageType) return null
+
+  const parts = [pageContext.pageType.replace(/-/g, ' ')]
+  if (pageContext.filters) {
+    const f = pageContext.filters
+    if (f.timeframe) parts.push(f.timeframe)
+    if (f.from && f.to) parts.push(`${f.from} – ${f.to}`)
+    else if (f.from) parts.push(`from ${f.from}`)
+  }
+
+  return (
+    <div className="chat-msg-context-badge">
+      <Icon name="compass" size={10} />
+      {parts.join(' · ')}
+    </div>
+  )
+}
+
+function MarkdownMessage({ text }) {
+  return (
+    <ReactMarkdown
+      className="chat-markdown"
+      remarkPlugins={[remarkGfm]}
+      components={{
+        code({ node, inline, className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || '')
+          return !inline && match ? (
+            <SyntaxHighlighter
+              style={oneDark}
+              language={match[1]}
+              PreTag="div"
+              customStyle={{
+                margin: '0.5rem 0',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                padding: '0.75rem',
+              }}
+              {...props}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          ) : (
+            <code className="chat-inline-code" {...props}>
+              {children}
+            </code>
+          )
+        },
+        a({ href, children, ...props }) {
+          return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>
+        },
+        img({ src, alt, ...props }) {
+          return <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: '6px' }} {...props} />
+        },
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  )
+}
+
 export default function ChatPanel() {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState('list') // 'list' | 'detail'
@@ -50,6 +115,7 @@ export default function ChatPanel() {
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [sendContext, setSendContext] = useState(true)
 
   const messagesEndRef = useRef(null)
   const pageContext = usePageContext()
@@ -154,6 +220,8 @@ export default function ChatPanel() {
     setSending(true)
     setInputText('')
 
+    const contextToSend = sendContext ? pageContext : null
+
     // Optimistic add
     const tempMsg = {
       id: `temp-${Date.now()}`,
@@ -161,13 +229,14 @@ export default function ChatPanel() {
       text,
       status: 'sent',
       created_at: new Date().toISOString(),
+      pageContext: contextToSend,
     }
     setMessages(prev => [...prev, tempMsg])
 
     try {
       await api.post(`/chat/conversations/${activeConvId}/messages`, {
         text,
-        pageContext,
+        ...(contextToSend ? { pageContext: contextToSend } : {}),
       })
       // Refresh messages to get server response
       await fetchMessages()
@@ -259,24 +328,38 @@ export default function ChatPanel() {
               )}
               {messages.map(msg => (
                 <div key={msg.id} className={`chat-msg ${msg.role === 'user' ? 'user' : 'agent'}`}>
-                  {msg.status === 'thinking' ? (
+                  {msg.role === 'user' ? (
+                    <>
+                      {msg.text}
+                      <ContextBadge pageContext={msg.pageContext} />
+                      <StatusIndicator status={msg.status} />
+                    </>
+                  ) : msg.status === 'thinking' ? (
                     <span className="chat-thinking-dots">
                       <span /><span /><span />
                     </span>
                   ) : (
-                    msg.text
+                    <MarkdownMessage text={msg.text || ''} />
                   )}
-                  {msg.role === 'user' && <StatusIndicator status={msg.status} />}
                 </div>
               ))}
               <div ref={messagesEndRef} />
             </div>
 
             <div className="chat-input-area">
-              <div className="chat-context-chip">
+              <button
+                className={`chat-context-chip ${sendContext ? 'active' : 'inactive'}`}
+                onClick={() => setSendContext(prev => !prev)}
+                title={sendContext ? 'Click to disable page context' : 'Click to enable page context'}
+              >
                 <Icon name="compass" size={12} />
                 {pageContext.pageType}
-              </div>
+                {sendContext ? (
+                  <Icon name="x" size={10} className="chat-context-dismiss" />
+                ) : (
+                  <Icon name="plus" size={10} className="chat-context-dismiss" />
+                )}
+              </button>
               <div className="chat-input-row">
                 <input
                   type="text"

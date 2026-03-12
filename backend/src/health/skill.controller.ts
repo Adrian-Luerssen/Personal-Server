@@ -1,8 +1,8 @@
-import { Controller, Get, Header } from '@nestjs/common';
+import { Controller, Get, Header, InternalServerErrorException } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NoAuth } from '../system/auth/auth.decorator';
-import * as fs from 'fs';
-import * as path from 'path';
+
+const SKILL_URL = 'https://raw.githubusercontent.com/Adrian-Luerssen/Personal-Server/main/docs/agent-skill.md';
 
 @Controller('agent-skill')
 export class SkillController {
@@ -11,8 +11,11 @@ export class SkillController {
   @Header('Content-Type', 'text/markdown')
   @ApiOperation({ summary: 'Get the agent skill document (no auth required)' })
   @ApiTags('Agent')
-  getSkill() {
-    const skillPath = path.join(process.cwd(), '..', 'docs', 'agent-skill.md');
-    return fs.readFileSync(skillPath, 'utf-8');
+  async getSkill() {
+    const res = await fetch(SKILL_URL);
+    if (!res.ok) {
+      throw new InternalServerErrorException('Failed to fetch agent skill document');
+    }
+    return res.text();
   }
 }

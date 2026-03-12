@@ -82,6 +82,18 @@ function setupSelfPing(app: INestApplication) {
 }
 
 async function bootstrap() {
+  // Guard against Node.js v22 ERR_INTERNAL_ASSERTION in ServerResponse.detachSocket
+  // This is a known Node bug triggered by compression + keep-alive edge cases.
+  // Logging instead of crashing keeps the server alive.
+  process.on('uncaughtException', (err) => {
+    if (err && (err as any).code === 'ERR_INTERNAL_ASSERTION') {
+      Logger.warn(`Suppressed Node.js internal assertion (non-fatal): ${err.message}`, 'Process');
+      return;
+    }
+    Logger.error(`Uncaught exception: ${err.message}`, err.stack, 'Process');
+    process.exit(1);
+  });
+
   const app = await NestFactory.create(AppModule);
   app.use(bodyParser.json({ limit: "50mb" }));
   app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));

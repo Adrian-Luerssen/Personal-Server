@@ -1,0 +1,13 @@
+{
+  "name": "Personal Server",
+  "short_name": "PS",
+  "description": "Your personal data hub",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#0f0f14",
+  "theme_color": "#6366f1",
+  "orientation": "any",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

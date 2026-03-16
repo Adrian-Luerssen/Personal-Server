@@ -73,6 +73,7 @@
     "swagger-ui-express": "^4.1.6",
     "typeorm": "^0.3.20",
     "xlsx": "^0.16.9",
+    "xml2js": "^0.6.2",
     "zip-dir": "^2.0.0"
   },
   "devDependencies": {
@@ -89,6 +90,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/speakeasy": "^2.0.10",
     "@types/supertest": "^2.0.10",
+    "@types/xml2js": "^0.4.14",
     "@typescript-eslint/eslint-plugin": "^4.25.0",
     "@typescript-eslint/parser": "^4.25.0",
     "chai": "^4.3.4",

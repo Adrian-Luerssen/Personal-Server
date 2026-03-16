@@ -10,6 +10,8 @@ export const AGENT_SCOPES: Record<string, string> = {
   'profile:read': 'Read basic profile info',
   'chat:read': 'Read chat conversations and messages',
   'chat:write': 'Send messages and update message status',
+  'media:read': 'Read media tracking items and stats',
+  'media:write': 'Create/update/delete media items and import',
 };
 
 export const ALL_SCOPES = Object.keys(AGENT_SCOPES);

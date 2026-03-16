@@ -19,6 +19,7 @@ import { HabitsModule } from "./habits/habits.module";
 import { AgentsModule } from "./agents/agents.module";
 import { ApiV1Module } from "./api/v1/api-v1.module";
 import { ChatModule } from "./chat/chat.module";
+import { MediaModule } from "./media/media.module";
 
 @Module({
   providers: [
@@ -52,6 +53,7 @@ import { ChatModule } from "./chat/chat.module";
     AgentsModule,
     ApiV1Module,
     ChatModule,
+    MediaModule,
     HealthModule,
     TypeOrmModule.forFeature([Tool]),
   ],

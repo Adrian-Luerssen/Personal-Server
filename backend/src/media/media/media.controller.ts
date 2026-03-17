@@ -140,4 +140,15 @@ export class MediaController {
     await this.mediaService.remove(account, id);
     return { success: true };
   }
+
+  // ========== RE-CLASSIFY ==========
+
+  @Post("reclassify")
+  @ApiOperation({
+    summary: "Reset classification on all items so enrichment re-processes them",
+    description: "Clears reclassified flag and resets wrongly-classified items back to their original type.",
+  })
+  async reclassify(@ReqUser() account: Account) {
+    return this.mediaService.resetClassification(account);
+  }
 }

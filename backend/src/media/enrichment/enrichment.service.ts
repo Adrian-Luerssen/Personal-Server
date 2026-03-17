@@ -121,12 +121,35 @@ export class MediaEnrichmentService {
           { params: { q: item.title, limit: 3 }, timeout: 10000 }
         );
         const results = resp.data?.data || [];
-        // Find a strong title match
+        // Find a STRICT title match — must be exact or near-exact
+        const normalize = (s: string) =>
+          s.toLowerCase()
+            .replace(/[^a-z0-9]/g, "") // strip punctuation, spaces
+            .trim();
+
+        const itemNorm = normalize(item.title);
+        if (!itemNorm) return false;
+
         data = results.find((r: any) => {
-          const t = (r.title || "").toLowerCase();
-          const te = (r.title_english || "").toLowerCase();
-          const it = item.title.toLowerCase();
-          return t === it || te === it || t.includes(it) || it.includes(t);
+          const candidates = [
+            r.title,
+            r.title_english,
+            r.title_japanese,
+            ...(r.title_synonyms || []),
+          ].filter(Boolean);
+
+          return candidates.some((c: string) => {
+            const cn = normalize(c);
+            // Exact match after normalization
+            if (cn === itemNorm) return true;
+            // Allow minor differences (e.g. "dr stone" vs "drstone") but
+            // reject if lengths differ by more than 20%
+            if (Math.abs(cn.length - itemNorm.length) > Math.max(cn.length, itemNorm.length) * 0.2) {
+              return false;
+            }
+            // Must be exact — no substring matching
+            return false;
+          });
         });
       }
 

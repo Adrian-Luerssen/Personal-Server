@@ -192,6 +192,43 @@ export class MediaService {
     };
   }
 
+  // ========== RESET CLASSIFICATION ==========
+
+  async resetClassification(account: Account): Promise<{ reset: number }> {
+    // Find all items that were reclassified by enrichment (not from original import source)
+    const items = await this.mediaRepo
+      .createQueryBuilder("m")
+      .where("m.accountId = :accountId", { accountId: account.id })
+      .andWhere("(m.metadata->>'reclassified') = 'true'")
+      .getMany();
+
+    let reset = 0;
+    for (const item of items) {
+      // Remove reclassified flag and tags so enrichment re-processes
+      const newMeta = { ...item.metadata };
+      delete newMeta.reclassified;
+      delete newMeta.tags;
+      delete newMeta.synopsis;
+      delete newMeta.malScore;
+      delete newMeta.tmdbScore;
+      item.metadata = newMeta;
+
+      // Reset items that were changed from TV to anime back to TV
+      // (only if they don't have a MAL ID from original import)
+      if (item.type === MediaType.ANIME && !item.externalIds?.malId) {
+        item.type = MediaType.TV;
+      }
+
+      // Clear cover so enrichment refetches
+      item.coverUrl = null as any;
+      await this.mediaRepo.save(item);
+      reset++;
+    }
+
+    await this.cacheManager.reset();
+    return { reset };
+  }
+
   // ========== BULK CREATE (for imports) ==========
 
   async bulkCreate(

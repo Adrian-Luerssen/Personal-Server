@@ -391,19 +391,34 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
               <label>End Date <input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} /></label>
             </div>
             {showEpisodes && (
-              <label>Episodes Watched
-                <input type="number" min="0" value={form.episodesWatched} onChange={e => setForm(f => ({ ...f, episodesWatched: e.target.value }))} placeholder={item.metadata?.episodes ? `of ${item.metadata.episodes}` : ''} />
+              <label>
+                Episodes Watched {item.metadata?.episodes ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.episodes} total</span> : ''}
+                <input type="number" min="0" max={item.metadata?.episodes || undefined} value={form.episodesWatched} onChange={e => setForm(f => ({ ...f, episodesWatched: e.target.value }))} />
               </label>
             )}
             {showChapters && (
-              <label>Chapters Read
-                <input type="number" min="0" value={form.chaptersRead} onChange={e => setForm(f => ({ ...f, chaptersRead: e.target.value }))} placeholder={item.metadata?.chapters ? `of ${item.metadata.chapters}` : ''} />
+              <label>
+                Chapters Read {item.metadata?.chapters ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.chapters} total</span> : ''}
+                <input type="number" min="0" max={item.metadata?.chapters || undefined} value={form.chaptersRead} onChange={e => setForm(f => ({ ...f, chaptersRead: e.target.value }))} />
               </label>
             )}
             {showPages && (
-              <label>Pages Read
-                <input type="number" min="0" value={form.pagesRead} onChange={e => setForm(f => ({ ...f, pagesRead: e.target.value }))} placeholder={item.metadata?.pages ? `of ${item.metadata.pages}` : ''} />
+              <label>
+                Pages Read {item.metadata?.pages ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.pages} total</span> : ''}
+                <input type="number" min="0" max={item.metadata?.pages || undefined} value={form.pagesRead} onChange={e => setForm(f => ({ ...f, pagesRead: e.target.value }))} />
               </label>
+            )}
+            {item.metadata?.synopsis && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem', lineHeight: 1.5, maxHeight: 80, overflowY: 'auto', padding: '0.5rem 0.6rem', background: 'var(--color-bg)', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--glass-border)' }}>
+                {item.metadata.synopsis}
+              </div>
+            )}
+            {item.metadata?.genres?.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
+                {item.metadata.genres.map((g, i) => (
+                  <span key={i} style={{ padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full, 999px)', background: `${typeMeta.color}22`, color: typeMeta.color, fontSize: '0.7rem', fontWeight: 600 }}>{g}</span>
+                ))}
+              </div>
             )}
             <label>Notes <textarea rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Personal notes..." /></label>
           </div>

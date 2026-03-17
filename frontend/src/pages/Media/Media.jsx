@@ -31,7 +31,7 @@ function MediaCard({ item, onClick }) {
   return (
     <div className="media-card" onClick={() => onClick(item)}>
       <div className="media-card-cover">
-        {item.coverUrl ? (
+        {item.coverUrl && item.coverUrl.length > 1 ? (
           <img src={item.coverUrl} alt={item.title} loading="lazy" />
         ) : (
           <div className="media-card-cover-placeholder">
@@ -369,7 +369,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
         </div>
 
         <div className="media-edit-layout">
-          {item.coverUrl && (
+          {item.coverUrl && item.coverUrl.length > 1 && (
             <div className="media-edit-cover">
               <img src={item.coverUrl} alt={item.title} />
             </div>

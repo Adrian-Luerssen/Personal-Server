@@ -141,6 +141,53 @@ export class MediaController {
     return { success: true };
   }
 
+  // ========== MATCH (override from external DB) ==========
+
+  @Patch(":id/match")
+  @ApiOperation({
+    summary: "Override item with data from an external search result",
+    description: "Applies type, cover, metadata, externalIds, and tags from a search result to an existing item.",
+  })
+  async matchItem(
+    @ReqUser() account: Account,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body()
+    body: {
+      type: MediaType;
+      coverUrl?: string;
+      metadata?: Record<string, any>;
+      externalIds?: Record<string, any>;
+    }
+  ) {
+    const item = await this.mediaService.findOne(account, id);
+
+    // Build tags from type + metadata format
+    const tags: string[] = [body.type];
+    const format = body.metadata?.mediaFormat?.toLowerCase();
+    if (body.type === 'anime' && format === 'movie') tags.push('movie');
+    if (body.type === 'movie' && body.metadata?.mediaFormat) {
+      // already tagged as movie
+    }
+
+    const merged = {
+      type: body.type,
+      coverUrl: body.coverUrl || item.coverUrl,
+      metadata: {
+        ...item.metadata,
+        ...(body.metadata || {}),
+        tags,
+        reclassified: true,
+        manualMatch: true,
+      },
+      externalIds: {
+        ...item.externalIds,
+        ...(body.externalIds || {}),
+      },
+    };
+
+    return this.mediaService.update(account, id, merged);
+  }
+
   // ========== RE-CLASSIFY ==========
 
   @Post("reclassify")

@@ -309,6 +309,13 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [tab, setTab] = useState('edit') // 'edit' | 'match'
+  const [matchQuery, setMatchQuery] = useState('')
+  const [matchType, setMatchType] = useState('')
+  const [matchResults, setMatchResults] = useState([])
+  const [matchSearching, setMatchSearching] = useState(false)
+  const [matching, setMatching] = useState(null)
+  const matchDebounce = useRef(null)
 
   useEffect(() => {
     if (item) {
@@ -323,8 +330,49 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
         chaptersRead: item.metadata?.chaptersRead ?? '',
         pagesRead: item.metadata?.pagesRead ?? '',
       })
+      setTab('edit')
+      setMatchQuery(item.title || '')
+      setMatchResults([])
+      setMatching(null)
     }
   }, [item])
+
+  const doMatchSearch = useCallback(async (q, t) => {
+    if (!q || q.length < 2) { setMatchResults([]); return }
+    setMatchSearching(true)
+    try {
+      const params = new URLSearchParams({ q })
+      if (t) params.set('type', t)
+      const data = await apiFetch(`/media/search?${params}`)
+      setMatchResults(Array.isArray(data) ? data : [])
+    } catch { setMatchResults([]) }
+    finally { setMatchSearching(false) }
+  }, [])
+
+  useEffect(() => {
+    if (tab !== 'match') return
+    clearTimeout(matchDebounce.current)
+    matchDebounce.current = setTimeout(() => doMatchSearch(matchQuery, matchType), 400)
+    return () => clearTimeout(matchDebounce.current)
+  }, [matchQuery, matchType, tab])
+
+  const applyMatch = async (result) => {
+    setMatching(result.title)
+    try {
+      await apiFetch(`/media/${item.id}/match`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          type: result.type,
+          coverUrl: result.coverUrl,
+          metadata: result.metadata || {},
+          externalIds: result.externalIds || {},
+        }),
+      })
+      onSave()
+      onClose()
+    } catch (e) { alert(e.message) }
+    finally { setMatching(null) }
+  }
 
   const save = async () => {
     setSaving(true)
@@ -376,77 +424,161 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
         <div className="media-modal-header">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Icon name={typeMeta.icon || 'film'} size={20} style={{ color: typeMeta.color }} />
-            Edit
+            {item.title}
           </h3>
           <button className="media-modal-close" onClick={onClose}>
             <Icon name="x" size={20} />
           </button>
         </div>
 
-        <div className="media-edit-layout">
-          {item.coverUrl && item.coverUrl.length > 1 && (
-            <div className="media-edit-cover">
-              <img src={item.coverUrl} alt={item.title} />
-            </div>
-          )}
-          <div className="media-edit-fields">
-            <label>Title <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></label>
-            <div className="media-manual-row">
-              <label>Status
-                <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                  {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-              </label>
-              <label>Rating
-                <input type="number" min="0" max="10" step="0.5" value={form.rating} onChange={e => setForm(f => ({ ...f, rating: e.target.value }))} placeholder="0-10" />
-              </label>
-            </div>
-            <div className="media-manual-row">
-              <label>Start Date <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} /></label>
-              <label>End Date <input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} /></label>
-            </div>
-            {showEpisodes && (
-              <label>
-                Episodes Watched {item.metadata?.episodes ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.episodes} total</span> : ''}
-                <input type="number" min="0" max={item.metadata?.episodes || undefined} value={form.episodesWatched} onChange={e => setForm(f => ({ ...f, episodesWatched: e.target.value }))} />
-              </label>
-            )}
-            {showChapters && (
-              <label>
-                Chapters Read {item.metadata?.chapters ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.chapters} total</span> : ''}
-                <input type="number" min="0" max={item.metadata?.chapters || undefined} value={form.chaptersRead} onChange={e => setForm(f => ({ ...f, chaptersRead: e.target.value }))} />
-              </label>
-            )}
-            {showPages && (
-              <label>
-                Pages Read {item.metadata?.pages ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.pages} total</span> : ''}
-                <input type="number" min="0" max={item.metadata?.pages || undefined} value={form.pagesRead} onChange={e => setForm(f => ({ ...f, pagesRead: e.target.value }))} />
-              </label>
-            )}
-            {synopsis && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem', lineHeight: 1.5, maxHeight: 80, overflowY: 'auto', padding: '0.5rem 0.6rem', background: 'var(--color-bg)', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--glass-border)' }}>
-                {synopsis}
-              </div>
-            )}
-            {genres.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
-                {genres.map((g, i) => (
-                  <span key={i} style={{ padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full, 999px)', background: `${typeMeta.color}22`, color: typeMeta.color, fontSize: '0.7rem', fontWeight: 600 }}>{String(g)}</span>
-                ))}
-              </div>
-            )}
-            <label>Notes <textarea rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Personal notes..." /></label>
-          </div>
+        {/* Tabs */}
+        <div className="media-modal-tabs">
+          <button className={`media-tab ${tab === 'edit' ? 'active' : ''}`} onClick={() => setTab('edit')}>
+            <Icon name="pen" size={16} /> Edit
+          </button>
+          <button className={`media-tab ${tab === 'match' ? 'active' : ''}`} onClick={() => setTab('match')}>
+            <Icon name="link" size={16} /> Match
+          </button>
         </div>
 
-        <div className="media-modal-actions">
-          <button className="btn media-delete-btn" onClick={remove} disabled={deleting}>
-            <Icon name="trash-2" size={16} /> Delete
-          </button>
-          <button className="btn" onClick={save} disabled={saving} style={{ background: MEDIA_COLOR, color: '#000' }}>
-            <Icon name="check" size={16} /> {saving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
+        {tab === 'edit' ? (
+          <>
+            <div className="media-edit-layout">
+              {item.coverUrl && item.coverUrl.length > 1 && (
+                <div className="media-edit-cover">
+                  <img src={item.coverUrl} alt={item.title} />
+                </div>
+              )}
+              <div className="media-edit-fields">
+                <label>Title <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></label>
+                <div className="media-manual-row">
+                  <label>Status
+                    <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                      {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                    </select>
+                  </label>
+                  <label>Rating
+                    <input type="number" min="0" max="10" step="0.5" value={form.rating} onChange={e => setForm(f => ({ ...f, rating: e.target.value }))} placeholder="0-10" />
+                  </label>
+                </div>
+                <div className="media-manual-row">
+                  <label>Start Date <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} /></label>
+                  <label>End Date <input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} /></label>
+                </div>
+                {showEpisodes && (
+                  <label>
+                    Episodes Watched {item.metadata?.episodes ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.episodes} total</span> : ''}
+                    <input type="number" min="0" max={item.metadata?.episodes || undefined} value={form.episodesWatched} onChange={e => setForm(f => ({ ...f, episodesWatched: e.target.value }))} />
+                  </label>
+                )}
+                {showChapters && (
+                  <label>
+                    Chapters Read {item.metadata?.chapters ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.chapters} total</span> : ''}
+                    <input type="number" min="0" max={item.metadata?.chapters || undefined} value={form.chaptersRead} onChange={e => setForm(f => ({ ...f, chaptersRead: e.target.value }))} />
+                  </label>
+                )}
+                {showPages && (
+                  <label>
+                    Pages Read {item.metadata?.pages ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.pages} total</span> : ''}
+                    <input type="number" min="0" max={item.metadata?.pages || undefined} value={form.pagesRead} onChange={e => setForm(f => ({ ...f, pagesRead: e.target.value }))} />
+                  </label>
+                )}
+                {synopsis && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem', lineHeight: 1.5, maxHeight: 80, overflowY: 'auto', padding: '0.5rem 0.6rem', background: 'var(--color-bg)', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--glass-border)' }}>
+                    {synopsis}
+                  </div>
+                )}
+                {genres.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
+                    {genres.map((g, i) => (
+                      <span key={i} style={{ padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full, 999px)', background: `${typeMeta.color}22`, color: typeMeta.color, fontSize: '0.7rem', fontWeight: 600 }}>{String(g)}</span>
+                    ))}
+                  </div>
+                )}
+                <label>Notes <textarea rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Personal notes..." /></label>
+              </div>
+            </div>
+
+            <div className="media-modal-actions">
+              <button className="btn media-delete-btn" onClick={remove} disabled={deleting}>
+                <Icon name="trash-2" size={16} /> Delete
+              </button>
+              <button className="btn" onClick={save} disabled={saving} style={{ background: MEDIA_COLOR, color: '#000' }}>
+                <Icon name="check" size={16} /> {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Match tab */}
+            <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--glass-border)' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '0 0 0.6rem 0' }}>
+                Search external databases and pick the correct match to override type, cover, and metadata.
+              </p>
+              <div className="media-search-row" style={{ padding: 0, border: 'none' }}>
+                <div className="media-search-input-wrap" style={{ flex: 1 }}>
+                  <Icon name="search" size={16} className="media-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={matchQuery}
+                    onChange={e => setMatchQuery(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <select value={matchType} onChange={e => setMatchType(e.target.value)} style={{ padding: '0.45rem 0.6rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--glass-border)', background: 'var(--color-bg, #0f0f14)', color: 'var(--color-text)', fontSize: '0.82rem' }}>
+                  <option value="">All</option>
+                  {Object.entries(TYPE_META).map(([k, v]) => (
+                    <option key={k} value={k}>{v.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="media-search-results">
+              {matchSearching && (
+                <div className="media-search-loading">
+                  <Icon name="loader" size={20} style={{ animation: 'spin 1s linear infinite' }} /> Searching...
+                </div>
+              )}
+              {!matchSearching && matchResults.length === 0 && matchQuery.length >= 2 && (
+                <div className="media-search-empty">No results found</div>
+              )}
+              {matchResults.map((result, i) => {
+                const meta = TYPE_META[result.type] || {}
+                const isApplying = matching === result.title
+                return (
+                  <div key={i} className="media-search-result">
+                    <div className="media-search-result-cover">
+                      {result.coverUrl ? <img src={result.coverUrl} alt="" /> : <Icon name={meta.icon || 'film'} size={20} />}
+                    </div>
+                    <div className="media-search-result-info">
+                      <div className="media-search-result-title">{result.title}</div>
+                      <div className="media-search-result-meta">
+                        <span style={{ color: meta.color }}>{meta.label}</span>
+                        {result.year && <span>{result.year}</span>}
+                        {result.metadata?.mediaFormat && <span style={{ opacity: 0.7 }}>{result.metadata.mediaFormat}</span>}
+                      </div>
+                      {result.description && (
+                        <div className="media-search-result-desc">{result.description.slice(0, 100)}...</div>
+                      )}
+                    </div>
+                    <button
+                      className="btn media-add-btn"
+                      onClick={() => applyMatch(result)}
+                      disabled={!!matching}
+                      title="Apply this match"
+                    >
+                      {isApplying
+                        ? <Icon name="loader" size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                        : <Icon name="check" size={16} />
+                      }
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>,
     document.body

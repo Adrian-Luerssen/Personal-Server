@@ -261,6 +261,10 @@ export default function Sidebar({ collapsed, onToggle }) {
               <Icon name="download" size={20} />
               {!collapsed && <span>Import</span>}
             </NavLink>
+            <NavLink to="/media/settings" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <Icon name="settings" size={20} />
+              {!collapsed && <span>Settings</span>}
+            </NavLink>
           </div>
         )}
 

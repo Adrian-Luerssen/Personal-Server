@@ -14,6 +14,7 @@ import { MalImportService } from "./import/mal-import.service";
 import { TvTimeImportService } from "./import/tvtime-import.service";
 import { GoodreadsImportService } from "./import/goodreads-import.service";
 import { MediaImportController } from "./import/import.controller";
+import { MediaEnrichmentService } from "./enrichment/enrichment.service";
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MediaImportController } from "./import/import.controller";
     MalImportService,
     TvTimeImportService,
     GoodreadsImportService,
+    MediaEnrichmentService,
   ],
   controllers: [MediaController, MediaSearchController, MediaImportController],
   exports: [MediaService],

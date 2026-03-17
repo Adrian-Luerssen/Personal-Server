@@ -23,11 +23,23 @@ export class MediaEnrichmentService {
 
     try {
       // Find items missing cover art (up to 5 per cycle to respect rate limits)
-      const pending = await this.mediaRepo.find({
+      let pending = await this.mediaRepo.find({
         where: { coverUrl: IsNull() },
         take: 5,
         order: { createdAt: "ASC" },
       });
+
+      // If no items missing covers, look for items missing synopsis
+      if (pending.length === 0) {
+        const all = await this.mediaRepo
+          .createQueryBuilder("m")
+          .where("m.coverUrl IS NOT NULL AND m.coverUrl != ''")
+          .andWhere("(m.metadata->>'synopsis') IS NULL")
+          .orderBy("m.createdAt", "ASC")
+          .take(5)
+          .getMany();
+        pending = all;
+      }
 
       if (pending.length === 0) return;
 
@@ -107,6 +119,30 @@ export class MediaEnrichmentService {
     const genres = (data.genres || []).map((g: any) => g.name);
     if (genres.length > 0) newMeta.genres = genres;
 
+    if (data.synopsis) newMeta.synopsis = data.synopsis;
+    if (data.score) newMeta.malScore = data.score;
+    if (data.year) newMeta.year = data.year;
+    if (data.aired?.from) newMeta.year = newMeta.year || new Date(data.aired.from).getFullYear();
+    if (data.published?.from) newMeta.year = newMeta.year || new Date(data.published.from).getFullYear();
+    if (data.status) newMeta.airingStatus = data.status;
+
+    // Studios (anime) or authors (manga)
+    const studios = (data.studios || []).map((s: any) => s.name);
+    if (studios.length > 0) newMeta.studios = studios;
+    const authors = (data.authors || []).map((a: any) => a.name);
+    if (authors.length > 0) newMeta.authors = authors;
+
+    // Themes & demographics
+    const themes = (data.themes || []).map((t: any) => t.name);
+    if (themes.length > 0) newMeta.themes = themes;
+    const demographics = (data.demographics || []).map((d: any) => d.name);
+    if (demographics.length > 0) newMeta.demographics = demographics;
+
+    if (data.type) newMeta.mediaFormat = data.type; // TV, OVA, Movie, Manga, etc.
+    if (data.source) newMeta.source = data.source; // Manga, Light novel, Original, etc.
+    if (data.duration) newMeta.duration = data.duration;
+    if (data.rating) newMeta.ageRating = data.rating;
+
     if (item.type === MediaType.ANIME) {
       if (data.episodes && !newMeta.episodes) newMeta.episodes = data.episodes;
     } else {
@@ -123,7 +159,7 @@ export class MediaEnrichmentService {
 
     Object.assign(item, updates);
     await this.mediaRepo.save(item);
-    this.logger.debug(`Enriched "${item.title}" with cover from Jikan`);
+    this.logger.debug(`Enriched "${item.title}" with cover + metadata from Jikan`);
   }
 
   // ========== TMDB (tv/movie) ==========
@@ -167,12 +203,35 @@ export class MediaEnrichmentService {
       item.coverUrl = "";
     }
 
+    const newMeta = { ...item.metadata };
+    if (data.overview) newMeta.synopsis = data.overview;
+    if (data.vote_average) newMeta.tmdbScore = data.vote_average;
+    if (data.release_date) newMeta.year = new Date(data.release_date).getFullYear();
+    if (data.first_air_date) newMeta.year = newMeta.year || new Date(data.first_air_date).getFullYear();
+    if (data.status) newMeta.airingStatus = data.status;
+
+    const genres = (data.genres || data.genre_ids || []);
+    if (genres.length > 0 && typeof genres[0] === "object") {
+      newMeta.genres = genres.map((g: any) => g.name);
+    }
+
+    if (data.number_of_seasons) newMeta.seasons = data.number_of_seasons;
+    if (data.number_of_episodes) newMeta.episodes = data.number_of_episodes;
+    if (data.runtime) newMeta.runtime = data.runtime;
+    if (data.tagline) newMeta.tagline = data.tagline;
+
+    // Production companies
+    const companies = (data.production_companies || []).map((c: any) => c.name);
+    if (companies.length > 0) newMeta.studios = companies;
+
+    item.metadata = newMeta;
+
     if (!item.externalIds?.tmdbId && data.id) {
       item.externalIds = { ...item.externalIds, tmdbId: data.id };
     }
 
     await this.mediaRepo.save(item);
-    this.logger.debug(`Enriched "${item.title}" with cover from TMDB`);
+    this.logger.debug(`Enriched "${item.title}" with cover + metadata from TMDB`);
   }
 
   // ========== OPEN LIBRARY (books) ==========
@@ -215,6 +274,16 @@ export class MediaEnrichmentService {
     if (data.number_of_pages_median && !newMeta.pages) {
       newMeta.pages = data.number_of_pages_median;
     }
+    if (data.first_publish_year) newMeta.year = data.first_publish_year;
+    if (data.subject && (!newMeta.genres || newMeta.genres.length === 0)) {
+      newMeta.genres = data.subject.slice(0, 8);
+    }
+    if (data.publisher && data.publisher.length > 0) {
+      newMeta.publisher = data.publisher[0];
+    }
+    if (data.language && data.language.length > 0) {
+      newMeta.language = data.language[0];
+    }
     item.metadata = newMeta;
 
     if (!item.externalIds?.openLibraryKey && data.key) {
@@ -222,7 +291,7 @@ export class MediaEnrichmentService {
     }
 
     await this.mediaRepo.save(item);
-    this.logger.debug(`Enriched "${item.title}" with cover from OpenLibrary`);
+    this.logger.debug(`Enriched "${item.title}" with cover + metadata from OpenLibrary`);
   }
 
   private sleep(ms: number): Promise<void> {

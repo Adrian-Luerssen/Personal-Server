@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { MediaType, MediaStatus } from "../entities/media-item.entity";
 import { parseString } from "xml2js";
 import { promisify } from "util";
+import { gunzipSync } from "zlib";
 
 const parseXml = promisify(parseString);
 
@@ -22,8 +23,35 @@ export class MalImportService {
     buffer: Buffer,
     mediaType: "anime" | "manga"
   ): Promise<ImportPreviewItem[]> {
-    const xml = buffer.toString("utf-8");
-    const parsed: any = await parseXml(xml);
+    let xml: string;
+
+    // MAL exports may be gzipped
+    try {
+      const decompressed = gunzipSync(buffer);
+      xml = decompressed.toString("utf-8");
+    } catch {
+      // Not gzipped, use raw buffer
+      xml = buffer.toString("utf-8");
+    }
+
+    this.logger.debug(`Parsing MAL ${mediaType} XML (${xml.length} chars)`);
+
+    let parsed: any;
+    try {
+      parsed = await parseXml(xml);
+    } catch (err) {
+      this.logger.error(`Failed to parse XML: ${err}`);
+      throw new Error(`Invalid XML file: ${err instanceof Error ? err.message : err}`);
+    }
+
+    if (!parsed) {
+      this.logger.warn("Parsed XML is empty");
+      return [];
+    }
+
+    // Log root keys for debugging
+    const rootKeys = Object.keys(parsed);
+    this.logger.debug(`XML root keys: ${rootKeys.join(", ")}`);
 
     const root =
       mediaType === "anime"
@@ -31,9 +59,14 @@ export class MalImportService {
         : parsed?.myanimelist?.manga;
 
     if (!root || !Array.isArray(root)) {
+      this.logger.warn(
+        `No ${mediaType} array found in XML. Root keys: ${rootKeys.join(", ")}. ` +
+        `myanimelist keys: ${parsed?.myanimelist ? Object.keys(parsed.myanimelist).join(", ") : "N/A"}`
+      );
       return [];
     }
 
+    this.logger.log(`Found ${root.length} ${mediaType} entries`);
     return root.map((entry: any) => this.mapEntry(entry, mediaType));
   }
 

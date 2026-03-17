@@ -9,8 +9,8 @@ import PageHeader from '../../components/PageHeader'
 const MEDIA_COLOR = '#f472b6'
 
 const SOURCES = [
-  { id: 'mal-anime',  label: 'MyAnimeList (Anime)', icon: 'tv',        endpoint: '/media/import/mal/anime/preview', accept: '.xml', desc: 'Export from MAL Settings > Account > Export' },
-  { id: 'mal-manga',  label: 'MyAnimeList (Manga)', icon: 'book-open', endpoint: '/media/import/mal/manga/preview', accept: '.xml', desc: 'Same MAL export, contains manga list' },
+  { id: 'mal-anime',  label: 'MyAnimeList (Anime)', icon: 'tv',        endpoint: '/media/import/mal/anime/preview', accept: '.xml,.gz,.xml.gz', desc: 'Export from MAL Settings > Account > Export' },
+  { id: 'mal-manga',  label: 'MyAnimeList (Manga)', icon: 'book-open', endpoint: '/media/import/mal/manga/preview', accept: '.xml,.gz,.xml.gz', desc: 'Same MAL export, contains manga list' },
   { id: 'tvtime',     label: 'TVTime',              icon: 'monitor',   endpoint: '/media/import/tvtime/preview',    accept: '.csv', desc: 'Export from TVTime settings' },
   { id: 'goodreads',  label: 'Goodreads',           icon: 'book',      endpoint: '/media/import/goodreads/preview', accept: '.csv', desc: 'My Books > Import/Export > Export Library' },
 ]

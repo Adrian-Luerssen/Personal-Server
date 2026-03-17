@@ -1,7 +1,10 @@
 import {
   Controller,
   Post,
+  Get,
+  Param,
   Body,
+  Res,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
@@ -12,6 +15,7 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -21,6 +25,8 @@ import { MalImportService } from "./mal-import.service";
 import { TvTimeImportService } from "./tvtime-import.service";
 import { GoodreadsImportService } from "./goodreads-import.service";
 import { MediaService } from "../media/media.service";
+import { Response } from "express";
+import { MediaStatus } from "../entities/media-item.entity";
 
 // In-memory preview store (keyed by previewId)
 const previewStore = new Map<
@@ -123,12 +129,118 @@ export class MediaImportController {
     return this.storePreview(account.id, items);
   }
 
-  // ========== EXECUTE IMPORT ==========
+  // ========== EXECUTE with SSE ==========
+
+  @Get("execute/:previewId")
+  @ApiOperation({
+    summary: "Execute media import with progress streaming",
+    description:
+      "Executes a previously previewed import. Returns Server-Sent Events (SSE) with progress updates.",
+  })
+  @ApiParam({
+    name: "previewId",
+    description: "Preview ID returned from any preview endpoint",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "SSE stream of progress events",
+  })
+  async executeImportSSE(
+    @ReqUser() account: Account,
+    @Param("previewId") previewId: string,
+    @Res() res: Response
+  ): Promise<void> {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+    const preview = previewStore.get(previewId);
+    if (!preview) {
+      send({ stage: "error", message: "Preview not found or expired", error: "PREVIEW_NOT_FOUND" });
+      res.end();
+      return;
+    }
+    if (preview.accountId !== account.id) {
+      send({ stage: "error", message: "Unauthorized", error: "UNAUTHORIZED" });
+      res.end();
+      return;
+    }
+    if (preview.expiresAt < Date.now()) {
+      previewStore.delete(previewId);
+      send({ stage: "error", message: "Preview expired", error: "EXPIRED" });
+      res.end();
+      return;
+    }
+
+    try {
+      send({ stage: "starting", progress: 0, message: "Starting media import..." });
+
+      const items = preview.items;
+      let created = 0;
+      let skipped = 0;
+
+      for (let i = 0; i < items.length; i++) {
+        const dto = items[i];
+        try {
+          const existing = await this.mediaService.findAll(account, {
+            search: dto.title,
+            type: dto.type,
+          });
+          const exactMatch = existing.find(
+            (e) => e.title === dto.title && e.type === dto.type
+          );
+
+          if (exactMatch) {
+            skipped++;
+          } else {
+            await this.mediaService.create(account, {
+              ...dto,
+              status: dto.status ?? MediaStatus.PLANNING,
+              metadata: dto.metadata ?? {},
+              externalIds: dto.externalIds ?? {},
+            });
+            created++;
+          }
+        } catch {
+          skipped++;
+        }
+
+        if ((i + 1) % 5 === 0 || i + 1 === items.length) {
+          send({
+            stage: "importing",
+            progress: 5 + ((i + 1) / items.length) * 90,
+            current: i + 1,
+            total: items.length,
+            message: `Importing (${i + 1}/${items.length})`,
+          });
+        }
+      }
+
+      previewStore.delete(previewId);
+
+      send({
+        stage: "complete",
+        progress: 100,
+        message: "Import completed successfully!",
+        summary: { created, skipped },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      send({ stage: "error", progress: 0, message: `Import failed: ${msg}`, error: msg });
+    } finally {
+      res.end();
+    }
+  }
+
+  // ========== EXECUTE (legacy JSON) ==========
 
   @Post("execute")
   @ApiOperation({
-    summary: "Execute a previously previewed import",
-    description: "Uses the previewId from any preview endpoint to create the media items.",
+    summary: "Execute a previously previewed import (legacy JSON)",
+    description: "Use GET execute/:previewId for SSE progress.",
   })
   @ApiResponse({ status: 201, description: "Import completed" })
   async executeImport(
@@ -145,11 +257,9 @@ export class MediaImportController {
         "Preview not found or expired. Please re-upload the file."
       );
     }
-
     if (preview.accountId !== account.id) {
       throw new BadRequestException("Preview not found");
     }
-
     if (preview.expiresAt < Date.now()) {
       previewStore.delete(body.previewId);
       throw new BadRequestException("Preview expired. Please re-upload the file.");
@@ -167,13 +277,13 @@ export class MediaImportController {
     previewStore.set(previewId, {
       accountId,
       items,
-      expiresAt: Date.now() + 15 * 60 * 1000, // 15 min TTL
+      expiresAt: Date.now() + 15 * 60 * 1000,
     });
 
     return {
       previewId,
       count: items.length,
-      items: items.slice(0, 50), // Return first 50 for preview
+      items: items.slice(0, 50),
       totalItems: items.length,
     };
   }

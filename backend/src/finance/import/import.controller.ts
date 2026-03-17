@@ -1,7 +1,10 @@
 import {
   Controller,
   Post,
+  Get,
+  Param,
   Body,
+  Res,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
@@ -12,11 +15,14 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiParam,
+  ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
 import { CashewImportService } from "./cashew-import.service";
 import { ReqUser } from "../../system/auth/auth.decorator";
 import { Account } from "../../system/accounts/account.entity";
+import { Response } from "express";
 
 @ApiTags("Finance - Import")
 @ApiBearerAuth("access-token")
@@ -46,11 +52,37 @@ export class FinanceImportController {
     return this.importService.previewImport(account, file);
   }
 
+  @Get("cashew/execute/:previewId")
+  @ApiOperation({
+    summary: "Execute Cashew import with progress streaming",
+    description:
+      "Executes a previously previewed import. Returns Server-Sent Events (SSE) with progress updates.",
+  })
+  @ApiParam({
+    name: "previewId",
+    description: "Preview ID returned from the preview endpoint",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "SSE stream of progress events",
+  })
+  async executeCashewSSE(
+    @ReqUser() account: Account,
+    @Param("previewId") previewId: string,
+    @Res() res: Response
+  ): Promise<void> {
+    if (!previewId) {
+      res.status(400).json({ error: "Preview ID required" });
+      return;
+    }
+    await this.importService.executeImport(account, previewId, res);
+  }
+
   @Post("cashew/execute")
   @ApiOperation({
-    summary: "Execute Cashew import",
+    summary: "Execute Cashew import (legacy JSON)",
     description:
-      "Executes a previously previewed import using the previewId returned from the preview endpoint.",
+      "Executes a previously previewed import. Returns JSON. Use GET with SSE for progress.",
   })
   async executeCashew(
     @ReqUser() account: Account,

@@ -5,6 +5,7 @@ import { Habit } from "../entities/habit.entity";
 import { HabitEntry, HabitStatus } from "../entities/habit-entry.entity";
 import { Account } from "../../system/accounts/account.entity";
 import { randomUUID } from "crypto";
+import { Response } from "express";
 
 export interface HabitShareRow {
   Habit: string;
@@ -329,5 +330,155 @@ export class HabitShareImportService {
       entries: { created: entriesCreated, existing: entriesExisting },
       warnings,
     };
+  }
+
+  // ========== EXECUTE with SSE ==========
+
+  async executeImportSSE(
+    account: Account,
+    previewId: string,
+    res: Response
+  ): Promise<void> {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+    const previewData = this.previewCache.get(previewId);
+    if (!previewData) {
+      send({ stage: "error", message: "Preview not found or expired", error: "PREVIEW_NOT_FOUND" });
+      res.end();
+      return;
+    }
+    if (previewData.accountId !== account.id) {
+      send({ stage: "error", message: "Unauthorized", error: "UNAUTHORIZED" });
+      res.end();
+      return;
+    }
+
+    try {
+      send({ stage: "starting", progress: 0, message: "Starting HabitShare import..." });
+
+      const rows = this.parseCsv(previewData.csvContent);
+
+      let habitsCreated = 0;
+      let habitsExisting = 0;
+      let entriesCreated = 0;
+      let entriesExisting = 0;
+
+      const habitMap = new Map<string, Habit>();
+      const existingHabits = await this.habitRepo.find({
+        where: { accountId: account.id },
+      });
+      for (const h of existingHabits) {
+        habitMap.set(h.name, h);
+      }
+
+      // Group rows by habit
+      const byHabit = new Map<string, HabitShareRow[]>();
+      for (const row of rows) {
+        if (!VALID_STATUSES.has(row.Status)) continue;
+        if (!byHabit.has(row.Habit)) byHabit.set(row.Habit, []);
+        byHabit.get(row.Habit)!.push(row);
+      }
+
+      const totalEntries = [...byHabit.values()].reduce((s, r) => s + r.length, 0);
+      let processedEntries = 0;
+
+      // ---- Stage 1: Habits (0-20%) ----
+      send({ stage: "habits", progress: 5, message: "Creating habits..." });
+      const habitNames = [...byHabit.keys()];
+      for (let i = 0; i < habitNames.length; i++) {
+        const habitName = habitNames[i];
+        let habit = habitMap.get(habitName);
+        if (!habit) {
+          habit = this.habitRepo.create({
+            name: habitName,
+            accountId: account.id,
+            account,
+            isActive: true,
+          });
+          habit = await this.habitRepo.save(habit);
+          habitMap.set(habitName, habit);
+          habitsCreated++;
+        } else {
+          habitsExisting++;
+        }
+        send({
+          stage: "habits",
+          progress: 5 + ((i + 1) / habitNames.length) * 15,
+          current: i + 1,
+          total: habitNames.length,
+          message: `Habits (${i + 1}/${habitNames.length})`,
+        });
+      }
+
+      // ---- Stage 2: Entries (20-95%) ----
+      send({ stage: "entries", progress: 20, message: "Importing entries..." });
+      for (const [habitName, habitRows] of byHabit.entries()) {
+        const habit = habitMap.get(habitName)!;
+
+        for (const row of habitRows) {
+          const status = row.Status as HabitStatus;
+          const existing = await this.entryRepo.findOne({
+            where: { habitId: habit.id, date: row.Date, accountId: account.id },
+          });
+
+          if (existing) {
+            if (existing.status !== status || existing.comment !== row.Comment) {
+              existing.status = status;
+              existing.comment = row.Comment;
+              await this.entryRepo.save(existing);
+              entriesCreated++;
+            } else {
+              entriesExisting++;
+            }
+          } else {
+            const entry = this.entryRepo.create({
+              habitId: habit.id,
+              habit,
+              accountId: account.id,
+              account,
+              date: row.Date,
+              status,
+              comment: row.Comment,
+            });
+            await this.entryRepo.save(entry);
+            entriesCreated++;
+          }
+
+          processedEntries++;
+          if (processedEntries % 25 === 0 || processedEntries === totalEntries) {
+            send({
+              stage: "entries",
+              progress: 20 + (processedEntries / totalEntries) * 75,
+              current: processedEntries,
+              total: totalEntries,
+              message: `Entries (${processedEntries}/${totalEntries})`,
+            });
+          }
+        }
+      }
+
+      this.previewCache.delete(previewId);
+
+      send({
+        stage: "complete",
+        progress: 100,
+        message: "Import completed successfully!",
+        summary: {
+          habits: { created: habitsCreated, existing: habitsExisting },
+          entries: { created: entriesCreated, existing: entriesExisting },
+        },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`HabitShare import failed: ${msg}`, err instanceof Error ? err.stack : undefined);
+      send({ stage: "error", progress: 0, message: `Import failed: ${msg}`, error: msg });
+    } finally {
+      res.end();
+    }
   }
 }

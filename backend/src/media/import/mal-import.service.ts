@@ -77,8 +77,13 @@ export class MalImportService {
     const getText = (field: any): string =>
       Array.isArray(field) ? field[0] || "" : field || "";
 
-    const title = getText(entry.series_title);
-    const malId = parseInt(getText(entry.series_animedb_id || entry.series_mangadb_id)) || null;
+    // Anime uses series_title/series_animedb_id, manga uses manga_title/manga_mangadb_id
+    const title =
+      getText(entry.series_title) || getText(entry.manga_title) || "";
+    const malId =
+      parseInt(getText(entry.series_animedb_id)) ||
+      parseInt(getText(entry.manga_mangadb_id)) ||
+      null;
     const score = parseInt(getText(entry.my_score)) || null;
     const rating = score && score > 0 ? score : null;
 
@@ -116,8 +121,8 @@ export class MalImportService {
         rating,
         externalIds: malId ? { malId } : {},
         metadata: {
-          chapters: parseInt(getText(entry.series_chapters)) || null,
-          volumes: parseInt(getText(entry.series_volumes)) || null,
+          chapters: parseInt(getText(entry.manga_chapters)) || null,
+          volumes: parseInt(getText(entry.manga_volumes)) || null,
           chaptersRead: parseInt(getText(entry.my_read_chapters)) || 0,
           volumesRead: parseInt(getText(entry.my_read_volumes)) || 0,
           genres: [],

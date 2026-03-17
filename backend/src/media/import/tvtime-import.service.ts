@@ -13,62 +13,81 @@ export class TvTimeImportService {
     if (lines.length < 2) return [];
 
     const headers = this.parseCsvLine(lines[0]);
-    const titleIdx = this.findColumn(headers, ["title", "name", "series"]);
-    const typeIdx = this.findColumn(headers, ["type", "media_type"]);
-    const statusIdx = this.findColumn(headers, ["status", "tracking_status"]);
-    const ratingIdx = this.findColumn(headers, ["rating", "score"]);
+    const nameIdx = this.findColumn(headers, ["name", "title", "series"]);
+    const statusIdx = this.findColumn(headers, ["status"]);
+    const seenIdx = this.findColumn(headers, ["seen_episodes"]);
+    const airedIdx = this.findColumn(headers, ["aired_episodes"]);
+    const runtimeIdx = this.findColumn(headers, ["runtime"]);
+    const posterIdx = this.findColumn(headers, ["all_images.poster", "poster", "image"]);
+    const upToDateIdx = this.findColumn(headers, ["up_to_date"]);
+    const archivedIdx = this.findColumn(headers, ["archived"]);
 
-    if (titleIdx === -1) {
-      this.logger.warn("Could not find title column in TVTime CSV");
+    if (nameIdx === -1) {
+      this.logger.warn("Could not find name column in TVTime CSV");
       return [];
     }
 
-    const itemMap = new Map<string, ImportPreviewItem>();
+    const items: ImportPreviewItem[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const cols = this.parseCsvLine(lines[i]);
-      if (cols.length <= titleIdx) continue;
+      if (cols.length <= nameIdx) continue;
 
-      const title = cols[titleIdx]?.trim();
+      const title = cols[nameIdx]?.trim();
       if (!title) continue;
 
-      // Deduplicate by title (TVTime exports per-episode rows)
-      if (itemMap.has(title)) continue;
-
-      const rawType = typeIdx >= 0 ? cols[typeIdx]?.trim().toLowerCase() : "";
-      const type = rawType === "movie" ? MediaType.MOVIE : MediaType.TV;
-
       const rawStatus = statusIdx >= 0 ? cols[statusIdx]?.trim().toLowerCase() : "";
-      const status = this.mapStatus(rawStatus);
+      const seenEpisodes = seenIdx >= 0 ? parseInt(cols[seenIdx]) || 0 : 0;
+      const airedEpisodes = airedIdx >= 0 ? parseInt(cols[airedIdx]) || null : null;
+      const runtime = runtimeIdx >= 0 ? parseInt(cols[runtimeIdx]) || null : null;
+      const posterUrl = posterIdx >= 0 ? cols[posterIdx]?.trim() || null : null;
+      const upToDate = upToDateIdx >= 0 ? cols[upToDateIdx]?.trim().toLowerCase() === "true" : false;
+      const archived = archivedIdx >= 0 ? cols[archivedIdx]?.trim().toLowerCase() === "true" : false;
 
-      const rawRating = ratingIdx >= 0 ? parseFloat(cols[ratingIdx]) : NaN;
-      const rating = !isNaN(rawRating) && rawRating > 0 ? rawRating : null;
+      const status = this.mapStatus(rawStatus, upToDate, seenEpisodes, airedEpisodes);
 
-      itemMap.set(title, {
+      items.push({
         title,
-        type,
+        type: MediaType.TV,
         status,
-        rating,
+        rating: null,
         externalIds: {},
-        metadata: type === MediaType.TV ? { episodesWatched: 0 } : {},
-      });
+        metadata: {
+          episodes: airedEpisodes,
+          episodesWatched: seenEpisodes,
+          runtime,
+          archived,
+        },
+        coverUrl: posterUrl,
+      } as any);
     }
 
-    return Array.from(itemMap.values());
+    return items;
   }
 
-  private mapStatus(raw: string): MediaStatus {
-    if (raw.includes("watch") || raw.includes("current")) return MediaStatus.WATCHING;
-    if (raw.includes("complet") || raw.includes("finish")) return MediaStatus.COMPLETED;
-    if (raw.includes("drop")) return MediaStatus.DROPPED;
-    if (raw.includes("hold") || raw.includes("paus")) return MediaStatus.PAUSED;
-    return MediaStatus.PLANNING;
+  private mapStatus(
+    raw: string,
+    upToDate: boolean,
+    seen: number,
+    aired: number | null
+  ): MediaStatus {
+    // If ended and all episodes seen
+    if (raw.includes("ended") && aired && seen >= aired) return MediaStatus.COMPLETED;
+    // Up to date on a continuing show
+    if (upToDate && raw.includes("continuing")) return MediaStatus.WATCHING;
+    // Continuing but not up to date
+    if (raw.includes("continuing") && seen > 0) return MediaStatus.WATCHING;
+    // Ended but not all seen
+    if (raw.includes("ended") && seen > 0 && aired && seen < aired) return MediaStatus.PAUSED;
+    // No episodes seen
+    if (seen === 0) return MediaStatus.PLANNING;
+    return MediaStatus.WATCHING;
   }
 
   private findColumn(headers: string[], candidates: string[]): number {
     for (let i = 0; i < headers.length; i++) {
-      const h = headers[i].trim().toLowerCase().replace(/[^a-z_]/g, "");
-      if (candidates.some((c) => h.includes(c))) return i;
+      const h = headers[i].trim().toLowerCase();
+      if (candidates.some((c) => h === c || h.includes(c))) return i;
     }
     return -1;
   }

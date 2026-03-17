@@ -28,10 +28,16 @@ import { MediaService } from "../media/media.service";
 import { Response } from "express";
 import { MediaStatus } from "../entities/media-item.entity";
 
-// In-memory preview store (keyed by previewId)
+// In-memory preview store
 const previewStore = new Map<
   string,
-  { accountId: string; items: any[]; expiresAt: number }
+  {
+    accountId: string;
+    newItems: any[];
+    duplicates: any[]; // { incoming, existing }
+    expiresAt: number;
+    selectedDuplicateActions: Record<string, "skip" | "replace" | "keep">;
+  }
 >();
 
 @ApiTags("Media Import")
@@ -50,20 +56,12 @@ export class MediaImportController {
   @Post("mal/anime/preview")
   @ApiOperation({ summary: "Preview MAL anime XML export" })
   @ApiConsumes("multipart/form-data")
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: { file: { type: "string", format: "binary" } },
-    },
-  })
+  @ApiBody({ schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } })
   @UseInterceptors(FileInterceptor("file"))
-  async previewMalAnime(
-    @ReqUser() account: Account,
-    @UploadedFile() file: Express.Multer.File
-  ) {
+  async previewMalAnime(@ReqUser() account: Account, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException("No file uploaded");
     const items = await this.malImport.parseExport(file.buffer, "anime");
-    return this.storePreview(account.id, items);
+    return this.storePreviewWithDedup(account, items);
   }
 
   // ========== MAL MANGA PREVIEW ==========
@@ -71,20 +69,12 @@ export class MediaImportController {
   @Post("mal/manga/preview")
   @ApiOperation({ summary: "Preview MAL manga XML export" })
   @ApiConsumes("multipart/form-data")
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: { file: { type: "string", format: "binary" } },
-    },
-  })
+  @ApiBody({ schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } })
   @UseInterceptors(FileInterceptor("file"))
-  async previewMalManga(
-    @ReqUser() account: Account,
-    @UploadedFile() file: Express.Multer.File
-  ) {
+  async previewMalManga(@ReqUser() account: Account, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException("No file uploaded");
     const items = await this.malImport.parseExport(file.buffer, "manga");
-    return this.storePreview(account.id, items);
+    return this.storePreviewWithDedup(account, items);
   }
 
   // ========== TVTIME PREVIEW ==========
@@ -92,20 +82,12 @@ export class MediaImportController {
   @Post("tvtime/preview")
   @ApiOperation({ summary: "Preview TVTime CSV export" })
   @ApiConsumes("multipart/form-data")
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: { file: { type: "string", format: "binary" } },
-    },
-  })
+  @ApiBody({ schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } })
   @UseInterceptors(FileInterceptor("file"))
-  async previewTvTime(
-    @ReqUser() account: Account,
-    @UploadedFile() file: Express.Multer.File
-  ) {
+  async previewTvTime(@ReqUser() account: Account, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException("No file uploaded");
     const items = await this.tvTimeImport.parseCsv(file.buffer);
-    return this.storePreview(account.id, items);
+    return this.storePreviewWithDedup(account, items);
   }
 
   // ========== GOODREADS PREVIEW ==========
@@ -113,38 +95,39 @@ export class MediaImportController {
   @Post("goodreads/preview")
   @ApiOperation({ summary: "Preview Goodreads CSV export" })
   @ApiConsumes("multipart/form-data")
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: { file: { type: "string", format: "binary" } },
-    },
-  })
+  @ApiBody({ schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } })
   @UseInterceptors(FileInterceptor("file"))
-  async previewGoodreads(
-    @ReqUser() account: Account,
-    @UploadedFile() file: Express.Multer.File
-  ) {
+  async previewGoodreads(@ReqUser() account: Account, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException("No file uploaded");
     const items = await this.goodreadsImport.parseCsv(file.buffer);
-    return this.storePreview(account.id, items);
+    return this.storePreviewWithDedup(account, items);
+  }
+
+  // ========== SET DUPLICATE ACTIONS ==========
+
+  @Post("resolve")
+  @ApiOperation({
+    summary: "Set duplicate resolution actions before executing import",
+    description: "Pass a map of title -> action ('skip' | 'replace') for each duplicate.",
+  })
+  async resolveDuplicates(
+    @ReqUser() account: Account,
+    @Body() body: { previewId: string; actions: Record<string, "skip" | "replace"> }
+  ) {
+    if (!body.previewId) throw new BadRequestException("previewId is required");
+    const preview = previewStore.get(body.previewId);
+    if (!preview || preview.accountId !== account.id) {
+      throw new BadRequestException("Preview not found");
+    }
+    preview.selectedDuplicateActions = body.actions || {};
+    return { ok: true };
   }
 
   // ========== EXECUTE with SSE ==========
 
   @Get("execute/:previewId")
-  @ApiOperation({
-    summary: "Execute media import with progress streaming",
-    description:
-      "Executes a previously previewed import. Returns Server-Sent Events (SSE) with progress updates.",
-  })
-  @ApiParam({
-    name: "previewId",
-    description: "Preview ID returned from any preview endpoint",
-  })
-  @ApiResponse({
-    status: 200,
-    description: "SSE stream of progress events",
-  })
+  @ApiOperation({ summary: "Execute media import with progress streaming" })
+  @ApiParam({ name: "previewId" })
   async executeImportSSE(
     @ReqUser() account: Account,
     @Param("previewId") previewId: string,
@@ -160,64 +143,99 @@ export class MediaImportController {
     const preview = previewStore.get(previewId);
     if (!preview) {
       send({ stage: "error", message: "Preview not found or expired", error: "PREVIEW_NOT_FOUND" });
-      res.end();
-      return;
+      res.end(); return;
     }
     if (preview.accountId !== account.id) {
       send({ stage: "error", message: "Unauthorized", error: "UNAUTHORIZED" });
-      res.end();
-      return;
+      res.end(); return;
     }
     if (preview.expiresAt < Date.now()) {
       previewStore.delete(previewId);
       send({ stage: "error", message: "Preview expired", error: "EXPIRED" });
-      res.end();
-      return;
+      res.end(); return;
     }
 
     try {
       send({ stage: "starting", progress: 0, message: "Starting media import..." });
 
-      const items = preview.items;
+      const actions = preview.selectedDuplicateActions || {};
       let created = 0;
       let skipped = 0;
+      let replaced = 0;
 
-      for (let i = 0; i < items.length; i++) {
-        const dto = items[i];
+      // Combine new items + duplicates that should be replaced
+      const toCreate = [...preview.newItems];
+      const toReplace: Array<{ incoming: any; existingId: string }> = [];
+
+      for (const dup of preview.duplicates) {
+        const action = actions[dup.incoming.title] || "skip";
+        if (action === "replace") {
+          toReplace.push({ incoming: dup.incoming, existingId: dup.existing.id });
+        } else {
+          skipped++;
+        }
+      }
+
+      const total = toCreate.length + toReplace.length;
+
+      // Create new items
+      for (let i = 0; i < toCreate.length; i++) {
+        const dto = toCreate[i];
         try {
           await this.mediaService.create(account, {
             title: dto.title,
             type: dto.type,
             status: dto.status ?? MediaStatus.PLANNING,
             rating: dto.rating ?? undefined,
+            coverUrl: dto.coverUrl ?? undefined,
             metadata: dto.metadata ?? {},
             externalIds: dto.externalIds ?? {},
           });
           created++;
         } catch (err) {
-          // Duplicate title+type → skip, anything else → log
           const msg = err instanceof Error ? err.message : String(err);
           if (msg.includes("duplicate") || msg.includes("unique") || msg.includes("UNIQUE")) {
             skipped++;
           } else {
             skipped++;
-            send({
-              stage: "importing",
-              progress: 5 + ((i + 1) / items.length) * 90,
-              current: i + 1,
-              total: items.length,
-              message: `Warning: skipped "${dto.title}" — ${msg}`,
-            });
           }
         }
 
-        if ((i + 1) % 5 === 0 || i + 1 === items.length) {
+        if ((i + 1) % 5 === 0 || i + 1 === toCreate.length) {
           send({
             stage: "importing",
-            progress: 5 + ((i + 1) / items.length) * 90,
+            progress: 5 + ((i + 1) / total) * 90,
             current: i + 1,
-            total: items.length,
-            message: `Importing (${i + 1}/${items.length})`,
+            total,
+            message: `Creating new items (${i + 1}/${toCreate.length})`,
+          });
+        }
+      }
+
+      // Replace duplicates
+      for (let i = 0; i < toReplace.length; i++) {
+        const { incoming, existingId } = toReplace[i];
+        try {
+          await this.mediaService.update(account, existingId, {
+            status: incoming.status,
+            rating: incoming.rating ?? undefined,
+            coverUrl: incoming.coverUrl ?? undefined,
+            metadata: incoming.metadata ?? {},
+            externalIds: incoming.externalIds ?? {},
+          });
+          replaced++;
+        } catch {
+          skipped++;
+        }
+
+        const idx = toCreate.length + i + 1;
+        if ((i + 1) % 5 === 0 || i + 1 === toReplace.length) {
+          send({
+            stage: "replacing",
+            progress: 5 + (idx / total) * 90,
+            current: idx,
+            total,
+            message: `Updating duplicates (${i + 1}/${toReplace.length})`,
           });
         }
       }
@@ -228,7 +246,7 @@ export class MediaImportController {
         stage: "complete",
         progress: 100,
         message: "Import completed successfully!",
-        summary: { created, skipped },
+        summary: { created, replaced, skipped },
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -238,56 +256,57 @@ export class MediaImportController {
     }
   }
 
-  // ========== EXECUTE (legacy JSON) ==========
-
-  @Post("execute")
-  @ApiOperation({
-    summary: "Execute a previously previewed import (legacy JSON)",
-    description: "Use GET execute/:previewId for SSE progress.",
-  })
-  @ApiResponse({ status: 201, description: "Import completed" })
-  async executeImport(
-    @ReqUser() account: Account,
-    @Body() body: { previewId: string }
-  ) {
-    if (!body.previewId) {
-      throw new BadRequestException("previewId is required");
-    }
-
-    const preview = previewStore.get(body.previewId);
-    if (!preview) {
-      throw new BadRequestException(
-        "Preview not found or expired. Please re-upload the file."
-      );
-    }
-    if (preview.accountId !== account.id) {
-      throw new BadRequestException("Preview not found");
-    }
-    if (preview.expiresAt < Date.now()) {
-      previewStore.delete(body.previewId);
-      throw new BadRequestException("Preview expired. Please re-upload the file.");
-    }
-
-    const result = await this.mediaService.bulkCreate(account, preview.items);
-    previewStore.delete(body.previewId);
-    return result;
-  }
-
   // ========== HELPERS ==========
 
-  private storePreview(accountId: string, items: any[]) {
-    const previewId = `${accountId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  private async storePreviewWithDedup(account: Account, items: any[]) {
+    // Load all existing media for this account
+    const existing = await this.mediaService.findAll(account);
+    const existingMap = new Map<string, any>();
+    for (const e of existing) {
+      // Key by lowercase title for fuzzy matching
+      existingMap.set(e.title.toLowerCase().trim(), e);
+    }
+
+    const newItems: any[] = [];
+    const duplicates: Array<{ incoming: any; existing: any }> = [];
+
+    for (const item of items) {
+      const key = item.title.toLowerCase().trim();
+      const match = existingMap.get(key);
+      if (match) {
+        duplicates.push({
+          incoming: item,
+          existing: {
+            id: match.id,
+            title: match.title,
+            type: match.type,
+            status: match.status,
+            rating: match.rating != null ? Number(match.rating) : null,
+            coverUrl: match.coverUrl,
+            metadata: match.metadata,
+          },
+        });
+      } else {
+        newItems.push(item);
+      }
+    }
+
+    const previewId = `${account.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     previewStore.set(previewId, {
-      accountId,
-      items,
+      accountId: account.id,
+      newItems,
+      duplicates,
       expiresAt: Date.now() + 15 * 60 * 1000,
+      selectedDuplicateActions: {},
     });
 
     return {
       previewId,
-      count: items.length,
-      items: items.slice(0, 50),
+      newCount: newItems.length,
+      duplicateCount: duplicates.length,
       totalItems: items.length,
+      items: newItems.slice(0, 30),
+      duplicates: duplicates.slice(0, 50),
     };
   }
 }

@@ -87,9 +87,12 @@ function SourceStep({ source, setSource, file, setFile, onNext }) {
   )
 }
 
-// ─── Step 2: Preview ────────────────────────────────────────────
+// ─── Step 2: Preview + Conflicts ────────────────────────────────
 
 function PreviewStep({ preview, loading, error, onNext, onBack }) {
+  const [actions, setActions] = useState({}) // title -> 'skip' | 'replace'
+  const [bulkAction, setBulkAction] = useState('') // for "set all"
+
   if (loading) return (
     <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
       <LoadingSpinner size={40} />
@@ -104,31 +107,158 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
   )
   if (!preview) return null
 
-  const items = preview.items || []
+  const newItems = preview.items || []
+  const duplicates = preview.duplicates || []
+  const hasDuplicates = duplicates.length > 0
+
+  const getAction = (title) => actions[title] || 'skip'
+
+  const applyBulk = (action) => {
+    setBulkAction(action)
+    const newActions = {}
+    duplicates.forEach(d => { newActions[d.incoming.title] = action })
+    setActions(newActions)
+  }
+
+  const handleNext = () => {
+    onNext(actions)
+  }
+
+  const replaceCount = Object.values(actions).filter(a => a === 'replace').length
 
   return (
-    <div className="card" style={{ marginBottom: '1.5rem' }}>
-      <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <Icon name="eye" size={20} /> Preview ({preview.totalItems ?? preview.count ?? items.length} items)
-      </h3>
-      <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: '1rem' }}>
-        {items.slice(0, 30).map((item, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.4rem 0', borderBottom: '1px solid var(--glass-border)' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#f472b6', textTransform: 'uppercase', width: 50 }}>{item.type}</span>
-            <span style={{ flex: 1, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.status}</span>
-            {item.rating && <span style={{ fontSize: '0.75rem', color: '#fbbf24' }}>{item.rating}</span>}
-          </div>
-        ))}
-        {(preview.totalItems || preview.count) > 30 && (
-          <div style={{ textAlign: 'center', padding: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-            ...and {(preview.totalItems || preview.count) - 30} more
+    <div style={{ marginBottom: '1.5rem' }}>
+      {/* New items */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <h3 style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Icon name="plus-circle" size={20} style={{ color: 'var(--color-success)' }} />
+          New Items
+          <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>({preview.newCount})</span>
+        </h3>
+        {preview.newCount === 0 ? (
+          <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', padding: '0.5rem 0' }}>No new items to import - all already exist in your library.</div>
+        ) : (
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {newItems.slice(0, 30).map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0', borderBottom: '1px solid var(--glass-border)' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: MEDIA_COLOR, textTransform: 'uppercase', width: 50 }}>{item.type}</span>
+                <span style={{ flex: 1, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{item.status}</span>
+              </div>
+            ))}
+            {preview.newCount > 30 && (
+              <div style={{ textAlign: 'center', padding: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                ...and {preview.newCount - 30} more
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Duplicates */}
+      {hasDuplicates && (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Icon name="copy" size={20} style={{ color: '#fbbf24' }} />
+            Already in Library
+            <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>({duplicates.length})</span>
+          </h3>
+          <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
+            These titles already exist. Choose to <strong>skip</strong> (keep existing) or <strong>replace</strong> (overwrite with imported data) for each.
+          </p>
+
+          {/* Bulk actions */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <button
+              className="btn"
+              onClick={() => applyBulk('skip')}
+              style={{
+                fontSize: '0.8rem', padding: '0.3rem 0.7rem',
+                background: bulkAction === 'skip' ? 'var(--glass-border)' : 'transparent',
+                border: '1px solid var(--glass-border)',
+              }}
+            >
+              Skip All
+            </button>
+            <button
+              className="btn"
+              onClick={() => applyBulk('replace')}
+              style={{
+                fontSize: '0.8rem', padding: '0.3rem 0.7rem',
+                background: bulkAction === 'replace' ? `${MEDIA_COLOR}33` : 'transparent',
+                border: `1px solid ${bulkAction === 'replace' ? MEDIA_COLOR : 'var(--glass-border)'}`,
+                color: bulkAction === 'replace' ? MEDIA_COLOR : undefined,
+              }}
+            >
+              Replace All
+            </button>
+          </div>
+
+          <div style={{ maxHeight: 350, overflowY: 'auto' }}>
+            {duplicates.map((dup, i) => {
+              const action = getAction(dup.incoming.title)
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.5rem 0.4rem',
+                  borderBottom: '1px solid var(--glass-border)',
+                  opacity: action === 'skip' ? 0.5 : 1,
+                  transition: 'opacity 0.2s',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {dup.incoming.title}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', display: 'flex', gap: '0.75rem', marginTop: '0.15rem' }}>
+                      <span>Existing: <strong>{dup.existing.status}</strong>{dup.existing.rating != null ? ` (${dup.existing.rating})` : ''}</span>
+                      <span style={{ color: MEDIA_COLOR }}>Import: <strong>{dup.incoming.status}</strong>{dup.incoming.rating != null ? ` (${dup.incoming.rating})` : ''}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+                    <button
+                      className="btn"
+                      onClick={() => setActions(a => ({ ...a, [dup.incoming.title]: 'skip' }))}
+                      style={{
+                        fontSize: '0.72rem', padding: '0.2rem 0.5rem',
+                        background: action === 'skip' ? 'var(--glass-border)' : 'transparent',
+                        border: '1px solid var(--glass-border)',
+                      }}
+                    >
+                      Skip
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => setActions(a => ({ ...a, [dup.incoming.title]: 'replace' }))}
+                      style={{
+                        fontSize: '0.72rem', padding: '0.2rem 0.5rem',
+                        background: action === 'replace' ? `${MEDIA_COLOR}33` : 'transparent',
+                        border: `1px solid ${action === 'replace' ? MEDIA_COLOR : 'var(--glass-border)'}`,
+                        color: action === 'replace' ? MEDIA_COLOR : undefined,
+                      }}
+                    >
+                      Replace
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '0.75rem' }}>
-        <button className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)' }} onClick={onBack}><Icon name="arrow-left" size={18} /> Back</button>
-        <button className="btn" onClick={onNext} style={{ background: MEDIA_COLOR, color: '#000' }}><Icon name="play" size={18} /> Import All</button>
+        <button className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)' }} onClick={onBack}>
+          <Icon name="arrow-left" size={18} /> Back
+        </button>
+        <button
+          className="btn"
+          onClick={handleNext}
+          disabled={preview.newCount === 0 && replaceCount === 0}
+          style={{ background: MEDIA_COLOR, color: '#000', opacity: (preview.newCount === 0 && replaceCount === 0) ? 0.4 : 1 }}
+        >
+          <Icon name="play" size={18} />
+          Import {preview.newCount} new{replaceCount > 0 ? ` + replace ${replaceCount}` : ''}
+        </button>
       </div>
     </div>
   )
@@ -213,7 +343,9 @@ function SummaryStep({ summary, onReset }) {
       <Icon name="check-circle" size={56} style={{ color: 'var(--color-success)', marginBottom: '0.75rem', display: 'block' }} />
       <h3 style={{ marginBottom: '0.25rem' }}>Import Complete!</h3>
       <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-        <strong style={{ color: 'var(--color-success)' }}>{summary?.created ?? 0}</strong> items imported, <strong>{summary?.skipped ?? 0}</strong> skipped
+        <strong style={{ color: 'var(--color-success)' }}>{summary?.created ?? 0}</strong> created
+        {(summary?.replaced ?? 0) > 0 && <>, <strong style={{ color: MEDIA_COLOR }}>{summary.replaced}</strong> replaced</>}
+        , <strong>{summary?.skipped ?? 0}</strong> skipped
       </p>
       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
         <button className="btn" onClick={onReset}><Icon name="refresh-cw" size={18} /> Import More</button>
@@ -252,6 +384,26 @@ export default function MediaImport() {
     finally { setPreviewLoading(false) }
   }
 
+  const handleStartImport = async (duplicateActions) => {
+    setImportError(null)
+    setSummary(null)
+
+    // Send duplicate resolution to backend
+    if (preview?.duplicateCount > 0 && Object.keys(duplicateActions).length > 0) {
+      try {
+        await apiFetch('/media/import/resolve', {
+          method: 'POST',
+          body: JSON.stringify({ previewId: preview.previewId, actions: duplicateActions }),
+        })
+      } catch (e) {
+        setImportError(e.message)
+        return
+      }
+    }
+
+    setStep(3)
+  }
+
   const handleReset = () => {
     setStep(1); setSource(null); setFile(null); setPreview(null)
     setPreviewError(null); setPreviewLoading(false); setSummary(null); setImportError(null)
@@ -263,7 +415,7 @@ export default function MediaImport() {
       <StepIndicator current={step} steps={STEPS} />
 
       {step === 1 && <SourceStep source={source} setSource={setSource} file={file} setFile={setFile} onNext={handlePreview} />}
-      {step === 2 && <PreviewStep preview={preview} loading={previewLoading} error={previewError} onNext={() => { setImportError(null); setSummary(null); setStep(3) }} onBack={() => setStep(1)} />}
+      {step === 2 && <PreviewStep preview={preview} loading={previewLoading} error={previewError} onNext={handleStartImport} onBack={() => setStep(1)} />}
       {step === 3 && (
         <>
           {importError && <div className="alert-error" style={{ marginBottom: '1rem' }}>{importError}</div>}

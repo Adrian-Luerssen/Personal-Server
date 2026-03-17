@@ -168,6 +168,12 @@ export class MediaEnrichmentService {
       if (data.rating) newMeta.ageRating = data.rating;
       newMeta.reclassified = true;
 
+      // Set tags: anime + movie for anime movies, just anime otherwise
+      const format = (data.type || "").toLowerCase();
+      const tags: string[] = ["anime"];
+      if (format === "movie") tags.push("movie");
+      newMeta.tags = tags;
+
       item.metadata = newMeta;
 
       if (!item.externalIds?.malId && data.mal_id) {
@@ -256,17 +262,20 @@ export class MediaEnrichmentService {
     const demographics = (data.demographics || []).map((d: any) => d.name);
     if (demographics.length > 0) newMeta.demographics = demographics;
 
-    if (data.type) newMeta.mediaFormat = data.type; // TV, OVA, Movie, Manga, etc.
-    if (data.source) newMeta.source = data.source; // Manga, Light novel, Original, etc.
+    if (data.type) newMeta.mediaFormat = data.type;
+    if (data.source) newMeta.source = data.source;
     if (data.duration) newMeta.duration = data.duration;
     if (data.rating) newMeta.ageRating = data.rating;
 
-    if (item.type === MediaType.ANIME) {
-      if (data.episodes && !newMeta.episodes) newMeta.episodes = data.episodes;
-    } else {
+    if (item.type === MediaType.MANGA) {
       if (data.chapters && !newMeta.chapters) newMeta.chapters = data.chapters;
       if (data.volumes && !newMeta.volumes) newMeta.volumes = data.volumes;
+      newMeta.tags = ["manga"];
+    } else {
+      if (data.episodes && !newMeta.episodes) newMeta.episodes = data.episodes;
+      newMeta.tags = ["anime"];
     }
+    newMeta.reclassified = true;
 
     updates.metadata = newMeta;
 
@@ -349,8 +358,9 @@ export class MediaEnrichmentService {
       item.externalIds = { ...item.externalIds, tmdbId: data.id };
     }
 
-    // Mark as reclassified so we don't re-check
-    item.metadata = { ...item.metadata, reclassified: true };
+    // Set tags based on type
+    const tmdbTags: string[] = [item.type === MediaType.MOVIE ? "movie" : "tv"];
+    item.metadata = { ...item.metadata, tags: tmdbTags, reclassified: true };
     await this.mediaRepo.save(item);
     this.logger.debug(`Enriched "${item.title}" with cover + metadata from TMDB`);
   }
@@ -411,6 +421,8 @@ export class MediaEnrichmentService {
       item.externalIds = { ...item.externalIds, openLibraryKey: data.key };
     }
 
+    item.metadata.tags = ["book"];
+    item.metadata.reclassified = true;
     await this.mediaRepo.save(item);
     this.logger.debug(`Enriched "${item.title}" with cover + metadata from OpenLibrary`);
   }

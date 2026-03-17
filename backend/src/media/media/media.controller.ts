@@ -35,15 +35,17 @@ export class MediaController {
   @Get()
   @ApiOperation({ summary: "List all media items with optional filters" })
   @ApiQuery({ name: "type", required: false, enum: MediaType })
+  @ApiQuery({ name: "tag", required: false, description: "Filter by tag (anime, manga, tv, movie, book)" })
   @ApiQuery({ name: "status", required: false, enum: MediaStatus })
   @ApiQuery({ name: "search", required: false, description: "Title search" })
   async findAll(
     @ReqUser() account: Account,
     @Query("type") type?: MediaType,
+    @Query("tag") tag?: string,
     @Query("status") status?: MediaStatus,
     @Query("search") search?: string
   ) {
-    return this.mediaService.findAll(account, { type, status, search });
+    return this.mediaService.findAll(account, { type, tag, status, search });
   }
 
   // ========== STATS ==========

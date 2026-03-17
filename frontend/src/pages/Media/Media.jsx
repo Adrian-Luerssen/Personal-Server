@@ -39,12 +39,21 @@ function MediaCard({ item, onClick }) {
             <Icon name={typeMeta.icon || 'film'} size={32} />
           </div>
         )}
-        <div className="media-card-type-badge" style={{ background: typeMeta.color }}>
-          {typeMeta.label}
-          {item.metadata?.mediaFormat && item.metadata.mediaFormat !== 'TV' && item.metadata.mediaFormat !== typeMeta.label && (
-            <span style={{ marginLeft: 3, opacity: 0.8 }}>{item.metadata.mediaFormat}</span>
-          )}
-        </div>
+        {(() => {
+          const tags = Array.isArray(item.metadata?.tags) ? item.metadata.tags : [item.type]
+          return (
+            <div style={{ position: 'absolute', top: '0.4rem', left: '0.4rem', display: 'flex', gap: '0.2rem' }}>
+              {tags.map(tag => {
+                const meta = TYPE_META[tag] || {}
+                return (
+                  <div key={tag} className="media-card-type-badge" style={{ background: meta.color || '#666', position: 'static' }}>
+                    {meta.label || tag}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
         {item.rating != null && (
           <div className="media-card-rating">
             <Icon name="star" size={12} />
@@ -458,7 +467,7 @@ export default function Media() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (filterType) params.set('type', filterType)
+      if (filterType) params.set('tag', filterType)
       if (filterStatus) params.set('status', filterStatus)
       if (search) params.set('search', search)
       const [data, s] = await Promise.all([
@@ -515,8 +524,8 @@ export default function Media() {
           >
             <Icon name={meta.icon} size={14} />
             {meta.label}
-            {stats?.byType?.[key] != null && (
-              <span className="media-chip-count">{stats.byType[key]}</span>
+            {(stats?.byTag?.[key] ?? stats?.byType?.[key]) != null && (
+              <span className="media-chip-count">{stats.byTag[key] ?? stats.byType[key]}</span>
             )}
           </button>
         ))}

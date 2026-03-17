@@ -17,6 +17,7 @@ import { Cache } from "cache-manager";
 export interface MediaStats {
   total: number;
   byType: Record<string, number>;
+  byTag: Record<string, number>;
   byStatus: Record<string, number>;
   averageRating: number | null;
   rated: number;
@@ -36,13 +37,18 @@ export class MediaService {
 
   async findAll(
     account: Account,
-    filters?: { type?: MediaType; status?: MediaStatus; search?: string }
+    filters?: { type?: MediaType; status?: MediaStatus; search?: string; tag?: string }
   ): Promise<MediaItem[]> {
     let query = this.mediaRepo
       .createQueryBuilder("m")
       .where("m.accountId = :accountId", { accountId: account.id });
 
-    if (filters?.type) {
+    if (filters?.tag) {
+      // Filter by tag in metadata.tags JSONB array
+      query = query.andWhere("m.metadata->'tags' @> :tag", {
+        tag: JSON.stringify([filters.tag]),
+      });
+    } else if (filters?.type) {
       query = query.andWhere("m.type = :type", { type: filters.type });
     }
     if (filters?.status) {
@@ -151,9 +157,17 @@ export class MediaService {
     let rated = 0;
     let completed = 0;
 
+    const byTag: Record<string, number> = {};
+
     for (const item of items) {
       byType[item.type] = (byType[item.type] || 0) + 1;
       byStatus[item.status] = (byStatus[item.status] || 0) + 1;
+
+      // Count by tags
+      const tags: string[] = Array.isArray(item.metadata?.tags) ? item.metadata.tags : [item.type];
+      for (const tag of tags) {
+        byTag[tag] = (byTag[tag] || 0) + 1;
+      }
 
       if (item.status === MediaStatus.COMPLETED) completed++;
 
@@ -169,6 +183,7 @@ export class MediaService {
     return {
       total: items.length,
       byType,
+      byTag,
       byStatus,
       averageRating: rated > 0 ? Math.round((ratingSum / rated) * 10) / 10 : null,
       rated,

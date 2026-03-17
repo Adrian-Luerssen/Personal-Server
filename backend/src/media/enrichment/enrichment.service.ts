@@ -22,23 +22,33 @@ export class MediaEnrichmentService {
     this.running = true;
 
     try {
-      // Find items missing cover art (up to 5 per cycle to respect rate limits)
+      // Priority 1: Items missing cover art
       let pending = await this.mediaRepo.find({
         where: { coverUrl: IsNull() },
         take: 5,
         order: { createdAt: "ASC" },
       });
 
-      // If no items missing covers, look for items missing synopsis
+      // Priority 2: Items missing synopsis (need full enrichment)
       if (pending.length === 0) {
-        const all = await this.mediaRepo
+        pending = await this.mediaRepo
           .createQueryBuilder("m")
           .where("m.coverUrl IS NOT NULL AND m.coverUrl != ''")
           .andWhere("(m.metadata->>'synopsis') IS NULL")
           .orderBy("m.createdAt", "ASC")
           .take(5)
           .getMany();
-        pending = all;
+      }
+
+      // Priority 3: TV items that might be anime (need reclassification)
+      if (pending.length === 0) {
+        pending = await this.mediaRepo
+          .createQueryBuilder("m")
+          .where("m.type = :type", { type: "tv" })
+          .andWhere("(m.metadata->>'reclassified') IS NULL")
+          .orderBy("m.createdAt", "ASC")
+          .take(5)
+          .getMany();
       }
 
       if (pending.length === 0) return;
@@ -66,12 +76,120 @@ export class MediaEnrichmentService {
   }
 
   private async enrichItem(item: MediaItem): Promise<void> {
-    if (item.type === MediaType.ANIME || item.type === MediaType.MANGA) {
-      await this.enrichFromJikan(item);
-    } else if (item.type === MediaType.TV || item.type === MediaType.MOVIE) {
-      await this.enrichFromTmdb(item);
-    } else if (item.type === MediaType.BOOK) {
+    if (item.type === MediaType.BOOK) {
       await this.enrichFromOpenLibrary(item);
+      return;
+    }
+    if (item.type === MediaType.MANGA) {
+      await this.enrichFromJikan(item);
+      return;
+    }
+
+    // For anime, tv, and movie: try Jikan first to detect anime
+    // This reclassifies TVTime/other imports that may be anime
+    const jikanMatch = await this.tryJikanClassify(item);
+    if (jikanMatch) {
+      return; // Already saved inside tryJikanClassify
+    }
+
+    // Not found on Jikan → it's a regular TV show or movie
+    if (item.type === MediaType.TV || item.type === MediaType.MOVIE || item.type === MediaType.ANIME) {
+      await this.enrichFromTmdb(item);
+    }
+  }
+
+  /**
+   * Try to find the item on Jikan. If found, reclassify as anime and enrich.
+   * Returns true if a match was found, false otherwise.
+   */
+  private async tryJikanClassify(item: MediaItem): Promise<boolean> {
+    const malId = item.externalIds?.malId;
+
+    try {
+      let data: any;
+
+      if (malId) {
+        const resp = await axios.get(
+          `https://api.jikan.moe/v4/anime/${malId}`,
+          { timeout: 10000 }
+        );
+        data = resp.data?.data;
+      } else {
+        // Search by title on anime endpoint
+        const resp = await axios.get(
+          `https://api.jikan.moe/v4/anime`,
+          { params: { q: item.title, limit: 3 }, timeout: 10000 }
+        );
+        const results = resp.data?.data || [];
+        // Find a strong title match
+        data = results.find((r: any) => {
+          const t = (r.title || "").toLowerCase();
+          const te = (r.title_english || "").toLowerCase();
+          const it = item.title.toLowerCase();
+          return t === it || te === it || t.includes(it) || it.includes(t);
+        });
+      }
+
+      if (!data) return false;
+
+      // Found on Jikan → this is anime. Reclassify.
+      const oldType = item.type;
+      item.type = MediaType.ANIME;
+
+      const coverUrl =
+        data.images?.jpg?.large_image_url ||
+        data.images?.jpg?.image_url ||
+        null;
+      if (coverUrl) item.coverUrl = coverUrl;
+
+      const newMeta = { ...item.metadata };
+
+      // Store the format (TV, Movie, OVA, Special, ONA, Music)
+      if (data.type) newMeta.mediaFormat = data.type;
+
+      if (data.synopsis) newMeta.synopsis = data.synopsis;
+      if (data.score) newMeta.malScore = data.score;
+      if (data.year) newMeta.year = data.year;
+      if (data.aired?.from) newMeta.year = newMeta.year || new Date(data.aired.from).getFullYear();
+      if (data.status) newMeta.airingStatus = data.status;
+      if (data.episodes && !newMeta.episodes) newMeta.episodes = data.episodes;
+
+      const genres = (data.genres || []).map((g: any) => g.name);
+      if (genres.length > 0) newMeta.genres = genres;
+      const studios = (data.studios || []).map((s: any) => s.name);
+      if (studios.length > 0) newMeta.studios = studios;
+      const themes = (data.themes || []).map((t: any) => t.name);
+      if (themes.length > 0) newMeta.themes = themes;
+      const demographics = (data.demographics || []).map((d: any) => d.name);
+      if (demographics.length > 0) newMeta.demographics = demographics;
+
+      if (data.source) newMeta.source = data.source;
+      if (data.duration) newMeta.duration = data.duration;
+      if (data.rating) newMeta.ageRating = data.rating;
+      newMeta.reclassified = true;
+
+      item.metadata = newMeta;
+
+      if (!item.externalIds?.malId && data.mal_id) {
+        item.externalIds = { ...item.externalIds, malId: data.mal_id };
+      }
+
+      await this.mediaRepo.save(item);
+
+      if (oldType !== MediaType.ANIME) {
+        this.logger.log(`Reclassified "${item.title}" from ${oldType} → anime (${data.type || "unknown format"})`);
+      } else {
+        this.logger.debug(`Enriched "${item.title}" with cover + metadata from Jikan`);
+      }
+
+      return true;
+    } catch (err) {
+      // 404 = not found on Jikan, that's fine
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        return false;
+      }
+      // Rate limited or other error — don't reclassify, let it retry later
+      throw err;
     }
   }
 
@@ -193,6 +311,7 @@ export class MediaEnrichmentService {
 
     if (!data) {
       item.coverUrl = "";
+      item.metadata = { ...item.metadata, reclassified: true };
       await this.mediaRepo.save(item);
       return;
     }
@@ -230,6 +349,8 @@ export class MediaEnrichmentService {
       item.externalIds = { ...item.externalIds, tmdbId: data.id };
     }
 
+    // Mark as reclassified so we don't re-check
+    item.metadata = { ...item.metadata, reclassified: true };
     await this.mediaRepo.save(item);
     this.logger.debug(`Enriched "${item.title}" with cover + metadata from TMDB`);
   }

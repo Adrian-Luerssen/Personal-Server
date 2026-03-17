@@ -41,6 +41,9 @@ function MediaCard({ item, onClick }) {
         )}
         <div className="media-card-type-badge" style={{ background: typeMeta.color }}>
           {typeMeta.label}
+          {item.metadata?.mediaFormat && item.metadata.mediaFormat !== 'TV' && item.metadata.mediaFormat !== typeMeta.label && (
+            <span style={{ marginLeft: 3, opacity: 0.8 }}>{item.metadata.mediaFormat}</span>
+          )}
         </div>
         {item.rating != null && (
           <div className="media-card-rating">

@@ -185,27 +185,30 @@ export class MediaImportController {
       for (let i = 0; i < items.length; i++) {
         const dto = items[i];
         try {
-          const existing = await this.mediaService.findAll(account, {
-            search: dto.title,
+          await this.mediaService.create(account, {
+            title: dto.title,
             type: dto.type,
+            status: dto.status ?? MediaStatus.PLANNING,
+            rating: dto.rating ?? undefined,
+            metadata: dto.metadata ?? {},
+            externalIds: dto.externalIds ?? {},
           });
-          const exactMatch = existing.find(
-            (e) => e.title === dto.title && e.type === dto.type
-          );
-
-          if (exactMatch) {
+          created++;
+        } catch (err) {
+          // Duplicate title+type → skip, anything else → log
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("duplicate") || msg.includes("unique") || msg.includes("UNIQUE")) {
             skipped++;
           } else {
-            await this.mediaService.create(account, {
-              ...dto,
-              status: dto.status ?? MediaStatus.PLANNING,
-              metadata: dto.metadata ?? {},
-              externalIds: dto.externalIds ?? {},
+            skipped++;
+            send({
+              stage: "importing",
+              progress: 5 + ((i + 1) / items.length) * 90,
+              current: i + 1,
+              total: items.length,
+              message: `Warning: skipped "${dto.title}" — ${msg}`,
             });
-            created++;
           }
-        } catch {
-          skipped++;
         }
 
         if ((i + 1) % 5 === 0 || i + 1 === items.length) {

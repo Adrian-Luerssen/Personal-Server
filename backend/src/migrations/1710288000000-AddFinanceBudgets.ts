@@ -4,7 +4,7 @@ export class AddFinanceBudgets1710288000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: "finance_budgets",
+        name: "app_finance_budgets",
         columns: [
           { name: "id", type: "uuid", isPrimary: true, generationStrategy: "uuid", default: "uuid_generate_v4()" },
           { name: "createdAt", type: "timestamptz", default: "now()" },
@@ -17,13 +17,13 @@ export class AddFinanceBudgets1710288000000 implements MigrationInterface {
         foreignKeys: [
           {
             columnNames: ["accountId"],
-            referencedTableName: "app_accounts",
+            referencedTableName: "app_account",
             referencedColumnNames: ["id"],
             onDelete: "CASCADE",
           },
           {
             columnNames: ["categoryId"],
-            referencedTableName: "finance_categories",
+            referencedTableName: "app_finance_categories",
             referencedColumnNames: ["id"],
             onDelete: "CASCADE",
           },
@@ -33,9 +33,9 @@ export class AddFinanceBudgets1710288000000 implements MigrationInterface {
     );
 
     await queryRunner.createIndex(
-      "finance_budgets",
+      "app_finance_budgets",
       new TableIndex({
-        name: "IDX_finance_budgets_account_category_period",
+        name: "IDX_app_finance_budgets_account_category_period",
         columnNames: ["accountId", "categoryId", "period"],
         isUnique: true,
       })
@@ -43,6 +43,6 @@ export class AddFinanceBudgets1710288000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropTable("finance_budgets");
+    await queryRunner.dropTable("app_finance_budgets");
   }
 }

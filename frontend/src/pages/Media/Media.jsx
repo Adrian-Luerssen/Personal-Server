@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { apiFetch } from '../../api'
 import { StatCard, SkeletonStatCard, SkeletonCard } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
@@ -354,8 +355,10 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
   const showEpisodes = item.type === 'anime' || item.type === 'tv'
   const showChapters = item.type === 'manga'
   const showPages = item.type === 'book'
+  const synopsis = typeof item.metadata?.synopsis === 'string' ? item.metadata.synopsis : ''
+  const genres = Array.isArray(item.metadata?.genres) ? item.metadata.genres : []
 
-  return (
+  return createPortal(
     <div className="media-modal-overlay" onClick={onClose}>
       <div className="media-modal media-modal-edit" onClick={e => e.stopPropagation()}>
         <div className="media-modal-header">
@@ -408,15 +411,15 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                 <input type="number" min="0" max={item.metadata?.pages || undefined} value={form.pagesRead} onChange={e => setForm(f => ({ ...f, pagesRead: e.target.value }))} />
               </label>
             )}
-            {item.metadata?.synopsis && (
+            {synopsis && (
               <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem', lineHeight: 1.5, maxHeight: 80, overflowY: 'auto', padding: '0.5rem 0.6rem', background: 'var(--color-bg)', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--glass-border)' }}>
-                {item.metadata.synopsis}
+                {synopsis}
               </div>
             )}
-            {item.metadata?.genres?.length > 0 && (
+            {genres.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
-                {item.metadata.genres.map((g, i) => (
-                  <span key={i} style={{ padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full, 999px)', background: `${typeMeta.color}22`, color: typeMeta.color, fontSize: '0.7rem', fontWeight: 600 }}>{g}</span>
+                {genres.map((g, i) => (
+                  <span key={i} style={{ padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full, 999px)', background: `${typeMeta.color}22`, color: typeMeta.color, fontSize: '0.7rem', fontWeight: 600 }}>{String(g)}</span>
                 ))}
               </div>
             )}
@@ -433,7 +436,8 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -560,7 +564,7 @@ export default function Media() {
       )}
 
       <AddModal open={addOpen} onClose={() => setAddOpen(false)} onSave={load} />
-      <EditModal item={editItem} open={!!editItem} onClose={() => setEditItem(null)} onSave={load} onDelete={load} />
+      <EditModal key={editItem?.id || 'none'} item={editItem} open={!!editItem} onClose={() => setEditItem(null)} onSave={load} onDelete={load} />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </>

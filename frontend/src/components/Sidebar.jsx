@@ -26,6 +26,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const [spotifyMenuOpen, setSpotifyMenuOpen] = useState(false)
   const [workoutMenuOpen, setWorkoutMenuOpen] = useState(false)
   const [financeMenuOpen, setFinanceMenuOpen] = useState(false)
+  const [mediaMenuOpen, setMediaMenuOpen] = useState(false)
   const [habitsMenuOpen, setHabitsMenuOpen] = useState(false)
   const [incompleteHabits, setIncompleteHabits] = useState(0)
   const [hasActiveWorkout, setHasActiveWorkout] = useState(false)
@@ -72,6 +73,12 @@ export default function Sidebar({ collapsed, onToggle }) {
   }, [location.pathname])
 
   useEffect(() => {
+    const onMediaRoute = location.pathname.startsWith('/media')
+    if (onMediaRoute) setMediaMenuOpen(true)
+    else setMediaMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
     const onHabitsRoute = location.pathname.startsWith('/habits')
     if (onHabitsRoute) setHabitsMenuOpen(true)
     else setHabitsMenuOpen(false)
@@ -86,6 +93,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const isSpotifyActive = location.pathname.startsWith('/spotify')
   const isWorkoutActive = location.pathname.startsWith('/workout')
   const isFinanceActive = location.pathname.startsWith('/finance')
+  const isMediaActive = location.pathname.startsWith('/media')
   const isHabitsActive = location.pathname.startsWith('/habits')
 
   const handleSpotifyClick = () => {
@@ -108,6 +116,11 @@ export default function Sidebar({ collapsed, onToggle }) {
   const handleFinanceClick = () => {
     if (isMobile) { nav('/finance'); return }
     setFinanceMenuOpen(o => !o)
+  }
+
+  const handleMediaClick = () => {
+    if (isMobile) { nav('/media'); return }
+    setMediaMenuOpen(o => !o)
   }
 
   const handleHabitsClick = () => {
@@ -222,6 +235,31 @@ export default function Sidebar({ collapsed, onToggle }) {
             <NavLink to="/finance/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
               <Icon name="download" size={20} />
               {!collapsed && <span>{t('nav.financeImport')}</span>}
+            </NavLink>
+          </div>
+        )}
+
+        <div
+          className={'nav-link' + (isMediaActive ? ' active' : '')}
+          onClick={handleMediaClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMediaClick() } }}
+          aria-expanded={mediaMenuOpen}
+          style={{ color: isMediaActive ? '#f472b6' : undefined }}
+        >
+          <Icon name="clapperboard" size={20} style={{ color: isMediaActive ? '#f472b6' : undefined }} />
+          {!collapsed && <span>Media {mediaMenuOpen ? '▾' : '▸'}</span>}
+        </div>
+        {mediaMenuOpen && (
+          <div className="subnav" role="menu">
+            <NavLink to="/media" end className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <Icon name="library" size={20} />
+              {!collapsed && <span>Library</span>}
+            </NavLink>
+            <NavLink to="/media/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <Icon name="download" size={20} />
+              {!collapsed && <span>Import</span>}
             </NavLink>
           </div>
         )}

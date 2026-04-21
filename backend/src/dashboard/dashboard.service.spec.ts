@@ -509,4 +509,68 @@ describe('DashboardService', () => {
       );
     });
   });
+
+  describe('getLandingStats', () => {
+    it('should aggregate public landing metrics from the data source', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([{ count: '184' }])
+        .mockResolvedValueOnce([{ count: '8421' }])
+        .mockResolvedValueOnce([{ count: '126734' }]);
+
+      const result = await service.getLandingStats();
+
+      expect(result).toEqual({
+        generatedAt: expect.any(String),
+        metrics: [
+          expect.objectContaining({
+            id: 'workouts',
+            value: 184,
+            suffix: '+',
+            label: 'Workout sessions captured',
+          }),
+          expect.objectContaining({
+            id: 'habits',
+            value: 8421,
+            suffix: '+',
+            label: 'Habit check-ins preserved',
+          }),
+          expect.objectContaining({
+            id: 'streams',
+            value: 126734,
+            suffix: '+',
+            label: 'Listening events mapped',
+          }),
+        ],
+      });
+    });
+
+    it('should return zeroed metrics when the database returns no rows', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{}])
+        .mockResolvedValueOnce([{ count: null }]);
+
+      const result = await service.getLandingStats();
+
+      expect(result.metrics).toEqual([
+        expect.objectContaining({ id: 'workouts', value: 0 }),
+        expect.objectContaining({ id: 'habits', value: 0 }),
+        expect.objectContaining({ id: 'streams', value: 0 }),
+      ]);
+    });
+
+    it('should query the expected source tables for landing metrics', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([{ count: '1' }])
+        .mockResolvedValueOnce([{ count: '1' }])
+        .mockResolvedValueOnce([{ count: '1' }]);
+
+      await service.getLandingStats();
+
+      expect(mockDataSource.query).toHaveBeenCalledTimes(3);
+      expect(mockDataSource.query.mock.calls[0][0]).toContain('app_workout_sessions');
+      expect(mockDataSource.query.mock.calls[1][0]).toContain('app_habit_entries');
+      expect(mockDataSource.query.mock.calls[2][0]).toContain('app_streams');
+    });
+  });
 });

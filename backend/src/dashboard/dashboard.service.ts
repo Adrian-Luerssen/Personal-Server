@@ -35,6 +35,14 @@ interface DashboardAiPrompt {
   };
 }
 
+interface LandingMetricItem {
+  id: string;
+  value: number;
+  suffix?: string;
+  label: string;
+  note: string;
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -367,6 +375,43 @@ export class DashboardService {
     };
   }
 
+  async getLandingStats() {
+    const [workouts, habits, streams] = await Promise.all([
+      this.dataSource.query(`SELECT COUNT(*) as count FROM app_workout_sessions`),
+      this.dataSource.query(`SELECT COUNT(*) as count FROM app_habit_entries`),
+      this.dataSource.query(`SELECT COUNT(*) as count FROM app_streams`),
+    ]);
+
+    const metrics: LandingMetricItem[] = [
+      {
+        id: "workouts",
+        value: this.parseCount(workouts),
+        suffix: "+",
+        label: "Workout sessions captured",
+        note: "Logged lifts, runs, and training blocks preserved in one timeline.",
+      },
+      {
+        id: "habits",
+        value: this.parseCount(habits),
+        suffix: "+",
+        label: "Habit check-ins preserved",
+        note: "Daily consistency records kept as part of the same reflective system.",
+      },
+      {
+        id: "streams",
+        value: this.parseCount(streams),
+        suffix: "+",
+        label: "Listening events mapped",
+        note: "Media history connected back to routines, workouts, and weekly review.",
+      },
+    ];
+
+    return {
+      generatedAt: new Date().toISOString(),
+      metrics,
+    };
+  }
+
   private computeDashboardScore(args: {
     workouts: number;
     habitRate: number;
@@ -381,5 +426,12 @@ export class DashboardService {
       args.workoutDayDelta > 0 ? 18 : args.workoutDayDelta >= -10 ? 10 : 4;
 
     return trainingScore + habitsScore + spendingScore + correlationScore;
+  }
+
+  private parseCount(rows: Array<{ count?: string | number | null }>) {
+    const raw = rows?.[0]?.count;
+    if (typeof raw === "number") return raw;
+    if (typeof raw === "string") return parseInt(raw, 10) || 0;
+    return 0;
   }
 }

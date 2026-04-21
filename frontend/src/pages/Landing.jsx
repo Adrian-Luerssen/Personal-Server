@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { api } from '../api'
 import { refreshIfPossible } from '../auth'
 import Icon from '../components/icons/Icon'
 import './Landing.css'
@@ -50,36 +51,43 @@ function useScrollReveal(disabled) {
   return register
 }
 
-function useCounter(target, duration = 1800, disabled = false) {
+function useHeroMotion(disabled) {
   const ref = useRef(null)
-  const counted = useRef(false)
 
   useEffect(() => {
     const el = ref.current
-    if (!el) return undefined
+    if (!el || disabled) return undefined
 
-    if (disabled) {
-      el.textContent = target.toLocaleString()
-      return undefined
+    let frameId = 0
+    const applyMotion = (xRatio, yRatio) => {
+      cancelAnimationFrame(frameId)
+      frameId = requestAnimationFrame(() => {
+        el.style.setProperty('--pointer-x', `${xRatio * 100}%`)
+        el.style.setProperty('--pointer-y', `${yRatio * 100}%`)
+        el.style.setProperty('--hero-shift-x', `${(xRatio - 0.5) * 14}px`)
+        el.style.setProperty('--hero-shift-y', `${(yRatio - 0.5) * 10}px`)
+      })
     }
 
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting || counted.current) return
-      counted.current = true
-      const start = performance.now()
-      const step = (now) => {
-        const progress = Math.min((now - start) / duration, 1)
-        const eased = 1 - Math.pow(1 - progress, 3)
-        el.textContent = Math.round(eased * target).toLocaleString()
-        if (progress < 1) requestAnimationFrame(step)
-      }
-      requestAnimationFrame(step)
-      observer.unobserve(el)
-    }, { threshold: 0.5 })
+    const handlePointerMove = (event) => {
+      const rect = el.getBoundingClientRect()
+      const xRatio = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1)
+      const yRatio = Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 1)
+      applyMotion(xRatio, yRatio)
+    }
 
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [target, duration, disabled])
+    const resetMotion = () => applyMotion(0.5, 0.5)
+
+    resetMotion()
+    el.addEventListener('pointermove', handlePointerMove)
+    el.addEventListener('pointerleave', resetMotion)
+
+    return () => {
+      cancelAnimationFrame(frameId)
+      el.removeEventListener('pointermove', handlePointerMove)
+      el.removeEventListener('pointerleave', resetMotion)
+    }
+  }, [disabled])
 
   return ref
 }
@@ -133,18 +141,111 @@ const STORY_PANELS = [
   },
 ]
 
-const COUNTERS = [
-  { value: 365, label: 'Days of patterns preserved' },
-  { value: 12840, label: 'Signals turned into story' },
-  { value: 4, label: 'Life domains in one journal' },
+const LANDING_METRIC_DEFAULTS = [
+  {
+    id: 'workouts',
+    value: 0,
+    suffix: '+',
+    label: 'Workout sessions captured',
+    note: 'Logged lifts, runs, and training blocks preserved in one timeline.',
+  },
+  {
+    id: 'habits',
+    value: 0,
+    suffix: '+',
+    label: 'Habit check-ins preserved',
+    note: 'Daily consistency records kept as part of the same reflective system.',
+  },
+  {
+    id: 'streams',
+    value: 0,
+    suffix: '+',
+    label: 'Listening events mapped',
+    note: 'Media history connected back to routines, workouts, and weekly review.',
+  },
 ]
 
-function AnimatedMetric({ value, label, reducedMotion }) {
-  const ref = useCounter(value, 1800, reducedMotion)
+const FOOTER_LINKS = [
+  { label: 'LinkedIn', href: 'https://linkedin.com/in/alueerssenmedina' },
+  { label: 'GitHub', href: 'https://github.com/Adrian-Luerssen' },
+  { label: 'Project repo', href: 'https://github.com/Adrian-Luerssen/Personal-Server' },
+]
+
+function AnimatedMetric({ value, label, note, suffix, reducedMotion }) {
+  const [displayValue, setDisplayValue] = useState(0)
+  const [isVisible, setIsVisible] = useState(reducedMotion)
+  const ref = useRef(null)
+  const frameRef = useRef(0)
+  const lastValueRef = useRef(0)
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setIsVisible(true)
+      setDisplayValue(value)
+      lastValueRef.current = value
+      return undefined
+    }
+
+    const el = ref.current
+    if (!el) return undefined
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.unobserve(entry.target)
+        }
+      },
+      { threshold: 0.45 },
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [reducedMotion])
+
+  useEffect(() => {
+    if (!isVisible) return undefined
+    if (reducedMotion) {
+      setDisplayValue(value)
+      lastValueRef.current = value
+      return undefined
+    }
+
+    cancelAnimationFrame(frameRef.current)
+    const startValue = lastValueRef.current
+    const delta = value - startValue
+
+    if (delta === 0) {
+      setDisplayValue(value)
+      return undefined
+    }
+
+    const duration = 1600
+    const start = performance.now()
+    const step = (now) => {
+      const progress = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const nextValue = Math.round(startValue + (delta * eased))
+      setDisplayValue(nextValue)
+      if (progress < 1) {
+        frameRef.current = requestAnimationFrame(step)
+      } else {
+        lastValueRef.current = value
+      }
+    }
+
+    frameRef.current = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frameRef.current)
+  }, [value, isVisible, reducedMotion])
+
   return (
-    <div className="landing-editorial-metric">
-      <strong><span ref={ref}>0</span>{value >= 1000 ? '+' : ''}</strong>
+    <div className="landing-editorial-metric" ref={ref}>
+      <strong>
+        <span>{displayValue.toLocaleString()}</span>
+        {suffix ? <span className="landing-editorial-metric__suffix">{suffix}</span> : null}
+      </strong>
       <span>{label}</span>
+      <p>{note}</p>
     </div>
   )
 }
@@ -153,6 +254,8 @@ export default function Landing() {
   const nav = useNavigate()
   const prefersReducedMotion = usePrefersReducedMotion()
   const observe = useScrollReveal(prefersReducedMotion)
+  const heroRef = useHeroMotion(prefersReducedMotion)
+  const [landingMetrics, setLandingMetrics] = useState(LANDING_METRIC_DEFAULTS)
 
   useEffect(() => {
     ;(async () => {
@@ -161,17 +264,28 @@ export default function Landing() {
     })()
   }, [nav])
 
+  useEffect(() => {
+    let ignore = false
+
+    async function loadLandingMetrics() {
+      try {
+        const data = await api.get('/dashboard/landing-stats')
+        if (!ignore && Array.isArray(data?.metrics) && data.metrics.length > 0) {
+          setLandingMetrics(data.metrics)
+        }
+      } catch {
+        // Keep zero-state defaults if the public stats endpoint is unavailable.
+      }
+    }
+
+    loadLandingMetrics()
+    return () => { ignore = true }
+  }, [])
+
   return (
     <div className="landing-editorial">
-      <header className="landing-editorial-topbar">
-        <div className="landing-editorial-wordmark">
-          <span className="landing-editorial-wordmark__mark">PS</span>
-          <span className="landing-editorial-wordmark__text">Personal Server</span>
-        </div>
-      </header>
-
       <main>
-        <section className="landing-editorial-hero">
+        <section className="landing-editorial-hero" ref={heroRef}>
           <div className="landing-editorial-hero__mesh" aria-hidden="true">
             <div className="landing-editorial-hero__orb landing-editorial-hero__orb--a" />
             <div className="landing-editorial-hero__orb landing-editorial-hero__orb--b" />
@@ -180,19 +294,26 @@ export default function Landing() {
 
           <div className="landing-editorial-hero__content">
             <div className="landing-editorial-hero__copy">
-              <div className="landing-editorial-kicker">
+              <div className="landing-editorial-brandchip landing-editorial-hero__intro landing-editorial-hero__intro--1">
+                <span className="landing-editorial-wordmark__mark">PS</span>
+                <span className="landing-editorial-brandchip__copy">
+                  <span className="landing-editorial-wordmark__text">Personal Server</span>
+                  <span className="landing-editorial-brandchip__meta">Private system for reflective self-review</span>
+                </span>
+              </div>
+              <div className="landing-editorial-kicker landing-editorial-hero__intro landing-editorial-hero__intro--2">
                 <Icon name="sparkles" size={14} />
                 Premium quantified-self journal
               </div>
-              <h1>
+              <h1 className="landing-editorial-hero__intro landing-editorial-hero__intro--3">
                 A private place
                 <span>to understand the shape of your life.</span>
               </h1>
-              <p>
+              <p className="landing-editorial-hero__intro landing-editorial-hero__intro--4">
                 Personal Server turns workouts, habits, spending, and media into a reflective operating journal.
                 It is built to help you read patterns, not just collect numbers.
               </p>
-              <div className="landing-editorial-hero__actions">
+              <div className="landing-editorial-hero__actions landing-editorial-hero__intro landing-editorial-hero__intro--5">
                 <Link to="/register" className="landing-editorial-button landing-editorial-button--primary">
                   Request access
                   <Icon name="arrow-right" size={16} />
@@ -302,11 +423,13 @@ export default function Landing() {
 
         <section className="landing-editorial-section landing-editorial-section--metrics">
           <div className="landing-editorial-metrics" ref={observe}>
-            {COUNTERS.map((counter) => (
+            {landingMetrics.map((counter) => (
               <AnimatedMetric
-                key={counter.label}
+                key={counter.id}
                 value={counter.value}
                 label={counter.label}
+                note={counter.note}
+                suffix={counter.suffix}
                 reducedMotion={prefersReducedMotion}
               />
             ))}
@@ -339,11 +462,24 @@ export default function Landing() {
 
       <footer className="landing-editorial-footer">
         <div className="landing-editorial-footer__inner">
-          <div className="landing-editorial-wordmark">
-            <span className="landing-editorial-wordmark__mark">PS</span>
-            <span className="landing-editorial-wordmark__text">Personal Server</span>
+          <div className="landing-editorial-footer__brand">
+            <div className="landing-editorial-wordmark">
+              <span className="landing-editorial-wordmark__mark">PS</span>
+              <span className="landing-editorial-wordmark__text">Personal Server</span>
+            </div>
+            <p>Private quantified-self journal for people who want clarity, not dashboard clutter.</p>
+            <span className="landing-editorial-footer__legal">(c) 2026 Adrian Luerssen Medina. Personal Server TM. All rights reserved.</span>
           </div>
-          <p>Private quantified-self journal for people who want clarity, not dashboard clutter.</p>
+          <div className="landing-editorial-footer__meta">
+            <div className="landing-editorial-footer__links">
+              {FOOTER_LINKS.map((link) => (
+                <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="landing-editorial-footer__link">
+                  {link.label}
+                </a>
+              ))}
+            </div>
+            <span className="landing-editorial-footer__credit">Built for reflective review, private data ownership, and AI-assisted interpretation.</span>
+          </div>
         </div>
       </footer>
     </div>

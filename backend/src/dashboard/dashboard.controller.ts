@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { DashboardService } from "./dashboard.service";
-import { ReqUser } from "../system/auth/auth.decorator";
+import { NoAuth, ReqUser } from "../system/auth/auth.decorator";
 import { Account } from "../system/accounts/account.entity";
 import { resolveTimeframe } from "../utils/utils";
 
@@ -54,5 +54,11 @@ export class DashboardController {
   @Get("intelligence")
   async getDashboardIntelligence(@ReqUser() account: Account) {
     return this.dashboard.getDashboardIntelligence(account.id);
+  }
+
+  @Get("landing-stats")
+  @NoAuth()
+  async getLandingStats() {
+    return this.dashboard.getLandingStats();
   }
 }

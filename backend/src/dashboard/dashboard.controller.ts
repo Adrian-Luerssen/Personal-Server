@@ -50,4 +50,9 @@ export class DashboardController {
   async getWeeklySummary(@ReqUser() account: Account) {
     return this.dashboard.getWeeklySummary(account.id);
   }
+
+  @Get("intelligence")
+  async getDashboardIntelligence(@ReqUser() account: Account) {
+    return this.dashboard.getDashboardIntelligence(account.id);
+  }
 }

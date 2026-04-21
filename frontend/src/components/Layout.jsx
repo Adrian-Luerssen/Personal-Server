@@ -21,7 +21,11 @@ export default function Layout() {
       <GradientMesh />
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <main className="content">
-        <PageTransition><Outlet /></PageTransition>
+        <div className="content-shell">
+          <div className="content-shell__frame">
+            <PageTransition><Outlet /></PageTransition>
+          </div>
+        </div>
       </main>
       <ApiStatus />
       <ChatPanel />

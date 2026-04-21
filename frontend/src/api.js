@@ -234,6 +234,7 @@ export const api = {
 // ---------------------------------------------------------------------------
 
 const PRELOAD_PATHS = [
+  '/dashboard/intelligence',
   '/streams/stats?timeframe=all',
   '/workout/sessions?page=1&limit=1',
   '/habits/summary',

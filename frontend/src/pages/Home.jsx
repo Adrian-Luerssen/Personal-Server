@@ -1,559 +1,485 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch } from '../api'
-import { AnimatedNumber, LoadingLine, StatCard, formatDuration, formatNumberShort } from '../components/shared'
-import ScrollReveal from '../components/ScrollReveal'
+import { api } from '../api'
+import { AnimatedNumber, formatDuration, formatNumberShort } from '../components/shared'
 import PageHeader from '../components/PageHeader'
 import ProgressRing from '../components/ProgressRing'
+import ScrollReveal from '../components/ScrollReveal'
 import Icon from '../components/icons/Icon'
-import { usePreferences } from '../contexts/PreferencesContext'
+
+function DashboardStatus({ focus }) {
+  const map = {
+    momentum: { label: 'Momentum', tone: 'positive' },
+    steady: { label: 'Steady', tone: 'neutral' },
+    attention: { label: 'Attention', tone: 'warning' },
+  }
+  const current = map[focus] || map.steady
+  return (
+    <span className={`dashboard-status dashboard-status--${current.tone}`}>
+      {current.label}
+    </span>
+  )
+}
+
+function SnapshotCard({ item }) {
+  return (
+    <div className="journal-snapshot-card">
+      <span>{item.label}</span>
+      <strong>{item.value}</strong>
+      <p>{item.note}</p>
+    </div>
+  )
+}
+
+function InsightCard({ insight, onAskAi }) {
+  return (
+    <article className={`journal-insight-card journal-insight-card--${insight.tone || 'neutral'}`}>
+      <div className="journal-insight-card__header">
+        <span>{(insight.domains || []).join(' / ')}</span>
+        <strong>{insight.title}</strong>
+      </div>
+      <p>{insight.summary}</p>
+      {Array.isArray(insight.evidence) && insight.evidence.length > 0 && (
+        <ul className="journal-evidence-list">
+          {insight.evidence.map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      )}
+      <button className="btn btn-ghost small journal-ai-inline-btn" onClick={onAskAi}>
+        <Icon name="sparkles" size={14} />
+        Ask AI to go deeper
+      </button>
+    </article>
+  )
+}
+
+function RailCard({ title, icon, children, action }) {
+  return (
+    <div className="card journal-rail-card">
+      <div className="journal-rail-card__head">
+        <div>
+          <span>{title}</span>
+        </div>
+        {icon && <Icon name={icon} size={16} />}
+      </div>
+      <div>{children}</div>
+      {action}
+    </div>
+  )
+}
 
 export default function Home() {
-  const { t } = useTranslation()
   const nav = useNavigate()
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
-  const hasLoadedOnceRef = useRef(false)
-  useEffect(() => { hasLoadedOnceRef.current = hasLoadedOnce }, [hasLoadedOnce])
-
   const [spotifyStats, setSpotifyStats] = useState(null)
   const [workoutTotals, setWorkoutTotals] = useState(null)
   const [workoutStreamStats, setWorkoutStreamStats] = useState(null)
   const [habitsSummary, setHabitsSummary] = useState(null)
   const [habitsTrends, setHabitsTrends] = useState(null)
-  const [workoutTrends, setWorkoutTrends] = useState(null)
   const [financeSummary, setFinanceSummary] = useState(null)
   const [recentSessions, setRecentSessions] = useState(null)
   const [weeklySummary, setWeeklySummary] = useState(null)
   const [workoutHabitCorrelation, setWorkoutHabitCorrelation] = useState(null)
   const [budgetStatus, setBudgetStatus] = useState(null)
   const [workoutPRs, setWorkoutPRs] = useState(null)
-  const [showWidgetConfig, setShowWidgetConfig] = useState(false)
-  const { prefs, updatePrefs } = usePreferences()
+  const [intelligence, setIntelligence] = useState(null)
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    const ctrl = new AbortController()
+    let ignore = false
+
     async function load() {
-      try {
-        const results = await Promise.allSettled([
-          apiFetch('/streams/stats?timeframe=all', { signal: ctrl.signal }),
-          apiFetch('/workout/sessions?page=1&limit=1', { signal: ctrl.signal }),
-          apiFetch('/dashboard/streams/workout', { signal: ctrl.signal }),
-          apiFetch('/habits/summary', { signal: ctrl.signal }),
-          apiFetch('/habits/trends', { signal: ctrl.signal }),
-          apiFetch('/workout/sessions/trends', { signal: ctrl.signal }),
-          apiFetch('/finance/transactions/summary', { signal: ctrl.signal }),
-          apiFetch('/workout/sessions/recent', { signal: ctrl.signal }),
-          apiFetch('/dashboard/insights/weekly', { signal: ctrl.signal }),
-          apiFetch('/dashboard/insights/workout-habits', { signal: ctrl.signal }),
-          apiFetch('/finance/budgets/status', { signal: ctrl.signal }),
-          apiFetch('/workout/sessions/prs', { signal: ctrl.signal }),
-        ])
-        if (ctrl.signal.aborted) return
+      const results = await Promise.allSettled([
+        api.get('/dashboard/intelligence'),
+        api.get('/streams/stats?timeframe=all'),
+        api.get('/workout/sessions?page=1&limit=1'),
+        api.get('/dashboard/streams/workout'),
+        api.get('/habits/summary'),
+        api.get('/habits/trends'),
+        api.get('/finance/transactions/summary'),
+        api.get('/workout/sessions/recent'),
+        api.get('/dashboard/insights/weekly'),
+        api.get('/dashboard/insights/workout-habits'),
+        api.get('/finance/budgets/status'),
+        api.get('/workout/sessions/prs'),
+      ])
 
-        const [sp, wk, wms, hs, ht, wt, fs, rs, ws, whc, bs, prs] = results.map(r =>
-          r.status === 'fulfilled' ? r.value : null
-        )
+      if (ignore) return
+      const values = results.map((result) => (result.status === 'fulfilled' ? result.value : null))
+      const [intel, sp, wk, wms, hs, ht, fs, rs, ws, whc, bs, prs] = values
 
-        if (sp) setSpotifyStats(sp)
-        if (wk) setWorkoutTotals({
+      if (intel) setIntelligence(intel)
+      if (sp) setSpotifyStats(sp)
+      if (wk) {
+        setWorkoutTotals({
           totalWorkouts: wk.totalWorkouts ?? (Array.isArray(wk.sessions) ? wk.sessions.length : 0),
           totalVolume: wk.totalVolume ?? 0,
           totalSets: wk.totalSets ?? 0,
           totalReps: wk.totalReps ?? 0,
           totalTimeSeconds: wk.totalTimeSeconds ?? 0,
         })
-        if (wms) setWorkoutStreamStats(wms)
-        if (hs) setHabitsSummary(hs)
-        if (ht) setHabitsTrends(ht)
-        if (wt) setWorkoutTrends(wt)
-        if (fs) setFinanceSummary(fs)
-        if (rs) setRecentSessions(rs)
-        if (ws) setWeeklySummary(ws)
-        if (whc) setWorkoutHabitCorrelation(whc)
-        if (bs) setBudgetStatus(bs)
-        if (prs) setWorkoutPRs(prs)
-        if (!hasLoadedOnceRef.current) { setHasLoadedOnce(true); hasLoadedOnceRef.current = true }
-      } catch {
-        // ignore for home summary
       }
+      if (wms) setWorkoutStreamStats(wms)
+      if (hs) setHabitsSummary(hs)
+      if (ht) setHabitsTrends(ht)
+      if (fs) setFinanceSummary(fs)
+      if (rs) setRecentSessions(rs)
+      if (ws) setWeeklySummary(ws)
+      if (whc) setWorkoutHabitCorrelation(whc)
+      if (bs) setBudgetStatus(bs)
+      if (prs) setWorkoutPRs(prs)
+      setLoaded(true)
     }
+
     load()
-    return () => ctrl.abort()
+    return () => { ignore = true }
   }, [])
 
-  // Derive habit stats
   const habitsArray = Array.isArray(habitsSummary) ? habitsSummary : []
   const totalHabits = habitsArray.length
-  const todayCompleted = habitsArray.filter(h => h.completedToday).length
+  const todayCompleted = habitsArray.filter((habit) => habit.completedToday).length
   const habitCompletionPct = totalHabits > 0 ? Math.round((todayCompleted / totalHabits) * 100) : 0
-  const bestStreak = habitsArray.reduce((max, h) => Math.max(max, h.longestStreak ?? 0), 0)
+  const bestStreak = habitsArray.reduce((max, habit) => Math.max(max, habit.longestStreak ?? 0), 0)
+  const monthlySpent = Math.abs(financeSummary?.totalExpenses ?? financeSummary?.total ?? 0)
+  const activityItems = useMemo(() => buildActivityFeed(habitsArray, recentSessions), [habitsArray, recentSessions])
 
-  // Derive finance stats
-  const monthlySpent = financeSummary?.totalExpenses ?? financeSummary?.total ?? 0
-  const monthlyIncome = financeSummary?.totalIncome ?? 0
+  const intelligenceFallback = useMemo(() => {
+    if (intelligence) return intelligence
+    const workouts = workoutTotals?.totalWorkouts ?? 0
+    const focus = workouts >= 4 && habitCompletionPct >= 70 ? 'momentum' : habitCompletionPct >= 45 ? 'steady' : 'attention'
+    return {
+      focus,
+      score: focus === 'momentum' ? 78 : focus === 'steady' ? 58 : 32,
+      headline: focus === 'momentum'
+        ? 'Momentum is forming across the week'
+        : focus === 'steady'
+          ? 'The week is holding, but not compounding yet'
+          : 'This week needs tighter structure',
+      summary: 'The intelligence layer is still loading, so this brief is derived from current dashboard signals.',
+      snapshot: [
+        { id: 'training', label: 'Training', value: `${weeklySummary?.workouts ?? 0} sessions`, note: 'Weekly workout cadence' },
+        { id: 'habits', label: 'Habits', value: `${habitCompletionPct}%`, note: "Today's completion rate" },
+        { id: 'spending', label: 'Spending', value: `$${Math.round(monthlySpent)}`, note: 'Current monthly expenses' },
+        { id: 'media', label: 'Listening', value: `${weeklySummary?.streams ?? 0} streams`, note: 'Streams in the current week' },
+      ],
+      insights: workoutHabitCorrelation ? [
+        {
+          id: 'habit-workout-correlation',
+          title: 'Consistency shifts with training days',
+          summary: `Habit completion is ${workoutHabitCorrelation.workoutDays.completionRate}% on workout days versus ${workoutHabitCorrelation.restDays.completionRate}% on rest days.`,
+          tone: workoutHabitCorrelation.workoutDays.completionRate >= workoutHabitCorrelation.restDays.completionRate ? 'positive' : 'warning',
+          domains: ['workout', 'habits'],
+          evidence: [`${workoutHabitCorrelation.totalWorkoutDays} workout days in the measured window`],
+        },
+      ] : [],
+      aiPrompts: [
+        {
+          id: 'dashboard-review',
+          label: 'Ask AI for a dashboard review',
+          prompt: 'Review my current dashboard state and tell me what the biggest cross-domain pattern is right now.',
+          pageContext: { route: '/home', pageType: 'dashboard', filters: { source: 'dashboard-fallback' } },
+        },
+      ],
+    }
+  }, [intelligence, workoutTotals, habitCompletionPct, weeklySummary, monthlySpent, workoutHabitCorrelation])
 
-  // Build recent activity feed
-  const activityItems = buildActivityFeed(habitsArray, recentSessions)
+  const openAiPrompt = (prompt, insight) => {
+    const detail = {
+      title: prompt?.label || insight?.title || 'AI analysis',
+      text: [
+        prompt?.prompt || `Analyze this dashboard insight in more depth: ${insight?.title}.`,
+        insight ? `Insight summary: ${insight.summary}` : null,
+        insight?.evidence?.length ? `Evidence:\n- ${insight.evidence.join('\n- ')}` : null,
+      ].filter(Boolean).join('\n\n'),
+      pageContext: prompt?.pageContext || {
+        route: '/home',
+        pageType: 'dashboard',
+        filters: { source: 'dashboard-ui', insightId: insight?.id || 'manual' },
+      },
+    }
 
-  // Widget configuration
-  const DEFAULT_WIDGETS = [
-    { id: 'weekly-summary', label: 'Weekly Summary', visible: true, order: 0 },
-    { id: 'recent-activity', label: 'Recent Activity', visible: true, order: 1 },
-    { id: 'habits-progress', label: 'Habits Progress', visible: true, order: 2 },
-    { id: 'quick-actions', label: 'Quick Actions', visible: true, order: 3 },
-    { id: 'insights', label: 'Cross-Domain Insights', visible: true, order: 4 },
-    { id: 'budget-status', label: 'Budget Status', visible: true, order: 5 },
-    { id: 'workout-prs', label: 'Workout PRs', visible: true, order: 6 },
-    { id: 'spotify-detail', label: 'Spotify Stats', visible: true, order: 7 },
-    { id: 'workout-detail', label: 'Workout Stats', visible: true, order: 8 },
-    { id: 'music-workouts', label: 'Music During Workouts', visible: true, order: 9 },
-  ]
-
-  const widgetConfig = prefs.dashboardWidgets || DEFAULT_WIDGETS
-  const isWidgetVisible = (id) => {
-    const w = widgetConfig.find(w => w.id === id)
-    return w ? w.visible !== false : true
+    window.dispatchEvent(new CustomEvent('personal-server:chat-prompt', { detail }))
   }
-
-  const toggleWidget = (id) => {
-    const updated = (widgetConfig.length ? widgetConfig : DEFAULT_WIDGETS).map(w =>
-      w.id === id ? { ...w, visible: !w.visible } : w
-    )
-    updatePrefs({ dashboardWidgets: updated })
-  }
-
-  // Quick action links
-  const quickActions = [
-    { icon: 'dumbbell', label: t('home.startWorkout'), color: '#4ade80', path: '/workout/active' },
-    { icon: 'check-circle', label: t('home.logHabit'), color: '#a78bfa', path: '/habits' },
-    { icon: 'receipt', label: t('home.addTransaction'), color: '#fbbf24', path: '/finance/transactions' },
-    { icon: 'headphones', label: t('home.viewStreams'), color: 'var(--color-accent)', path: '/spotify' },
-  ]
 
   return (
-    <>
-      <PageHeader icon="home" title="Dashboard" />
-
-      {/* Customize button */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
-        <button
-          onClick={() => setShowWidgetConfig(!showWidgetConfig)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.4rem',
-            padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--glass-border)',
-            background: showWidgetConfig ? 'var(--color-accent-muted)' : 'transparent',
-            color: showWidgetConfig ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-            fontSize: '0.8rem', cursor: 'pointer',
-          }}
-        >
-          <Icon name="settings-2" size={14} />
-          Customize
-        </button>
-      </div>
-
-      {/* Widget config panel */}
-      {showWidgetConfig && (
-        <div className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>
-          <h4 style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>Dashboard Widgets</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem' }}>
-            {(widgetConfig.length ? widgetConfig : DEFAULT_WIDGETS).map(w => (
-              <label
-                key={w.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(255,255,255,0.03)', cursor: 'pointer',
-                  fontSize: '0.8rem',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={w.visible !== false}
-                  onChange={() => toggleWidget(w.id)}
-                  style={{ accentColor: 'var(--color-accent)' }}
-                />
-                {w.label}
-              </label>
-            ))}
+    <div className="dashboard-journal">
+      <PageHeader
+        icon="layout-dashboard"
+        eyebrow="Weekly journal"
+        title="Dashboard"
+        subtitle="A private brief across training, habits, money, and the routines shaping the week."
+        meta={
+          <div className="dashboard-header-meta">
+            <DashboardStatus focus={intelligenceFallback.focus} />
+            <div className="dashboard-header-score">
+              <span>Weekly score</span>
+              <strong>{intelligenceFallback.score}</strong>
+            </div>
           </div>
-        </div>
-      )}
+        }
+      />
 
-      {/* === Top Stat Cards === */}
       <ScrollReveal>
-        <div className="stat-grid">
-          <StatCard
-            icon="headphones"
-            accentColor="var(--color-accent)"
-            label={t('home.totalStreams')}
-            value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={spotifyStats?.totalStreams ?? 0} formatter={formatNumberShort} />}
-            trend={habitsTrends?.dailyCompletions}
-          />
-          <StatCard
-            icon="dumbbell"
-            accentColor="#4ade80"
-            label={t('home.totalWorkouts')}
-            value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={workoutTotals?.totalWorkouts ?? 0} formatter={formatNumberShort} />}
-            trend={workoutTrends?.dailyVolume}
-          />
-          <StatCard
-            icon="check-circle"
-            accentColor="#a78bfa"
-            label={t('home.habitsToday')}
-            value={!hasLoadedOnce ? <LoadingLine width={80} /> : `${todayCompleted}/${totalHabits}`}
-            trend={habitsTrends?.dailyCompletions}
-          />
-          <StatCard
-            icon="wallet"
-            accentColor="#fbbf24"
-            label={t('home.monthlySpent')}
-            value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={Math.abs(monthlySpent)} formatter={(n) => `$${formatNumberShort(n)}`} />}
-          />
-        </div>
-      </ScrollReveal>
-
-      {/* === Weekly Summary === */}
-      {isWidgetVisible('weekly-summary') && weeklySummary && (
-        <ScrollReveal delay={50}>
-          <div className="stat-grid" style={{ marginTop: '1rem' }}>
-            <StatCard icon="calendar-days" accentColor="#60a5fa" label="This Week: Workouts" value={weeklySummary.workouts} />
-            <StatCard icon="check-circle" accentColor="#a78bfa" label="This Week: Habits" value={`${weeklySummary.habitsCompleted}/${weeklySummary.habitsTotal}`} />
-            <StatCard icon="wallet" accentColor="#fbbf24" label="This Week: Spent" value={<AnimatedNumber value={weeklySummary.spending} formatter={(n) => `$${formatNumberShort(n)}`} />} />
-            <StatCard icon="headphones" accentColor="var(--color-accent)" label="This Week: Streams" value={<AnimatedNumber value={weeklySummary.streams} formatter={formatNumberShort} />} />
-          </div>
-        </ScrollReveal>
-      )}
-
-      {/* === Widget Grid === */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem', marginTop: '1.5rem' }}>
-
-        {/* Recent Activity */}
-        {isWidgetVisible('recent-activity') && <ScrollReveal delay={100}>
-          <div className="card" style={{ minHeight: 220 }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <Icon name="activity" size={18} />
-              {t('home.recentActivity')}
-            </h3>
-            {!hasLoadedOnce ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {[1,2,3,4].map(i => <LoadingLine key={i} width="100%" />)}
-              </div>
-            ) : activityItems.length === 0 ? (
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>{t('common.noData')}</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {activityItems.slice(0, 6).map((item, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: '0.75rem',
-                    padding: '0.5rem 0',
-                    borderBottom: i < Math.min(activityItems.length, 6) - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                  }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: `${item.color}15`, color: item.color, flexShrink: 0,
-                    }}>
-                      <Icon name={item.icon} size={16} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.text}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                        {item.sub}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </ScrollReveal>}
-
-        {/* Habits Progress */}
-        {isWidgetVisible('habits-progress') && <ScrollReveal delay={200}>
-          <div className="card" style={{ minHeight: 220 }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <Icon name="target" size={18} />
-              {t('home.habitsProgress')}
-            </h3>
-            {!hasLoadedOnce ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {[1,2,3].map(i => <LoadingLine key={i} width="100%" />)}
-              </div>
-            ) : totalHabits === 0 ? (
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>{t('common.noData')}</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '0.5rem 0' }}>
-                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <ProgressRing value={habitCompletionPct} size={96} strokeWidth={6} color="#a78bfa" />
-                  <span style={{
-                    position: 'absolute', fontSize: '1.25rem', fontWeight: 700,
-                    background: 'linear-gradient(135deg, #a78bfa, color-mix(in srgb, #a78bfa 60%, white))',
-                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}>
-                    {habitCompletionPct}%
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
-                  {todayCompleted} {t('home.ofTotal')} {totalHabits} {t('home.completedToday')}
-                </div>
-                <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', width: '100%' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#a78bfa' }}>{bestStreak}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{t('home.bestStreak')}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#a78bfa' }}>
-                      {habitsArray.reduce((sum, h) => sum + (h.currentStreak ?? 0), 0)}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{t('home.activeStreaks')}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </ScrollReveal>}
-
-        {/* Quick Actions */}
-        {isWidgetVisible('quick-actions') && <ScrollReveal delay={300}>
-          <div className="card" style={{ minHeight: 220 }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <Icon name="zap" size={18} />
-              {t('home.quickActions')}
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {quickActions.map((action, i) => (
-                <button
-                  key={i}
-                  onClick={() => nav(action.path)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.75rem',
-                    padding: '0.75rem', borderRadius: 8,
-                    background: `${action.color}08`, border: `1px solid ${action.color}20`,
-                    cursor: 'pointer', transition: 'all 0.2s ease',
-                    color: 'inherit', width: '100%', textAlign: 'left',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = `${action.color}15`; e.currentTarget.style.borderColor = `${action.color}40` }}
-                  onMouseLeave={e => { e.currentTarget.style.background = `${action.color}08`; e.currentTarget.style.borderColor = `${action.color}20` }}
-                >
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: `${action.color}15`, color: action.color, flexShrink: 0,
-                  }}>
-                    <Icon name={action.icon} size={18} />
-                  </div>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{action.label}</span>
-                  <Icon name="chevron-right" size={16} style={{ marginLeft: 'auto', opacity: 0.4 }} />
+        <section className="dashboard-brief-hero">
+          <div className="dashboard-brief-copy">
+            <span className="dashboard-section-kicker">Weekly brief</span>
+            <h2>{intelligenceFallback.headline}</h2>
+            <p>{intelligenceFallback.summary}</p>
+            <div className="dashboard-brief-actions">
+              {(intelligenceFallback.aiPrompts || []).slice(0, 2).map((prompt) => (
+                <button key={prompt.id} className="btn" onClick={() => openAiPrompt(prompt)}>
+                  <Icon name="sparkles" size={14} />
+                  {prompt.label}
                 </button>
               ))}
             </div>
           </div>
-        </ScrollReveal>}
 
-        {/* Cross-Domain Insights */}
-        {isWidgetVisible('insights') && workoutHabitCorrelation && (
-          <ScrollReveal delay={350}>
-            <div className="card" style={{ minHeight: 220 }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <Icon name="sparkles" size={18} />
-                Insights
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '0.6rem 0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: 8,
-                }}>
+          <div className="dashboard-brief-scorecard card">
+            <div className="dashboard-brief-scorecard__top">
+              <span>Signal quality</span>
+              <DashboardStatus focus={intelligenceFallback.focus} />
+            </div>
+            <div className="dashboard-brief-ring">
+              <ProgressRing
+                value={intelligenceFallback.score}
+                size={118}
+                strokeWidth={8}
+                color={
+                  intelligenceFallback.focus === 'attention'
+                    ? '#f87171'
+                    : intelligenceFallback.focus === 'steady'
+                      ? '#fbbf24'
+                      : 'var(--color-accent)'
+                }
+              />
+              <strong>{intelligenceFallback.score}</strong>
+            </div>
+            <p>
+              A higher score means training, habits, and spending are reinforcing each other instead of pulling in different directions.
+            </p>
+          </div>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delay={70}>
+        <section className="journal-snapshot-grid">
+          {intelligenceFallback.snapshot.map((item) => <SnapshotCard key={item.id} item={item} />)}
+        </section>
+      </ScrollReveal>
+
+      <section className="dashboard-main-grid">
+        <ScrollReveal delay={120}>
+          <div className="dashboard-main-column">
+            <div className="card journal-feature-panel">
+              <div className="journal-feature-panel__header">
+                <div>
+                  <span className="dashboard-section-kicker">Cross-domain insight canvas</span>
+                  <h3>What the week is trying to tell you</h3>
+                </div>
+              </div>
+              <div className="journal-insight-grid">
+                {(intelligenceFallback.insights || []).map((insight) => (
+                  <InsightCard
+                    key={insight.id}
+                    insight={insight}
+                    onAskAi={() => openAiPrompt(null, insight)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="dashboard-story-band">
+              <div className="card dashboard-story-card">
+                <span className="dashboard-section-kicker">Weekly cadence</span>
+                <h3>Training, habits, and spending should read like one system.</h3>
+                <div className="dashboard-story-metrics">
                   <div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>Habits on workout days</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#4ade80' }}>
-                      {workoutHabitCorrelation.workoutDays.completionRate}%
-                    </div>
+                    <span>This week</span>
+                    <strong>{weeklySummary?.workouts ?? 0} workouts</strong>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>vs rest days</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                      {workoutHabitCorrelation.restDays.completionRate}%
-                    </div>
+                  <div>
+                    <span>Habits completed</span>
+                    <strong>{weeklySummary ? `${weeklySummary.habitsCompleted}/${weeklySummary.habitsTotal}` : '0/0'}</strong>
+                  </div>
+                  <div>
+                    <span>Weekly spend</span>
+                    <strong>${Math.round(weeklySummary?.spending ?? 0)}</strong>
                   </div>
                 </div>
-                {workoutHabitCorrelation.workoutDays.completionRate > workoutHabitCorrelation.restDays.completionRate ? (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: 0 }}>
-                    You complete <strong style={{ color: '#4ade80' }}>
-                      {workoutHabitCorrelation.workoutDays.completionRate - workoutHabitCorrelation.restDays.completionRate}% more
-                    </strong> habits on workout days!
-                  </p>
-                ) : (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: 0 }}>
-                    Your habit completion is consistent across workout and rest days.
+                {workoutHabitCorrelation && (
+                  <p className="dashboard-story-note">
+                    Habit completion is <strong>{workoutHabitCorrelation.workoutDays.completionRate}%</strong> on workout days and <strong>{workoutHabitCorrelation.restDays.completionRate}%</strong> on rest days.
                   </p>
                 )}
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Based on {workoutHabitCorrelation.totalWorkoutDays} workout days in the last 90 days
+              </div>
+
+              <div className="card dashboard-story-card dashboard-story-card--accent">
+                <span className="dashboard-section-kicker">AI analysis layer</span>
+                <h3>Deep analysis stays one click away.</h3>
+                <p>
+                  Use the current dashboard context to ask the connected AI agent for an explanation, a correction plan, or a deeper cross-domain interpretation.
+                </p>
+                <div className="dashboard-ai-prompt-list">
+                  {(intelligenceFallback.aiPrompts || []).map((prompt) => (
+                    <button key={prompt.id} className="journal-ai-prompt" onClick={() => openAiPrompt(prompt)}>
+                      <span>{prompt.label}</span>
+                      <Icon name="arrow-up-right" size={15} />
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
-          </ScrollReveal>
-        )}
+          </div>
+        </ScrollReveal>
 
-        {/* Budget Status */}
-        {isWidgetVisible('budget-status') && Array.isArray(budgetStatus) && budgetStatus.length > 0 && (
-          <ScrollReveal delay={400}>
-            <div className="card" style={{ minHeight: 220 }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <Icon name="piggy-bank" size={18} />
-                Budget Status
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {budgetStatus.slice(0, 5).map(b => (
-                  <div key={b.id}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: '0.8rem' }}>
-                      <span>{b.categoryName}</span>
-                      <span style={{ color: b.isOver ? '#f87171' : 'var(--color-text-secondary)' }}>
-                        ${b.spent.toFixed(0)} / ${b.amount.toFixed(0)}
-                      </span>
-                    </div>
-                    <div style={{
-                      height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
-                    }}>
-                      <div style={{
-                        height: '100%', borderRadius: 3,
-                        width: `${Math.min(b.percentage, 100)}%`,
-                        background: b.isOver ? '#f87171' : b.percentage > 80 ? '#fbbf24' : '#4ade80',
-                        transition: 'width 0.5s ease',
-                      }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ScrollReveal>
-        )}
-
-        {/* Workout PRs */}
-        {isWidgetVisible('workout-prs') && Array.isArray(workoutPRs) && workoutPRs.length > 0 && (
-          <ScrollReveal delay={450}>
-            <div className="card" style={{ minHeight: 220 }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <Icon name="trophy" size={18} />
-                Personal Records
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {workoutPRs.slice(0, 6).map((pr, i) => (
-                  <div key={pr.exerciseId} style={{
-                    display: 'flex', alignItems: 'center', gap: '0.75rem',
-                    padding: '0.4rem 0',
-                    borderBottom: i < Math.min(workoutPRs.length, 6) - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                  }}>
-                    <div style={{
-                      width: 24, height: 24, borderRadius: 6,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: i < 3 ? '#fbbf2420' : 'rgba(255,255,255,0.04)',
-                      color: i < 3 ? '#fbbf24' : 'var(--color-text-muted)',
-                      fontSize: '0.7rem', fontWeight: 700,
-                    }}>
-                      {i + 1}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {pr.exerciseName}
+        <ScrollReveal delay={180}>
+          <div className="dashboard-rail">
+            <RailCard
+              title="Recent activity"
+              icon="activity"
+              action={<button className="btn btn-ghost small" onClick={() => nav('/workout/history')}>Open history</button>}
+            >
+              {!loaded ? (
+                <p className="journal-empty">Loading the latest activity...</p>
+              ) : activityItems.length === 0 ? (
+                <p className="journal-empty">No recent activity yet.</p>
+              ) : (
+                <div className="journal-activity-list">
+                  {activityItems.slice(0, 5).map((item, index) => (
+                    <div key={`${item.text}-${index}`} className="journal-activity-item">
+                      <div className="journal-activity-item__icon" style={{ color: item.color, background: `${item.color}15` }}>
+                        <Icon name={item.icon} size={14} />
+                      </div>
+                      <div>
+                        <strong>{item.text}</strong>
+                        <span>{item.sub}</span>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#4ade80' }}>
-                        {pr.maxWeight}kg
-                      </div>
-                      {pr.reps && (
-                        <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>
-                          {pr.reps} reps
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </RailCard>
+
+            <RailCard title="Habits today" icon="target">
+              <div className="journal-progress-block">
+                <div className="journal-progress-ring">
+                  <ProgressRing value={habitCompletionPct} size={92} strokeWidth={8} color="#a78bfa" />
+                  <strong>{habitCompletionPct}%</strong>
+                </div>
+                <div className="journal-progress-copy">
+                  <p>{todayCompleted} of {totalHabits} habits completed today.</p>
+                  <span>Best streak: {bestStreak} days</span>
+                </div>
               </div>
-            </div>
-          </ScrollReveal>
-        )}
-      </div>
+            </RailCard>
 
-      {/* === Domain Detail Sections === */}
-      {isWidgetVisible('spotify-detail') && <ScrollReveal delay={400}>
-        <div className="section" style={{ marginTop: '1.5rem' }}>
-          <h3>{t('home.spotify')}</h3>
-          <div className="stat-grid">
-            <StatCard icon="play-circle" accentColor="var(--color-accent)" label={t('home.totalStreams')} value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={spotifyStats?.totalStreams ?? 0} formatter={formatNumberShort} />} />
-            <StatCard icon="disc" accentColor="var(--color-accent)" label={t('home.uniqueTracks')} value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={spotifyStats?.uniqueTracks ?? 0} formatter={formatNumberShort} />} />
-            <StatCard icon="mic" accentColor="var(--color-accent)" label={t('home.uniqueArtists')} value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={spotifyStats?.uniqueArtists ?? 0} formatter={formatNumberShort} />} />
-            <StatCard icon="clock" accentColor="var(--color-accent)" label={t('home.totalMinutes')} value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={Math.floor((spotifyStats?.msListened ?? 0) / 1000 / 60)} formatter={formatNumberShort} />} />
-            <StatCard icon="timer" accentColor="var(--color-accent)" label={t('home.totalTime')} value={!hasLoadedOnce ? <LoadingLine width={120} /> : <AnimatedNumber value={spotifyStats?.msListened ?? 0} formatter={formatDuration} />} />
-          </div>
-        </div>
-      </ScrollReveal>}
+            <RailCard title="Budget pressure" icon="piggy-bank">
+              {!Array.isArray(budgetStatus) || budgetStatus.length === 0 ? (
+                <p className="journal-empty">No budget data available yet.</p>
+              ) : (
+                <div className="journal-budget-list">
+                  {budgetStatus.slice(0, 4).map((budget) => (
+                    <div key={budget.id} className="journal-budget-item">
+                      <div className="journal-budget-item__head">
+                        <strong>{budget.categoryName}</strong>
+                        <span>${budget.spent.toFixed(0)} / ${budget.amount.toFixed(0)}</span>
+                      </div>
+                      <div className="journal-budget-bar">
+                        <div
+                          className="journal-budget-bar__fill"
+                          style={{
+                            width: `${Math.min(budget.percentage, 100)}%`,
+                            background: budget.isOver ? '#f87171' : budget.percentage > 80 ? '#fbbf24' : '#4ade80',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </RailCard>
 
-      {isWidgetVisible('workout-detail') && <ScrollReveal delay={500}>
-        <div className="section">
-          <h3>{t('home.workout')}</h3>
-          <div className="stat-grid">
-            <StatCard icon="dumbbell" accentColor="#4ade80" label={t('home.totalWorkouts')} value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={workoutTotals?.totalWorkouts ?? 0} formatter={formatNumberShort} />} trend={workoutTrends?.dailyVolume} />
-            <StatCard icon="weight" accentColor="#4ade80" label={t('home.totalVolume')} value={!hasLoadedOnce ? <LoadingLine width={120} /> : <AnimatedNumber value={workoutTotals?.totalVolume ?? 0} formatter={(n) => `${formatNumberShort(n)} kg`} />} />
-            <StatCard icon="layers" accentColor="#4ade80" label={t('home.totalSets')} value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={workoutTotals?.totalSets ?? 0} formatter={formatNumberShort} />} />
-            <StatCard icon="repeat" accentColor="#4ade80" label={t('home.totalReps')} value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={workoutTotals?.totalReps ?? 0} formatter={formatNumberShort} />} />
-            <StatCard icon="timer" accentColor="#4ade80" label={t('home.totalTime')} value={!hasLoadedOnce ? <LoadingLine width={120} /> : <AnimatedNumber value={(workoutTotals?.totalTimeSeconds ?? 0) * 1000} formatter={formatDuration} />} />
+            <RailCard title="Personal records" icon="trophy">
+              {!Array.isArray(workoutPRs) || workoutPRs.length === 0 ? (
+                <p className="journal-empty">No PRs recorded yet.</p>
+              ) : (
+                <div className="journal-pr-list">
+                  {workoutPRs.slice(0, 4).map((pr) => (
+                    <div key={pr.exerciseId} className="journal-pr-item">
+                      <div>
+                        <strong>{pr.exerciseName}</strong>
+                        <span>{pr.reps ? `${pr.reps} reps` : 'Best load'}</span>
+                      </div>
+                      <b>{pr.maxWeight}kg</b>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </RailCard>
           </div>
-        </div>
-      </ScrollReveal>}
+        </ScrollReveal>
+      </section>
 
-      {isWidgetVisible('music-workouts') && <ScrollReveal delay={600}>
-        <div className="section">
-          <h3>{t('home.musicDuringWorkouts')}</h3>
-          <div className="stat-grid">
-            <StatCard icon="headphones" accentColor="var(--color-accent)" label={t('home.streamsDuringWorkouts')} value={!hasLoadedOnce ? <LoadingLine width={160} /> : <AnimatedNumber value={workoutStreamStats?.streams ?? 0} formatter={formatNumberShort} />} />
-            <StatCard icon="clock" accentColor="var(--color-accent)" label={t('home.timeStreamed')} value={!hasLoadedOnce ? <LoadingLine width={200} /> : <AnimatedNumber value={(workoutStreamStats?.totalTimeSeconds ?? 0) * 1000} formatter={formatDuration} />} />
+      <ScrollReveal delay={220}>
+        <section className="dashboard-domain-ribbon">
+          <div className="card dashboard-domain-card">
+            <span className="dashboard-section-kicker">Workout and music</span>
+            <h3>Performance soundtrack</h3>
+            <p>
+              <AnimatedNumber value={workoutStreamStats?.streams ?? 0} formatter={formatNumberShort} /> streams happened during workouts,
+              covering <AnimatedNumber value={(workoutStreamStats?.totalTimeSeconds ?? 0) * 1000} formatter={formatDuration} /> of training time.
+            </p>
           </div>
-        </div>
-      </ScrollReveal>}
-    </>
+
+          <div className="card dashboard-domain-card">
+            <span className="dashboard-section-kicker">Listening archive</span>
+            <h3>Media footprint</h3>
+            <p>
+              <AnimatedNumber value={spotifyStats?.totalStreams ?? 0} formatter={formatNumberShort} /> streams across{' '}
+              <AnimatedNumber value={spotifyStats?.uniqueArtists ?? 0} formatter={formatNumberShort} /> artists.
+            </p>
+          </div>
+
+          <div className="card dashboard-domain-card">
+            <span className="dashboard-section-kicker">Training volume</span>
+            <h3>Physical workload</h3>
+            <p>
+              <AnimatedNumber value={workoutTotals?.totalVolume ?? 0} formatter={(n) => `${formatNumberShort(n)} kg`} /> moved across{' '}
+              <AnimatedNumber value={workoutTotals?.totalSets ?? 0} formatter={formatNumberShort} /> sets.
+            </p>
+          </div>
+        </section>
+      </ScrollReveal>
+    </div>
   )
 }
 
-/**
- * Build a merged activity feed from habits and workout sessions
- */
 function buildActivityFeed(habitsArray, recentSessions) {
   const items = []
 
-  // Add habit completions (today)
-  for (const h of habitsArray) {
-    if (h.completedToday) {
+  for (const habit of habitsArray) {
+    if (habit.completedToday) {
       items.push({
         icon: 'check-circle',
         color: '#a78bfa',
-        text: h.name,
+        text: habit.name,
         sub: 'Completed today',
         time: Date.now(),
       })
     }
   }
 
-  // Add recent workout sessions
   if (Array.isArray(recentSessions)) {
-    for (const s of recentSessions.slice(0, 5)) {
+    for (const session of recentSessions.slice(0, 5)) {
       items.push({
         icon: 'dumbbell',
         color: '#4ade80',
-        text: s.name || 'Workout session',
-        sub: s.date ? new Date(s.date).toLocaleDateString() : '',
-        time: s.date ? new Date(s.date).getTime() : 0,
+        text: session.name || 'Workout session',
+        sub: session.date ? new Date(session.date).toLocaleDateString() : '',
+        time: session.date ? new Date(session.date).getTime() : 0,
       })
     }
   }
 
-  // Sort by most recent
   items.sort((a, b) => b.time - a.time)
   return items
 }

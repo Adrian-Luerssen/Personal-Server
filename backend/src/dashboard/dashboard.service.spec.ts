@@ -428,4 +428,85 @@ describe('DashboardService', () => {
       expect(typeof result.spending).toBe('number');
     });
   });
+
+  describe('getDashboardIntelligence', () => {
+    it('should assemble a momentum brief with actionable insights and AI prompts', async () => {
+      jest.spyOn(service, 'getWeeklySummary').mockResolvedValue({
+        workouts: 4,
+        habitsCompleted: 19,
+        habitsTotal: 24,
+        spending: 182.4,
+        streams: 96,
+      });
+      jest.spyOn(service, 'getWorkoutHabitCorrelation').mockResolvedValue({
+        workoutDays: { completionRate: 81, total: 16, successful: 13 },
+        restDays: { completionRate: 54, total: 20, successful: 11 },
+        totalWorkoutDays: 7,
+      });
+
+      const result = await service.getDashboardIntelligence(accountId);
+
+      expect(result.focus).toBe('momentum');
+      expect(result.headline).toContain('Momentum');
+      expect(result.score).toBeGreaterThan(70);
+      expect(result.snapshot).toEqual([
+        expect.objectContaining({ id: 'training', value: '4 sessions' }),
+        expect.objectContaining({ id: 'habits', value: '79%' }),
+        expect.objectContaining({ id: 'spending', value: '$182' }),
+        expect.objectContaining({ id: 'media', value: '96 streams' }),
+      ]);
+      expect(result.insights).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'habit-workout-correlation',
+            domains: ['workout', 'habits'],
+          }),
+          expect.objectContaining({
+            id: 'spending-watch',
+            domains: ['finance'],
+          }),
+        ]),
+      );
+      expect(result.aiPrompts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'training-pattern',
+            pageContext: expect.objectContaining({ pageType: 'dashboard' }),
+          }),
+        ]),
+      );
+    });
+
+    it('should downgrade the focus when consistency is low and habits trail on workout days', async () => {
+      jest.spyOn(service, 'getWeeklySummary').mockResolvedValue({
+        workouts: 1,
+        habitsCompleted: 5,
+        habitsTotal: 21,
+        spending: 486.12,
+        streams: 18,
+      });
+      jest.spyOn(service, 'getWorkoutHabitCorrelation').mockResolvedValue({
+        workoutDays: { completionRate: 22, total: 9, successful: 2 },
+        restDays: { completionRate: 43, total: 14, successful: 6 },
+        totalWorkoutDays: 2,
+      });
+
+      const result = await service.getDashboardIntelligence(accountId);
+
+      expect(result.focus).toBe('attention');
+      expect(result.headline).toContain('Attention');
+      expect(result.score).toBeLessThan(45);
+      expect(result.insights[0]).toEqual(
+        expect.objectContaining({
+          id: 'habit-workout-correlation',
+          tone: 'warning',
+        }),
+      );
+      expect(result.aiPrompts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'course-correct' }),
+        ]),
+      );
+    });
+  });
 });

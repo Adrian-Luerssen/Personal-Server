@@ -8,8 +8,8 @@ import { api } from '../api'
 import { usePageContext } from '../hooks/usePageContext'
 import './ChatPanel.css'
 
-const POLL_OPEN_MS = 5000   // 5s when panel is open (was 3s)
-const POLL_CLOSED_MS = 60000 // 60s when closed (was 30s)
+const POLL_OPEN_MS = 5000
+const POLL_CLOSED_MS = 60000
 
 function formatTime(ts) {
   if (!ts) return ''
@@ -52,14 +52,14 @@ function ContextBadge({ pageContext }) {
   if (pageContext.filters) {
     const f = pageContext.filters
     if (f.timeframe) parts.push(f.timeframe)
-    if (f.from && f.to) parts.push(`${f.from} – ${f.to}`)
+    if (f.from && f.to) parts.push(`${f.from} to ${f.to}`)
     else if (f.from) parts.push(`from ${f.from}`)
   }
 
   return (
     <div className="chat-msg-context-badge">
       <Icon name="compass" size={10} />
-      {parts.join(' · ')}
+      {parts.join(' / ')}
     </div>
   )
 }
@@ -70,7 +70,7 @@ function MarkdownMessage({ text }) {
       className="chat-markdown"
       remarkPlugins={[remarkGfm]}
       components={{
-        code({ node, inline, className, children, ...props }) {
+        code({ inline, className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || '')
           return !inline && match ? (
             <SyntaxHighlighter
@@ -108,7 +108,7 @@ function MarkdownMessage({ text }) {
 
 export default function ChatPanel() {
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState('list') // 'list' | 'detail'
+  const [view, setView] = useState('list')
   const [conversations, setConversations] = useState([])
   const [activeConvId, setActiveConvId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -120,14 +120,12 @@ export default function ChatPanel() {
   const messagesEndRef = useRef(null)
   const pageContext = usePageContext()
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     if (view === 'detail' && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, view])
 
-  // Fetch conversations
   const fetchConversations = useCallback(async () => {
     try {
       const data = await api.get('/chat/conversations')
@@ -139,7 +137,6 @@ export default function ChatPanel() {
     }
   }, [])
 
-  // Fetch messages for active conversation
   const fetchMessages = useCallback(async () => {
     if (!activeConvId) return
     try {
@@ -147,52 +144,85 @@ export default function ChatPanel() {
       const msgs = Array.isArray(data) ? data : (data.messages || [])
       setMessages(msgs)
     } catch {
-      // silently ignore polling errors
+      // Silently ignore polling errors.
     }
   }, [activeConvId])
 
-  // Compute unread count from conversations
   const computeUnread = useCallback((convList) => {
     const list = convList || conversations
     const count = list.reduce((sum, c) => sum + (c.unread_count || 0), 0)
     setUnreadCount(count)
   }, [conversations])
 
-  // Poll when panel is open + in detail view: poll messages
+  const startConversationWithPrompt = useCallback(async ({ title, text, pageContext: promptContext }) => {
+    try {
+      setOpen(true)
+      const created = await api.post('/chat/conversations', { title: title || 'AI analysis' })
+      const conv = created.conversation || created
+      setConversations((prev) => [conv, ...prev])
+      setActiveConvId(conv.id)
+      setView('detail')
+      setMessages([])
+      await api.post(`/chat/conversations/${conv.id}/messages`, {
+        text,
+        ...(promptContext ? { pageContext: promptContext } : {}),
+      })
+      const data = await api.get(`/chat/conversations/${conv.id}/messages`)
+      const msgs = Array.isArray(data) ? data : (data.messages || [])
+      setMessages(msgs)
+    } catch {
+      // Ignore prompt launch errors; chat remains available manually.
+    }
+  }, [])
+
   useEffect(() => {
-    if (!open) return
+    if (!open) return undefined
+
     if (view === 'detail' && activeConvId) {
       fetchMessages()
       const interval = setInterval(fetchMessages, POLL_OPEN_MS)
       return () => clearInterval(interval)
     }
+
     if (view === 'list') {
       fetchConversations()
       const interval = setInterval(fetchConversations, POLL_OPEN_MS)
       return () => clearInterval(interval)
     }
+
+    return undefined
   }, [open, view, activeConvId, fetchMessages, fetchConversations])
 
-  // Poll when panel is closed: check unread
   useEffect(() => {
-    if (open) return
+    if (open) return undefined
+
     const checkUnread = async () => {
       const list = await fetchConversations()
       computeUnread(list)
     }
+
     checkUnread()
     const interval = setInterval(checkUnread, POLL_CLOSED_MS)
     return () => clearInterval(interval)
   }, [open, fetchConversations, computeUnread])
 
-  // Open a conversation
+  useEffect(() => {
+    const handler = (event) => {
+      const detail = event.detail || {}
+      if (!detail.text) return
+      startConversationWithPrompt(detail)
+    }
+
+    window.addEventListener('personal-server:chat-prompt', handler)
+    return () => window.removeEventListener('personal-server:chat-prompt', handler)
+  }, [startConversationWithPrompt])
+
   const openConversation = (convId) => {
     setActiveConvId(convId)
     setView('detail')
     setMessages([])
   }
 
-  // Back to list
   const backToList = () => {
     setView('list')
     setActiveConvId(null)
@@ -200,19 +230,17 @@ export default function ChatPanel() {
     fetchConversations()
   }
 
-  // Create new conversation
   const createConversation = async () => {
     try {
       const data = await api.post('/chat/conversations', { title: 'New conversation' })
       const conv = data.conversation || data
-      setConversations(prev => [conv, ...prev])
+      setConversations((prev) => [conv, ...prev])
       openConversation(conv.id)
     } catch {
-      // ignore
+      // Ignore create conversation errors.
     }
   }
 
-  // Send message
   const sendMessage = async () => {
     const text = inputText.trim()
     if (!text || !activeConvId || sending) return
@@ -221,8 +249,6 @@ export default function ChatPanel() {
     setInputText('')
 
     const contextToSend = sendContext ? pageContext : null
-
-    // Optimistic add
     const tempMsg = {
       id: `temp-${Date.now()}`,
       role: 'user',
@@ -231,18 +257,17 @@ export default function ChatPanel() {
       created_at: new Date().toISOString(),
       pageContext: contextToSend,
     }
-    setMessages(prev => [...prev, tempMsg])
+    setMessages((prev) => [...prev, tempMsg])
 
     try {
       await api.post(`/chat/conversations/${activeConvId}/messages`, {
         text,
         ...(contextToSend ? { pageContext: contextToSend } : {}),
       })
-      // Refresh messages to get server response
       await fetchMessages()
     } catch {
-      setMessages(prev =>
-        prev.map(m => m.id === tempMsg.id ? { ...m, status: 'error' } : m)
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempMsg.id ? { ...m, status: 'error' } : m))
       )
     } finally {
       setSending(false)
@@ -258,7 +283,6 @@ export default function ChatPanel() {
 
   return (
     <>
-      {/* Toggle button */}
       {!open && (
         <button className="chat-toggle-btn" onClick={() => setOpen(true)} aria-label="Open chat">
           <Icon name="message-square" size={22} />
@@ -268,15 +292,12 @@ export default function ChatPanel() {
         </button>
       )}
 
-      {/* Panel overlay for click-away close */}
       <div
         className={`chat-panel-overlay${open ? ' open' : ''}`}
         onClick={() => setOpen(false)}
       />
 
-      {/* Panel */}
       <div className={`chat-panel${open ? ' open' : ''}`}>
-        {/* Header */}
         <div className="chat-panel-header">
           {view === 'detail' && (
             <button className="chat-header-btn" onClick={backToList} aria-label="Back">
@@ -289,7 +310,6 @@ export default function ChatPanel() {
           </button>
         </div>
 
-        {/* List view */}
         {view === 'list' && (
           <div className="chat-conv-list">
             <button className="chat-new-conv-btn" onClick={createConversation}>
@@ -299,7 +319,7 @@ export default function ChatPanel() {
             {conversations.length === 0 && (
               <div className="chat-empty">No conversations yet</div>
             )}
-            {conversations.map(conv => (
+            {conversations.map((conv) => (
               <div
                 key={conv.id}
                 className="chat-conv-item"
@@ -319,14 +339,13 @@ export default function ChatPanel() {
           </div>
         )}
 
-        {/* Detail view */}
         {view === 'detail' && (
           <>
             <div className="chat-messages">
               {messages.length === 0 && (
                 <div className="chat-empty">Send a message to start</div>
               )}
-              {messages.map(msg => (
+              {messages.map((msg) => (
                 <div key={msg.id} className={`chat-msg ${msg.role === 'user' ? 'user' : 'agent'}`}>
                   {msg.role === 'user' ? (
                     <>
@@ -349,7 +368,7 @@ export default function ChatPanel() {
             <div className="chat-input-area">
               <button
                 className={`chat-context-chip ${sendContext ? 'active' : 'inactive'}`}
-                onClick={() => setSendContext(prev => !prev)}
+                onClick={() => setSendContext((prev) => !prev)}
                 title={sendContext ? 'Click to disable page context' : 'Click to enable page context'}
               >
                 <Icon name="compass" size={12} />
@@ -365,7 +384,7 @@ export default function ChatPanel() {
                   type="text"
                   placeholder="Type a message..."
                   value={inputText}
-                  onChange={e => setInputText(e.target.value)}
+                  onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={sending}
                 />

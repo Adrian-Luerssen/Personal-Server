@@ -130,16 +130,26 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   return (
     <aside className={'sidebar' + (collapsed ? ' collapsed' : '')}>
-      <div className="brand">{collapsed ? 'PS' : t('common.appName')}</div>
-      <button className="btn btn-ghost small" onClick={onToggle} style={{ alignSelf: 'flex-start', marginBottom: '0.5rem' }}>
-        <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={20} />
-      </button>
+      <div className="sidebar-brand-shell">
+        <div className="sidebar-brand-mark">PS</div>
+        {!collapsed && (
+          <div className="sidebar-brand-copy">
+            <div className="brand">{t('common.appName')}</div>
+            <div className="sidebar-brand-note">Private quantified-self journal</div>
+          </div>
+        )}
+        <button className="sidebar-toggle-btn" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <Icon name={collapsed ? 'panel-left-open' : 'panel-left-close'} size={16} />
+        </button>
+      </div>
       <nav className="nav">
+        {!collapsed && <div className="sidebar-section-label">Overview</div>}
         <NavLink to="/home" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')}>
           <Icon name="home" size={20} />
           {!collapsed && <span>{t('nav.home')}</span>}
         </NavLink>
 
+        {!collapsed && <div className="sidebar-section-label">Domains</div>}
         <div
           className={'nav-link' + (isSpotifyActive ? ' active' : '')}
           onClick={handleSpotifyClick}
@@ -296,6 +306,7 @@ export default function Sidebar({ collapsed, onToggle }) {
       </nav>
 
       <div className="sidebar-bottom">
+        {!collapsed && <div className="sidebar-section-label">System</div>}
         <NavLink to="/settings" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')}>
           <Icon name="settings" size={20} />
           {!collapsed && <span>{t('nav.settings')}</span>}

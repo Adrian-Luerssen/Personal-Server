@@ -1,6 +1,10 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiQuery, ApiTags } from "@nestjs/swagger";
-import { DashboardService } from "./dashboard.service";
+import {
+  DashboardIntelligenceResponse,
+  DashboardService,
+  LandingStatsResponse,
+} from "./dashboard.service";
 import { NoAuth, ReqUser } from "../system/auth/auth.decorator";
 import { Account } from "../system/accounts/account.entity";
 import { resolveTimeframe } from "../utils/utils";
@@ -52,13 +56,15 @@ export class DashboardController {
   }
 
   @Get("intelligence")
-  async getDashboardIntelligence(@ReqUser() account: Account) {
+  async getDashboardIntelligence(
+    @ReqUser() account: Account
+  ): Promise<DashboardIntelligenceResponse> {
     return this.dashboard.getDashboardIntelligence(account.id);
   }
 
   @Get("landing-stats")
   @NoAuth()
-  async getLandingStats() {
+  async getLandingStats(): Promise<LandingStatsResponse> {
     return this.dashboard.getLandingStats();
   }
 }

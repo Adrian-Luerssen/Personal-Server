@@ -6,16 +6,16 @@ import { Track } from "../music/tracks/track.entity";
 import { WorkoutSession } from "../workout/sessions/session.entity";
 import { Account } from "../system/accounts/account.entity";
 
-type DashboardFocus = "momentum" | "steady" | "attention";
+export type DashboardFocus = "momentum" | "steady" | "attention";
 
-interface DashboardSnapshotItem {
+export interface DashboardSnapshotItem {
   id: string;
   label: string;
   value: string;
   note: string;
 }
 
-interface DashboardInsightItem {
+export interface DashboardInsightItem {
   id: string;
   title: string;
   summary: string;
@@ -24,7 +24,7 @@ interface DashboardInsightItem {
   evidence: string[];
 }
 
-interface DashboardAiPrompt {
+export interface DashboardAiPrompt {
   id: string;
   label: string;
   prompt: string;
@@ -35,12 +35,28 @@ interface DashboardAiPrompt {
   };
 }
 
-interface LandingMetricItem {
+export interface LandingMetricItem {
   id: string;
   value: number;
   suffix?: string;
   label: string;
   note: string;
+}
+
+export interface DashboardIntelligenceResponse {
+  generatedAt: string;
+  focus: DashboardFocus;
+  score: number;
+  headline: string;
+  summary: string;
+  snapshot: DashboardSnapshotItem[];
+  insights: DashboardInsightItem[];
+  aiPrompts: DashboardAiPrompt[];
+}
+
+export interface LandingStatsResponse {
+  generatedAt: string;
+  metrics: LandingMetricItem[];
 }
 
 @Injectable()
@@ -191,7 +207,7 @@ export class DashboardService {
     };
   }
 
-  async getDashboardIntelligence(accountId: string) {
+  async getDashboardIntelligence(accountId: string): Promise<DashboardIntelligenceResponse> {
     const [weekly, correlation] = await Promise.all([
       this.getWeeklySummary(accountId),
       this.getWorkoutHabitCorrelation(accountId),
@@ -375,7 +391,7 @@ export class DashboardService {
     };
   }
 
-  async getLandingStats() {
+  async getLandingStats(): Promise<LandingStatsResponse> {
     const [workouts, habits, streams] = await Promise.all([
       this.dataSource.query(`SELECT COUNT(*) as count FROM app_workout_sessions`),
       this.dataSource.query(`SELECT COUNT(*) as count FROM app_habit_entries`),

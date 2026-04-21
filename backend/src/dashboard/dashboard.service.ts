@@ -115,7 +115,7 @@ export class DashboardService {
     const from = ninetyDaysAgo.toISOString().slice(0, 10);
 
     const workoutDays = await this.dataSource.query(
-      `SELECT DISTINCT date FROM app_workout_sessions
+      `SELECT DISTINCT date FROM app_workout_session
        WHERE "accountId" = $1 AND date >= $2`,
       [accountId, from]
     );
@@ -123,8 +123,8 @@ export class DashboardService {
 
     // Get habit entries for same period
     const habitEntries = await this.dataSource.query(
-      `SELECT date, status FROM app_habit_entries he
-       INNER JOIN app_habits h ON he."habitId" = h.id
+      `SELECT date, status FROM app_habit_entry he
+       INNER JOIN app_habit h ON he."habitId" = h.id
        WHERE h."accountId" = $1 AND he.date >= $2`,
       [accountId, from]
     );
@@ -167,7 +167,7 @@ export class DashboardService {
 
     // Workouts this week
     const workouts = await this.dataSource.query(
-      `SELECT COUNT(*) as count FROM app_workout_sessions
+      `SELECT COUNT(*) as count FROM app_workout_session
        WHERE "accountId" = $1 AND date >= $2`,
       [accountId, from]
     );
@@ -176,15 +176,15 @@ export class DashboardService {
     const habits = await this.dataSource.query(
       `SELECT COUNT(*) as total,
               SUM(CASE WHEN he.status = 'success' THEN 1 ELSE 0 END) as completed
-       FROM app_habit_entries he
-       INNER JOIN app_habits h ON he."habitId" = h.id
+       FROM app_habit_entry he
+       INNER JOIN app_habit h ON he."habitId" = h.id
        WHERE h."accountId" = $1 AND he.date >= $2`,
       [accountId, from]
     );
 
     // Spending this week
     const spending = await this.dataSource.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM finance_transactions
+      `SELECT COALESCE(SUM(amount), 0) as total FROM app_finance_transactions
        WHERE "accountId" = $1 AND "transactionDate" >= $2
        AND "isIncome" = false AND (type IS NULL OR type NOT IN (1, 3))`,
       [accountId, from]
@@ -192,8 +192,8 @@ export class DashboardService {
 
     // Streams this week
     const streams = await this.dataSource.query(
-      `SELECT COUNT(*) as count FROM app_streams s
-       INNER JOIN app_tracks t ON s."trackId" = t.id
+      `SELECT COUNT(*) as count FROM app_stream s
+       INNER JOIN app_track t ON s."trackId" = t.id
        WHERE t."accountId" = $1 AND s."streamedAt" >= $2`,
       [accountId, from]
     );
@@ -393,9 +393,9 @@ export class DashboardService {
 
   async getLandingStats(): Promise<LandingStatsResponse> {
     const [workouts, habits, streams] = await Promise.all([
-      this.dataSource.query(`SELECT COUNT(*) as count FROM app_workout_sessions`),
-      this.dataSource.query(`SELECT COUNT(*) as count FROM app_habit_entries`),
-      this.dataSource.query(`SELECT COUNT(*) as count FROM app_streams`),
+      this.dataSource.query(`SELECT COUNT(*) as count FROM app_workout_session`),
+      this.dataSource.query(`SELECT COUNT(*) as count FROM app_habit_entry`),
+      this.dataSource.query(`SELECT COUNT(*) as count FROM app_stream`),
     ]);
 
     const metrics: LandingMetricItem[] = [

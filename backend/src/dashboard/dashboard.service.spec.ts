@@ -376,23 +376,23 @@ describe('DashboardService', () => {
       expect(result.spending).toBe(99.99);
     });
 
-    it('should query workouts from app_workout_sessions', async () => {
+    it('should query workouts from app_workout_session', async () => {
       setupWeeklyMocks();
 
       await service.getWeeklySummary(accountId);
 
       const workoutQuery = mockDataSource.query.mock.calls[0][0];
-      expect(workoutQuery).toContain('app_workout_sessions');
+      expect(workoutQuery).toContain('app_workout_session');
     });
 
-    it('should query habits with join on app_habits for account scoping', async () => {
+    it('should query habits with join on app_habit for account scoping', async () => {
       setupWeeklyMocks();
 
       await service.getWeeklySummary(accountId);
 
       const habitsQuery = mockDataSource.query.mock.calls[1][0];
-      expect(habitsQuery).toContain('app_habit_entries');
-      expect(habitsQuery).toContain('app_habits');
+      expect(habitsQuery).toContain('app_habit_entry');
+      expect(habitsQuery).toContain('app_habit');
     });
 
     it('should exclude income and transfer/refund types from spending', async () => {
@@ -401,7 +401,7 @@ describe('DashboardService', () => {
       await service.getWeeklySummary(accountId);
 
       const spendingQuery = mockDataSource.query.mock.calls[2][0];
-      expect(spendingQuery).toContain('finance_transactions');
+      expect(spendingQuery).toContain('app_finance_transactions');
       expect(spendingQuery).toContain('"isIncome" = false');
       expect(spendingQuery).toContain('NOT IN (1, 3)');
     });
@@ -412,8 +412,8 @@ describe('DashboardService', () => {
       await service.getWeeklySummary(accountId);
 
       const streamsQuery = mockDataSource.query.mock.calls[3][0];
-      expect(streamsQuery).toContain('app_streams');
-      expect(streamsQuery).toContain('app_tracks');
+      expect(streamsQuery).toContain('app_stream');
+      expect(streamsQuery).toContain('app_track');
     });
 
     it('should handle zero spending as numeric 0 not string', async () => {
@@ -568,9 +568,9 @@ describe('DashboardService', () => {
       await service.getLandingStats();
 
       expect(mockDataSource.query).toHaveBeenCalledTimes(3);
-      expect(mockDataSource.query.mock.calls[0][0]).toContain('app_workout_sessions');
-      expect(mockDataSource.query.mock.calls[1][0]).toContain('app_habit_entries');
-      expect(mockDataSource.query.mock.calls[2][0]).toContain('app_streams');
+      expect(mockDataSource.query.mock.calls[0][0]).toContain('app_workout_session');
+      expect(mockDataSource.query.mock.calls[1][0]).toContain('app_habit_entry');
+      expect(mockDataSource.query.mock.calls[2][0]).toContain('app_stream');
     });
   });
 });

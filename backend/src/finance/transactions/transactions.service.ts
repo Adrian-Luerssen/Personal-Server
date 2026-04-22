@@ -38,26 +38,26 @@ export class TransactionsService {
     accountId: string,
     filters: TransactionFilters
   ) {
-    qb.where("t.accountId = :accountId", { accountId });
+    qb.where('t."accountId" = :accountId', { accountId });
 
     if (filters.walletId) {
-      qb.andWhere("t.walletId = :walletId", { walletId: filters.walletId });
+      qb.andWhere('t."walletId" = :walletId', { walletId: filters.walletId });
     }
     if (filters.categoryId) {
       qb.andWhere(
-        "(t.categoryId = :categoryId OR t.categoryId IN " +
+        '(t."categoryId" = :categoryId OR t."categoryId" IN ' +
         "(SELECT id FROM app_finance_categories WHERE \"parentCategoryId\" = :categoryId))",
         { categoryId: filters.categoryId }
       );
     }
     if (filters.from) {
-      qb.andWhere("t.transactionDate >= :from", { from: new Date(filters.from) });
+      qb.andWhere('t."transactionDate" >= :from', { from: new Date(filters.from) });
     }
     if (filters.to) {
-      qb.andWhere("t.transactionDate <= :to", { to: new Date(filters.to) });
+      qb.andWhere('t."transactionDate" <= :to', { to: new Date(filters.to) });
     }
     if (filters.isIncome !== undefined) {
-      qb.andWhere("t.isIncome = :isIncome", { isIncome: filters.isIncome });
+      qb.andWhere('t."isIncome" = :isIncome', { isIncome: filters.isIncome });
     }
     if (filters.minAmount !== undefined) {
       qb.andWhere("t.amount >= :minAmount", { minAmount: filters.minAmount });
@@ -84,18 +84,18 @@ export class TransactionsService {
       .leftJoin("category.parentCategory", "parentCategory")
       .leftJoinAndSelect("t.wallet", "wallet")
       .select([
-        't.id', 't.name', 't.amount', 't.isIncome', 't.type',
-        't.transactionDate', 't.note', 't.createdAt',
-        't.linkedTransferId', 't.subscriptionId',
-        'category.id', 'category.name', 'category.colour', 'category.iconName',
-        'category.parentCategoryId',
-        'parentCategory.id', 'parentCategory.name', 'parentCategory.colour', 'parentCategory.iconName',
-        'wallet.id', 'wallet.name', 'wallet.colour', 'wallet.iconName',
+        't.id', 't.name', 't.amount', 't."isIncome"', 't.type',
+        't."transactionDate"', 't.note', 't."createdAt"',
+        't."linkedTransferId"', 't."subscriptionId"',
+        'category.id', 'category.name', 'category.colour', 'category."iconName"',
+        'category."parentCategoryId"',
+        'parentCategory.id', 'parentCategory.name', 'parentCategory.colour', 'parentCategory."iconName"',
+        'wallet.id', 'wallet.name', 'wallet.colour', 'wallet."iconName"',
       ]);
 
     this.applyFilters(qb, account.id, filters);
 
-    qb.orderBy("t.transactionDate", "DESC").addOrderBy("t.createdAt", "DESC");
+    qb.orderBy('t."transactionDate"', "DESC").addOrderBy('t."createdAt"', "DESC");
     qb.skip(offset).take(limit);
 
     const [items, total] = await qb.getManyAndCount();
@@ -157,10 +157,10 @@ export class TransactionsService {
     qb.andWhere("(t.type IS NULL OR t.type NOT IN (1, 3))");
 
     const result = await qb
-      .select("t.isIncome", "isIncome")
+      .select('t."isIncome"', "isIncome")
       .addSelect("SUM(t.amount)", "total")
       .addSelect("COUNT(t.id)", "count")
-      .groupBy("t.isIncome")
+      .groupBy('t."isIncome"')
       .getRawMany<{ isIncome: boolean; total: string; count: string }>();
 
     let totalIncome = 0;
@@ -205,9 +205,9 @@ export class TransactionsService {
     this.applyFilters(dailyQb, account.id, {
       from: sevenDaysAgo.toISOString().slice(0, 10),
     });
-    dailyQb.andWhere("t.isIncome = false");
+    dailyQb.andWhere('t."isIncome" = false');
     const dailyRows = await dailyQb
-      .select("DATE(t.transactionDate)", "date")
+      .select('DATE(t."transactionDate")', "date")
       .addSelect("COALESCE(SUM(t.amount), 0)", "total")
       .groupBy("date")
       .orderBy("date", "ASC")

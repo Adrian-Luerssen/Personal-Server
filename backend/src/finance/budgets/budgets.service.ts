@@ -62,16 +62,16 @@ export class BudgetsService {
         const qb = this.txRepo
           .createQueryBuilder("t")
           .select("COALESCE(SUM(t.amount), 0)", "spent")
-          .where("t.accountId = :aid", { aid: account.id })
-          .andWhere("t.isIncome = false")
-          .andWhere("t.transactionDate >= :from", { from })
-          .andWhere("t.transactionDate <= :to", { to })
+          .where('t."accountId" = :aid', { aid: account.id })
+          .andWhere('t."isIncome" = false')
+          .andWhere('t."transactionDate" >= :from', { from })
+          .andWhere('t."transactionDate" <= :to', { to })
           .andWhere("(t.type IS NULL OR t.type NOT IN (1, 3))");
 
         if (budget.categoryId) {
           qb.andWhere(
-            "(t.categoryId = :catId OR t.categoryId IN " +
-            "(SELECT id FROM finance_categories WHERE \"parentCategoryId\" = :catId))",
+            '(t."categoryId" = :catId OR t."categoryId" IN ' +
+            '(SELECT id FROM app_finance_categories WHERE "parentCategoryId" = :catId))',
             { catId: budget.categoryId }
           );
         }

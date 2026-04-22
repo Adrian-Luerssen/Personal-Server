@@ -402,6 +402,7 @@ describe('DashboardService', () => {
 
       const spendingQuery = mockDataSource.query.mock.calls[2][0];
       expect(spendingQuery).toContain('app_finance_transactions');
+      expect(spendingQuery).toContain('WHERE "accountId" = $1 AND "transactionDate" >= $2');
       expect(spendingQuery).toContain('"isIncome" = false');
       expect(spendingQuery).toContain('NOT IN (1, 3)');
     });
@@ -414,6 +415,7 @@ describe('DashboardService', () => {
       const streamsQuery = mockDataSource.query.mock.calls[3][0];
       expect(streamsQuery).toContain('app_stream');
       expect(streamsQuery).toContain('app_track');
+      expect(streamsQuery).toContain('WHERE t."accountId" = $1 AND s."streamedAt" >= $2');
     });
 
     it('should handle zero spending as numeric 0 not string', async () => {

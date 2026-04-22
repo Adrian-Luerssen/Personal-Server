@@ -385,7 +385,23 @@ describe('BudgetsService', () => {
 
       await service.getStatus(mockAccount);
 
-      expect(mockQb.where).toHaveBeenCalledWith('t.accountId = :aid', { aid: 'account-1' });
+      expect(mockQb.where).toHaveBeenCalledWith('t."accountId" = :aid', { aid: 'account-1' });
+    });
+
+    it('should scope category rollups to the app_finance_categories table with quoted category ids', async () => {
+      const budget = makeBudget({ categoryId: 'cat-1' });
+      budgetRepo.find.mockResolvedValue([budget]);
+      mockQb.getRawOne.mockResolvedValue({ spent: '100' });
+
+      await service.getStatus(mockAccount);
+
+      const categoryCall = mockQb.andWhere.mock.calls.find(
+        (call) => typeof call[0] === 'string' && call[0].includes('app_finance_categories'),
+      );
+      expect(categoryCall).toEqual([
+        '(t."categoryId" = :catId OR t."categoryId" IN (SELECT id FROM app_finance_categories WHERE "parentCategoryId" = :catId))',
+        { catId: 'cat-1' },
+      ]);
     });
 
     it('should round percentage to nearest integer', async () => {

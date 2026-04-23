@@ -15,7 +15,7 @@
     "start": "env-cmd -f ./.env.dev nest start",
     "start:dev": "nest build && env-cmd -f ./.env.dev nest start --watch",
     "start:debug": "env-cmd -f ./.env.dev nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/run-migrations.js && node dist/main",
     "dist": "sh ./dist.sh",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "typeorm": "env-cmd -f ./.env.dev ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js --config src/typeormconfig.ts",

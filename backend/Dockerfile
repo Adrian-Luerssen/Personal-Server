@@ -15,4 +15,4 @@ COPY package.json package-lock.json* ./
 RUN npm install --production 
 ENV PORT=3000
 EXPOSE 3000
-CMD ["node", "dist/main"]
+CMD ["npm", "run", "start:prod"]

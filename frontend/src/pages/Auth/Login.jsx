@@ -97,14 +97,21 @@ export default function Login() {
           <div>
             <div className="auth-brand__title">Personal Server</div>
             <div className="auth-brand__subtitle">
-              {nativeApp ? 'Android client' : 'Private data platform'}
+              {nativeApp ? 'Android app' : 'Private data platform'}
             </div>
           </div>
         </div>
 
+        {nativeApp && (
+          <div className="auth-mode-switch" aria-label="Authentication mode">
+            <Link className="auth-mode-switch__item active" to="/login" aria-current="page">Login</Link>
+            <Link className="auth-mode-switch__item" to="/register">Register</Link>
+          </div>
+        )}
+
         <div className="auth-copy">
           <h1>{mfaRequired ? t('auth.verifyCode') : t('auth.signIn')}</h1>
-          <p>{mfaRequired ? t('auth.enterMfaCode') : 'Access your private dashboard.'}</p>
+          <p>{mfaRequired ? t('auth.enterMfaCode') : (nativeApp ? 'Open your dashboard and synced personal data.' : 'Access your private dashboard.')}</p>
         </div>
 
         <form ref={formRef} onSubmit={submit} className="auth-form" noValidate>
@@ -180,7 +187,7 @@ export default function Login() {
             </button>
           )}
         </form>
-        <div className="auth-switch">
+        <div className={`auth-switch${nativeApp ? ' auth-switch--web-secondary' : ''}`}>
           {t('auth.noAccount')} <Link to="/register">{t('auth.register')}</Link>
         </div>
         {message && <div className={message.startsWith(t('common.error')) ? 'alert-error' : 'alert-info'} style={{ marginTop: '1rem' }}>{message}</div>}

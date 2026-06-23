@@ -69,14 +69,21 @@ export default function Register() {
           <div>
             <div className="auth-brand__title">Personal Server</div>
             <div className="auth-brand__subtitle">
-              {nativeApp ? 'Android client' : 'Private data platform'}
+              {nativeApp ? 'Android app' : 'Private data platform'}
             </div>
           </div>
         </div>
 
+        {nativeApp && (
+          <div className="auth-mode-switch" aria-label="Authentication mode">
+            <Link className="auth-mode-switch__item" to="/login">Login</Link>
+            <Link className="auth-mode-switch__item active" to="/register" aria-current="page">Register</Link>
+          </div>
+        )}
+
         <div className="auth-copy">
           <h1>{t('auth.signUp')}</h1>
-          <p>Create an account for this private server.</p>
+          <p>{nativeApp ? 'Create your mobile account for synced personal data.' : 'Create an account for this private server.'}</p>
         </div>
 
         <form ref={formRef} onSubmit={submit} className="auth-form" noValidate>
@@ -125,7 +132,7 @@ export default function Register() {
             {submitting ? t('common.loading') : t('auth.register')}
           </button>
         </form>
-        <div className="auth-switch">
+        <div className={`auth-switch${nativeApp ? ' auth-switch--web-secondary' : ''}`}>
           {t('auth.hasAccount')} <Link to="/login">{t('auth.login')}</Link>
         </div>
         {message && <div className={message.startsWith(t('common.error')) ? 'alert-error' : 'alert-success'} style={{ marginTop: '1rem' }}>{message}</div>}

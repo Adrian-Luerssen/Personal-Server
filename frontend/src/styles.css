@@ -737,10 +737,13 @@ code {
 
 .auth-screen--native {
   align-items: stretch;
+  background:
+    linear-gradient(180deg, rgba(125, 211, 252, 0.08), transparent 28%),
+    #090d18;
   padding:
-    calc(env(safe-area-inset-top, 0px) + 1rem)
+    calc(env(safe-area-inset-top, 0px) + 0.85rem)
     1rem
-    calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    calc(env(safe-area-inset-bottom, 0px) + 0.85rem);
 }
 
 .auth-panel {
@@ -756,11 +759,15 @@ code {
 
 .auth-screen--native .auth-panel {
   max-width: none;
-  min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem);
+  min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.7rem);
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  border-radius: 1.4rem;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
 .auth-brand {
@@ -768,6 +775,10 @@ code {
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 2rem;
+}
+
+.auth-screen--native .auth-brand {
+  margin-bottom: 1.25rem;
 }
 
 .auth-brand__mark {
@@ -781,6 +792,12 @@ code {
   letter-spacing: 0.08em;
   color: var(--color-accent-text);
   background: var(--color-accent);
+}
+
+.auth-screen--native .auth-brand__mark {
+  border-radius: 0.9rem;
+  background: rgba(125, 211, 252, 0.14);
+  color: var(--color-accent);
 }
 
 .auth-brand__title {
@@ -803,10 +820,27 @@ code {
   margin-bottom: 1.5rem;
 }
 
+.auth-screen--native .auth-copy {
+  margin: 0.6rem 0 1.2rem;
+}
+
 .auth-copy h1 {
   margin-bottom: 0.35rem;
   font-size: 1.75rem;
   line-height: 1.08;
+}
+
+.auth-screen--native .auth-copy h1 {
+  font-family: var(--font-body);
+  font-size: clamp(2rem, 9vw, 2.6rem);
+  letter-spacing: 0;
+}
+
+.auth-screen--native .auth-copy p {
+  max-width: 18rem;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  line-height: 1.45;
 }
 
 .auth-form {
@@ -815,9 +849,33 @@ code {
   gap: 0.8rem;
 }
 
+.auth-screen--native .auth-form {
+  gap: 0.95rem;
+  margin-top: clamp(1rem, 4vh, 2.5rem);
+}
+
+.auth-screen--native .field {
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.auth-screen--native label {
+  color: var(--color-text-secondary);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .auth-input {
   min-height: 3.15rem;
   font-size: 1rem;
+}
+
+.auth-screen--native .auth-input {
+  min-height: 3.7rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.1);
+  font-size: 1.05rem;
 }
 
 .auth-check-row {
@@ -825,6 +883,11 @@ code {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+}
+
+.auth-screen--native .auth-check-row {
+  min-height: 3rem;
+  padding: 0 0.15rem;
 }
 
 .auth-check-row input {
@@ -845,9 +908,95 @@ code {
   min-height: 3.15rem;
 }
 
+.auth-screen--native .auth-submit,
+.auth-screen--native .auth-form .btn {
+  min-height: 3.75rem;
+  border-radius: 1rem;
+  font-size: 1rem;
+}
+
 .auth-switch {
   margin-top: 1rem;
   font-size: 0.9rem;
+}
+
+.auth-screen--native .auth-switch {
+  margin-top: 1.15rem;
+  text-align: center;
+}
+
+.auth-switch--web-secondary {
+  display: none;
+}
+
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+  min-height: 3.25rem;
+  padding: 0.25rem;
+  border-radius: 1.05rem;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.auth-mode-switch__item {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.auth-mode-switch__item.active {
+  background: rgba(125, 211, 252, 0.15);
+  color: var(--color-accent);
+}
+
+@media (max-height: 640px) {
+  .auth-screen--native {
+    padding:
+      calc(env(safe-area-inset-top, 0px) + 0.55rem)
+      1rem
+      calc(env(safe-area-inset-bottom, 0px) + 0.55rem);
+  }
+
+  .auth-screen--native .auth-brand {
+    margin-bottom: 0.6rem;
+  }
+
+  .auth-screen--native .auth-brand__mark {
+    width: 2.45rem;
+    height: 2.45rem;
+  }
+
+  .auth-screen--native .auth-copy {
+    margin: 0.3rem 0 0.65rem;
+  }
+
+  .auth-screen--native .auth-copy h1 {
+    font-size: 1.85rem;
+  }
+
+  .auth-screen--native .auth-copy p {
+    font-size: 0.95rem;
+    line-height: 1.35;
+  }
+
+  .auth-screen--native .auth-form {
+    gap: 0.55rem;
+    margin-top: 0.7rem;
+  }
+
+  .auth-screen--native .auth-input,
+  .auth-screen--native .auth-submit,
+  .auth-screen--native .auth-form .btn {
+    min-height: 3.5rem;
+  }
 }
 
 /* ===== Badge ===== */

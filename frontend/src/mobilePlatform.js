@@ -4,12 +4,27 @@ export const ANDROID_APK_URL =
 
 export function isNativeMobileApp() {
   if (typeof window === 'undefined') return false;
+  if (import.meta.env?.VITE_NATIVE_APP === 'true') return true;
+  if (window.__NATIVE_APP__ === true) return true;
+
   const capacitor = window.Capacitor;
-  if (!capacitor) return false;
-  if (typeof capacitor.isNativePlatform === 'function') {
-    return capacitor.isNativePlatform();
+  if (capacitor) {
+    if (typeof capacitor.isNativePlatform === 'function') {
+      return capacitor.isNativePlatform();
+    }
+    if (typeof capacitor.getPlatform === 'function') {
+      return capacitor.getPlatform() !== 'web';
+    }
+    if (capacitor.isNative) return true;
   }
-  return Boolean(capacitor.isNative);
+
+  const protocol = window.location?.protocol;
+  const hostname = window.location?.hostname;
+  const nativeAssetOrigin =
+    protocol === 'capacitor:' ||
+    (import.meta.env?.PROD && hostname === 'localhost' && /Android/i.test(navigator.userAgent || ''));
+
+  return Boolean(nativeAssetOrigin);
 }
 
 export function isMobileBrowser() {

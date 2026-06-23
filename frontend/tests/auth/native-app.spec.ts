@@ -149,4 +149,67 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('link', { name: /music/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /download android app/i })).toHaveCount(0)
   })
+
+  test('opens the app login instead of the mobile landing when signed out', async ({ page }) => {
+    await page.addInitScript(() => {
+      ;(window as any).__NATIVE_APP__ = true
+      localStorage.clear()
+    })
+
+    await page.goto('/')
+
+    await expect(page).toHaveURL(/\/login$/)
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /^register$/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /download android app/i })).toHaveCount(0)
+    await expect(page.locator('.landing-editorial')).toHaveCount(0)
+  })
+
+  test('keeps native auth screens usable across small Android viewports', async ({ page }) => {
+    await page.addInitScript(() => {
+      ;(window as any).__NATIVE_APP__ = true
+      localStorage.clear()
+    })
+
+    for (const viewport of [
+      { width: 320, height: 568 },
+      { width: 390, height: 844 },
+      { width: 412, height: 915 },
+    ]) {
+      await page.setViewportSize(viewport)
+
+      await page.goto('/login')
+      await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
+      await expect(page.getByRole('link', { name: /^register$/i })).toBeVisible()
+      await expect(page.getByRole('button', { name: /^login$/i })).toBeVisible()
+      await expect(page.locator('input[name="email"]')).toBeVisible()
+      await expect(page.locator('input[name="password"]')).toBeVisible()
+
+      await page.goto('/register')
+      await expect(page.getByRole('heading', { name: /sign up/i })).toBeVisible()
+      await expect(page.getByRole('link', { name: /^login$/i })).toBeVisible()
+      await expect(page.getByRole('button', { name: /^register$/i })).toBeVisible()
+      await expect(page.locator('input[name="name"]')).toBeVisible()
+      await expect(page.locator('input[name="email"]')).toBeVisible()
+      await expect(page.locator('input[name="password"]')).toBeVisible()
+
+      const metrics = await page.evaluate(() => {
+        const inputs = [...document.querySelectorAll('.auth-input')].map((input) => input.getBoundingClientRect().height)
+        const buttons = [...document.querySelectorAll('.auth-form .btn')].map((button) => button.getBoundingClientRect().height)
+        const modeItems = [...document.querySelectorAll('.auth-mode-switch__item')].map((item) => item.getBoundingClientRect().height)
+        return {
+          innerWidth: window.innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          minInputHeight: Math.min(...inputs),
+          minButtonHeight: Math.min(...buttons),
+          minModeHeight: Math.min(...modeItems),
+        }
+      })
+
+      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.innerWidth)
+      expect(metrics.minInputHeight).toBeGreaterThanOrEqual(56)
+      expect(metrics.minButtonHeight).toBeGreaterThanOrEqual(56)
+      expect(metrics.minModeHeight).toBeGreaterThanOrEqual(44)
+    }
+  })
 })

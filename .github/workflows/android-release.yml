@@ -29,6 +29,7 @@ jobs:
 
     env:
       VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+      VITE_NATIVE_APP: 'true'
 
     steps:
       - name: Checkout

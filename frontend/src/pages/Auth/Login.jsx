@@ -1,19 +1,22 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../config'
-import { refreshIfPossible } from '../../auth'
+import { refreshIfPossible, setTokens } from '../../auth'
+import { isNativeMobileApp } from '../../mobilePlatform'
 
 export default function Login() {
   const { t } = useTranslation()
   const nav = useNavigate()
+  const nativeApp = isNativeMobileApp()
+  const formRef = useRef(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
+  const [rememberMe, setRememberMe] = useState(() => isNativeMobileApp())
   const [mfaRequired, setMfaRequired] = useState(false)
   const [mfaCode, setMfaCode] = useState('')
-  const [tempToken, setTempToken] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -23,93 +26,161 @@ export default function Login() {
   }, [nav])
 
   async function submit(e) {
-    e.preventDefault()
+    e?.preventDefault?.()
+    let apiBase = ''
     try {
-      const body = { email, password, rememberMe }
-      if (mfaRequired && mfaCode) {
-        body.mfaCode = mfaCode
+      const form = formRef.current
+      const formData = new FormData(form)
+      const submittedEmail = String(formData.get('email') || '').trim()
+      const submittedPassword = String(formData.get('password') || '')
+      const submittedMfaCode = String(formData.get('mfaCode') || '').trim()
+
+      setSubmitting(true)
+      setMessage('')
+      apiBase = getApiBase()
+      const body = {
+        email: submittedEmail,
+        password: submittedPassword,
+        rememberMe,
       }
-      const res = await fetch(getApiBase() + '/auth/access', {
+      if (mfaRequired && submittedMfaCode) {
+        body.mfaCode = submittedMfaCode
+      }
+      const res = await fetch(apiBase + '/auth/access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
       if (!res.ok) {
         const txt = await res.text()
-        setMessage(`${t('common.error')}: ${txt}`)
+        let detail = txt
+        try {
+          const parsed = JSON.parse(txt)
+          detail = parsed?.message || parsed?.error || txt
+        } catch {
+          // keep raw response
+        }
+        setMessage(`${t('common.error')}: ${detail}`)
         return
       }
       const data = await res.json()
       if (data.mfaRequired) {
         setMfaRequired(true)
-        setTempToken(data.tempToken)
         setMessage(t('auth.enterMfaCode'))
         return
       }
-      localStorage.setItem('accessToken', data.accessToken)
-      localStorage.setItem('refreshToken', data.refreshToken)
+      setTokens({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      })
       setMessage(t('auth.loggedIn'))
       nav('/home', { replace: true })
     } catch (e) {
-      setMessage(`${t('common.error')}: ${e.message}`)
+      const reason = e?.message === 'Failed to fetch' && apiBase
+        ? `Cannot reach the API at ${apiBase}. Check the Android API configuration and server availability.`
+        : e.message
+      setMessage(`${t('common.error')}: ${reason}`)
+    } finally {
+      setSubmitting(false)
     }
   }
 
+  const canSubmit = mfaRequired
+    ? mfaCode.trim().length > 0
+    : email.trim().length > 0 && password.length > 0
+
   return (
-    <div className="landing">
-      <div className="card" style={{ maxWidth: 420, width: '100%' }}>
-        <h2 style={{ marginBottom: '1rem' }}>{t('auth.signIn')}</h2>
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
+    <div className={`auth-screen${nativeApp ? ' auth-screen--native' : ''}`}>
+      <div className="auth-panel">
+        <div className="auth-brand">
+          <div className="auth-brand__mark">PS</div>
+          <div>
+            <div className="auth-brand__title">Personal Server</div>
+            <div className="auth-brand__subtitle">
+              {nativeApp ? 'Android client' : 'Private data platform'}
+            </div>
+          </div>
+        </div>
+
+        <div className="auth-copy">
+          <h1>{mfaRequired ? t('auth.verifyCode') : t('auth.signIn')}</h1>
+          <p>{mfaRequired ? t('auth.enterMfaCode') : 'Access your private dashboard.'}</p>
+        </div>
+
+        <form ref={formRef} onSubmit={submit} className="auth-form" noValidate>
           {!mfaRequired ? (
             <>
               <div className="field">
                 <label>{t('auth.email')}</label>
-                <input className="input" value={email} onChange={e => setEmail(e.target.value)} />
+                <input
+                  className="input auth-input"
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
               </div>
               <div className="field">
                 <label>{t('auth.password')}</label>
-                <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+                <input
+                  className="input auth-input"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="auth-check-row">
                 <input
                   type="checkbox"
                   id="rememberMe"
                   checked={rememberMe}
                   onChange={e => setRememberMe(e.target.checked)}
-                  style={{ width: 'auto', margin: 0 }}
                 />
-                <label htmlFor="rememberMe" style={{ margin: 0, cursor: 'pointer' }}>{t('auth.rememberMe')}</label>
+                <label htmlFor="rememberMe">{t('auth.rememberMe')}</label>
               </div>
             </>
           ) : (
             <div className="field">
               <label>{t('auth.mfaCode')}</label>
               <input
-                className="input"
+                className="input auth-input"
+                name="mfaCode"
                 type="text"
+                inputMode="numeric"
                 value={mfaCode}
-                onChange={e => setMfaCode(e.target.value)}
+                onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder={t('auth.enterMfaCode')}
-                maxLength="6"
-                autoComplete="off"
+                maxLength={6}
+                autoComplete="one-time-code"
               />
             </div>
           )}
-          <button className="btn" type="submit" style={{ width: '100%' }}>
-            {mfaRequired ? t('auth.verifyCode') : t('auth.login')}
+          <button
+            className="btn auth-submit"
+            type="button"
+            disabled={!canSubmit || submitting}
+            onClick={submit}
+          >
+            {submitting ? t('common.loading') : (mfaRequired ? t('auth.verifyCode') : t('auth.login'))}
           </button>
           {mfaRequired && (
             <button
               className="btn btn-ghost"
               type="button"
-              style={{ width: '100%' }}
+              disabled={submitting}
               onClick={() => { setMfaRequired(false); setMfaCode(''); setMessage('') }}
             >
               {t('common.back')}
             </button>
           )}
         </form>
-        <div style={{ marginTop: '1rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>
+        <div className="auth-switch">
           {t('auth.noAccount')} <Link to="/register">{t('auth.register')}</Link>
         </div>
         {message && <div className={message.startsWith(t('common.error')) ? 'alert-error' : 'alert-info'} style={{ marginTop: '1rem' }}>{message}</div>}

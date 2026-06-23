@@ -46,6 +46,23 @@ jobs:
           fi
           echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
 
+      - name: Validate Android app configuration
+        env:
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+        run: |
+          if [ -z "$VITE_API_BASE" ]; then
+            echo "::error::VITE_API_BASE is not configured; refusing to publish an APK that cannot reach the API."
+            exit 1
+          fi
+          if ! printf '%s' "$VITE_API_BASE" | grep -Eq '^https://'; then
+            echo "::error::VITE_API_BASE must be an HTTPS origin or API URL for Android builds."
+            exit 1
+          fi
+          if printf '%s' "$VITE_API_BASE" | grep -Eqi 'localhost|127\.0\.0\.1|10\.0\.2\.2'; then
+            echo "::error::VITE_API_BASE points at a local address; Android release builds need the public API URL."
+            exit 1
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:

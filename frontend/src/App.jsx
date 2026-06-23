@@ -30,7 +30,8 @@ import Settings from './pages/Settings/Settings'
 import SpotifyCallback from './pages/Spotify/SpotifyCallback'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { applyChartTheme } from './chartTheme'
-import { isMobileBrowser } from './mobilePlatform'
+import { isMobileBrowser, isNativeMobileApp } from './mobilePlatform'
+import { getTokens } from './auth'
 
 applyChartTheme()
 
@@ -58,7 +59,13 @@ const GuardedMediaSettings = withRefreshGuard(MediaSettings)
 const GuardedSettings = withRefreshGuard(Settings)
 const GuardedSpotifyCallback = withRefreshGuard(SpotifyCallback)
 
+function NativeEntryRedirect() {
+  const { accessToken, refreshToken } = getTokens()
+  return <Navigate to={accessToken || refreshToken ? '/home' : '/login'} replace />
+}
+
 export default function AppRouter() {
+  const nativeApp = isNativeMobileApp()
   const [mobileBlocked, setMobileBlocked] = useState(false)
 
   useEffect(() => {
@@ -67,6 +74,11 @@ export default function AppRouter() {
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
   }, [])
+
+  useEffect(() => {
+    document.body.classList.toggle('native-mobile-app', nativeApp)
+    return () => document.body.classList.remove('native-mobile-app')
+  }, [nativeApp])
 
   return (
     <PreferencesProvider>
@@ -79,7 +91,7 @@ export default function AppRouter() {
             </Routes>
           ) : (
           <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={nativeApp ? <NativeEntryRedirect /> : <Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 

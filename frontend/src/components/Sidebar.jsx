@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useTheme } from '../contexts/PreferencesContext'
 import Icon from './icons/Icon'
+import { isNativeMobileApp } from '../mobilePlatform'
 
 function useIsMobile(breakpoint = 640) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= breakpoint)
@@ -87,7 +88,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   function logout() {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
-    nav('/', { replace: true })
+    nav(isNativeMobileApp() ? '/login' : '/', { replace: true })
   }
 
   const isSpotifyActive = location.pathname.startsWith('/spotify')

@@ -71,10 +71,19 @@ jobs:
       - name: Decode Android signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "ANDROID_KEYSTORE_BASE64 is not configured; continuing without a release keystore."
-            exit 0
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not configured; refusing to publish an unsigned APK."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
           fi
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
 
@@ -91,11 +100,21 @@ jobs:
 
       - name: Prepare APK artifact
         run: |
-          APK_PATH="$(find android/app/build/outputs/apk/release -name '*.apk' | head -n 1)"
+          APK_PATH="$(find android/app/build/outputs/apk/release -name '*.apk' ! -name '*unsigned*' | head -n 1)"
           if [ -z "$APK_PATH" ]; then
-            echo "No APK found"
+            echo "::error::No signed release APK found"
             exit 1
           fi
+          if echo "$APK_PATH" | grep -qi unsigned; then
+            echo "::error::Refusing to upload unsigned APK: $APK_PATH"
+            exit 1
+          fi
+          APK_SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$APK_SIGNER" ]; then
+            echo "::error::Unable to locate apksigner in Android SDK"
+            exit 1
+          fi
+          "$APK_SIGNER" verify --verbose "$APK_PATH"
           cp "$APK_PATH" personal-server.apk
 
       - name: Move stable release tag

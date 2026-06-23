@@ -2,6 +2,8 @@ name: Android APK Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'android-v*'
   workflow_dispatch:
@@ -9,10 +11,14 @@ on:
       release_tag:
         description: 'Release tag to create or update'
         required: true
-        default: 'android-manual'
+        default: 'android-latest'
 
 permissions:
   contents: write
+
+concurrency:
+  group: android-apk-release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-apk:
@@ -22,12 +28,23 @@ jobs:
         working-directory: frontend
 
     env:
-      RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
       VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            release_tag="${{ inputs.release_tag }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            release_tag="${{ github.ref_name }}"
+          else
+            release_tag="android-latest"
+          fi
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -81,10 +98,24 @@ jobs:
           fi
           cp "$APK_PATH" personal-server.apk
 
+      - name: Move stable release tag
+        if: steps.release.outputs.tag == 'android-latest'
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          git tag --force "$RELEASE_TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$RELEASE_TAG" --force
+
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_NAME: ${{ steps.release.outputs.tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
         run: |
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
-            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes "Android APK build for Personal Server."
+            gh release create "$RELEASE_TAG" --title "$RELEASE_NAME" --notes "Android APK build for Personal Server."
+          gh release edit "$RELEASE_TAG" \
+            --title "$RELEASE_NAME" \
+            --notes "Latest Android APK build for commit ${RELEASE_COMMIT}."
           gh release upload "$RELEASE_TAG" personal-server.apk --clobber

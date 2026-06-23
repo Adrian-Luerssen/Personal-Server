@@ -198,6 +198,41 @@ export class StreamsController implements CrudController<Stream> {
     );
   }
 
+  @Get("user-ranking")
+  @ApiQuery({
+    name: "timeframe",
+    required: false,
+    description: "today | week | month | 6m | year | all",
+  })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    description: "Maximum users to return",
+  })
+  @ApiQuery({
+    name: "from",
+    required: false,
+    description: "ISO date override start",
+  })
+  @ApiQuery({
+    name: "to",
+    required: false,
+    description: "ISO date override end",
+  })
+  async userRanking(
+    @Query("timeframe") timeframe?: string,
+    @Query("limit") limit = 50,
+    @Query("from") from?: string,
+    @Query("to") to?: string
+  ) {
+    return this.service.getSpotifyUserRanking({
+      timeframe,
+      limit: Number(limit),
+      from,
+      to,
+    });
+  }
+
   // ===== GLOBAL ENDPOINTS (all users, no auth) =====
 
   @NoAuth()

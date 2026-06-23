@@ -22,6 +22,7 @@ function createMockQueryBuilder(rows: any[]) {
     addSelect: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
     offset: jest.fn().mockReturnThis(),
     getRawMany: jest.fn().mockResolvedValue(rows),
@@ -58,6 +59,91 @@ describe('StreamsService', () => {
 
   afterEach(() => {
     jest.resetAllMocks();
+  });
+
+  describe('getSpotifyUserRanking', () => {
+    it('should rank users by valid Spotify play stream counts', async () => {
+      const rows = [
+        {
+          accountId: 'account-1',
+          displayName: 'Alicia',
+          spotifyUserId: 'alicia-spotify',
+          streamCount: '42',
+          uniqueTracks: '18',
+          msListened: '7200000',
+          lastStream: '2026-06-20T10:00:00.000Z',
+        },
+        {
+          accountId: 'account-2',
+          displayName: 'Pau',
+          spotifyUserId: 'pau-spotify',
+          streamCount: '30',
+          uniqueTracks: '12',
+          msListened: '5400000',
+          lastStream: '2026-06-19T10:00:00.000Z',
+        },
+      ];
+      const qb = createMockQueryBuilder(rows);
+      (mockRepo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+
+      const result = await service.getSpotifyUserRanking({
+        timeframe: 'all',
+        limit: 10,
+      });
+
+      expect(result.timeframe).toBe('all');
+      expect(result.items).toEqual([
+        {
+          rank: 1,
+          accountId: 'account-1',
+          displayName: 'Alicia',
+          spotifyUserId: 'alicia-spotify',
+          streamCount: 42,
+          uniqueTracks: 18,
+          msListened: 7200000,
+          lastStream: '2026-06-20T10:00:00.000Z',
+        },
+        {
+          rank: 2,
+          accountId: 'account-2',
+          displayName: 'Pau',
+          spotifyUserId: 'pau-spotify',
+          streamCount: 30,
+          uniqueTracks: 12,
+          msListened: 5400000,
+          lastStream: '2026-06-19T10:00:00.000Z',
+        },
+      ]);
+      expect(qb.where).toHaveBeenCalledWith('stream.platform = :platform', {
+        platform: 'spotify',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'stream.streamType = :streamType',
+        { streamType: 'play' },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith('stream.isValidPlay = true');
+      expect(qb.orderBy).toHaveBeenCalledWith('COUNT(*)', 'DESC');
+      expect(qb.limit).toHaveBeenCalledWith(10);
+    });
+
+    it('should apply the six month timeframe filter', async () => {
+      const qb = createMockQueryBuilder([]);
+      (mockRepo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+
+      const result = await service.getSpotifyUserRanking({
+        timeframe: '6m',
+        limit: 5,
+      });
+
+      expect(result.timeframe).toBe('6m');
+      const betweenCall = qb.andWhere.mock.calls.find(
+        (call: any[]) => typeof call[0] === 'string' && call[0].includes('BETWEEN'),
+      );
+      expect(betweenCall).toBeDefined();
+      expect(betweenCall[1]).toHaveProperty('start');
+      expect(betweenCall[1]).toHaveProperty('end');
+      expect(qb.limit).toHaveBeenCalledWith(5);
+    });
   });
 
   describe('getMoodAnalysis', () => {

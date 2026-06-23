@@ -6,6 +6,7 @@ import Home from './pages/Home'
 // Profile merged into Settings > Account tab
 import SpotifyPersonal from './pages/Spotify/SpotifyPersonal'
 import SpotifyGlobal from './pages/Spotify/SpotifyGlobal'
+import SpotifyRanking from './pages/Spotify/SpotifyRanking'
 import withRefreshGuard from './withRefreshGuard'
 import Layout from './components/Layout'
 import AuthGuard from './components/AuthGuard'
@@ -38,6 +39,7 @@ const GuardedHome = withRefreshGuard(Home)
 // Profile removed - merged into Settings
 const GuardedSpotifyPersonal = withRefreshGuard(SpotifyPersonal)
 const GuardedSpotifyGlobal = withRefreshGuard(SpotifyGlobal)
+const GuardedSpotifyRanking = withRefreshGuard(SpotifyRanking)
 const GuardedWorkout = withRefreshGuard(Workout)
 const GuardedWorkoutActive = withRefreshGuard(WorkoutActive)
 const GuardedWorkoutHistory = withRefreshGuard(WorkoutHistory)
@@ -87,6 +89,7 @@ export default function AppRouter() {
               <Route path="/spotify" element={<GuardedSpotifyPersonal />} />
               <Route path="/spotify/personal" element={<GuardedSpotifyPersonal />} />
               <Route path="/spotify/global" element={<GuardedSpotifyGlobal />} />
+              <Route path="/spotify/ranking" element={<GuardedSpotifyRanking />} />
               <Route path="/spotify/callback" element={<GuardedSpotifyCallback />} />
               <Route path="/workout" element={<GuardedWorkout />} />
               <Route path="/workout/active" element={<GuardedWorkoutActive />} />

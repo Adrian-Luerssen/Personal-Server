@@ -30,6 +30,7 @@ const STATIC_PATHS = [
 const MODERATE_PATHS = [
   '/habits',           // habit definitions (not entries)
   '/streams/stats',
+  '/streams/user-ranking',
   '/streams/per-hour',
   '/streams/per-day',
   '/streams/top',

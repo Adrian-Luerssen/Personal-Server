@@ -172,6 +172,10 @@ export default function Sidebar({ collapsed, onToggle }) {
               <Icon name="globe" size={20} />
               {!collapsed && <span>{t('nav.spotifyGlobal')}</span>}
             </NavLink>
+            <NavLink to="/spotify/ranking" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
+              <Icon name="trophy" size={20} />
+              {!collapsed && <span>{t('nav.spotifyRanking')}</span>}
+            </NavLink>
           </div>
         )}
 

@@ -139,6 +139,14 @@ function resolveTimeframe(
         end,
         label: "90d",
       };
+    case "6m":
+    case "6months":
+    case "sixmonths":
+      return {
+        start: new Date(new Date().setMonth(end.getMonth() - 6)),
+        end,
+        label: "6m",
+      };
     case "1y":
     case "year":
     case "lastyear":

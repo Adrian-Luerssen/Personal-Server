@@ -211,6 +211,99 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
     };
   }
 
+  async getSpotifyUserRanking(opts: {
+    timeframe?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  }): Promise<{
+    start?: string;
+    end: string;
+    timeframe: string;
+    items: Array<{
+      rank: number;
+      accountId: string;
+      displayName: string;
+      spotifyUserId?: string;
+      streamCount: number;
+      uniqueTracks: number;
+      msListened: number;
+      lastStream?: string;
+    }>;
+  }> {
+    const { timeframe, from, to } = opts || {};
+    const { start, end, label } = resolveTimeframe(timeframe, from, to);
+    const safeLimit = Math.min(Math.max(Number(opts?.limit) || 50, 1), 100);
+
+    const qb = this.repo
+      .createQueryBuilder("stream")
+      .innerJoin("stream.track", "track")
+      .leftJoin(
+        "app_spotify_credentials",
+        "spotify",
+        'spotify."accountId" = stream."accountId"'
+      )
+      .leftJoin(
+        "app_account",
+        "acct",
+        'acct.id = stream."accountId"'
+      )
+      .select('stream."accountId"', "accountId")
+      .addSelect(
+        `COALESCE(
+          MAX(NULLIF(spotify."displayName", '')),
+          MAX(NULLIF(acct.name, '')),
+          MAX(NULLIF(spotify."spotifyUserId", '')),
+          stream."accountId"::text
+        )`,
+        "displayName"
+      )
+      .addSelect('MAX(spotify."spotifyUserId")', "spotifyUserId")
+      .addSelect("COUNT(*)", "streamCount")
+      .addSelect('COUNT(DISTINCT stream."trackId")', "uniqueTracks")
+      .addSelect("COALESCE(SUM(track.duration), 0)", "msListened")
+      .addSelect('MAX(stream."streamedAt")', "lastStream")
+      .where("stream.platform = :platform", { platform: StreamPlatform.SPOTIFY })
+      .andWhere("stream.streamType = :streamType", { streamType: StreamType.PLAY })
+      .andWhere("stream.isValidPlay = true")
+      .groupBy('stream."accountId"')
+      .orderBy("COUNT(*)", "DESC")
+      .addOrderBy('MAX(stream."streamedAt")', "DESC")
+      .limit(safeLimit);
+
+    if (start) {
+      qb.andWhere("stream.streamedAt BETWEEN :start AND :end", { start, end });
+    }
+
+    const rows = await qb.getRawMany<{
+      accountId: string;
+      displayName?: string;
+      spotifyUserId?: string;
+      streamCount: string;
+      uniqueTracks: string;
+      msListened: string;
+      lastStream?: string;
+    }>();
+
+    return {
+      start: start?.toISOString(),
+      end: end.toISOString(),
+      timeframe: label,
+      items: rows.map((row, index) => ({
+        rank: index + 1,
+        accountId: row.accountId,
+        displayName: row.displayName || "Spotify User",
+        spotifyUserId: row.spotifyUserId || undefined,
+        streamCount: Number(row.streamCount || 0),
+        uniqueTracks: Number(row.uniqueTracks || 0),
+        msListened: Number(row.msListened || 0),
+        lastStream: row.lastStream
+          ? new Date(row.lastStream).toISOString()
+          : undefined,
+      })),
+    };
+  }
+
   async ingestStream(accountId: string, data: Partial<Stream>) {
     const stream = this.repo.create({
       platform: data.platform!,

@@ -22,6 +22,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const nav = useNavigate()
   const location = useLocation()
   const { theme, toggleTheme } = useTheme()
+  const nativeApp = isNativeMobileApp()
   const isMobile = useIsMobile()
   const [spotifyLinked, setSpotifyLinked] = useState(null)
   const [spotifyMenuOpen, setSpotifyMenuOpen] = useState(false)
@@ -127,6 +128,39 @@ export default function Sidebar({ collapsed, onToggle }) {
   const handleHabitsClick = () => {
     if (isMobile) { nav('/habits'); return }
     setHabitsMenuOpen(o => !o)
+  }
+
+  if (nativeApp) {
+    const nativeTabs = [
+      { to: '/home', match: '/home', icon: 'home', label: 'Today' },
+      { to: '/workout', match: '/workout', icon: 'dumbbell', label: 'Train', dot: hasActiveWorkout },
+      { to: '/habits', match: '/habits', icon: 'heart-pulse', label: 'Habits', badge: incompleteHabits > 0 ? incompleteHabits : null },
+      { to: '/finance', match: '/finance', icon: 'wallet', label: 'Money' },
+      { to: spotifyLinked ? '/spotify/personal' : '/spotify/global', match: '/spotify', icon: 'music', label: 'Music' },
+    ]
+
+    return (
+      <aside className="sidebar native-tabbar" aria-label="Primary app navigation">
+        <nav className="nav">
+          {nativeTabs.map((tab) => {
+            const active = location.pathname.startsWith(tab.match)
+            return (
+              <NavLink
+                key={tab.match}
+                to={tab.to}
+                className={'nav-link native-tabbar__item' + (active ? ' active' : '')}
+                aria-current={active ? 'page' : undefined}
+              >
+                <Icon name={tab.icon} size={21} />
+                <span>{tab.label}</span>
+                {tab.badge && <span className="nav-badge">{tab.badge}</span>}
+                {tab.dot && <span className="nav-badge-dot" />}
+              </NavLink>
+            )
+          })}
+        </nav>
+      </aside>
+    )
   }
 
   return (

@@ -79,6 +79,54 @@
   transform: translateX(0);
 }
 
+body.native-mobile-app .chat-toggle-btn {
+  top: calc(env(safe-area-inset-top, 0px) + 0.7rem);
+  right: 4.45rem;
+  bottom: auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.95rem;
+  background: rgba(125, 211, 252, 0.13);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+body.native-mobile-app .chat-panel-overlay.open {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+body.native-mobile-app .chat-panel {
+  top: calc(env(safe-area-inset-top, 0px) + var(--native-header-height));
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  max-width: 100%;
+  border-left: 0;
+  border-top: 1px solid var(--glass-border);
+  border-radius: 1.15rem 1.15rem 0 0;
+  background: rgba(10, 15, 26, 0.98);
+  transform: translateY(105%);
+}
+
+body.native-mobile-app .chat-panel.open {
+  transform: translateY(0);
+}
+
+body.native-mobile-app .chat-panel-header {
+  min-height: 3.6rem;
+  padding: 0.8rem 1rem;
+}
+
+body.native-mobile-app .chat-conv-list,
+body.native-mobile-app .chat-messages {
+  padding: 1rem;
+}
+
+body.native-mobile-app .chat-input-area {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.85rem);
+}
+
 /* Header */
 .chat-panel-header {
   display: flex;

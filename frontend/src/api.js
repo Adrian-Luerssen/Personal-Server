@@ -154,7 +154,15 @@ export async function apiFetch(path, options = {}) {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    const err = new Error(`API ${res.status}: ${text || res.statusText}`);
+    let message = text || res.statusText;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed?.message) message = parsed.message;
+      else if (parsed?.error) message = parsed.error;
+    } catch {
+      // Non-JSON error body; keep the raw response text.
+    }
+    const err = new Error(message || `API ${res.status}: ${res.statusText}`);
     err.status = res.status;
     err.body = text;
     throw err;

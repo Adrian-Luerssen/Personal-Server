@@ -27,7 +27,7 @@ export default function SpotifyCallback() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', flexDirection: 'column', gap: '1rem' }}>
         <div className="alert-error">{error}</div>
-        <button className="btn" onClick={() => navigate('/settings')}>Back to Settings</button>
+        <button className="btn" onClick={() => navigate('/settings?tab=connections')}>Back to Settings</button>
       </div>
     )
   }

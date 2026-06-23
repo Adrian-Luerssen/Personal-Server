@@ -3,11 +3,25 @@ import { api } from '../../api'
 import { LoadingSpinner } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
 
-export default function Connections() {
+const SPOTIFY_ERROR_MESSAGES = {
+  missing_code_or_state: 'Spotify did not return the information needed to complete linking. Please try connecting again.',
+  invalid_state: 'Spotify returned an invalid linking session. Please start the connection again from this page.',
+  token_exchange_failed: 'Spotify linking failed while exchanging the authorization code. Please try again.',
+  spotify_beta_access_denied: 'Spotify is currently in beta. This Spotify account is not on the approved tester list.',
+  access_denied: 'Spotify access was not approved. You can retry the connection when ready.',
+}
+
+function formatSpotifyError(error) {
+  if (!error) return ''
+  return SPOTIFY_ERROR_MESSAGES[error] || error
+}
+
+export default function Connections({ initialError = '' }) {
   const [loading, setLoading] = useState(true)
   const [linked, setLinked] = useState(false)
   const [profile, setProfile] = useState(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(formatSpotifyError(initialError))
+  const [betaAccess, setBetaAccess] = useState(null)
   const [subTab, setSubTab] = useState('oauth')
 
   // Manual token fields
@@ -16,15 +30,20 @@ export default function Connections() {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
-  const loadStatus = async () => {
+  useEffect(() => {
+    if (initialError) setError(formatSpotifyError(initialError))
+  }, [initialError])
+
+  const loadStatus = async ({ preserveError = false } = {}) => {
     setLoading(true)
-    setError('')
+    if (!preserveError) setError('')
     try {
       const [linkRes, profileRes] = await Promise.all([
         api.get('/spotify/linked'),
         api.get('/spotify/me').catch(() => null),
       ])
       setLinked(linkRes?.linked || false)
+      setBetaAccess(linkRes?.betaAccess || null)
       setProfile(profileRes)
     } catch (e) {
       setError(e.message || 'Failed to load connection status')
@@ -34,8 +53,8 @@ export default function Connections() {
   }
 
   useEffect(() => {
-    loadStatus()
-  }, [])
+    loadStatus({ preserveError: Boolean(initialError) })
+  }, [initialError])
 
   const handleOAuthConnect = async () => {
     setError('')
@@ -108,6 +127,18 @@ export default function Connections() {
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
       {saveMsg && <div className="alert-success" style={{ marginBottom: '1rem' }}>{saveMsg}</div>}
+      {betaAccess?.enabled && (
+        <div className="alert-warning" style={{ marginBottom: '1rem' }}>
+          <strong>Spotify beta access</strong>
+          <div style={{ marginTop: '0.25rem' }}>
+            Spotify is limited to approved beta testers while this app uses Spotify development mode.
+            {betaAccess.limit ? ` Current cap: ${betaAccess.limit} users.` : ''}
+            {betaAccess.enforced
+              ? ' Only approved Spotify accounts can be linked.'
+              : ' Configure the approved tester list on the server to enforce access.'}
+          </div>
+        </div>
+      )}
 
       {linked && profile ? (
         <div>
@@ -150,6 +181,11 @@ export default function Connections() {
             <span className="badge" style={{ background: 'var(--color-success-muted)', color: 'var(--color-success)' }}>
               Connected
             </span>
+            {betaAccess?.enabled && (
+              <span className="badge" style={{ background: 'var(--color-warning-muted)', color: 'var(--color-warning)' }}>
+                Beta
+              </span>
+            )}
           </div>
 
           <button className="btn btn-ghost btn-danger" onClick={handleDisconnect}>
@@ -187,6 +223,7 @@ export default function Connections() {
               <Icon name="music" size={48} style={{ color: 'var(--color-accent)', marginBottom: '0.75rem', display: 'block' }} />
               <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
                 Securely connect your Spotify account using OAuth. You'll be redirected to Spotify to authorize access.
+                {betaAccess?.enabled ? ' Use an approved beta tester Spotify account.' : ''}
               </p>
               <button className="btn" onClick={handleOAuthConnect}>
                 <Icon name="link" size={16} style={{ marginRight: '4px' }} />

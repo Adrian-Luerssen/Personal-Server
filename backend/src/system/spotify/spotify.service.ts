@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
+import {
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { TypeOrmCrudService } from "@nestjsx/crud-typeorm";
@@ -40,6 +46,69 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
     private playlistRepo: Repository<any>
   ) {
     super(repo);
+  }
+
+  private getBetaAllowedEmails(): string[] {
+    const raw = this.configService.get<string>("SPOTIFY_BETA_ALLOWED_EMAILS") || "";
+    const emails = raw
+      .split(/[,\n;]/)
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean);
+
+    return Array.from(new Set(emails));
+  }
+
+  private getBooleanConfig(name: string): boolean {
+    const raw = (this.configService.get<string>(name) || "").trim().toLowerCase();
+    return ["1", "true", "yes", "on"].includes(raw);
+  }
+
+  getBetaAccessStatus(email?: string): {
+    enabled: boolean;
+    enforced: boolean;
+    limit: number;
+    approved: boolean | null;
+    configuredUsers: number;
+    remainingSlots: number;
+  } {
+    const allowedEmails = this.getBetaAllowedEmails();
+    const configuredLimit = Number(
+      this.configService.get<string>("SPOTIFY_BETA_LIMIT") || "10"
+    );
+    const limit =
+      Number.isFinite(configuredLimit) && configuredLimit > 0
+        ? configuredLimit
+        : 10;
+    const enabled =
+      this.getBooleanConfig("SPOTIFY_BETA_MODE") || allowedEmails.length > 0;
+    const enforced = allowedEmails.length > 0;
+    const normalizedEmail = email?.trim().toLowerCase();
+
+    return {
+      enabled,
+      enforced,
+      limit,
+      approved: enforced
+        ? Boolean(normalizedEmail && allowedEmails.includes(normalizedEmail))
+        : null,
+      configuredUsers: allowedEmails.length,
+      remainingSlots: Math.max(limit - allowedEmails.length, 0),
+    };
+  }
+
+  assertBetaAccessAllowed(profile: { email?: string }): void {
+    const status = this.getBetaAccessStatus(profile.email);
+    if (!status.enforced || status.approved) return;
+
+    if (!profile.email) {
+      throw new ForbiddenException(
+        "Spotify is currently in beta. This Spotify profile did not expose an email address that can be checked against the approved tester list."
+      );
+    }
+
+    throw new ForbiddenException(
+      "Spotify is currently in beta. This Spotify account is not on the approved tester list."
+    );
   }
 
   // Refresh tokens if expired and return valid access token
@@ -552,7 +621,9 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
 
     if (existing) {
       existing.accessToken = data.accessToken;
-      if (data.refreshToken) existing.refreshToken = data.refreshToken;
+      if (Object.prototype.hasOwnProperty.call(data, "refreshToken")) {
+        existing.refreshToken = data.refreshToken || null;
+      }
       if (data.tokenType) existing.tokenType = data.tokenType;
       if (scopes) existing.scopes = scopes;
       if (expiresAt) existing.expiresAt = expiresAt;
@@ -568,6 +639,50 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
       expiresAt,
     });
     return await this.repo.save(created);
+  }
+
+  async disconnect(accountId: string): Promise<SpotifyCredentials> {
+    const existing = await this.getByAccountId(accountId);
+    const credentials =
+      existing ||
+      this.repo.create({
+        accountId,
+      });
+
+    credentials.accessToken = null;
+    credentials.refreshToken = null;
+    credentials.tokenType = null;
+    credentials.scopes = [];
+    credentials.expiresAt = null;
+
+    return await this.repo.save(credentials);
+  }
+
+  async linkAccountWithTokens(
+    accountId: string,
+    data: {
+      accessToken: string;
+      refreshToken?: string;
+      tokenType?: string;
+      scope?: string;
+      expiresIn?: number;
+    }
+  ): Promise<SpotifyCredentials> {
+    if (!data.accessToken?.trim()) {
+      return await this.disconnect(accountId);
+    }
+
+    const me = await this.getCurrentUser(data.accessToken);
+    this.assertBetaAccessAllowed({ email: me.email });
+
+    await this.upsertTokens(accountId, data);
+    return await this.updateProfile(accountId, {
+      spotifyUserId: me.id,
+      displayName: me.display_name,
+      email: me.email,
+      profileUrl: me.external_urls?.spotify,
+      images: me.images,
+    });
   }
 
   async updateProfile(

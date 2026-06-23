@@ -14,6 +14,28 @@ import { CannotCreateEntityIdMapError } from 'typeorm/error/CannotCreateEntityId
 
 import { GlobalResponseError } from './global.response.error';
 
+function getExceptionMessage(exception: any): string {
+  if (typeof exception?.getResponse === 'function') {
+    const response = exception.getResponse();
+    if (typeof response === 'string') return response;
+    if (response && typeof response === 'object') {
+      const message = (response as any).message;
+      if (Array.isArray(message)) return message.join(', ');
+      if (typeof message === 'string') return message;
+      if (typeof (response as any).error === 'string') {
+        return (response as any).error;
+      }
+    }
+  }
+
+  if (typeof exception?.message === 'string') return exception.message;
+  if (typeof exception?.message?.message === 'string') {
+    return exception.message.message;
+  }
+
+  return 'Internal server error';
+}
+
 @Catch()
 export class AppExceptionFilter
   extends BaseExceptionFilter
@@ -28,7 +50,7 @@ export class AppExceptionFilter
     const response = ctx.getResponse();
     const request = ctx.getRequest();
 
-    let message = (exception as any).message.message;
+    let message = getExceptionMessage(exception);
     let code = 'HttpException';
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
 

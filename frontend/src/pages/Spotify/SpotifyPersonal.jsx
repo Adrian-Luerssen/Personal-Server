@@ -67,6 +67,7 @@ export default function SpotifyPersonal() {
   useEffect(() => { hasLoadedOnceRef.current = hasLoadedOnce }, [hasLoadedOnce])
   const [error, setError] = useState('')
   const [linked, setLinked] = useState(null)
+  const [betaAccess, setBetaAccess] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [topTracks, setTopTracks] = useState([])
   const [topAlbums, setTopAlbums] = useState([])
@@ -122,6 +123,7 @@ export default function SpotifyPersonal() {
     try {
       const linkStatus = await api.get('/spotify/linked')
       setLinked(!!linkStatus?.linked)
+      setBetaAccess(linkStatus?.betaAccess || null)
       if (!linkStatus?.linked) {
         setProfile(null)
         setTopTracks([]); setTopAlbums([]); setTopArtists([]); setTopPlaylists([])
@@ -335,7 +337,12 @@ export default function SpotifyPersonal() {
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
       {!linked && linked !== null && (
-        <div className="alert-warning">Your account is not linked to Spotify.<br />Please link your Spotify account in your account settings or contact an administrator.</div>
+        <div className="alert-warning">
+          Your account is not linked to Spotify.<br />
+          {betaAccess?.enabled
+            ? 'Spotify is currently in beta. Link an approved tester account in Settings > Connections.'
+            : 'Link your Spotify account in Settings > Connections.'}
+        </div>
       )}
 
       {(linked || linked === null) && (

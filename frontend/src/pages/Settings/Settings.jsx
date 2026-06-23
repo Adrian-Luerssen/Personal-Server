@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import AgentApiKeys from './AgentApiKeys'
 import Connections from './Connections'
@@ -8,9 +9,28 @@ import DataManagement from './DataManagement'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 
+const SETTINGS_TABS = new Set(['account', 'connections', 'agent-keys', 'appearance', 'preferences', 'data'])
+
+function normalizeTab(tab) {
+  return SETTINGS_TABS.has(tab) ? tab : 'account'
+}
+
 export default function Settings() {
   const { t, i18n } = useTranslation()
-  const [activeTab, setActiveTab] = useState('account')
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const spotifyError = searchParams.get('spotify_error') || ''
+  const [activeTab, setActiveTab] = useState(
+    spotifyError ? 'connections' : normalizeTab(requestedTab)
+  )
+
+  useEffect(() => {
+    if (spotifyError) {
+      setActiveTab('connections')
+      return
+    }
+    if (requestedTab) setActiveTab(normalizeTab(requestedTab))
+  }, [requestedTab, spotifyError])
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng)
@@ -71,7 +91,7 @@ export default function Settings() {
 
       {activeTab === 'agent-keys' && <AgentApiKeys />}
 
-      {activeTab === 'connections' && <Connections />}
+      {activeTab === 'connections' && <Connections initialError={spotifyError} />}
 
       {activeTab === 'appearance' && <Appearance />}
 

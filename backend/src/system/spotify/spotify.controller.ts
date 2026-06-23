@@ -38,13 +38,20 @@ export class SpotifyController {
       expiresIn?: number;
     }
   ) {
-    return this.service.upsertTokens(user.id, body);
+    return this.service.linkAccountWithTokens(user.id, body);
   }
 
   @Get("linked")
-  async isLinked(@ReqUser() user: any): Promise<{ linked: boolean }> {
+  async isLinked(@ReqUser() user: any): Promise<{
+    linked: boolean;
+    betaAccess: ReturnType<SpotifyService["getBetaAccessStatus"]>;
+  }> {
     const linked = await this.service.hasLinkedSpotify(user.id);
-    return { linked };
+    const profile = await this.service.getByAccountId(user.id);
+    return {
+      linked,
+      betaAccess: this.service.getBetaAccessStatus(profile?.email),
+    };
   }
 
   @Post("profile")

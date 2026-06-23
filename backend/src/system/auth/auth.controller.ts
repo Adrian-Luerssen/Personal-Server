@@ -15,7 +15,6 @@ import { RefreshTokenService } from "./refreshToken.service";
 import { NoAuth, ReqUser } from "./auth.decorator";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { SpotifyService } from "../spotify/spotify.service";
-import { SpotifyCredentials } from "../spotify/spotifyCredentials.entity";
 import { ConfigService } from "@nestjs/config";
 
 export class AuthenticateRequest {
@@ -66,6 +65,25 @@ export class AuthController {
     private spotifyService: SpotifyService,
     private configService: ConfigService
   ) {}
+
+  private getSpotifyCallbackError(error: any): string {
+    if (typeof error?.getStatus === "function" && error.getStatus() === 403) {
+      return error.message || "spotify_beta_access_denied";
+    }
+    return "token_exchange_failed";
+  }
+
+  private redirectSpotifyError(
+    res: Response,
+    frontendUrl: string,
+    error: string
+  ): void {
+    res.redirect(
+      `${frontendUrl}/settings?tab=connections&spotify_error=${encodeURIComponent(
+        error
+      )}`
+    );
+  }
 
   @Post("/register")
   @NoAuth()
@@ -161,12 +179,12 @@ export class AuthController {
     const frontendUrl = this.configService.get("DOMAIN_APP") || "http://localhost:4040";
 
     if (error) {
-      res.redirect(`${frontendUrl}/settings?spotify_error=${encodeURIComponent(error)}`);
+      this.redirectSpotifyError(res, frontendUrl, error);
       return;
     }
 
     if (!code || !state) {
-      res.redirect(`${frontendUrl}/settings?spotify_error=missing_code_or_state`);
+      this.redirectSpotifyError(res, frontendUrl, "missing_code_or_state");
       return;
     }
 
@@ -176,12 +194,12 @@ export class AuthController {
       const accountId = stateData.accountId;
 
       if (!accountId) {
-        res.redirect(`${frontendUrl}/settings?spotify_error=invalid_state`);
+        this.redirectSpotifyError(res, frontendUrl, "invalid_state");
         return;
       }
 
       const tokenData = await this.spotifyService.exchangeCodeForTokens(code);
-      await this.spotifyService.upsertTokens(accountId, {
+      await this.spotifyService.linkAccountWithTokens(accountId, {
         accessToken: tokenData.access_token,
         refreshToken: tokenData.refresh_token,
         tokenType: tokenData.token_type,
@@ -189,20 +207,14 @@ export class AuthController {
         expiresIn: tokenData.expires_in,
       });
 
-      // Fetch profile and store basic info
-      const me = await this.spotifyService.getCurrentUser(tokenData.access_token);
-      await this.spotifyService.updateProfile(accountId, {
-        spotifyUserId: me.id,
-        displayName: me.display_name,
-        email: me.email,
-        profileUrl: me.external_urls?.spotify,
-        images: me.images,
-      });
-
       res.redirect(`${frontendUrl}/spotify/personal?linked=true`);
     } catch (e) {
       console.error("Spotify callback error:", e);
-      res.redirect(`${frontendUrl}/settings?spotify_error=token_exchange_failed`);
+      this.redirectSpotifyError(
+        res,
+        frontendUrl,
+        this.getSpotifyCallbackError(e)
+      );
     }
   }
 
@@ -222,24 +234,12 @@ export class AuthController {
     if (!tokenData) {
       throw new HttpException("Failed to exchange code for tokens", 400);
     }
-    await this.spotifyService.upsertTokens(user.id, {
+    await this.spotifyService.linkAccountWithTokens(user.id, {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       tokenType: tokenData.token_type,
       scope: tokenData.scope,
       expiresIn: tokenData.expires_in,
-    });
-
-    // Fetch profile and store basic info
-    const me = await this.spotifyService.getCurrentUser(
-      tokenData.access_token
-    );
-    await this.spotifyService.updateProfile(user.id, {
-      spotifyUserId: me.id,
-      displayName: me.display_name,
-      email: me.email,
-      profileUrl: me.external_urls?.spotify,
-      images: me.images,
     });
 
     return { message: "Spotify account linked successfully" };
@@ -256,22 +256,12 @@ export class AuthController {
   ): Promise<{ message: string }> {
     if (!code) throw new HttpException("Missing authorization code", 400);
     const tokenData = await this.spotifyService.exchangeCodeForTokens(code);
-    await this.spotifyService.upsertTokens(accountId, {
+    await this.spotifyService.linkAccountWithTokens(accountId, {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       tokenType: tokenData.token_type,
       scope: tokenData.scope,
       expiresIn: tokenData.expires_in,
-    });
-
-    // Fetch profile and store basic info
-    const me = await this.spotifyService.getCurrentUser(tokenData.access_token);
-    await this.spotifyService.updateProfile(accountId, {
-      spotifyUserId: me.id,
-      displayName: me.display_name,
-      email: me.email,
-      profileUrl: me.external_urls?.spotify,
-      images: me.images,
     });
 
     return { message: "Spotify account linked successfully" };

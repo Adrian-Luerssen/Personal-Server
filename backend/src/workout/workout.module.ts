@@ -26,6 +26,7 @@ import { RoutinesController } from "src/workout/routines/routines.controller";
 import { RoutineExercisesController } from "src/workout/routines/routine-exercises.controller";
 import { WorkoutImportController } from "src/workout/import/import.controller";
 import { FitNotesImportService } from "src/workout/import/fitnotes-import.service";
+import { SyncModule } from "src/sync/sync.module";
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { FitNotesImportService } from "src/workout/import/fitnotes-import.servic
       Routine,
       RoutineExercise,
     ]),
+    SyncModule,
   ],
   providers: [
     WorkoutCategoriesService,

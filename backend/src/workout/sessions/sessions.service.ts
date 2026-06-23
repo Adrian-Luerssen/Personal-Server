@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Optional,
 } from "@nestjs/common";
 import { TypeOrmCrudService } from "@nestjsx/crud-typeorm";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -10,11 +11,15 @@ import { In, Repository } from "typeorm";
 import { Account } from "../../system/accounts/account.entity";
 import { WorkoutSet } from "../sets/set.entity";
 import { formatDateYYYYMMDDInZone } from "../../utils/utils";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 @Injectable()
 export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
   constructor(
-    @InjectRepository(WorkoutSession) repo: Repository<WorkoutSession>
+    @InjectRepository(WorkoutSession) repo: Repository<WorkoutSession>,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {
     super(repo);
   }
@@ -40,7 +45,9 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
       startAt,
       endAt: null,
     });
-    return this.repo.save(session);
+    const saved = await this.repo.save(session);
+    await this.recordSync(account.id, saved, SyncOperation.UPSERT);
+    return saved;
   }
 
   async endSession(
@@ -61,7 +68,9 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
     session.endAt = endAt;
     if (body.notes !== undefined) session.notes = body.notes;
     if (body.title !== undefined) session.title = body.title;
-    return this.repo.save(session);
+    const saved = await this.repo.save(session);
+    await this.recordSync(account.id, saved, SyncOperation.UPSERT);
+    return saved;
   }
 
   /**
@@ -393,6 +402,21 @@ export class WorkoutSessionsService extends TypeOrmCrudService<WorkoutSession> {
     if (session.accountId !== account.id)
       throw new ForbiddenException("Not your session");
     await this.repo.delete(id);
+    await this.recordSync(account.id, session, SyncOperation.DELETE);
     return { success: true };
+  }
+
+  private async recordSync(
+    accountId: string,
+    session: WorkoutSession,
+    operation: SyncOperation
+  ) {
+    if (!this.syncService) return;
+    await this.syncService.recordEvent(accountId, {
+      entityType: "workout-session",
+      entityId: session.id,
+      operation,
+      payload: operation === SyncOperation.DELETE ? null : session,
+    });
   }
 }

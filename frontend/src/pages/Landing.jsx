@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { refreshIfPossible } from '../auth'
 import Icon from '../components/icons/Icon'
+import { ANDROID_APK_URL } from '../mobilePlatform'
 import './Landing.css'
 
 function usePrefersReducedMotion() {
@@ -250,7 +251,7 @@ function AnimatedMetric({ value, label, note, suffix, reducedMotion }) {
   )
 }
 
-export default function Landing() {
+export default function Landing({ mobileGate = false }) {
   const nav = useNavigate()
   const prefersReducedMotion = usePrefersReducedMotion()
   const observe = useScrollReveal(prefersReducedMotion)
@@ -258,11 +259,13 @@ export default function Landing() {
   const [landingMetrics, setLandingMetrics] = useState(LANDING_METRIC_DEFAULTS)
 
   useEffect(() => {
+    if (mobileGate) return undefined
     ;(async () => {
       const ok = await refreshIfPossible()
       if (ok) nav('/home', { replace: true })
     })()
-  }, [nav])
+    return undefined
+  }, [nav, mobileGate])
 
   useEffect(() => {
     let ignore = false
@@ -314,14 +317,28 @@ export default function Landing() {
                 It is built to help you read patterns, not just collect numbers.
               </p>
               <div className="landing-editorial-hero__actions landing-editorial-hero__intro landing-editorial-hero__intro--5">
-                <Link to="/register" className="landing-editorial-button landing-editorial-button--primary">
-                  Request access
-                  <Icon name="arrow-right" size={16} />
-                </Link>
-                <Link to="/login" className="landing-editorial-button landing-editorial-button--secondary">
-                  Sign in
-                </Link>
+                {mobileGate ? (
+                  <a href={ANDROID_APK_URL} className="landing-editorial-button landing-editorial-button--primary">
+                    Download Android app
+                    <Icon name="download" size={16} />
+                  </a>
+                ) : (
+                  <>
+                    <Link to="/register" className="landing-editorial-button landing-editorial-button--primary">
+                      Request access
+                      <Icon name="arrow-right" size={16} />
+                    </Link>
+                    <Link to="/login" className="landing-editorial-button landing-editorial-button--secondary">
+                      Sign in
+                    </Link>
+                  </>
+                )}
               </div>
+              {mobileGate ? (
+                <p className="landing-editorial-mobile-note landing-editorial-hero__intro landing-editorial-hero__intro--5">
+                  Mobile browser access is disabled. Use the Android app for the platform experience.
+                </p>
+              ) : null}
             </div>
 
             <div className="landing-editorial-hero__composition" ref={observe}>
@@ -448,13 +465,22 @@ export default function Landing() {
               It is a personal system for noticing patterns and making better decisions.
             </p>
             <div className="landing-editorial-hero__actions">
-              <Link to="/register" className="landing-editorial-button landing-editorial-button--primary">
-                Start with your own data
-                <Icon name="arrow-right" size={16} />
-              </Link>
-              <Link to="/login" className="landing-editorial-button landing-editorial-button--secondary">
-                Sign in
-              </Link>
+              {mobileGate ? (
+                <a href={ANDROID_APK_URL} className="landing-editorial-button landing-editorial-button--primary">
+                  Download Android app
+                  <Icon name="download" size={16} />
+                </a>
+              ) : (
+                <>
+                  <Link to="/register" className="landing-editorial-button landing-editorial-button--primary">
+                    Start with your own data
+                    <Icon name="arrow-right" size={16} />
+                  </Link>
+                  <Link to="/login" className="landing-editorial-button landing-editorial-button--secondary">
+                    Sign in
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </section>

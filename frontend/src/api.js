@@ -53,6 +53,7 @@ function getCacheTTL(path) {
 // ---------------------------------------------------------------------------
 
 const LS_CACHE_KEY = 'ps-api-cache';
+const LS_SYNC_WATERMARKS_KEY = 'ps-sync-watermarks';
 const LS_MAX_ENTRIES = 60;
 
 const swrCache = new Map();
@@ -63,13 +64,8 @@ try {
   const stored = localStorage.getItem(LS_CACHE_KEY);
   if (stored) {
     const entries = JSON.parse(stored);
-    const now = Date.now();
     for (const [key, val] of entries) {
-      // Only restore entries that haven't exceeded their TTL
-      const ttl = getCacheTTL(key);
-      if (now - val.timestamp < ttl) {
-        swrCache.set(key, val);
-      }
+      swrCache.set(key, val);
     }
   }
 } catch {
@@ -103,10 +99,20 @@ function invalidateCache(path) {
   schedulePersist();
 }
 
+function invalidateCachePrefixes(prefixes) {
+  for (const key of swrCache.keys()) {
+    if (prefixes.some(prefix => key.startsWith(prefix))) {
+      swrCache.delete(key);
+    }
+  }
+  schedulePersist();
+}
+
 export function clearApiCache() {
   swrCache.clear();
   inflightRequests.clear();
   localStorage.removeItem(LS_CACHE_KEY);
+  localStorage.removeItem(LS_SYNC_WATERMARKS_KEY);
 }
 
 // ---------------------------------------------------------------------------
@@ -167,11 +173,11 @@ export async function apiFetch(path, options = {}) {
 
 export const api = {
   get: async (path) => {
-    const ttl = getCacheTTL(path);
     const cached = swrCache.get(path);
 
-    if (cached && Date.now() - cached.timestamp < ttl) {
-      // Return stale data immediately, refresh in background
+    if (cached) {
+      // Return cached data immediately, even when stale. Mobile navigation
+      // should not wait for API latency; freshness is handled in background.
       if (!inflightRequests.has(path)) {
         const bgRefresh = apiFetch(path).then(fresh => {
           swrCache.set(path, { data: fresh, timestamp: Date.now() });
@@ -230,6 +236,58 @@ export const api = {
 };
 
 // ---------------------------------------------------------------------------
+// Data validity checks - compare local cache against backend sync watermarks
+// ---------------------------------------------------------------------------
+
+const ENTITY_CACHE_PREFIXES = {
+  'habit-entry': ['/habits', '/dashboard'],
+  habit: ['/habits', '/dashboard'],
+  'workout-session': ['/workout', '/dashboard'],
+  'workout-set': ['/workout', '/dashboard'],
+  'finance-transaction': ['/finance', '/dashboard'],
+  'media-item': ['/media', '/dashboard'],
+  stream: ['/streams', '/albums', '/artists', '/playlists', '/dashboard'],
+};
+
+function readStoredWatermarks() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_SYNC_WATERMARKS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredWatermarks(watermarks) {
+  try {
+    localStorage.setItem(LS_SYNC_WATERMARKS_KEY, JSON.stringify(watermarks));
+  } catch {
+    // storage unavailable or full
+  }
+}
+
+export async function checkDataValidity() {
+  const previous = readStoredWatermarks();
+  const response = await apiFetch('/sync/watermarks').catch(() => null);
+  if (!response) return { changed: false, watermarks: previous };
+
+  const next = response.watermarks || {};
+  const changedPrefixes = new Set();
+
+  for (const [entityType, cursor] of Object.entries(next)) {
+    if (Number(previous[entityType] || 0) !== Number(cursor || 0)) {
+      const prefixes = ENTITY_CACHE_PREFIXES[entityType] || [];
+      prefixes.forEach(prefix => changedPrefixes.add(prefix));
+    }
+  }
+
+  if (changedPrefixes.size > 0) {
+    invalidateCachePrefixes([...changedPrefixes]);
+  }
+  writeStoredWatermarks(next);
+  return { changed: changedPrefixes.size > 0, watermarks: next };
+}
+
+// ---------------------------------------------------------------------------
 // Preload — call from Layout on mount to warm the cache
 // ---------------------------------------------------------------------------
 
@@ -246,6 +304,16 @@ const PRELOAD_PATHS = [
 ];
 
 export function preloadDashboardData() {
+  checkDataValidity()
+    .then(({ changed }) => {
+      if (changed) {
+        for (const path of PRELOAD_PATHS) {
+          api.get(path).catch(() => {});
+        }
+      }
+    })
+    .catch(() => {});
+
   for (const path of PRELOAD_PATHS) {
     // Only preload if not already cached
     const cached = swrCache.get(path);

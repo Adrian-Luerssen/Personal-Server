@@ -13,11 +13,13 @@ import { EntriesController } from "./entries/entries.controller";
 
 import { HabitShareImportService } from "./import/habitshare-import.service";
 import { HabitShareImportController } from "./import/import.controller";
+import { SyncModule } from "../sync/sync.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Habit, HabitEntry]),
     MulterModule.register({ storage: undefined }), // memory storage (default)
+    SyncModule,
   ],
   providers: [HabitsService, EntriesService, HabitShareImportService],
   controllers: [HabitsController, EntriesController, HabitShareImportController],

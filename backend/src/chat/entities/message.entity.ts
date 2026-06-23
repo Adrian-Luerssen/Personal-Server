@@ -21,8 +21,17 @@ export enum ChatStatus {
   SENT = 'sent',
   READ = 'read',
   THINKING = 'thinking',
+  FINISHED = 'finished',
   DELIVERED = 'delivered',
   ERROR = 'error',
+}
+
+export interface ChatTokenUsage {
+  input: number;
+  output: number;
+  cacheWrite?: number;
+  cacheRead?: number;
+  total: number;
 }
 
 @Entity('chat_message')
@@ -65,6 +74,14 @@ export class ChatMessage {
   @ApiProperty({ description: 'Message delivery status', enum: ChatStatus })
   @Column({ type: 'enum', enum: ChatStatus, enumName: 'app_chat_status', default: ChatStatus.SENT })
   status: ChatStatus;
+
+  @ApiProperty({ description: 'Token usage reported by the external agent', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
+  tokenUsage: ChatTokenUsage | null;
+
+  @ApiProperty({ description: 'Timestamp when the agent read a user message', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  readAt: Date | null;
 
   @ApiProperty({ description: 'Page context metadata', nullable: true })
   @Column({ type: 'jsonb', nullable: true })

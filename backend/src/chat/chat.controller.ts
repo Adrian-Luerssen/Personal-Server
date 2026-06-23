@@ -7,7 +7,11 @@ import {
   Body,
   Query,
   ParseUUIDPipe,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -16,14 +20,32 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
-import { ReqUser } from '../system/auth/auth.decorator';
+import { NoAuth, ReqUser } from '../system/auth/auth.decorator';
 import { Account } from '../system/accounts/account.entity';
 
 @ApiTags('Chat')
 @ApiBearerAuth('access-token')
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  private readonly skillContent: string;
+
+  constructor(private readonly chatService: ChatService) {
+    const skillPath = [
+      path.join(__dirname, 'skill.md'),
+      path.join(process.cwd(), 'src', 'chat', 'skill.md'),
+    ].find((candidate) => fs.existsSync(candidate));
+    this.skillContent = skillPath
+      ? fs.readFileSync(skillPath, 'utf-8')
+      : '# Personal Server Chat Agent Protocol\n\nProtocol document unavailable.';
+  }
+
+  @Get('skill')
+  @NoAuth()
+  @ApiOperation({ summary: 'Get the external chat agent Socket.IO protocol' })
+  getSkill(@Res() res: Response) {
+    res.setHeader('Content-Type', 'text/markdown');
+    res.send(this.skillContent);
+  }
 
   @Get('conversations')
   @ApiOperation({ summary: 'List all conversations for the authenticated user' })

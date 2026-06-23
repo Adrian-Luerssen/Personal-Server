@@ -20,6 +20,7 @@ import { AgentsModule } from "./agents/agents.module";
 import { ApiV1Module } from "./api/v1/api-v1.module";
 import { ChatModule } from "./chat/chat.module";
 import { MediaModule } from "./media/media.module";
+import { SyncModule } from "./sync/sync.module";
 
 @Module({
   providers: [
@@ -54,6 +55,7 @@ import { MediaModule } from "./media/media.module";
     ApiV1Module,
     ChatModule,
     MediaModule,
+    SyncModule,
     HealthModule,
     TypeOrmModule.forFeature([Tool]),
   ],

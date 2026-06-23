@@ -3,8 +3,11 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { io } from 'socket.io-client'
 import { Icon } from './icons'
 import { api } from '../api'
+import { getTokens } from '../auth'
+import { getApiBase } from '../config'
 import { usePageContext } from '../hooks/usePageContext'
 import './ChatPanel.css'
 
@@ -27,6 +30,7 @@ function StatusIndicator({ status }) {
     case 'sent':
       return <span className="chat-msg-status"><Icon name="check" size={12} /></span>
     case 'delivered':
+    case 'finished':
       return <span className="chat-msg-status delivered"><Icon name="check-check" size={12} /></span>
     case 'read':
       return <span className="chat-msg-status read"><Icon name="check-check" size={12} /></span>
@@ -43,6 +47,23 @@ function StatusIndicator({ status }) {
     default:
       return null
   }
+}
+
+function normalizeMessage(message) {
+  if (!message) return message
+  return {
+    ...message,
+    role: message.role || (message.sender === 'user' ? 'user' : 'agent'),
+    created_at: message.created_at || message.createdAt,
+    updated_at: message.updated_at || message.updatedAt,
+  }
+}
+
+function upsertMessage(messages, nextMessage) {
+  const normalized = normalizeMessage(nextMessage)
+  const index = messages.findIndex((message) => message.id === normalized.id)
+  if (index === -1) return [...messages, normalized]
+  return messages.map((message, i) => (i === index ? normalized : message))
 }
 
 function ContextBadge({ pageContext }) {
@@ -118,6 +139,7 @@ export default function ChatPanel() {
   const [sendContext, setSendContext] = useState(true)
 
   const messagesEndRef = useRef(null)
+  const socketRef = useRef(null)
   const pageContext = usePageContext()
 
   useEffect(() => {
@@ -142,7 +164,7 @@ export default function ChatPanel() {
     try {
       const data = await api.get(`/chat/conversations/${activeConvId}/messages`)
       const msgs = Array.isArray(data) ? data : (data.messages || [])
-      setMessages(msgs)
+      setMessages(msgs.map(normalizeMessage))
     } catch {
       // Silently ignore polling errors.
     }
@@ -169,11 +191,66 @@ export default function ChatPanel() {
       })
       const data = await api.get(`/chat/conversations/${conv.id}/messages`)
       const msgs = Array.isArray(data) ? data : (data.messages || [])
-      setMessages(msgs)
+      setMessages(msgs.map(normalizeMessage))
     } catch {
       // Ignore prompt launch errors; chat remains available manually.
     }
   }, [])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const { accessToken } = getTokens()
+    if (!accessToken) return undefined
+
+    const socketBase = getApiBase().replace(/\/api$/, '')
+    const socket = io(`${socketBase}/chat/user`, {
+      auth: { token: accessToken },
+      transports: ['websocket', 'polling'],
+    })
+    socketRef.current = socket
+
+    socket.on('message:new', (message) => {
+      const normalized = normalizeMessage(message)
+      if (normalized.conversationId === activeConvId) {
+        setMessages((prev) => upsertMessage(prev, normalized))
+      }
+      fetchConversations()
+    })
+
+    socket.on('message:updated', (message) => {
+      const normalized = normalizeMessage(message)
+      if (normalized.conversationId === activeConvId) {
+        setMessages((prev) => upsertMessage(prev, normalized))
+      }
+      fetchConversations()
+    })
+
+    socket.on('session:titled', ({ conversationId, title }) => {
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.id === conversationId ? { ...conversation, title } : conversation,
+        ),
+      )
+    })
+
+    socket.on('session:closed', ({ conversationId }) => {
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.id === conversationId ? { ...conversation, status: 'closed' } : conversation,
+        ),
+      )
+    })
+
+    return () => {
+      socketRef.current = null
+      socket.disconnect()
+    }
+  }, [open, activeConvId, fetchConversations])
+
+  useEffect(() => {
+    if (!activeConvId || !socketRef.current?.connected) return
+    socketRef.current.emit('session:join', { conversationId: activeConvId })
+  }, [activeConvId, open])
 
   useEffect(() => {
     if (!open) return undefined
@@ -260,11 +337,29 @@ export default function ChatPanel() {
     setMessages((prev) => [...prev, tempMsg])
 
     try {
-      await api.post(`/chat/conversations/${activeConvId}/messages`, {
+      const payload = {
+        conversationId: activeConvId,
         text,
         ...(contextToSend ? { pageContext: contextToSend } : {}),
-      })
-      await fetchMessages()
+      }
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('message:send', payload, (ack) => {
+          if (ack?.message) {
+            setMessages((prev) =>
+              upsertMessage(
+                prev.filter((message) => message.id !== tempMsg.id),
+                ack.message,
+              ),
+            )
+          }
+        })
+      } else {
+        await api.post(`/chat/conversations/${activeConvId}/messages`, {
+          text,
+          ...(contextToSend ? { pageContext: contextToSend } : {}),
+        })
+        await fetchMessages()
+      }
     } catch {
       setMessages((prev) =>
         prev.map((m) => (m.id === tempMsg.id ? { ...m, status: 'error' } : m))

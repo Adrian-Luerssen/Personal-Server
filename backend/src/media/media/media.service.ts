@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -13,6 +14,8 @@ import {
 } from "../entities/media-item.entity";
 import { Account } from "../../system/accounts/account.entity";
 import { Cache } from "cache-manager";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 export interface MediaStats {
   total: number;
@@ -30,7 +33,9 @@ export class MediaService {
   constructor(
     @InjectRepository(MediaItem)
     private readonly mediaRepo: Repository<MediaItem>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {}
 
   // ========== CRUD ==========
@@ -96,6 +101,7 @@ export class MediaService {
     });
     const result = await this.mediaRepo.save(item);
     await this.cacheManager.reset();
+    await this.recordSync(account.id, result, SyncOperation.UPSERT);
     return result;
   }
 
@@ -128,6 +134,7 @@ export class MediaService {
     Object.assign(item, dto);
     const result = await this.mediaRepo.save(item);
     await this.cacheManager.reset();
+    await this.recordSync(account.id, result, SyncOperation.UPSERT);
     return result;
   }
 
@@ -135,6 +142,7 @@ export class MediaService {
     const item = await this.findOne(account, id);
     await this.mediaRepo.remove(item);
     await this.cacheManager.reset();
+    await this.recordSync(account.id, item, SyncOperation.DELETE);
   }
 
   // ========== STATS ==========
@@ -204,24 +212,47 @@ export class MediaService {
 
     let reset = 0;
     for (const item of items) {
-      // Remove reclassified flag and tags so enrichment re-processes
+      // Remove enrichment-derived fields while preserving source import facts.
       const newMeta = { ...item.metadata };
       delete newMeta.reclassified;
-      delete newMeta.tags;
       delete newMeta.synopsis;
       delete newMeta.malScore;
       delete newMeta.tmdbScore;
+      delete newMeta.enrichmentStatus;
+      delete newMeta.enrichmentError;
+
+      let sourceType = this.mediaTypeFromSource(newMeta.sourceType);
+      const legacyTvTime = !sourceType && this.looksLikeLegacyTvTime(item, newMeta);
+      if (legacyTvTime) {
+        sourceType = MediaType.TV;
+        newMeta.importSource = "tvtime";
+        newMeta.sourceType = "tv";
+      }
+      if (sourceType) {
+        item.type = sourceType;
+        newMeta.tags = this.tagsForSourceType(sourceType);
+      } else {
+        delete newMeta.tags;
+      }
       item.metadata = newMeta;
 
-      // Reset items that were changed from TV to anime back to TV
-      // (only if they don't have a MAL ID from original import)
-      if (item.type === MediaType.ANIME && !item.externalIds?.malId) {
-        item.type = MediaType.TV;
+      if (
+        (newMeta.importSource === "tvtime" || legacyTvTime) &&
+        sourceType === MediaType.TV &&
+        item.externalIds?.malId &&
+        !newMeta.manualMatch
+      ) {
+        const { malId, ...remainingExternalIds } = item.externalIds;
+        item.externalIds = remainingExternalIds;
       }
 
-      // Clear cover so enrichment refetches
-      item.coverUrl = null as any;
+      if (newMeta.importCoverUrl) {
+        item.coverUrl = newMeta.importCoverUrl;
+      } else {
+        item.coverUrl = null as any;
+      }
       await this.mediaRepo.save(item);
+      await this.recordSync(account.id, item, SyncOperation.UPSERT);
       reset++;
     }
 
@@ -271,11 +302,49 @@ export class MediaService {
         metadata: dto.metadata ?? {},
         externalIds: dto.externalIds ?? {},
       });
-      await this.mediaRepo.save(item);
+      const saved = await this.mediaRepo.save(item);
+      await this.recordSync(account.id, saved, SyncOperation.UPSERT);
       created++;
     }
 
     await this.cacheManager.reset();
     return { created, skipped };
+  }
+
+  private async recordSync(
+    accountId: string,
+    item: MediaItem,
+    operation: SyncOperation
+  ) {
+    if (!this.syncService) return;
+    await this.syncService.recordEvent(accountId, {
+      entityType: "media-item",
+      entityId: item.id,
+      operation,
+      payload: operation === SyncOperation.DELETE ? null : item,
+    });
+  }
+
+  private mediaTypeFromSource(sourceType: any): MediaType | null {
+    if (Object.values(MediaType).includes(sourceType)) {
+      return sourceType as MediaType;
+    }
+    return null;
+  }
+
+  private tagsForSourceType(type: MediaType): string[] {
+    return [type];
+  }
+
+  private looksLikeLegacyTvTime(
+    item: MediaItem,
+    metadata: Record<string, any>
+  ): boolean {
+    return (
+      item.type === MediaType.ANIME &&
+      !metadata.importSource &&
+      metadata.episodesWatched != null &&
+      (metadata.runtime != null || metadata.archived != null)
+    );
   }
 }

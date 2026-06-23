@@ -1,346 +1,517 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { api } from '../../api'
+import { api, apiFetch } from '../../api'
 import {
   StatCard,
   SkeletonStatCard,
   SkeletonCard,
+  Modal,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
-import ScrollReveal from '../../components/ScrollReveal'
 import PageHeader from '../../components/PageHeader'
 import ProgressRing from '../../components/ProgressRing'
 import HabitCalendarGrid from '../../components/habits/HabitCalendarGrid'
-import HabitDayModal from '../../components/habits/HabitDayModal'
 import HabitHeatmap from '../../components/habits/HabitHeatmap'
+import './Habits.css'
 
 const HABITS_COLOR = '#a78bfa'
-const HABITS_COLOR_MUTED = 'rgba(167, 139, 250, 0.15)'
 
-const STATUS_COLORS = {
-  success: '#4ade80',
-  fail: '#f87171',
-  skip: '#fbbf24',
-  none: 'var(--color-text-muted)',
+const STATUS_META = {
+  success: {
+    label: 'Done',
+    shortLabel: 'Done',
+    icon: 'check-circle',
+    color: '#4ade80',
+  },
+  skip: {
+    label: 'Skip',
+    shortLabel: 'Skip',
+    icon: 'minus-circle',
+    color: '#fbbf24',
+  },
+  fail: {
+    label: 'Missed',
+    shortLabel: 'Missed',
+    icon: 'x-circle',
+    color: '#f87171',
+  },
 }
 
-const STATUS_ICONS = {
-  success: 'check-circle',
-  fail: 'x-circle',
-  skip: 'minus-circle',
+const EMPTY_CALENDAR = { habits: {}, entries: [] }
+const EMPTY_PROGRESS = { weekly: {}, monthly: [], yearly: [] }
+
+function toDateKey(date = new Date()) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
 }
 
-function getToday() {
-  return new Date().toISOString().split('T')[0]
+function parseDateKey(dateStr) {
+  return new Date(`${dateStr}T12:00:00`)
 }
 
-function getCurrentMonth() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+function addDays(dateStr, amount) {
+  const date = parseDateKey(dateStr)
+  date.setDate(date.getDate() + amount)
+  return toDateKey(date)
+}
+
+function shiftMonth(dateStr, amount) {
+  const date = parseDateKey(dateStr)
+  const currentDay = date.getDate()
+  date.setDate(1)
+  date.setMonth(date.getMonth() + amount)
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  date.setDate(Math.min(currentDay, lastDay))
+  return toDateKey(date)
+}
+
+function getMonthKey(dateStr) {
+  return dateStr.slice(0, 7)
 }
 
 function formatMonthYear(monthStr, locale = 'en') {
   const [year, month] = monthStr.split('-').map(Number)
-  return new Date(year, month - 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+  return new Date(year, month - 1, 1).toLocaleDateString(locale, {
+    month: 'long',
+    year: 'numeric',
+  })
 }
 
-function getPreviousMonth(monthStr) {
-  const [year, month] = monthStr.split('-').map(Number)
-  const d = new Date(year, month - 2, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
+function formatSelectedDate(dateStr, locale = 'en') {
+  const today = toDateKey()
+  if (dateStr === today) return 'Today'
+  if (dateStr === addDays(today, -1)) return 'Yesterday'
+  if (dateStr === addDays(today, 1)) return 'Tomorrow'
 
-function getNextMonth(monthStr) {
-  const [year, month] = monthStr.split('-').map(Number)
-  const d = new Date(year, month, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  return parseDateKey(dateStr).toLocaleDateString(locale, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 function getFrequencyLabel(habit) {
-  const ft = habit.frequencyType || 'daily'
-  const target = habit.frequencyTarget || 1
-  if (ft === 'daily') return 'Daily'
-  if (ft === 'weekly') return `${target}x/week`
-  if (ft === 'monthly') return `${target}x/month`
-  if (ft === 'yearly') return `${target}x/year`
-  return ft
+  const type = habit.frequencyType || 'daily'
+  const target = Number(habit.frequencyTarget || 1)
+  if (type === 'daily') return 'Daily'
+  if (type === 'weekly') return `${target}x/week`
+  if (type === 'monthly') return `${target}x/month`
+  if (type === 'yearly') return `${target}x/year`
+  return type
+}
+
+function evaluateNumericStatus(habit, numericValue) {
+  const value = Number(numericValue)
+  const passThreshold = habit.numericPassThreshold
+  const skipThreshold = habit.numericSkipThreshold
+
+  if (passThreshold != null && value <= Number(passThreshold)) return 'success'
+  if (skipThreshold != null && value <= Number(skipThreshold)) return 'skip'
+  return 'fail'
+}
+
+function mergeHabitSummary(habits, summary, selectedEntries) {
+  return (habits || [])
+    .filter((habit) => habit.isActive !== false)
+    .map((habit) => {
+      const details = (summary || []).find((item) => item.habitId === habit.id) || {}
+      const entry = selectedEntries[habit.id]
+      return {
+        ...habit,
+        currentStreak: details.currentStreak || 0,
+        longestStreak: details.longestStreak || 0,
+        successRate: details.successRate || 0,
+        lastSuccess: details.lastSuccess || null,
+        selectedStatus: entry?.status || 'none',
+        selectedNumericValue: entry?.numericValue,
+      }
+    })
 }
 
 export default function Habits() {
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
   const [habits, setHabits] = useState([])
   const [summary, setSummary] = useState([])
-  const [calendarData, setCalendarData] = useState({ habits: {}, entries: [] })
-  const [progress, setProgress] = useState({ weekly: {}, monthly: [], yearly: [] })
-  const [todayEntries, setTodayEntries] = useState({})
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
-  const [selectedDay, setSelectedDay] = useState(null) // date string for modal
+  const [calendarData, setCalendarData] = useState(EMPTY_CALENDAR)
+  const [progress, setProgress] = useState(EMPTY_PROGRESS)
+  const [selectedDate, setSelectedDate] = useState(toDateKey())
+  const [savingEntries, setSavingEntries] = useState({})
+  const [loadError, setLoadError] = useState('')
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
-  useEffect(() => { loadData() }, [selectedMonth])
+  const monthKey = getMonthKey(selectedDate)
 
-  async function loadData() {
-    setLoading(true)
-    try {
-      const [habitsData, summaryData, calData, progressData] = await Promise.all([
-        api.get('/habits'),
-        api.get('/habits/summary'),
-        api.get(`/habits/calendar/${selectedMonth}`),
-        api.get(`/habits/progress/${selectedMonth}`),
-      ])
+  useEffect(() => {
+    loadData()
+  }, [monthKey])
 
-      setHabits(habitsData || [])
-      setSummary(summaryData || [])
-      setCalendarData(calData || { habits: {}, entries: [] })
-      setProgress(progressData || { weekly: {}, monthly: [], yearly: [] })
+  useEffect(() => {
+    const refreshOnFocus = () => {
+      loadData({ silent: true, force: true })
+    }
+    window.addEventListener('focus', refreshOnFocus)
+    return () => window.removeEventListener('focus', refreshOnFocus)
+  }, [monthKey])
 
-      // Build today's entry map
-      const today = getToday()
-      const todayMap = {}
-      for (const entry of (calData?.entries || [])) {
-        if (entry.date === today) {
-          todayMap[entry.habitId] = { status: entry.status, numericValue: entry.numericValue }
-        }
-      }
-      setTodayEntries(todayMap)
-    } catch (e) {
-      console.error('Failed to load habits:', e)
-    } finally {
-      setLoading(false)
+  async function fetchBundle(fetcher) {
+    const [habitsData, summaryData, calData, progressData] = await Promise.all([
+      fetcher('/habits'),
+      fetcher('/habits/summary'),
+      fetcher(`/habits/calendar/${monthKey}`),
+      fetcher(`/habits/progress/${monthKey}`),
+    ])
+
+    return {
+      habitsData: Array.isArray(habitsData) ? habitsData : [],
+      summaryData: Array.isArray(summaryData) ? summaryData : [],
+      calData: calData || EMPTY_CALENDAR,
+      progressData: progressData || EMPTY_PROGRESS,
     }
   }
 
-  async function toggleHabitEntry(habitId, status) {
-    const today = getToday()
-    const current = todayEntries[habitId]
-    const currentStatus = current?.status
-
-    // Optimistic update
-    setTodayEntries(prev => ({ ...prev, [habitId]: { status } }))
-
-    try {
-      if (currentStatus) {
-        if (currentStatus === status) {
-          await api.delete(`/habits/${habitId}/entries/${today}`)
-          setTodayEntries(prev => {
-            const next = { ...prev }
-            delete next[habitId]
-            return next
-          })
-        } else {
-          await api.patch(`/habits/${habitId}/entries/${today}`, { status })
-        }
-      } else {
-        await api.post(`/habits/${habitId}/entries`, { date: today, status })
-      }
-      const newSummary = await api.get('/habits/summary')
-      setSummary(newSummary || [])
-    } catch (e) {
-      console.error('Failed to toggle habit entry:', e)
-      if (currentStatus) {
-        setTodayEntries(prev => ({ ...prev, [habitId]: current }))
-      } else {
-        setTodayEntries(prev => {
-          const next = { ...prev }
-          delete next[habitId]
-          return next
-        })
-      }
-    }
-  }
-
-  async function handleNumericEntry(habitId, numericValue, habit) {
-    const today = getToday()
-    const current = todayEntries[habitId]
-
-    // Auto-evaluate status based on thresholds
-    let status = 'fail'
-    if (habit.numericPassThreshold != null && numericValue <= Number(habit.numericPassThreshold)) {
-      status = 'success'
-    } else if (habit.numericSkipThreshold != null && numericValue <= Number(habit.numericSkipThreshold)) {
-      status = 'skip'
-    }
-
-    setTodayEntries(prev => ({ ...prev, [habitId]: { status, numericValue } }))
-
-    try {
-      if (current) {
-        await api.patch(`/habits/${habitId}/entries/${today}`, { numericValue })
-      } else {
-        await api.post(`/habits/${habitId}/entries`, { date: today, numericValue })
-      }
-      const newSummary = await api.get('/habits/summary')
-      setSummary(newSummary || [])
-    } catch (e) {
-      console.error('Failed to save numeric entry:', e)
-      if (current) {
-        setTodayEntries(prev => ({ ...prev, [habitId]: current }))
-      } else {
-        setTodayEntries(prev => {
-          const next = { ...prev }
-          delete next[habitId]
-          return next
-        })
-      }
-    }
-  }
-
-  // Merge habits with summary data
-  const mergedHabits = habits
-    .filter(h => h.isActive !== false)
-    .map(h => {
-      const s = summary.find(s => s.habitId === h.id) || {}
-      return {
-        ...h,
-        currentStreak: s.currentStreak || 0,
-        longestStreak: s.longestStreak || 0,
-        successRate: s.successRate || 0,
-        lastSuccess: s.lastSuccess,
-        todayStatus: todayEntries[h.id]?.status || 'none',
-        todayNumericValue: todayEntries[h.id]?.numericValue,
-      }
+  function applyBundle({ habitsData, summaryData, calData, progressData }) {
+    setHabits(habitsData)
+    setSummary(summaryData)
+    setCalendarData({
+      habits: calData?.habits || {},
+      entries: Array.isArray(calData?.entries) ? calData.entries : [],
     })
+    setProgress({
+      weekly: progressData?.weekly || {},
+      monthly: progressData?.monthly || [],
+      yearly: progressData?.yearly || [],
+    })
+  }
+
+  async function loadData({ silent = false, force = false } = {}) {
+    if (!silent) setLoading(true)
+    setLoadError('')
+
+    try {
+      const bundle = await fetchBundle(force ? apiFetch : api.get)
+      applyBundle(bundle)
+    } catch (error) {
+      setLoadError(error.message || 'Failed to load habits')
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }
+
+  async function refreshSummary() {
+    try {
+      const nextSummary = await apiFetch('/habits/summary')
+      setSummary(Array.isArray(nextSummary) ? nextSummary : [])
+    } catch {
+      // Keep optimistic habit state if analytics refresh fails.
+    }
+  }
+
+  function updateCalendarEntry(habitId, date, nextEntry) {
+    setCalendarData((current) => {
+      const entries = (current.entries || []).filter(
+        (entry) => !(entry.habitId === habitId && entry.date === date),
+      )
+      if (nextEntry) entries.push(nextEntry)
+      return { ...current, entries }
+    })
+  }
+
+  const selectedEntries = useMemo(() => {
+    const map = {}
+    for (const entry of calendarData.entries || []) {
+      if (entry.date === selectedDate) map[entry.habitId] = entry
+    }
+    return map
+  }, [calendarData.entries, selectedDate])
+
+  const mergedHabits = useMemo(
+    () => mergeHabitSummary(habits, summary, selectedEntries),
+    [habits, summary, selectedEntries],
+  )
 
   const totalHabits = mergedHabits.length
-  const avgSuccessRate = totalHabits > 0
-    ? Math.round(mergedHabits.reduce((sum, h) => sum + h.successRate, 0) / totalHabits)
+  const loggedHabits = mergedHabits.filter((habit) => habit.selectedStatus !== 'none')
+  const needsLogHabits = mergedHabits.filter((habit) => habit.selectedStatus === 'none')
+  const doneCount = loggedHabits.filter((habit) => habit.selectedStatus === 'success').length
+  const skippedCount = loggedHabits.filter((habit) => habit.selectedStatus === 'skip').length
+  const missedCount = loggedHabits.filter((habit) => habit.selectedStatus === 'fail').length
+  const loggedCount = loggedHabits.length
+  const averageSuccess = totalHabits
+    ? Math.round(mergedHabits.reduce((sum, habit) => sum + Number(habit.successRate || 0), 0) / totalHabits)
     : 0
-  const totalCurrentStreak = mergedHabits.reduce((sum, h) => sum + h.currentStreak, 0)
-  const activeToday = mergedHabits.filter(h => h.todayStatus === 'success').length
+  const totalCurrentStreak = mergedHabits.reduce((sum, habit) => sum + Number(habit.currentStreak || 0), 0)
+  const completionValue = totalHabits ? Math.round((loggedCount / totalHabits) * 100) : 0
 
-  // Build entries map for selected day modal
-  const dayEntries = {}
-  if (selectedDay) {
-    for (const entry of (calendarData.entries || [])) {
-      if (entry.date === selectedDay) {
-        dayEntries[entry.habitId] = entry
+  async function toggleHabitEntry(habit, status) {
+    const current = selectedEntries[habit.id]
+    const entryKey = `${habit.id}:${selectedDate}`
+    const previous = current ? { ...current } : null
+    const isRemoving = current?.status === status
+
+    setSavingEntries((state) => ({ ...state, [entryKey]: true }))
+
+    if (isRemoving) {
+      updateCalendarEntry(habit.id, selectedDate, null)
+    } else {
+      updateCalendarEntry(habit.id, selectedDate, {
+        ...current,
+        habitId: habit.id,
+        date: selectedDate,
+        status,
+        numericValue: current?.numericValue ?? null,
+        comment: current?.comment ?? null,
+      })
+    }
+
+    try {
+      if (isRemoving) {
+        await api.delete(`/habits/${habit.id}/entries/${selectedDate}`)
+      } else if (current) {
+        await api.patch(`/habits/${habit.id}/entries/${selectedDate}`, { status })
+      } else {
+        await api.post(`/habits/${habit.id}/entries`, { date: selectedDate, status })
       }
+      refreshSummary()
+    } catch (error) {
+      updateCalendarEntry(habit.id, selectedDate, previous)
+    } finally {
+      setSavingEntries((state) => {
+        const next = { ...state }
+        delete next[entryKey]
+        return next
+      })
     }
   }
 
-  // Build full habit objects for the modal (merge entity data with calendar metadata)
-  const modalHabits = habits.map(h => ({
-    ...h,
-    ...(calendarData.habits?.[h.id] || {}),
-  }))
+  async function saveNumericEntry(habit, numericValue) {
+    const value = Number(numericValue)
+    if (Number.isNaN(value) || value < 0) return
+
+    const current = selectedEntries[habit.id]
+    const previous = current ? { ...current } : null
+    const entryKey = `${habit.id}:${selectedDate}`
+    const status = evaluateNumericStatus(habit, value)
+
+    setSavingEntries((state) => ({ ...state, [entryKey]: true }))
+    updateCalendarEntry(habit.id, selectedDate, {
+      ...current,
+      habitId: habit.id,
+      date: selectedDate,
+      status,
+      numericValue: value,
+      comment: current?.comment ?? null,
+    })
+
+    try {
+      if (current) {
+        await api.patch(`/habits/${habit.id}/entries/${selectedDate}`, { numericValue: value })
+      } else {
+        await api.post(`/habits/${habit.id}/entries`, { date: selectedDate, numericValue: value })
+      }
+      refreshSummary()
+    } catch (error) {
+      updateCalendarEntry(habit.id, selectedDate, previous)
+    } finally {
+      setSavingEntries((state) => {
+        const next = { ...state }
+        delete next[entryKey]
+        return next
+      })
+    }
+  }
+
+  async function createHabit(payload) {
+    const created = await api.post('/habits', payload)
+    const nextHabit = {
+      ...payload,
+      ...created,
+      id: created?.id || `local-${Date.now()}`,
+      isActive: created?.isActive ?? true,
+    }
+    setHabits((current) => [...current, nextHabit])
+    setCalendarData((current) => ({
+      ...current,
+      habits: {
+        ...(current.habits || {}),
+        [nextHabit.id]: nextHabit,
+      },
+    }))
+    setQuickAddOpen(false)
+  }
+
+  const headerActions = (
+    <div className="habits-header-actions">
+      <button className="btn" type="button" onClick={() => setQuickAddOpen(true)}>
+        <Icon name="plus" size={16} />
+        Add Habit
+      </button>
+      <button className="btn btn-ghost" type="button" onClick={() => navigate('/habits/settings?tab=import')}>
+        <Icon name="download" size={16} />
+        Import
+      </button>
+      <button className="btn btn-ghost" type="button" onClick={() => navigate('/habits/settings')}>
+        <Icon name="settings" size={16} />
+        Settings
+      </button>
+    </div>
+  )
 
   return (
-    <>
-      <PageHeader icon="heart-pulse" title="Habits" accentColor="#a78bfa" />
+    <div className="habits-page">
+      <PageHeader
+        icon="heart-pulse"
+        title="Habits"
+        accentColor={HABITS_COLOR}
+        meta={headerActions}
+      />
 
-      {/* Stats Grid */}
-      <ScrollReveal>
-        <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
-          {loading ? (
-            Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
-          ) : (
-            <>
-              <StatCard icon="list-checks" accentColor="#a78bfa" label={t('habits.totalHabits')} value={totalHabits} />
-              <StatCard icon="percent" accentColor="#a78bfa" label={t('habits.avgSuccessRate')} value={`${avgSuccessRate}%`} />
-              <StatCard icon="calendar-check" accentColor="#a78bfa" label={t('habits.activeToday')} value={`${activeToday}/${totalHabits}`} />
-              <StatCard icon="flame" accentColor="#a78bfa" label={t('habits.totalStreak')} value={totalCurrentStreak} />
-            </>
-          )}
+      {loadError && (
+        <div className="alert-error" role="alert">
+          {loadError}
         </div>
-      </ScrollReveal>
+      )}
 
-      {/* Yearly Heatmap */}
-      <ScrollReveal delay={50}>
-        <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
-          <h3 style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Icon name="grid-3x3" size={20} style={{ color: '#a78bfa' }} />
-            {t('habits.yearlyOverview') || 'Yearly Overview'}
-          </h3>
-          <HabitHeatmap />
-        </div>
-      </ScrollReveal>
+      <section className="habits-day-board" aria-labelledby="habits-selected-day-title">
+        <div className="habits-day-board__header">
+          <div className="habits-day-board__title">
+            <span className="habits-kicker">Log</span>
+            <h2 id="habits-selected-day-title">{formatSelectedDate(selectedDate, i18n.language)}</h2>
+            <div className="habits-date-meta">{selectedDate}</div>
+          </div>
 
-      {/* Quick Actions */}
-      <ScrollReveal delay={100}>
-      <div className="section">
-        <h3>{t('habits.quickActions')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
-          {[
-            { icon: 'settings', label: t('habits.settings'), onClick: () => navigate('/habits/settings'), accent: false },
-            { icon: 'download', label: t('habits.importHabitShare'), onClick: () => navigate('/habits/settings?tab=import'), accent: true },
-          ].map(action => (
+          <div className="habits-date-controls">
             <button
-              key={action.label}
-              className="card interactive"
-              style={{
-                padding: '1.5rem',
-                textAlign: 'center',
-                color: 'inherit',
-                border: action.accent ? `2px solid ${HABITS_COLOR}` : undefined,
-                background: action.accent ? HABITS_COLOR_MUTED : undefined,
-              }}
-              onClick={action.onClick}
+              className="habits-icon-button"
+              type="button"
+              aria-label="Previous day"
+              onClick={() => setSelectedDate((date) => addDays(date, -1))}
             >
-              <Icon name={action.icon} size={40} style={{ marginBottom: '.5rem', color: HABITS_COLOR }} />
-              <div style={{ fontWeight: 700 }}>{action.label}</div>
+              <Icon name="chevron-left" size={18} />
             </button>
-          ))}
+            <button
+              className="btn btn-ghost small"
+              type="button"
+              onClick={() => setSelectedDate(toDateKey())}
+            >
+              Today
+            </button>
+            <button
+              className="habits-icon-button"
+              type="button"
+              aria-label="Next day"
+              onClick={() => setSelectedDate((date) => addDays(date, 1))}
+            >
+              <Icon name="chevron-right" size={18} />
+            </button>
+            <button
+              className="habits-icon-button"
+              type="button"
+              aria-label="Refresh habits"
+              onClick={() => loadData({ silent: true, force: true })}
+            >
+              <Icon name="refresh-cw" size={16} />
+            </button>
+          </div>
         </div>
-      </div>
-      </ScrollReveal>
 
-      {/* Two columns: Habits List & Calendar */}
-      <ScrollReveal delay={200}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
-        {/* Habits List */}
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <h3 style={{ marginBottom: '1rem' }}>
-            <Icon name="list" size={20} style={{ marginRight: 8 }} />
-            {t('habits.todaysHabits')}
-          </h3>
+        <div className="habits-day-progress" aria-label={`${loggedCount} of ${totalHabits} habits logged`}>
+          <div className="habits-day-progress__copy">
+            <strong>{loggedCount}/{totalHabits}</strong>
+            <span>logged</span>
+          </div>
+          <div className="habits-day-progress__track">
+            <div className="habits-day-progress__bar" style={{ width: `${completionValue}%` }} />
+          </div>
+          <div className="habits-day-progress__states">
+            <span><span className="habits-dot habits-dot--success" />{doneCount}</span>
+            <span><span className="habits-dot habits-dot--skip" />{skippedCount}</span>
+            <span><span className="habits-dot habits-dot--fail" />{missedCount}</span>
+          </div>
+        </div>
 
-          {loading ? (
-            <SkeletonCard lines={4} />
-          ) : mergedHabits.length === 0 ? (
-            <div className="empty-state">
-              <Icon name="heart-pulse" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }} />
-              {t('habits.noHabitsYet')}
-            </div>
-          ) : (
-            <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {mergedHabits.map(habit => (
-                <HabitCard
+        {loading ? (
+          <SkeletonCard lines={8} />
+        ) : totalHabits === 0 ? (
+          <div className="habits-empty">
+            <Icon name="heart-pulse" size={42} />
+            <strong>No active habits</strong>
+            <button className="btn" type="button" onClick={() => setQuickAddOpen(true)}>
+              <Icon name="plus" size={16} />
+              Add Habit
+            </button>
+          </div>
+        ) : (
+          <div className="habits-board-groups">
+            <HabitGroup title="Needs log" habits={needsLogHabits}>
+              {needsLogHabits.map((habit) => (
+                <HabitLogRow
                   key={habit.id}
                   habit={habit}
-                  onToggle={(status) => toggleHabitEntry(habit.id, status)}
-                  onNumericSubmit={handleNumericEntry}
-                  t={t}
+                  selectedDate={selectedDate}
+                  saving={Boolean(savingEntries[`${habit.id}:${selectedDate}`])}
+                  onToggle={toggleHabitEntry}
+                  onNumericSubmit={saveNumericEntry}
                 />
               ))}
-            </div>
-          )}
-        </div>
+            </HabitGroup>
 
-        {/* Calendar View */}
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3>
-              <Icon name="calendar" size={20} style={{ marginRight: 8 }} />
-              {t('habits.calendar')}
-            </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <HabitGroup title="Logged" habits={loggedHabits}>
+              {loggedHabits.map((habit) => (
+                <HabitLogRow
+                  key={habit.id}
+                  habit={habit}
+                  selectedDate={selectedDate}
+                  saving={Boolean(savingEntries[`${habit.id}:${selectedDate}`])}
+                  onToggle={toggleHabitEntry}
+                  onNumericSubmit={saveNumericEntry}
+                />
+              ))}
+            </HabitGroup>
+          </div>
+        )}
+      </section>
+
+      <section className="stat-grid habits-stat-grid" aria-label="Habit summary">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => <SkeletonStatCard key={index} />)
+        ) : (
+          <>
+            <StatCard icon="list-checks" accentColor={HABITS_COLOR} label="Active habits" value={totalHabits} />
+            <StatCard icon="calendar-check" accentColor={HABITS_COLOR} label="Logged today" value={`${loggedCount}/${totalHabits}`} />
+            <StatCard icon="percent" accentColor={HABITS_COLOR} label="Average success" value={`${averageSuccess}%`} />
+            <StatCard icon="flame" accentColor={HABITS_COLOR} label="Current streaks" value={totalCurrentStreak} />
+          </>
+        )}
+      </section>
+
+      <section className="habits-secondary-grid">
+        <div className="habits-panel habits-panel--calendar">
+          <div className="habits-panel__header">
+            <div>
+              <span className="habits-kicker">Calendar</span>
+              <h3>{formatMonthYear(monthKey, i18n.language)}</h3>
+            </div>
+            <div className="habits-month-controls">
               <button
-                className="btn small"
-                onClick={() => setSelectedMonth(getPreviousMonth(selectedMonth))}
-                style={{ padding: '0.25rem' }}
+                className="habits-icon-button"
+                type="button"
+                aria-label="Previous month"
+                onClick={() => setSelectedDate((date) => shiftMonth(date, -1))}
               >
                 <Icon name="chevron-left" size={18} />
               </button>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, minWidth: '100px', textAlign: 'center' }}>
-                {formatMonthYear(selectedMonth, i18n.language)}
-              </span>
               <button
-                className="btn small"
-                onClick={() => setSelectedMonth(getNextMonth(selectedMonth))}
-                style={{ padding: '0.25rem' }}
+                className="habits-icon-button"
+                type="button"
+                aria-label="Next month"
+                onClick={() => setSelectedDate((date) => shiftMonth(date, 1))}
               >
                 <Icon name="chevron-right" size={18} />
               </button>
@@ -348,203 +519,358 @@ export default function Habits() {
           </div>
 
           {loading ? (
-            <SkeletonCard lines={6} />
+            <SkeletonCard lines={7} />
           ) : (
             <HabitCalendarGrid
-              month={selectedMonth}
+              month={monthKey}
               habitsMap={calendarData.habits || {}}
               entries={calendarData.entries || []}
               progress={progress}
-              onDayClick={setSelectedDay}
+              onDayClick={setSelectedDate}
             />
           )}
         </div>
-      </div>
-      </ScrollReveal>
 
-      {/* Day Detail Modal */}
-      {selectedDay && (
-        <HabitDayModal
-          date={selectedDay}
-          habits={modalHabits}
-          entries={dayEntries}
-          progress={progress}
-          onClose={() => setSelectedDay(null)}
-          onChanged={() => {
-            loadData()
-          }}
+        <div className="habits-panel">
+          <div className="habits-panel__header">
+            <div>
+              <span className="habits-kicker">Overview</span>
+              <h3>Yearly Activity</h3>
+            </div>
+          </div>
+          <HabitHeatmap />
+        </div>
+      </section>
+
+      {quickAddOpen && (
+        <QuickHabitModal
+          onClose={() => setQuickAddOpen(false)}
+          onCreate={createHabit}
         />
       )}
-    </>
+    </div>
   )
 }
 
-// ─── Habit Card ─────────────────────────────────────────────────────────────
-
-const STATUS_LABELS = {
-  success: 'Pass',
-  fail: 'Fail',
-  skip: 'Skip',
+function HabitGroup({ title, habits, children }) {
+  return (
+    <div className="habits-group">
+      <div className="habits-group__header">
+        <h3>{title}</h3>
+        <span>{habits.length}</span>
+      </div>
+      {habits.length === 0 ? (
+        <div className="habits-group__empty">Clear</div>
+      ) : (
+        <div className="habits-log-list">{children}</div>
+      )}
+    </div>
+  )
 }
 
-function HabitCard({ habit, onToggle, onNumericSubmit, t }) {
-  const todayStatus = habit.todayStatus || 'none'
-  const todayValue = habit.todayNumericValue
-  const habitColor = habit.color || HABITS_COLOR
+function HabitLogRow({ habit, saving, onToggle, onNumericSubmit }) {
+  const status = habit.selectedStatus || 'none'
+  const statusMeta = STATUS_META[status]
   const isNumeric = habit.trackingType === 'numeric'
-  const [numValue, setNumValue] = React.useState(todayValue ?? '')
+  const color = habit.color || HABITS_COLOR
 
-  React.useEffect(() => {
-    setNumValue(todayValue ?? '')
-  }, [todayValue])
+  return (
+    <div
+      className={`habit-log-row habit-log-row--${status}`}
+      data-testid={`habit-row-${habit.id}`}
+      style={{ '--habit-color': color }}
+    >
+      <div className="habit-log-row__identity">
+        <div className="habit-log-row__icon">
+          <Icon name={habit.iconName || 'circle-check'} size={18} />
+        </div>
+        <div className="habit-log-row__copy">
+          <div className="habit-log-row__name">{habit.name}</div>
+          <div className="habit-log-row__meta">
+            <span>{getFrequencyLabel(habit)}</span>
+            <span>{habit.successRate || 0}%</span>
+            {habit.currentStreak > 0 && (
+              <span className="habit-log-row__streak">
+                <Icon name="flame" size={12} />
+                {habit.currentStreak}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
-  function handleNumericKey(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      const num = parseFloat(numValue)
-      if (!isNaN(num) && num >= 0) onNumericSubmit(habit.id, num, habit)
-    }
-  }
+      <ProgressRing value={habit.successRate || 0} size={34} color={color} />
 
-  function handleNumericBlur() {
-    const num = parseFloat(numValue)
-    if (!isNaN(num) && num >= 0 && num !== todayValue) {
-      onNumericSubmit(habit.id, num, habit)
+      <div className="habit-log-row__controls">
+        {isNumeric ? (
+          <NumericHabitControl
+            habit={habit}
+            saving={saving}
+            onSubmit={(value) => onNumericSubmit(habit, value)}
+          />
+        ) : (
+          <div className="habit-status-buttons" role="group" aria-label={`${habit.name} status`}>
+            {Object.entries(STATUS_META).map(([nextStatus, meta]) => (
+              <button
+                key={nextStatus}
+                type="button"
+                className={`habit-status-button ${status === nextStatus ? 'is-active' : ''}`}
+                style={{ '--status-color': meta.color }}
+                aria-pressed={status === nextStatus}
+                disabled={saving}
+                onClick={() => onToggle(habit, nextStatus)}
+              >
+                <Icon name={meta.icon} size={15} />
+                {meta.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="habit-log-row__status">
+        {statusMeta ? (
+          <span style={{ '--status-color': statusMeta.color }}>
+            <Icon name={statusMeta.icon} size={14} />
+            {statusMeta.shortLabel}
+          </span>
+        ) : (
+          <span className="habit-log-row__status-empty">Open</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function NumericHabitControl({ habit, saving, onSubmit }) {
+  const [value, setValue] = useState(habit.selectedNumericValue ?? '')
+  const status = value === '' ? null : evaluateNumericStatus(habit, Number(value))
+  const statusMeta = status ? STATUS_META[status] : null
+
+  useEffect(() => {
+    setValue(habit.selectedNumericValue ?? '')
+  }, [habit.selectedNumericValue])
+
+  function submit() {
+    const numericValue = Number(value)
+    if (!Number.isNaN(numericValue) && numericValue >= 0) {
+      onSubmit(numericValue)
     }
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0.75rem 1rem',
-        background: 'var(--color-bg-elevated)',
-        borderRadius: 'var(--radius-md)',
-        gap: '0.75rem',
-        borderLeft: `3px solid ${habitColor}`,
-      }}
-    >
-      {/* Icon */}
-      <div style={{
-        width: 40, height: 40, minWidth: 40,
-        borderRadius: '50%',
-        background: `${habitColor}22`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <Icon name={habit.iconName || 'circle-check'} size={18} style={{ color: habitColor }} />
-      </div>
-
-      {/* Habit Info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {habit.name}
-          </span>
-          {habit.currentStreak > 0 && (
-            <span style={{
-              fontSize: '0.75rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.15rem',
-              background: 'rgba(251, 191, 36, 0.15)',
-              color: '#fbbf24',
-              padding: '0.1rem 0.4rem',
-              borderRadius: '999px',
-              fontWeight: 700,
-            }}>
-              <Icon name="flame" size={12} /> {habit.currentStreak}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-          <ProgressRing value={habit.successRate || 0} size={28} color={habitColor} />
-          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
-            {habit.successRate || 0}%
-          </span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-            {getFrequencyLabel(habit)}
-          </span>
-        </div>
-      </div>
-
-      {/* Numeric input */}
-      {isNumeric ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={numValue}
-            onChange={e => setNumValue(e.target.value)}
-            onKeyDown={handleNumericKey}
-            onBlur={handleNumericBlur}
-            placeholder="0"
-            style={{
-              width: 52,
-              padding: '0.3rem 0.4rem',
-              borderRadius: 6,
-              border: '1px solid var(--glass-border)',
-              background: 'var(--color-bg)',
-              color: 'var(--color-text-primary)',
-              textAlign: 'center',
-              fontSize: '0.85rem',
-            }}
-          />
-          {habit.numericUnit && (
-            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-              {habit.numericUnit}
-            </span>
-          )}
-          {todayStatus !== 'none' && (
-            <span style={{
-              padding: '0.15rem 0.4rem',
-              borderRadius: 6,
-              background: `${STATUS_COLORS[todayStatus]}33`,
-              color: STATUS_COLORS[todayStatus],
-              fontSize: '0.65rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-            }}>
-              {STATUS_LABELS[todayStatus]}
-            </span>
-          )}
-        </div>
-      ) : (
-        /* Boolean toggle buttons with labels */
-        <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
-          {['success', 'skip', 'fail'].map(status => {
-            const isActive = todayStatus === status
-            return (
-              <button
-                key={status}
-                onClick={(e) => { e.stopPropagation(); onToggle(status) }}
-                style={{
-                  padding: '0.3rem 0.5rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: isActive ? 'none' : '1.5px solid var(--glass-border)',
-                  background: isActive ? STATUS_COLORS[status] : 'transparent',
-                  color: isActive ? '#fff' : STATUS_COLORS[status],
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.2rem',
-                  transition: 'all 0.2s ease',
-                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                }}
-                title={STATUS_LABELS[status]}
-              >
-                <Icon name={STATUS_ICONS[status]} size={15} />
-                <span>{STATUS_LABELS[status]}</span>
-              </button>
-            )
-          })}
-        </div>
+    <div className="habit-numeric-control">
+      <label className="sr-only" htmlFor={`habit-value-${habit.id}`}>
+        {habit.name} value
+      </label>
+      <input
+        id={`habit-value-${habit.id}`}
+        className="input habit-numeric-control__input"
+        type="number"
+        min="0"
+        step="1"
+        value={value}
+        placeholder="0"
+        aria-label={`${habit.name} value`}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            submit()
+          }
+        }}
+      />
+      {habit.numericUnit && <span className="habit-numeric-control__unit">{habit.numericUnit}</span>}
+      {statusMeta && (
+        <span className="habit-numeric-control__preview" style={{ '--status-color': statusMeta.color }}>
+          {statusMeta.shortLabel}
+        </span>
       )}
+      <button className="btn small" type="button" disabled={saving || value === ''} onClick={submit}>
+        Save
+      </button>
     </div>
+  )
+}
+
+function QuickHabitModal({ onClose, onCreate }) {
+  const [form, setForm] = useState({
+    name: '',
+    color: HABITS_COLOR,
+    iconName: 'circle-check',
+    trackingType: 'boolean',
+    frequencyType: 'daily',
+    frequencyTarget: 1,
+    numericUnit: '',
+    numericPassThreshold: 0,
+    numericSkipThreshold: 1,
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const isNumeric = form.trackingType === 'numeric'
+
+  function setField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setError('')
+
+    const name = form.name.trim()
+    if (!name) {
+      setError('Habit name is required')
+      return
+    }
+
+    const payload = {
+      name,
+      color: form.color,
+      iconName: form.iconName || 'circle-check',
+      trackingType: form.trackingType,
+      frequencyType: form.frequencyType,
+      frequencyTarget: Math.max(1, Number(form.frequencyTarget || 1)),
+    }
+
+    if (isNumeric) {
+      payload.numericUnit = form.numericUnit.trim()
+      payload.numericPassThreshold = Number(form.numericPassThreshold || 0)
+      payload.numericSkipThreshold = Number(form.numericSkipThreshold || form.numericPassThreshold || 0)
+    }
+
+    setSaving(true)
+    try {
+      await onCreate(payload)
+    } catch (err) {
+      setError(err.message || 'Failed to create habit')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Add Habit" onClose={onClose} size="medium">
+      <form className="habit-quick-form" onSubmit={submit}>
+        {error && <div className="alert-error" role="alert">{error}</div>}
+
+        <label className="field">
+          <span>Habit name</span>
+          <input
+            className="input"
+            type="text"
+            value={form.name}
+            onChange={(event) => setField('name', event.target.value)}
+            autoFocus
+          />
+        </label>
+
+        <div className="habit-quick-form__row">
+          <label className="field">
+            <span>Icon</span>
+            <input
+              className="input"
+              type="text"
+              value={form.iconName}
+              onChange={(event) => setField('iconName', event.target.value)}
+            />
+          </label>
+          <label className="field habit-quick-form__color">
+            <span>Color</span>
+            <input
+              type="color"
+              value={form.color}
+              onChange={(event) => setField('color', event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="habit-quick-form__row">
+          <label className="field">
+            <span>Tracking</span>
+            <select
+              className="input"
+              value={form.trackingType}
+              onChange={(event) => setField('trackingType', event.target.value)}
+            >
+              <option value="boolean">Done / Skip / Missed</option>
+              <option value="numeric">Numeric</option>
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Frequency</span>
+            <select
+              className="input"
+              value={form.frequencyType}
+              onChange={(event) => setField('frequencyType', event.target.value)}
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </label>
+        </div>
+
+        {form.frequencyType !== 'daily' && (
+          <label className="field">
+            <span>Target</span>
+            <input
+              className="input"
+              type="number"
+              min="1"
+              value={form.frequencyTarget}
+              onChange={(event) => setField('frequencyTarget', event.target.value)}
+            />
+          </label>
+        )}
+
+        {isNumeric && (
+          <div className="habit-quick-form__numeric">
+            <label className="field">
+              <span>Unit</span>
+              <input
+                className="input"
+                type="text"
+                value={form.numericUnit}
+                onChange={(event) => setField('numericUnit', event.target.value)}
+              />
+            </label>
+            <div className="habit-quick-form__row">
+              <label className="field">
+                <span>Done at or below</span>
+                <input
+                  className="input"
+                  type="number"
+                  step="0.01"
+                  value={form.numericPassThreshold}
+                  onChange={(event) => setField('numericPassThreshold', event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Skip at or below</span>
+                <input
+                  className="input"
+                  type="number"
+                  step="0.01"
+                  value={form.numericSkipThreshold}
+                  onChange={(event) => setField('numericSkipThreshold', event.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
+        <div className="habit-quick-form__actions">
+          <button className="btn btn-ghost" type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn" type="submit" disabled={saving}>
+            Create Habit
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }

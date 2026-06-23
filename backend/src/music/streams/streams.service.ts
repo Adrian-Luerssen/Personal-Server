@@ -1,10 +1,12 @@
 // ...existing code...
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { TypeOrmCrudService } from "@nestjsx/crud-typeorm";
 import { Stream, StreamPlatform, StreamType } from "./stream.entity";
 import { resolveTimeframe } from "../../utils/utils";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 @Injectable()
 export class StreamsService extends TypeOrmCrudService<Stream> {
@@ -94,7 +96,11 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
     }
     return result;
   }
-  constructor(@InjectRepository(Stream) repo: Repository<Stream>) {
+  constructor(
+    @InjectRepository(Stream) repo: Repository<Stream>,
+    @Optional()
+    private readonly syncService?: SyncService
+  ) {
     super(repo);
   }
 
@@ -217,7 +223,9 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
       context: data.context,
     });
 
-    return await this.repo.save(stream);
+    const saved = await this.repo.save(stream);
+    await this.recordSync(accountId, saved, SyncOperation.UPSERT);
+    return saved;
   }
 
   async getStats(
@@ -657,5 +665,19 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
       result.push({ hour: h, count: hourMap.get(h) ?? 0 });
     }
     return result;
+  }
+
+  private async recordSync(
+    accountId: string,
+    stream: Stream,
+    operation: SyncOperation
+  ) {
+    if (!this.syncService) return;
+    await this.syncService.recordEvent(accountId, {
+      entityType: "stream",
+      entityId: stream.id,
+      operation,
+      payload: operation === SyncOperation.DELETE ? null : stream,
+    });
   }
 }

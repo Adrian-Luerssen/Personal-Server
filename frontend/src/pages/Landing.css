@@ -197,6 +197,14 @@
   margin-top: 1.5rem;
 }
 
+.landing-editorial-mobile-note {
+  max-width: 34rem;
+  margin: 0.85rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
 .landing-editorial-hero__intro {
   opacity: 0;
   transform: translateY(1.25rem);

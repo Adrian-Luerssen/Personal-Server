@@ -11,6 +11,7 @@ export interface ImportPreviewItem {
   type: MediaType;
   status: MediaStatus;
   rating: number | null;
+  coverUrl?: string | null;
   metadata: Record<string, any>;
   externalIds: Record<string, any>;
 }
@@ -108,6 +109,9 @@ export class MalImportService {
         rating,
         externalIds: malId ? { malId } : {},
         metadata: {
+          importSource: "mal",
+          sourceType: "anime",
+          tags: ["anime"],
           episodes: parseInt(getText(entry.series_episodes)) || null,
           episodesWatched: parseInt(getText(entry.my_watched_episodes)) || 0,
           genres: [],
@@ -121,6 +125,9 @@ export class MalImportService {
         rating,
         externalIds: malId ? { malId } : {},
         metadata: {
+          importSource: "mal",
+          sourceType: "manga",
+          tags: ["manga"],
           chapters: parseInt(getText(entry.manga_chapters)) || null,
           volumes: parseInt(getText(entry.manga_volumes)) || null,
           chaptersRead: parseInt(getText(entry.my_read_chapters)) || 0,

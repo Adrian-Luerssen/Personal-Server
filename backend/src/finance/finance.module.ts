@@ -20,10 +20,12 @@ import { TransactionsController } from "./transactions/transactions.controller";
 import { SubscriptionsController } from "./subscriptions/subscriptions.controller";
 import { FinanceImportController } from "./import/import.controller";
 import { BudgetsController } from "./budgets/budgets.controller";
+import { SyncModule } from "../sync/sync.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([FinanceWallet, FinanceCategory, FinanceTransaction, FinanceSubscription, FinanceBudget]),
+    SyncModule,
   ],
   providers: [WalletsService, CategoriesService, TransactionsService, SubscriptionsService, CashewImportService, BudgetsService],
   controllers: [

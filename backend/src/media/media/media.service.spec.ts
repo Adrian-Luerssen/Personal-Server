@@ -287,6 +287,87 @@ describe('MediaService', () => {
     });
   });
 
+  describe('resetClassification', () => {
+    it('restores TVTime-sourced items to TV with their original import cover and removes guessed MAL ids', async () => {
+      const item = {
+        id: 'item-1',
+        type: MediaType.ANIME,
+        coverUrl: 'https://cdn.myanimelist.net/images/anime/wrong.jpg',
+        externalIds: { tvdbId: 311900, malId: 999 },
+        metadata: {
+          importSource: 'tvtime',
+          sourceType: 'tv',
+          reclassified: true,
+          tags: ['anime'],
+          importCoverUrl: 'https://artworks.thetvdb.com/banners/posters/311900-4.jpg',
+          malScore: 7.1,
+          synopsis: 'Wrong anime match',
+        },
+      };
+      mockQueryBuilder.getMany.mockResolvedValue([item]);
+
+      const result = await service.resetClassification(mockAccount);
+
+      expect(result).toEqual({ reset: 1 });
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: MediaType.TV,
+          coverUrl: 'https://artworks.thetvdb.com/banners/posters/311900-4.jpg',
+          externalIds: { tvdbId: 311900 },
+          metadata: expect.objectContaining({
+            importSource: 'tvtime',
+            sourceType: 'tv',
+            tags: ['tv'],
+            importCoverUrl: 'https://artworks.thetvdb.com/banners/posters/311900-4.jpg',
+          }),
+        }),
+      );
+      expect(mockRepo.save.mock.calls[0][0].metadata).not.toHaveProperty('malScore');
+      expect(mockRepo.save.mock.calls[0][0].metadata).not.toHaveProperty('synopsis');
+      expect(mockRepo.save.mock.calls[0][0].metadata).not.toHaveProperty('reclassified');
+    });
+
+    it('repairs legacy TVTime rows that were reclassified before import source metadata existed', async () => {
+      const item = {
+        id: 'item-2',
+        title: 'Mr. Robot',
+        type: MediaType.ANIME,
+        coverUrl: 'https://cdn.myanimelist.net/images/anime/wrong.jpg',
+        externalIds: { malId: 321 },
+        metadata: {
+          reclassified: true,
+          tags: ['anime'],
+          episodes: 45,
+          episodesWatched: 26,
+          runtime: 50,
+          archived: true,
+          malScore: 6.9,
+        },
+      };
+      mockQueryBuilder.getMany.mockResolvedValue([item]);
+
+      await service.resetClassification(mockAccount);
+
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: MediaType.TV,
+          coverUrl: null,
+          externalIds: {},
+          metadata: expect.objectContaining({
+            importSource: 'tvtime',
+            sourceType: 'tv',
+            tags: ['tv'],
+            episodesWatched: 26,
+            runtime: 50,
+            archived: true,
+          }),
+        }),
+      );
+      expect(mockRepo.save.mock.calls[0][0].metadata).not.toHaveProperty('malScore');
+      expect(mockRepo.save.mock.calls[0][0].metadata).not.toHaveProperty('reclassified');
+    });
+  });
+
   // ========== BULK CREATE ==========
 
   describe('bulkCreate', () => {

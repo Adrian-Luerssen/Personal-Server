@@ -4,12 +4,15 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository, SelectQueryBuilder } from "typeorm";
 import { FinanceTransaction } from "../entities/transaction.entity";
 import { Account } from "../../system/accounts/account.entity";
 import { Cache } from "cache-manager";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 export interface TransactionFilters {
   walletId?: string;
@@ -30,7 +33,9 @@ export class TransactionsService {
     @InjectRepository(FinanceTransaction)
     private readonly repo: Repository<FinanceTransaction>,
     private readonly dataSource: DataSource,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {}
 
   private applyFilters(
@@ -125,6 +130,7 @@ export class TransactionsService {
     });
     const result = await this.repo.save(tx);
     await this.cacheManager.reset();
+    await this.recordSync(account.id, result, SyncOperation.UPSERT);
     return result;
   }
 
@@ -133,6 +139,7 @@ export class TransactionsService {
     Object.assign(tx, dto);
     const result = await this.repo.save(tx);
     await this.cacheManager.reset();
+    await this.recordSync(account.id, result, SyncOperation.UPSERT);
     return result;
   }
 
@@ -144,10 +151,12 @@ export class TransactionsService {
       });
       if (linked) {
         await this.repo.remove(linked);
+        await this.recordSync(account.id, linked, SyncOperation.DELETE);
       }
     }
     await this.repo.remove(tx);
     await this.cacheManager.reset();
+    await this.recordSync(account.id, tx, SyncOperation.DELETE);
     return { success: true };
   }
 
@@ -286,6 +295,8 @@ export class TransactionsService {
 
       await queryRunner.commitTransaction();
       await this.cacheManager.reset();
+      await this.recordSync(account.id, savedOutgoing, SyncOperation.UPSERT);
+      await this.recordSync(account.id, savedIncoming, SyncOperation.UPSERT);
 
       return { outgoing: savedOutgoing, incoming: savedIncoming };
     } catch (err) {
@@ -294,5 +305,19 @@ export class TransactionsService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private async recordSync(
+    accountId: string,
+    transaction: FinanceTransaction,
+    operation: SyncOperation
+  ) {
+    if (!this.syncService) return;
+    await this.syncService.recordEvent(accountId, {
+      entityType: "finance-transaction",
+      entityId: transaction.id,
+      operation,
+      payload: operation === SyncOperation.DELETE ? null : transaction,
+    });
   }
 }

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
@@ -29,6 +29,7 @@ import Settings from './pages/Settings/Settings'
 import SpotifyCallback from './pages/Spotify/SpotifyCallback'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { applyChartTheme } from './chartTheme'
+import { isMobileBrowser } from './mobilePlatform'
 
 applyChartTheme()
 
@@ -56,10 +57,25 @@ const GuardedSettings = withRefreshGuard(Settings)
 const GuardedSpotifyCallback = withRefreshGuard(SpotifyCallback)
 
 export default function AppRouter() {
+  const [mobileBlocked, setMobileBlocked] = useState(false)
+
+  useEffect(() => {
+    const update = () => setMobileBlocked(isMobileBrowser())
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
   return (
     <PreferencesProvider>
       <BrowserRouter>
         <div className="app">
+          {mobileBlocked ? (
+            <Routes>
+              <Route path="/" element={<Landing mobileGate />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          ) : (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
@@ -95,6 +111,7 @@ export default function AppRouter() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          )}
         </div>
       </BrowserRouter>
     </PreferencesProvider>

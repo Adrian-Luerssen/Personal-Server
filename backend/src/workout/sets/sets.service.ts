@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Optional,
 } from "@nestjs/common";
 import { TypeOrmCrudService } from "@nestjsx/crud-typeorm";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -9,13 +10,17 @@ import { WorkoutSet } from "./set.entity";
 import { Repository } from "typeorm";
 import { Account } from "../../system/accounts/account.entity";
 import { WorkoutSession } from "../sessions/session.entity";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 @Injectable()
 export class WorkoutSetsService extends TypeOrmCrudService<WorkoutSet> {
   constructor(
     @InjectRepository(WorkoutSet) repo: Repository<WorkoutSet>,
     @InjectRepository(WorkoutSession)
-    private readonly sessionRepo: Repository<WorkoutSession>
+    private readonly sessionRepo: Repository<WorkoutSession>,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {
     super(repo);
   }
@@ -67,7 +72,9 @@ export class WorkoutSetsService extends TypeOrmCrudService<WorkoutSet> {
       rpe: body.rpe ?? null,
       notes: body.notes ?? null,
     });
-    return this.repo.save(set);
+    const saved = await this.repo.save(set);
+    await this.recordSync(account.id, saved, SyncOperation.UPSERT);
+    return saved;
   }
 
   async reorderSets(
@@ -93,7 +100,10 @@ export class WorkoutSetsService extends TypeOrmCrudService<WorkoutSet> {
       if (newOrder === undefined) continue;
       s.order = newOrder;
     }
-    await this.repo.save(sets);
+    const saved = await this.repo.save(sets);
+    await Promise.all(
+      saved.map((set) => this.recordSync(account.id, set, SyncOperation.UPSERT))
+    );
     return { updated: sets.length };
   }
 
@@ -106,6 +116,21 @@ export class WorkoutSetsService extends TypeOrmCrudService<WorkoutSet> {
     if (set.accountId !== account.id)
       throw new ForbiddenException("Not your set");
     await this.repo.delete(setId);
+    await this.recordSync(account.id, set, SyncOperation.DELETE);
     return { success: true };
+  }
+
+  private async recordSync(
+    accountId: string,
+    set: WorkoutSet,
+    operation: SyncOperation
+  ) {
+    if (!this.syncService) return;
+    await this.syncService.recordEvent(accountId, {
+      entityType: "workout-set",
+      entityId: set.id,
+      operation,
+      payload: operation === SyncOperation.DELETE ? null : set,
+    });
   }
 }

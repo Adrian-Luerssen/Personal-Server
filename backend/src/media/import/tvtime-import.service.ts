@@ -8,11 +8,14 @@ export class TvTimeImportService {
 
   async parseCsv(buffer: Buffer): Promise<ImportPreviewItem[]> {
     const text = buffer.toString("utf-8");
-    const lines = text.split("\n").filter((l) => l.trim());
+    const rows = this.parseCsvRecords(text).filter((r) =>
+      r.some((c) => c.trim())
+    );
 
-    if (lines.length < 2) return [];
+    if (rows.length < 2) return [];
 
-    const headers = this.parseCsvLine(lines[0]);
+    const headers = rows[0];
+    const idIdx = this.findColumn(headers, ["id", "tvdb_id", "thetvdb_id", "thetvdb"]);
     const nameIdx = this.findColumn(headers, ["name", "title", "series"]);
     const statusIdx = this.findColumn(headers, ["status"]);
     const seenIdx = this.findColumn(headers, ["seen_episodes"]);
@@ -29,17 +32,18 @@ export class TvTimeImportService {
 
     const items: ImportPreviewItem[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const cols = this.parseCsvLine(lines[i]);
+    for (let i = 1; i < rows.length; i++) {
+      const cols = rows[i];
       if (cols.length <= nameIdx) continue;
 
       const title = cols[nameIdx]?.trim();
       if (!title) continue;
 
+      const tvdbId = idIdx >= 0 ? parseInt(cols[idIdx], 10) || null : null;
       const rawStatus = statusIdx >= 0 ? cols[statusIdx]?.trim().toLowerCase() : "";
-      const seenEpisodes = seenIdx >= 0 ? parseInt(cols[seenIdx]) || 0 : 0;
-      const airedEpisodes = airedIdx >= 0 ? parseInt(cols[airedIdx]) || null : null;
-      const runtime = runtimeIdx >= 0 ? parseInt(cols[runtimeIdx]) || null : null;
+      const seenEpisodes = seenIdx >= 0 ? parseInt(cols[seenIdx], 10) || 0 : 0;
+      const airedEpisodes = airedIdx >= 0 ? parseInt(cols[airedIdx], 10) || null : null;
+      const runtime = runtimeIdx >= 0 ? parseInt(cols[runtimeIdx], 10) || null : null;
       const posterUrl = posterIdx >= 0 ? cols[posterIdx]?.trim() || null : null;
       const upToDate = upToDateIdx >= 0 ? cols[upToDateIdx]?.trim().toLowerCase() === "true" : false;
       const archived = archivedIdx >= 0 ? cols[archivedIdx]?.trim().toLowerCase() === "true" : false;
@@ -51,15 +55,20 @@ export class TvTimeImportService {
         type: MediaType.TV,
         status,
         rating: null,
-        externalIds: {},
+        externalIds: tvdbId ? { tvdbId } : {},
         metadata: {
+          importSource: "tvtime",
+          sourceType: "tv",
+          sourceId: tvdbId,
+          tags: ["tv"],
           episodes: airedEpisodes,
           episodesWatched: seenEpisodes,
           runtime,
           archived,
+          importCoverUrl: posterUrl,
         },
         coverUrl: posterUrl,
-      } as any);
+      });
     }
 
     return items;
@@ -86,28 +95,50 @@ export class TvTimeImportService {
 
   private findColumn(headers: string[], candidates: string[]): number {
     for (let i = 0; i < headers.length; i++) {
-      const h = headers[i].trim().toLowerCase();
+      const h = headers[i]
+        .replace(/^\uFEFF/, "")
+        .trim()
+        .toLowerCase();
       if (candidates.some((c) => h === c || h.includes(c))) return i;
     }
     return -1;
   }
 
-  private parseCsvLine(line: string): string[] {
-    const result: string[] = [];
+  private parseCsvRecords(text: string): string[][] {
+    const rows: string[][] = [];
+    let row: string[] = [];
     let current = "";
     let inQuotes = false;
 
-    for (const char of line) {
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+
       if (char === '"') {
-        inQuotes = !inQuotes;
+        if (inQuotes && text[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
       } else if (char === "," && !inQuotes) {
-        result.push(current);
+        row.push(current);
         current = "";
+      } else if ((char === "\n" || char === "\r") && !inQuotes) {
+        row.push(current);
+        rows.push(row);
+        row = [];
+        current = "";
+        if (char === "\r" && text[i + 1] === "\n") i++;
       } else {
         current += char;
       }
     }
-    result.push(current);
-    return result;
+
+    if (current.length > 0 || row.length > 0) {
+      row.push(current);
+      rows.push(row);
+    }
+
+    return rows;
   }
 }

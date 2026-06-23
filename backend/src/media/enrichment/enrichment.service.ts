@@ -64,7 +64,12 @@ export class MediaEnrichmentService {
           const msg = err instanceof Error ? err.message : String(err);
           this.logger.warn(`Failed to enrich "${item.title}": ${msg}`);
           // Mark as attempted so we don't retry forever — set empty string
-          item.coverUrl = "";
+          if (!item.coverUrl) item.coverUrl = "";
+          item.metadata = {
+            ...item.metadata,
+            enrichmentError: msg,
+            reclassified: item.metadata?.reclassified ?? true,
+          };
           await this.mediaRepo.save(item);
         }
       }
@@ -80,22 +85,16 @@ export class MediaEnrichmentService {
       await this.enrichFromOpenLibrary(item);
       return;
     }
-    if (item.type === MediaType.MANGA) {
+    if (item.type === MediaType.MANGA || item.type === MediaType.ANIME) {
       await this.enrichFromJikan(item);
       return;
     }
 
-    // For anime, tv, and movie: try Jikan first to detect anime
-    // This reclassifies TVTime/other imports that may be anime
-    const jikanMatch = await this.tryJikanClassify(item);
-    if (jikanMatch) {
-      return; // Already saved inside tryJikanClassify
+    if (item.type === MediaType.TV || item.type === MediaType.MOVIE) {
+      await this.enrichFromTmdb(item);
+      return;
     }
 
-    // Not found on Jikan → it's a regular TV show or movie
-    if (item.type === MediaType.TV || item.type === MediaType.MOVIE || item.type === MediaType.ANIME) {
-      await this.enrichFromTmdb(item);
-    }
   }
 
   /**
@@ -248,7 +247,7 @@ export class MediaEnrichmentService {
 
     if (!data) {
       this.logger.debug(`No Jikan result for "${item.title}"`);
-      item.coverUrl = "";
+      if (!item.coverUrl) item.coverUrl = "";
       await this.mediaRepo.save(item);
       return;
     }
@@ -296,7 +295,14 @@ export class MediaEnrichmentService {
       newMeta.tags = ["manga"];
     } else {
       if (data.episodes && !newMeta.episodes) newMeta.episodes = data.episodes;
-      newMeta.tags = ["anime"];
+      const format = String(data.type || "").toLowerCase();
+      const tags = ["anime"];
+      if (format === "movie") {
+        tags.push("movie");
+      } else if (["tv", "ova", "ona", "special"].includes(format)) {
+        tags.push("tv");
+      }
+      newMeta.tags = tags;
     }
     newMeta.reclassified = true;
 
@@ -317,7 +323,17 @@ export class MediaEnrichmentService {
   private async enrichFromTmdb(item: MediaItem): Promise<void> {
     const tmdbKey = process.env.TMDB_API_KEY;
     if (!tmdbKey) {
-      item.coverUrl = "";
+      if (!item.coverUrl && item.metadata?.importCoverUrl) {
+        item.coverUrl = item.metadata.importCoverUrl;
+      } else if (!item.coverUrl) {
+        item.coverUrl = "";
+      }
+      item.metadata = {
+        ...item.metadata,
+        tags: this.tagsForTmdbType(item.type),
+        reclassified: true,
+        enrichmentStatus: "tmdb_unconfigured",
+      };
       await this.mediaRepo.save(item);
       return;
     }
@@ -342,15 +358,26 @@ export class MediaEnrichmentService {
     }
 
     if (!data) {
-      item.coverUrl = "";
-      item.metadata = { ...item.metadata, reclassified: true };
+      if (!item.coverUrl && item.metadata?.importCoverUrl) {
+        item.coverUrl = item.metadata.importCoverUrl;
+      } else if (!item.coverUrl) {
+        item.coverUrl = "";
+      }
+      item.metadata = {
+        ...item.metadata,
+        tags: this.tagsForTmdbType(item.type),
+        reclassified: true,
+        enrichmentStatus: "tmdb_no_match",
+      };
       await this.mediaRepo.save(item);
       return;
     }
 
     if (data.poster_path) {
       item.coverUrl = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
-    } else {
+    } else if (!item.coverUrl && item.metadata?.importCoverUrl) {
+      item.coverUrl = item.metadata.importCoverUrl;
+    } else if (!item.coverUrl) {
       item.coverUrl = "";
     }
 
@@ -382,8 +409,12 @@ export class MediaEnrichmentService {
     }
 
     // Set tags based on type
-    const tmdbTags: string[] = [item.type === MediaType.MOVIE ? "movie" : "tv"];
-    item.metadata = { ...item.metadata, tags: tmdbTags, reclassified: true };
+    item.metadata = {
+      ...item.metadata,
+      tags: this.tagsForTmdbType(item.type),
+      reclassified: true,
+      enrichmentStatus: "tmdb_matched",
+    };
     await this.mediaRepo.save(item);
     this.logger.debug(`Enriched "${item.title}" with cover + metadata from TMDB`);
   }
@@ -452,5 +483,9 @@ export class MediaEnrichmentService {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private tagsForTmdbType(type: MediaType): string[] {
+    return [type === MediaType.MOVIE ? "movie" : "tv"];
   }
 }

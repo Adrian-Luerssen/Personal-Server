@@ -5,8 +5,16 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
-import { ChatConversation } from './entities/conversation.entity';
-import { ChatMessage, ChatSender, ChatStatus } from './entities/message.entity';
+import {
+  ChatConversation,
+  ChatConversationStatus,
+} from './entities/conversation.entity';
+import {
+  ChatMessage,
+  ChatSender,
+  ChatStatus,
+  ChatTokenUsage,
+} from './entities/message.entity';
 
 @Injectable()
 export class ChatService {
@@ -33,6 +41,9 @@ export class ChatService {
     const conversation = this.conversationRepo.create({
       accountId,
       title: title ?? null,
+      status: ChatConversationStatus.ACTIVE,
+      lastActivityAt: new Date(),
+      closedAt: null,
     });
     return this.conversationRepo.save(conversation);
   }
@@ -93,6 +104,20 @@ export class ChatService {
     await this.conversationRepo.delete({ id: conversationId, accountId });
   }
 
+  async closeConversation(
+    conversationId: string,
+    accountId: string,
+  ): Promise<ChatConversation> {
+    const conversation = await this.verifyConversationOwnership(
+      conversationId,
+      accountId,
+    );
+    conversation.status = ChatConversationStatus.CLOSED;
+    conversation.closedAt = new Date();
+    conversation.lastActivityAt = new Date();
+    return this.conversationRepo.save(conversation);
+  }
+
   /** Get unread messages (status = 'sent') for agent polling. */
   async getUnread(accountId: string): Promise<ChatMessage[]> {
     return this.messageRepo.find({
@@ -123,6 +148,92 @@ export class ChatService {
     return this.messageRepo.save(message);
   }
 
+  async markUserMessageRead(
+    messageId: string,
+    accountId: string,
+  ): Promise<ChatMessage> {
+    const message = await this.messageRepo.findOne({
+      where: {
+        id: messageId,
+        accountId,
+        sender: ChatSender.USER,
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('User message not found');
+    }
+
+    message.status = ChatStatus.READ;
+    message.readAt = new Date();
+    return this.messageRepo.save(message);
+  }
+
+  async createThinkingMessage(
+    conversationId: string,
+    accountId: string,
+    agentKeyId?: string,
+  ): Promise<ChatMessage> {
+    await this.verifyConversationOwnership(conversationId, accountId);
+
+    const message = this.messageRepo.create({
+      conversationId,
+      accountId,
+      sender: ChatSender.AGENT,
+      agentKeyId: agentKeyId ?? null,
+      text: '',
+      status: ChatStatus.THINKING,
+      pageContext: null,
+      replyToId: null,
+      tokenUsage: null,
+      readAt: null,
+    });
+
+    const saved = await this.messageRepo.save(message);
+    await this.touchConversation(conversationId);
+    return saved;
+  }
+
+  async finishThinkingMessage(
+    messageId: string,
+    accountId: string,
+    text: string,
+    tokenUsage?: ChatTokenUsage,
+  ): Promise<ChatMessage> {
+    const message = await this.messageRepo.findOne({
+      where: {
+        id: messageId,
+        accountId,
+        sender: ChatSender.AGENT,
+        status: ChatStatus.THINKING,
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Thinking message not found');
+    }
+
+    message.text = text;
+    message.status = ChatStatus.FINISHED;
+    message.tokenUsage = tokenUsage ?? null;
+    const saved = await this.messageRepo.save(message);
+    await this.touchConversation(message.conversationId);
+    return saved;
+  }
+
+  async setConversationTitle(
+    conversationId: string,
+    accountId: string,
+    title: string,
+  ): Promise<ChatConversation> {
+    const conversation = await this.verifyConversationOwnership(
+      conversationId,
+      accountId,
+    );
+    conversation.title = title.slice(0, 200);
+    return this.conversationRepo.save(conversation);
+  }
+
   /** Agent posts a reply message with status 'delivered'. */
   async sendAgentMessage(
     conversationId: string,
@@ -146,9 +257,7 @@ export class ChatService {
     const saved = await this.messageRepo.save(message);
 
     // Touch conversation updatedAt
-    await this.conversationRepo.update(conversationId, {
-      updatedAt: new Date(),
-    });
+    await this.touchConversation(conversationId);
 
     return saved;
   }
@@ -168,5 +277,12 @@ export class ChatService {
     }
 
     return conversation;
+  }
+
+  private async touchConversation(conversationId: string): Promise<void> {
+    await this.conversationRepo.update(conversationId, {
+      updatedAt: new Date(),
+      lastActivityAt: new Date(),
+    });
   }
 }

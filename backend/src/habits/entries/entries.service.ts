@@ -2,12 +2,15 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Optional,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { HabitEntry, HabitStatus } from "../entities/habit-entry.entity";
 import { Habit } from "../entities/habit.entity";
 import { Account } from "../../system/accounts/account.entity";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 @Injectable()
 export class EntriesService {
@@ -15,7 +18,9 @@ export class EntriesService {
     @InjectRepository(HabitEntry)
     private readonly entryRepo: Repository<HabitEntry>,
     @InjectRepository(Habit)
-    private readonly habitRepo: Repository<Habit>
+    private readonly habitRepo: Repository<Habit>,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {}
 
   private async verifyHabit(account: Account, habitId: string): Promise<Habit> {
@@ -108,7 +113,9 @@ export class EntriesService {
       numericValue: dto.numericValue ?? undefined,
       comment: dto.comment,
     });
-    return this.entryRepo.save(entry);
+    const saved = await this.entryRepo.save(entry);
+    await this.recordSync(account.id, saved, SyncOperation.UPSERT);
+    return saved;
   }
 
   async updateEntry(
@@ -147,7 +154,9 @@ export class EntriesService {
 
     if (dto.comment !== undefined) entry.comment = dto.comment;
 
-    return this.entryRepo.save(entry);
+    const saved = await this.entryRepo.save(entry);
+    await this.recordSync(account.id, saved, SyncOperation.UPSERT);
+    return saved;
   }
 
   async removeEntry(
@@ -166,6 +175,7 @@ export class EntriesService {
       );
 
     await this.entryRepo.remove(entry);
+    await this.recordSync(account.id, entry, SyncOperation.DELETE);
   }
 
   async upsertEntry(
@@ -194,6 +204,22 @@ export class EntriesService {
       });
     }
 
-    return this.entryRepo.save(entry);
+    const saved = await this.entryRepo.save(entry);
+    await this.recordSync(account.id, saved, SyncOperation.UPSERT);
+    return saved;
+  }
+
+  private async recordSync(
+    accountId: string,
+    entry: HabitEntry,
+    operation: SyncOperation
+  ) {
+    if (!this.syncService) return;
+    await this.syncService.recordEvent(accountId, {
+      entityType: "habit-entry",
+      entityId: entry.id,
+      operation,
+      payload: operation === SyncOperation.DELETE ? null : entry,
+    });
   }
 }

@@ -1,10 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import { Stream, StreamPlatform } from "../music/streams/stream.entity";
 import { Track } from "../music/tracks/track.entity";
 import { WorkoutSession } from "../workout/sessions/session.entity";
 import { Account } from "../system/accounts/account.entity";
+import { SyncService } from "../sync/sync.service";
+import { formatDateYYYYMMDDInZone } from "../utils/utils";
 
 export type DashboardFocus = "momentum" | "steady" | "attention";
 
@@ -59,6 +61,99 @@ export interface LandingStatsResponse {
   metrics: LandingMetricItem[];
 }
 
+export interface DashboardMobileSnapshotResponse {
+  accountId: string;
+  generatedAt: string;
+  sync: {
+    checkedAt: string;
+    watermarks: Record<string, number>;
+  };
+  intelligence: DashboardIntelligenceResponse;
+  weeklySummary: {
+    workouts: number;
+    habitsCompleted: number;
+    habitsTotal: number;
+    spending: number;
+    streams: number;
+  };
+  workoutHabitCorrelation: {
+    workoutDays: {
+      completionRate: number;
+      total: number;
+      successful: number;
+    };
+    restDays: {
+      completionRate: number;
+      total: number;
+      successful: number;
+    };
+    totalWorkoutDays: number;
+  };
+  habits: {
+    total: number;
+    completedToday: number;
+    incompleteToday: number;
+    completionPct: number;
+    dailyCompletions: Array<{ date: string; count: number }>;
+    today: Array<{
+      habitId: string;
+      habitName: string;
+      habitIconName: string;
+      habitColor: string;
+      frequencyType: string;
+      trackingType: string;
+      numericUnit: string | null;
+      todayStatus: string | null;
+      numericValue: number | null;
+      comment: string | null;
+      completedToday: boolean;
+      currentStreak: number;
+      longestStreak: number;
+      successRate: number;
+    }>;
+  };
+  workout: {
+    totals: {
+      totalWorkouts: number;
+      totalSets: number;
+      totalReps: number;
+      totalVolume: number;
+      totalTimeSeconds: number;
+    };
+    activeSession: Record<string, any> | null;
+    recentSessions: Array<Record<string, any>>;
+  };
+  finance: {
+    summary: {
+      totalIncome: number;
+      totalExpense: number;
+      netBalance: number;
+      incomeCount: number;
+      expenseCount: number;
+    };
+    monthlySpent: number;
+  };
+  spotify: {
+    stats: {
+      totalStreams: number;
+      msListened: number;
+      uniqueTracks: number;
+      uniqueArtists: number;
+      lastStream?: string;
+    };
+    rankingPreview: Array<{
+      rank: number;
+      accountId: string;
+      displayName: string;
+      spotifyUserId?: string;
+      streamCount: number;
+      uniqueTracks: number;
+      msListened: number;
+      lastStream?: string;
+    }>;
+  };
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -66,7 +161,9 @@ export class DashboardService {
     @InjectRepository(Track) private readonly trackRepo: Repository<Track>,
     @InjectRepository(WorkoutSession)
     private readonly sessionRepo: Repository<WorkoutSession>,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {}
 
   /**
@@ -391,6 +488,339 @@ export class DashboardService {
     };
   }
 
+  async getMobileSnapshot(
+    account: Account
+  ): Promise<DashboardMobileSnapshotResponse> {
+    const accountId = account.id;
+    const now = new Date();
+    const today = formatDateYYYYMMDDInZone(now, "Europe/Madrid");
+    const monthStart = `${today.slice(0, 7)}-01`;
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    const weekStart = formatDateYYYYMMDDInZone(sevenDaysAgo, "Europe/Madrid");
+
+    const [
+      intelligence,
+      weeklySummary,
+      workoutHabitCorrelation,
+      habitRows,
+      habitTrendRows,
+      workoutTotalRows,
+      activeSessionRows,
+      recentSessionRows,
+      financeRows,
+      spotifyRows,
+      rankingRows,
+      watermarks,
+    ] = await Promise.all([
+      this.getDashboardIntelligence(accountId),
+      this.getWeeklySummary(accountId),
+      this.getWorkoutHabitCorrelation(accountId),
+      this.getMobileHabitsToday(accountId, today),
+      this.getMobileHabitDailyCompletions(accountId, weekStart),
+      this.getMobileWorkoutTotals(accountId),
+      this.getMobileActiveWorkout(accountId),
+      this.getMobileRecentWorkouts(accountId),
+      this.getMobileFinanceSummary(accountId, monthStart),
+      this.getMobileSpotifyStats(accountId),
+      this.getMobileSpotifyRanking(),
+      this.syncService?.getWatermarks(accountId) ?? Promise.resolve({}),
+    ]);
+
+    const habitsToday = habitRows.map((row) => {
+      const streak = row.entries
+        ? this.calculateHabitStreak(row.entries, today)
+        : {
+            current: this.parseNumber(row.currentStreak),
+            longest: this.parseNumber(row.longestStreak),
+          };
+      return {
+        habitId: row.habitId,
+        habitName: row.habitName,
+        habitIconName: row.habitIconName || "circle-check",
+        habitColor: row.habitColor || "#a78bfa",
+        frequencyType: row.frequencyType || "daily",
+        trackingType: row.trackingType || "boolean",
+        numericUnit: row.numericUnit ?? null,
+        todayStatus: row.todayStatus ?? null,
+        numericValue: row.numericValue != null ? Number(row.numericValue) : null,
+        comment: row.comment ?? null,
+        completedToday: this.parseBoolean(row.completedToday),
+        currentStreak: streak.current,
+        longestStreak: streak.longest,
+        successRate: this.parseNumber(row.successRate),
+      };
+    });
+    const completedToday = habitsToday.filter((habit) => habit.completedToday)
+      .length;
+    const totalHabits = habitsToday.length;
+
+    const workoutTotalsRow = workoutTotalRows[0] ?? {};
+    const financeRow = financeRows[0] ?? {};
+    const spotifyRow = spotifyRows[0] ?? {};
+    const totalIncome = this.parseNumber(financeRow.totalIncome);
+    const totalExpense = this.parseNumber(financeRow.totalExpense);
+
+    return {
+      accountId,
+      generatedAt: now.toISOString(),
+      sync: {
+        checkedAt: new Date().toISOString(),
+        watermarks,
+      },
+      intelligence,
+      weeklySummary,
+      workoutHabitCorrelation,
+      habits: {
+        total: totalHabits,
+        completedToday,
+        incompleteToday: Math.max(totalHabits - completedToday, 0),
+        completionPct:
+          totalHabits > 0 ? Math.round((completedToday / totalHabits) * 100) : 0,
+        dailyCompletions: habitTrendRows.map((row) => ({
+          date: this.toDateOnly(row.date),
+          count: this.parseNumber(row.count),
+        })),
+        today: habitsToday,
+      },
+      workout: {
+        totals: {
+          totalWorkouts: this.parseNumber(workoutTotalsRow.totalWorkouts),
+          totalSets: this.parseNumber(workoutTotalsRow.totalSets),
+          totalReps: this.parseNumber(workoutTotalsRow.totalReps),
+          totalVolume: this.parseNumber(workoutTotalsRow.totalVolume),
+          totalTimeSeconds: this.parseNumber(workoutTotalsRow.totalTimeSeconds),
+        },
+        activeSession: this.mapWorkoutSession(activeSessionRows[0]),
+        recentSessions: recentSessionRows.map((row) =>
+          this.mapWorkoutSession(row)
+        ),
+      },
+      finance: {
+        summary: {
+          totalIncome,
+          totalExpense,
+          netBalance: totalIncome - totalExpense,
+          incomeCount: this.parseNumber(financeRow.incomeCount),
+          expenseCount: this.parseNumber(financeRow.expenseCount),
+        },
+        monthlySpent: totalExpense,
+      },
+      spotify: {
+        stats: {
+          totalStreams: this.parseNumber(spotifyRow.totalStreams),
+          msListened: this.parseNumber(spotifyRow.msListened),
+          uniqueTracks: this.parseNumber(spotifyRow.uniqueTracks),
+          uniqueArtists: this.parseNumber(spotifyRow.uniqueArtists),
+          lastStream: spotifyRow.lastStream
+            ? new Date(spotifyRow.lastStream).toISOString()
+            : undefined,
+        },
+        rankingPreview: rankingRows.map((row) => ({
+          rank: this.parseNumber(row.rank),
+          accountId: row.accountId,
+          displayName: row.displayName || "Spotify User",
+          spotifyUserId: row.spotifyUserId || undefined,
+          streamCount: this.parseNumber(row.streamCount),
+          uniqueTracks: this.parseNumber(row.uniqueTracks),
+          msListened: this.parseNumber(row.msListened),
+          lastStream: row.lastStream
+            ? new Date(row.lastStream).toISOString()
+            : undefined,
+        })),
+      },
+    };
+  }
+
+  private getMobileHabitsToday(accountId: string, today: string) {
+    return this.dataSource.query(
+      `SELECT
+        h.id AS "habitId",
+        h.name AS "habitName",
+        COALESCE(h."iconName", 'circle-check') AS "habitIconName",
+        COALESCE(h.color, '#a78bfa') AS "habitColor",
+        h."frequencyType" AS "frequencyType",
+        h."trackingType" AS "trackingType",
+        h."numericUnit" AS "numericUnit",
+        he.status AS "todayStatus",
+        he."numericValue" AS "numericValue",
+        he.comment AS "comment",
+        CASE WHEN he.status = 'success' THEN true ELSE false END AS "completedToday",
+        COALESCE(streaks."currentStreak", 0) AS "currentStreak",
+        COALESCE(streaks."longestStreak", 0) AS "longestStreak",
+        COALESCE(entry_history.entries, '[]'::json) AS "entries",
+        COALESCE(stats."successRate", 0) AS "successRate"
+       FROM app_habit h
+       LEFT JOIN app_habit_entry he
+        ON he."habitId" = h.id
+        AND he."accountId" = h."accountId"
+        AND he.date = $2
+       LEFT JOIN LATERAL (
+        SELECT COUNT(*) FILTER (WHERE recent.status = 'success') AS "currentStreak",
+               COUNT(*) FILTER (WHERE recent.status = 'success') AS "longestStreak"
+        FROM (
+          SELECT e.status
+          FROM app_habit_entry e
+          WHERE e."habitId" = h.id AND e."accountId" = h."accountId"
+          ORDER BY e.date DESC
+          LIMIT 30
+        ) recent
+       ) streaks ON true
+       LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object('date', e.date, 'status', e.status)
+          ORDER BY e.date ASC
+        ) AS entries
+        FROM app_habit_entry e
+        WHERE e."habitId" = h.id AND e."accountId" = h."accountId"
+       ) entry_history ON true
+       LEFT JOIN LATERAL (
+        SELECT
+          CASE
+            WHEN COUNT(*) FILTER (WHERE e.status IN ('success', 'fail')) = 0 THEN 0
+            ELSE ROUND(
+              (COUNT(*) FILTER (WHERE e.status = 'success')::numeric /
+               COUNT(*) FILTER (WHERE e.status IN ('success', 'fail'))::numeric) * 100,
+              1
+            )
+          END AS "successRate"
+        FROM app_habit_entry e
+        WHERE e."habitId" = h.id AND e."accountId" = h."accountId"
+       ) stats ON true
+       WHERE h."accountId" = $1 AND h."isActive" = true
+       ORDER BY "completedToday" ASC, h.name ASC`,
+      [accountId, today]
+    );
+  }
+
+  private getMobileHabitDailyCompletions(accountId: string, weekStart: string) {
+    return this.dataSource.query(
+      `SELECT e.date AS date, COUNT(*) AS count
+       FROM app_habit_entry e
+       WHERE e."accountId" = $1
+        AND e.status = 'success'
+        AND e.date >= $2
+       GROUP BY e.date
+       ORDER BY e.date ASC`,
+      [accountId, weekStart]
+    );
+  }
+
+  private getMobileWorkoutTotals(accountId: string) {
+    return this.dataSource.query(
+      `SELECT
+        (SELECT COUNT(*) FROM app_workout_session s WHERE s."accountId" = $1) AS "totalWorkouts",
+        (SELECT COUNT(*) FROM app_workout_set st WHERE st."accountId" = $1) AS "totalSets",
+        (SELECT COALESCE(SUM(st.reps), 0) FROM app_workout_set st WHERE st."accountId" = $1) AS "totalReps",
+        (SELECT COALESCE(SUM(st.weight * st.reps), 0) FROM app_workout_set st WHERE st."accountId" = $1) AS "totalVolume",
+        (SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (s."endAt" - s."startAt"))), 0)
+          FROM app_workout_session s
+          WHERE s."accountId" = $1 AND s."endAt" IS NOT NULL) AS "totalTimeSeconds"`,
+      [accountId]
+    );
+  }
+
+  private getMobileActiveWorkout(accountId: string) {
+    return this.dataSource.query(
+      `SELECT
+        s.id,
+        s.title,
+        s.date,
+        s."startAt",
+        s."endAt",
+        COUNT(st.id) AS "setCount"
+       FROM app_workout_session s
+       LEFT JOIN app_workout_set st
+        ON st."sessionId" = s.id AND st."accountId" = s."accountId"
+       WHERE s."accountId" = $1 AND s."endAt" IS NULL
+       GROUP BY s.id
+       ORDER BY s."startAt" DESC
+       LIMIT 1`,
+      [accountId]
+    );
+  }
+
+  private getMobileRecentWorkouts(accountId: string) {
+    return this.dataSource.query(
+      `SELECT
+        s.id,
+        s.title,
+        s.date,
+        s."startAt",
+        s."endAt",
+        COUNT(st.id) AS "setCount"
+       FROM app_workout_session s
+       LEFT JOIN app_workout_set st
+        ON st."sessionId" = s.id AND st."accountId" = s."accountId"
+       WHERE s."accountId" = $1
+       GROUP BY s.id
+       ORDER BY s."startAt" DESC
+       LIMIT 5`,
+      [accountId]
+    );
+  }
+
+  private getMobileFinanceSummary(accountId: string, monthStart: string) {
+    return this.dataSource.query(
+      `SELECT
+        COALESCE(SUM(CASE WHEN "isIncome" = true THEN amount ELSE 0 END), 0) AS "totalIncome",
+        COALESCE(SUM(CASE WHEN "isIncome" = false AND (type IS NULL OR type NOT IN (1, 3)) THEN amount ELSE 0 END), 0) AS "totalExpense",
+        COUNT(*) FILTER (WHERE "isIncome" = true) AS "incomeCount",
+        COUNT(*) FILTER (WHERE "isIncome" = false AND (type IS NULL OR type NOT IN (1, 3))) AS "expenseCount"
+       FROM app_finance_transactions
+       WHERE "accountId" = $1 AND "transactionDate" >= $2`,
+      [accountId, monthStart]
+    );
+  }
+
+  private getMobileSpotifyStats(accountId: string) {
+    return this.dataSource.query(
+      `SELECT
+        COUNT(*) AS "totalStreams",
+        COALESCE(SUM(t.duration), 0) AS "msListened",
+        COUNT(DISTINCT s."trackId") AS "uniqueTracks",
+        COUNT(DISTINCT ta."artistId") AS "uniqueArtists",
+        MAX(s."streamedAt") AS "lastStream"
+       FROM app_stream s
+       INNER JOIN app_track t ON s."trackId" = t.id
+       LEFT JOIN app_track_artists ta ON ta."trackId" = t.id
+       WHERE s."accountId" = $1
+        AND s.platform = 'spotify'
+        AND s."streamType" = 'play'
+        AND s."isValidPlay" = true`,
+      [accountId]
+    );
+  }
+
+  private getMobileSpotifyRanking() {
+    return this.dataSource.query(
+      `SELECT
+        ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC, MAX(s."streamedAt") DESC) AS rank,
+        s."accountId" AS "accountId",
+        COALESCE(
+          MAX(NULLIF(sc."displayName", '')),
+          MAX(NULLIF(a.name, '')),
+          MAX(NULLIF(sc."spotifyUserId", '')),
+          s."accountId"::text
+        ) AS "displayName",
+        MAX(sc."spotifyUserId") AS "spotifyUserId",
+        COUNT(*) AS "streamCount",
+        COUNT(DISTINCT s."trackId") AS "uniqueTracks",
+        COALESCE(SUM(t.duration), 0) AS "msListened",
+        MAX(s."streamedAt") AS "lastStream"
+       FROM app_stream s
+       INNER JOIN app_track t ON s."trackId" = t.id
+       LEFT JOIN app_spotify_credentials sc ON sc."accountId" = s."accountId"
+       LEFT JOIN app_account a ON a.id = s."accountId"
+       WHERE s.platform = 'spotify'
+        AND s."streamType" = 'play'
+        AND s."isValidPlay" = true
+       GROUP BY s."accountId"
+       ORDER BY COUNT(*) DESC, MAX(s."streamedAt") DESC
+       LIMIT 5`
+    );
+  }
+
   async getLandingStats(): Promise<LandingStatsResponse> {
     const [workouts, habits, streams] = await Promise.all([
       this.dataSource.query(`SELECT COUNT(*) as count FROM app_workout_session`),
@@ -442,6 +872,96 @@ export class DashboardService {
       args.workoutDayDelta > 0 ? 18 : args.workoutDayDelta >= -10 ? 10 : 4;
 
     return trainingScore + habitsScore + spendingScore + correlationScore;
+  }
+
+  private parseNumber(value: any): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private parseBoolean(value: any): boolean {
+    return value === true || value === "true" || value === 1 || value === "1";
+  }
+
+  private toDateOnly(value: any): string {
+    if (!value) return "";
+    if (typeof value === "string") return value.slice(0, 10);
+    return new Date(value).toISOString().slice(0, 10);
+  }
+
+  private mapWorkoutSession(row: any): Record<string, any> | null {
+    if (!row) return null;
+    return {
+      id: row.id,
+      title: row.title ?? null,
+      name: row.title || "Workout session",
+      date: this.toDateOnly(row.date),
+      startAt: row.startAt ? new Date(row.startAt).toISOString() : null,
+      endAt: row.endAt ? new Date(row.endAt).toISOString() : null,
+      setCount: this.parseNumber(row.setCount),
+    };
+  }
+
+  private calculateHabitStreak(
+    entriesValue: any,
+    today: string
+  ): { current: number; longest: number } {
+    const entries = this.parseHabitEntries(entriesValue);
+    if (entries.length === 0) return { current: 0, longest: 0 };
+
+    const dateMap = new Map<string, string>();
+    for (const entry of entries) {
+      if (entry.date && entry.status) {
+        dateMap.set(this.toDateOnly(entry.date), entry.status);
+      }
+    }
+
+    let current = 0;
+    let checkDate = new Date(`${today}T00:00:00.000Z`);
+    if (!dateMap.has(today)) {
+      checkDate.setUTCDate(checkDate.getUTCDate() - 1);
+    }
+
+    while (true) {
+      const dateStr = checkDate.toISOString().slice(0, 10);
+      const status = dateMap.get(dateStr);
+      if (!status) break;
+      if (status === "success") {
+        current += 1;
+      } else if (status === "fail") {
+        break;
+      }
+      checkDate.setUTCDate(checkDate.getUTCDate() - 1);
+    }
+
+    let longest = 0;
+    let running = 0;
+    for (const entry of [...entries].sort((a, b) =>
+      this.toDateOnly(a.date).localeCompare(this.toDateOnly(b.date))
+    )) {
+      if (entry.status === "success") {
+        running += 1;
+        longest = Math.max(longest, running);
+      } else if (entry.status === "fail") {
+        running = 0;
+      }
+    }
+
+    return { current, longest };
+  }
+
+  private parseHabitEntries(entriesValue: any): Array<{
+    date: string;
+    status: string;
+  }> {
+    if (Array.isArray(entriesValue)) return entriesValue;
+    if (typeof entriesValue !== "string") return [];
+    try {
+      const parsed = JSON.parse(entriesValue);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   }
 
   private parseCount(rows: Array<{ count?: string | number | null }>) {

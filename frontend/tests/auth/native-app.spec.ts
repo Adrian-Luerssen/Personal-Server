@@ -16,6 +16,79 @@ async function mockNativeApi(page) {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ watermarks: {} }) })
     }
 
+    if (path === '/dashboard/mobile') {
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          generatedAt: '2026-06-24T09:00:00.000Z',
+          sync: {
+            checkedAt: '2026-06-24T09:00:00.000Z',
+            watermarks: {},
+          },
+          intelligence: {
+            focus: 'steady',
+            score: 64,
+            headline: 'Today is under control',
+            summary: 'Compact native dashboard summary.',
+            snapshot: [],
+            insights: [
+              {
+                id: 'native-insight',
+                title: 'Training supports consistency',
+                summary: 'Habits are stronger on workout days.',
+                tone: 'positive',
+                domains: ['workout', 'habits'],
+              },
+            ],
+            aiPrompts: [
+              {
+                id: 'native-review',
+                label: 'Review today',
+                prompt: 'Review my current day.',
+                pageContext: { route: '/home', pageType: 'dashboard' },
+              },
+            ],
+          },
+          spotify: {
+            stats: { totalStreams: 128, uniqueArtists: 42 },
+          },
+          workout: {
+            totals: { totalWorkouts: 3, totalVolume: 12000, totalSets: 42, totalReps: 320 },
+            recentSessions: [{ name: 'Upper body', date: '2026-06-23T09:00:00.000Z' }],
+          },
+          habits: {
+            today: [
+              {
+                habitId: 'sleep',
+                habitName: 'Sleep',
+                completedToday: true,
+                todayStatus: 'success',
+                longestStreak: 8,
+              },
+              {
+                habitId: 'mobility',
+                habitName: 'Mobility',
+                completedToday: false,
+                todayStatus: 'missed',
+                longestStreak: 4,
+              },
+            ],
+            dailyCompletions: [],
+          },
+          finance: {
+            monthlySpent: 247,
+            summary: { totalExpense: -247 },
+          },
+          weeklySummary: { workouts: 3, habitsCompleted: 9, habitsTotal: 12, spending: 247, streams: 128 },
+          workoutHabitCorrelation: {
+            workoutDays: { completionRate: 84 },
+            restDays: { completionRate: 62 },
+            totalWorkoutDays: 3,
+          },
+        }),
+      })
+    }
+
     if (path === '/dashboard/intelligence') {
       return route.fulfill({
         contentType: 'application/json',

@@ -5,7 +5,7 @@ import ChatPanel from './ChatPanel'
 import ApiStatus from './ApiStatus'
 import GradientMesh from './GradientMesh'
 import PageTransition from './PageTransition'
-import { preloadDashboardData } from '../api'
+import { api, checkDataValidity, preloadDashboardData } from '../api'
 import PWAInstallPrompt from './PWAInstallPrompt'
 import { isNativeMobileApp } from '../mobilePlatform'
 import Icon from './icons/Icon'
@@ -54,7 +54,31 @@ export default function Layout() {
   // Preload dashboard data on app mount so pages load instantly
   useEffect(() => {
     preloadDashboardData()
-  }, [])
+
+    const refreshIfChanged = () => {
+      checkDataValidity()
+        .then(({ changed }) => {
+          if (changed && nativeApp) {
+            api.get('/dashboard/mobile', { force: true }).catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshIfChanged()
+    }
+
+    window.addEventListener('focus', refreshIfChanged)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    const interval = nativeApp ? window.setInterval(refreshIfChanged, 120_000) : null
+
+    return () => {
+      window.removeEventListener('focus', refreshIfChanged)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      if (interval) window.clearInterval(interval)
+    }
+  }, [nativeApp])
 
   return (
     <div className={"layout" + (collapsed ? ' sidebar-collapsed' : '')}>

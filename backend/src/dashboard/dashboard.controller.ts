@@ -62,6 +62,11 @@ export class DashboardController {
     return this.dashboard.getDashboardIntelligence(account.id);
   }
 
+  @Get("mobile")
+  async getMobileSnapshot(@ReqUser() account: Account) {
+    return this.dashboard.getMobileSnapshot(account);
+  }
+
   @Get("landing-stats")
   @NoAuth()
   async getLandingStats(): Promise<LandingStatsResponse> {

@@ -62,16 +62,16 @@ export class SyncService {
   }
 
   async getWatermarks(accountId: string): Promise<Record<string, number>> {
-    const events = await this.eventRepo.find({
-      where: { accountId, sequence: MoreThan(0) as any },
-      order: { sequence: 'ASC' },
-    });
+    const rows = await this.eventRepo
+      .createQueryBuilder('event')
+      .select('event.entityType', 'entityType')
+      .addSelect('MAX(event.sequence)', 'cursor')
+      .where('event.accountId = :accountId', { accountId })
+      .groupBy('event.entityType')
+      .getRawMany<{ entityType: string; cursor: string | number | null }>();
 
-    return events.reduce<Record<string, number>>((watermarks, event) => {
-      watermarks[event.entityType] = Math.max(
-        watermarks[event.entityType] ?? 0,
-        Number(event.sequence),
-      );
+    return rows.reduce<Record<string, number>>((watermarks, row) => {
+      watermarks[row.entityType] = Number(row.cursor || 0);
       return watermarks;
     }, {});
   }

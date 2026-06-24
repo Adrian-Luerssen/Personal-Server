@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../api'
+import { api, subscribeToApiPath } from '../api'
 import { AnimatedNumber, formatDuration, formatNumberShort } from '../components/shared'
 import PageHeader from '../components/PageHeader'
 import ProgressRing from '../components/ProgressRing'
@@ -110,12 +110,19 @@ function NativeHomeDashboard({
   openAiPrompt,
   nav,
   loaded,
+  snapshotMeta,
+  syncState,
 }) {
   const firstPrompt = intelligence.aiPrompts?.[0]
   const primaryInsight = intelligence.insights?.[0]
 
   return (
     <div className="native-dashboard" data-testid="native-dashboard">
+      <section className={`native-sync-strip native-sync-strip--${syncState || 'idle'}`}>
+        <span>{syncState === 'offline' ? 'Offline cache' : syncState === 'syncing' ? 'Syncing' : 'Ready'}</span>
+        <strong>{formatLastSynced(snapshotMeta?.generatedAt || snapshotMeta?.checkedAt)}</strong>
+      </section>
+
       <section className="native-dashboard-hero">
         <div>
           <span className="native-eyebrow">Daily control</span>
@@ -256,6 +263,7 @@ function NativeHomeDashboard({
 
 export default function Home() {
   const nav = useNavigate()
+  const nativeApp = isNativeMobileApp()
   const [spotifyStats, setSpotifyStats] = useState(null)
   const [workoutTotals, setWorkoutTotals] = useState(null)
   const [workoutStreamStats, setWorkoutStreamStats] = useState(null)
@@ -269,9 +277,62 @@ export default function Home() {
   const [workoutPRs, setWorkoutPRs] = useState(null)
   const [intelligence, setIntelligence] = useState(null)
   const [loaded, setLoaded] = useState(false)
+  const [mobileSnapshotMeta, setMobileSnapshotMeta] = useState(null)
+  const [mobileSyncState, setMobileSyncState] = useState('idle')
+
+  const applyMobileSnapshot = useCallback((snapshot) => {
+    if (!snapshot) return
+    setIntelligence(snapshot.intelligence || null)
+    setSpotifyStats(snapshot.spotify?.stats || null)
+    setWorkoutTotals(snapshot.workout?.totals || null)
+    setWorkoutStreamStats(null)
+    setHabitsSummary(mapMobileHabitSummary(snapshot.habits?.today || []))
+    setHabitsTrends({ dailyCompletions: snapshot.habits?.dailyCompletions || [] })
+    setFinanceSummary({
+      ...(snapshot.finance?.summary || {}),
+      totalExpenses: snapshot.finance?.summary?.totalExpense ?? snapshot.finance?.monthlySpent ?? 0,
+    })
+    setRecentSessions(snapshot.workout?.recentSessions || [])
+    setWeeklySummary(snapshot.weeklySummary || null)
+    setWorkoutHabitCorrelation(snapshot.workoutHabitCorrelation || null)
+    setBudgetStatus(null)
+    setWorkoutPRs(null)
+    setMobileSnapshotMeta({
+      generatedAt: snapshot.generatedAt,
+      checkedAt: snapshot.sync?.checkedAt,
+      watermarks: snapshot.sync?.watermarks || {},
+    })
+    setLoaded(true)
+  }, [])
 
   useEffect(() => {
     let ignore = false
+
+    if (nativeApp) {
+      const unsubscribe = subscribeToApiPath('/dashboard/mobile', (entry) => {
+        if (!ignore && entry?.data) applyMobileSnapshot(entry.data)
+      })
+
+      async function loadMobile() {
+        setMobileSyncState('syncing')
+        try {
+          const snapshot = await api.get('/dashboard/mobile')
+          if (!ignore) applyMobileSnapshot(snapshot)
+          if (!ignore) setMobileSyncState('idle')
+        } catch {
+          if (!ignore) {
+            setLoaded(true)
+            setMobileSyncState('offline')
+          }
+        }
+      }
+
+      loadMobile()
+      return () => {
+        ignore = true
+        unsubscribe()
+      }
+    }
 
     async function load() {
       const results = await Promise.allSettled([
@@ -318,7 +379,7 @@ export default function Home() {
 
     load()
     return () => { ignore = true }
-  }, [])
+  }, [nativeApp, applyMobileSnapshot])
 
   const habitsArray = Array.isArray(habitsSummary) ? habitsSummary : []
   const totalHabits = habitsArray.length
@@ -386,7 +447,7 @@ export default function Home() {
     window.dispatchEvent(new CustomEvent('personal-server:chat-prompt', { detail }))
   }
 
-  if (isNativeMobileApp()) {
+  if (nativeApp) {
     return (
       <NativeHomeDashboard
         intelligence={intelligenceFallback}
@@ -401,6 +462,8 @@ export default function Home() {
         openAiPrompt={openAiPrompt}
         nav={nav}
         loaded={loaded}
+        snapshotMeta={mobileSnapshotMeta}
+        syncState={mobileSyncState}
       />
     )
   }
@@ -688,4 +751,31 @@ function buildActivityFeed(habitsArray, recentSessions) {
 
   items.sort((a, b) => b.time - a.time)
   return items
+}
+
+function mapMobileHabitSummary(items) {
+  return items.map((habit) => ({
+    ...habit,
+    id: habit.habitId,
+    name: habit.habitName,
+    habitName: habit.habitName,
+    completedToday: Boolean(habit.completedToday),
+    todayStatus: habit.todayStatus || (habit.completedToday ? 'success' : null),
+    longestStreak: habit.longestStreak ?? 0,
+    currentStreak: habit.currentStreak ?? 0,
+  }))
+}
+
+function formatLastSynced(value) {
+  if (!value) return 'No local snapshot'
+  const time = new Date(value).getTime()
+  if (!Number.isFinite(time)) return 'Cached'
+  const diffMs = Date.now() - time
+  if (diffMs < 30_000) return 'Just synced'
+  const minutes = Math.round(diffMs / 60_000)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  return `${days}d ago`
 }

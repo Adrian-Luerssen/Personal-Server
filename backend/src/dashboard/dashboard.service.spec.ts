@@ -6,12 +6,14 @@ import { Stream, StreamPlatform } from '../music/streams/stream.entity';
 import { Track } from '../music/tracks/track.entity';
 import { WorkoutSession } from '../workout/sessions/session.entity';
 import { Account } from '../system/accounts/account.entity';
+import { SyncService } from '../sync/sync.service';
 
 describe('DashboardService', () => {
   let service: DashboardService;
   let mockDataSource: { query: jest.Mock };
   let mockStreamRepo: { createQueryBuilder: jest.Mock };
   let mockQb: Record<string, jest.Mock>;
+  let mockSyncService: { getWatermarks: jest.Mock };
 
   const accountId = 'test-account-id';
   const account = { id: accountId } as Account;
@@ -37,6 +39,9 @@ describe('DashboardService', () => {
     mockDataSource = {
       query: jest.fn(),
     };
+    mockSyncService = {
+      getWatermarks: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -45,6 +50,7 @@ describe('DashboardService', () => {
         { provide: getRepositoryToken(Track), useValue: {} },
         { provide: getRepositoryToken(WorkoutSession), useValue: {} },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: SyncService, useValue: mockSyncService },
       ],
     }).compile();
 
@@ -509,6 +515,180 @@ describe('DashboardService', () => {
           expect.objectContaining({ id: 'course-correct' }),
         ]),
       );
+    });
+  });
+
+  describe('getMobileSnapshot', () => {
+    it('should assemble the native app first-screen data in one account-scoped snapshot', async () => {
+      jest.spyOn(service, 'getDashboardIntelligence').mockResolvedValue({
+        generatedAt: '2026-06-24T08:00:00.000Z',
+        focus: 'steady',
+        score: 58,
+        headline: 'Steady day',
+        summary: 'Mobile snapshot intelligence',
+        snapshot: [],
+        insights: [],
+        aiPrompts: [],
+      });
+      jest.spyOn(service, 'getWeeklySummary').mockResolvedValue({
+        workouts: 3,
+        habitsCompleted: 9,
+        habitsTotal: 12,
+        spending: 250.75,
+        streams: 91,
+      });
+      jest.spyOn(service, 'getWorkoutHabitCorrelation').mockResolvedValue({
+        workoutDays: { completionRate: 75, total: 8, successful: 6 },
+        restDays: { completionRate: 50, total: 4, successful: 2 },
+        totalWorkoutDays: 3,
+      });
+      mockSyncService.getWatermarks.mockResolvedValue({
+        'habit-entry': 11,
+        stream: 21,
+      });
+      mockDataSource.query
+        .mockResolvedValueOnce([
+          {
+            habitId: 'habit-1',
+            habitName: 'Sleep',
+            habitIconName: 'moon',
+            habitColor: '#a78bfa',
+            frequencyType: 'daily',
+            trackingType: 'boolean',
+            numericUnit: null,
+            todayStatus: 'success',
+            numericValue: null,
+            comment: null,
+            completedToday: true,
+            currentStreak: '3',
+            longestStreak: '9',
+            successRate: '72.5',
+          },
+        ])
+        .mockResolvedValueOnce([{ date: '2026-06-24', count: '1' }])
+        .mockResolvedValueOnce([
+          {
+            totalWorkouts: '12',
+            totalSets: '40',
+            totalReps: '320',
+            totalVolume: '16000',
+            totalTimeSeconds: '28800',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'session-active',
+            title: 'Push',
+            date: '2026-06-24',
+            startAt: '2026-06-24T07:00:00.000Z',
+            endAt: null,
+            setCount: '4',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'session-1',
+            title: 'Legs',
+            date: '2026-06-23',
+            startAt: '2026-06-23T07:00:00.000Z',
+            endAt: '2026-06-23T08:00:00.000Z',
+            setCount: '12',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            totalIncome: '1000.25',
+            totalExpense: '250.75',
+            incomeCount: '1',
+            expenseCount: '7',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            totalStreams: '91',
+            msListened: '123000',
+            uniqueTracks: '44',
+            uniqueArtists: '20',
+            lastStream: '2026-06-24T09:00:00.000Z',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            rank: '1',
+            accountId: 'account-1',
+            displayName: 'Arianna',
+            spotifyUserId: '11145917586',
+            streamCount: '91',
+            uniqueTracks: '44',
+            msListened: '123000',
+            lastStream: '2026-06-24T09:00:00.000Z',
+          },
+        ]);
+
+      const result = await (service as any).getMobileSnapshot(account);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          accountId,
+          generatedAt: expect.any(String),
+          sync: {
+            checkedAt: expect.any(String),
+            watermarks: { 'habit-entry': 11, stream: 21 },
+          },
+          intelligence: expect.objectContaining({ focus: 'steady' }),
+          weeklySummary: expect.objectContaining({ streams: 91 }),
+          workoutHabitCorrelation: expect.objectContaining({ totalWorkoutDays: 3 }),
+          habits: expect.objectContaining({
+            total: 1,
+            completedToday: 1,
+            incompleteToday: 0,
+            completionPct: 100,
+            dailyCompletions: [{ date: '2026-06-24', count: 1 }],
+            today: [
+              expect.objectContaining({
+                habitId: 'habit-1',
+                habitName: 'Sleep',
+                todayStatus: 'success',
+                completedToday: true,
+              }),
+            ],
+          }),
+          workout: expect.objectContaining({
+            totals: {
+              totalWorkouts: 12,
+              totalSets: 40,
+              totalReps: 320,
+              totalVolume: 16000,
+              totalTimeSeconds: 28800,
+            },
+            activeSession: expect.objectContaining({ id: 'session-active' }),
+            recentSessions: [expect.objectContaining({ id: 'session-1', setCount: 12 })],
+          }),
+          finance: expect.objectContaining({
+            summary: expect.objectContaining({
+              totalIncome: 1000.25,
+              totalExpense: 250.75,
+              netBalance: 749.5,
+              expenseCount: 7,
+            }),
+            monthlySpent: 250.75,
+          }),
+          spotify: expect.objectContaining({
+            stats: expect.objectContaining({
+              totalStreams: 91,
+              uniqueArtists: 20,
+            }),
+            rankingPreview: [
+              expect.objectContaining({
+                rank: 1,
+                displayName: 'Arianna',
+                streamCount: 91,
+              }),
+            ],
+          }),
+        }),
+      );
+      expect(mockSyncService.getWatermarks).toHaveBeenCalledWith(accountId);
     });
   });
 

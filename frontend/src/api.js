@@ -1,5 +1,6 @@
 import { getApiBase } from "./config";
 import { getTokens, refreshIfPossible, clearTokens } from "./auth";
+import { createApiResponseCache } from "./apiCache.mjs";
 
 // ---------------------------------------------------------------------------
 // Cache configuration — tiered TTLs based on data volatility
@@ -53,67 +54,64 @@ function getCacheTTL(path) {
 // In-memory SWR cache with localStorage persistence
 // ---------------------------------------------------------------------------
 
-const LS_CACHE_KEY = 'ps-api-cache';
-const LS_SYNC_WATERMARKS_KEY = 'ps-sync-watermarks';
-const LS_MAX_ENTRIES = 60;
+const LS_MAX_ENTRIES = 80;
 
-const swrCache = new Map();
 const inflightRequests = new Map(); // deduplication: path → Promise
 
-// Restore cache from localStorage on startup
-try {
-  const stored = localStorage.getItem(LS_CACHE_KEY);
-  if (stored) {
-    const entries = JSON.parse(stored);
-    for (const [key, val] of entries) {
-      swrCache.set(key, val);
-    }
-  }
-} catch {
-  // corrupted cache, ignore
-}
 
-function persistCache() {
+function decodeTokenPayload(token) {
+  if (!token || !token.includes('.')) return null;
   try {
-    const entries = [...swrCache.entries()].slice(-LS_MAX_ENTRIES);
-    localStorage.setItem(LS_CACHE_KEY, JSON.stringify(entries));
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    return JSON.parse(window.atob(padded));
   } catch {
-    // storage full or unavailable
+    return null;
   }
 }
 
-// Debounce persistence so we don't thrash localStorage
-let persistTimer = null;
-function schedulePersist() {
-  if (persistTimer) return;
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    persistCache();
-  }, 2000);
+function getCacheAccountId() {
+  const { accessToken } = getTokens();
+  const payload = decodeTokenPayload(accessToken);
+  return (
+    payload?.accountId ||
+    payload?.sub ||
+    payload?.id ||
+    payload?.email ||
+    (accessToken ? `token:${accessToken.slice(-16)}` : 'anonymous')
+  );
 }
+
+const responseCache = createApiResponseCache({
+  storage: typeof localStorage !== 'undefined' ? localStorage : undefined,
+  getAccountId: getCacheAccountId,
+  maxEntries: LS_MAX_ENTRIES,
+});
 
 function invalidateCache(path) {
   const prefix = '/' + path.split('/').filter(Boolean)[0]; // e.g. "/finance"
-  for (const key of swrCache.keys()) {
-    if (key.startsWith(prefix)) swrCache.delete(key);
+  const prefixes = [prefix];
+  if (['/finance', '/habits', '/workout', '/streams', '/media'].includes(prefix)) {
+    prefixes.push('/dashboard');
   }
-  schedulePersist();
+  responseCache.invalidatePrefixes(prefixes);
 }
 
 function invalidateCachePrefixes(prefixes) {
-  for (const key of swrCache.keys()) {
-    if (prefixes.some(prefix => key.startsWith(prefix))) {
-      swrCache.delete(key);
-    }
-  }
-  schedulePersist();
+  responseCache.invalidatePrefixes(prefixes);
 }
 
 export function clearApiCache() {
-  swrCache.clear();
   inflightRequests.clear();
-  localStorage.removeItem(LS_CACHE_KEY);
-  localStorage.removeItem(LS_SYNC_WATERMARKS_KEY);
+  responseCache.clearAll();
+}
+
+export function subscribeToApiPath(path, listener) {
+  return responseCache.subscribe(path, listener);
+}
+
+export function getApiCacheEntry(path) {
+  return responseCache.get(path);
 }
 
 // ---------------------------------------------------------------------------
@@ -150,6 +148,7 @@ export async function apiFetch(path, options = {}) {
       res = await doFetch();
     } else {
       clearTokens();
+      clearApiCache();
     }
   }
 
@@ -181,16 +180,16 @@ export async function apiFetch(path, options = {}) {
 // ---------------------------------------------------------------------------
 
 export const api = {
-  get: async (path) => {
-    const cached = swrCache.get(path);
+  get: async (path, options = {}) => {
+    const cached = responseCache.get(path);
+    const force = options?.force === true;
 
-    if (cached) {
+    if (cached && !force) {
       // Return cached data immediately, even when stale. Mobile navigation
       // should not wait for API latency; freshness is handled in background.
       if (!inflightRequests.has(path)) {
         const bgRefresh = apiFetch(path).then(fresh => {
-          swrCache.set(path, { data: fresh, timestamp: Date.now() });
-          schedulePersist();
+          responseCache.set(path, fresh, { lastValidatedAt: Date.now() });
           inflightRequests.delete(path);
           return fresh;
         }).catch(() => {
@@ -207,8 +206,7 @@ export const api = {
     }
 
     const request = apiFetch(path).then(data => {
-      swrCache.set(path, { data, timestamp: Date.now() });
-      schedulePersist();
+      responseCache.set(path, data, { lastValidatedAt: Date.now() });
       inflightRequests.delete(path);
       return data;
     }).catch(err => {
@@ -259,19 +257,11 @@ const ENTITY_CACHE_PREFIXES = {
 };
 
 function readStoredWatermarks() {
-  try {
-    return JSON.parse(localStorage.getItem(LS_SYNC_WATERMARKS_KEY) || '{}');
-  } catch {
-    return {};
-  }
+  return responseCache.readWatermarks();
 }
 
 function writeStoredWatermarks(watermarks) {
-  try {
-    localStorage.setItem(LS_SYNC_WATERMARKS_KEY, JSON.stringify(watermarks));
-  } catch {
-    // storage unavailable or full
-  }
+  responseCache.writeWatermarks(watermarks);
 }
 
 export async function checkDataValidity() {
@@ -301,6 +291,7 @@ export async function checkDataValidity() {
 // ---------------------------------------------------------------------------
 
 const PRELOAD_PATHS = [
+  '/dashboard/mobile',
   '/dashboard/intelligence',
   '/streams/stats?timeframe=all',
   '/workout/sessions?page=1&limit=1',
@@ -325,7 +316,7 @@ export function preloadDashboardData() {
 
   for (const path of PRELOAD_PATHS) {
     // Only preload if not already cached
-    const cached = swrCache.get(path);
+    const cached = responseCache.get(path);
     const ttl = getCacheTTL(path);
     if (!cached || Date.now() - cached.timestamp >= ttl) {
       api.get(path).catch(() => {}); // silent, best-effort

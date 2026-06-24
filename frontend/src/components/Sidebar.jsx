@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { api } from '../api'
+import { api, clearApiCache } from '../api'
 import { useTheme } from '../contexts/PreferencesContext'
 import Icon from './icons/Icon'
 import { isNativeMobileApp } from '../mobilePlatform'
@@ -89,6 +89,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   function logout() {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
+    clearApiCache()
     nav(isNativeMobileApp() ? '/login' : '/', { replace: true })
   }
 

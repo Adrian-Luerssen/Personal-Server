@@ -112,4 +112,35 @@ describe('SyncService change feed', () => {
     expect(first).toEqual({ duplicate: false, result: { id: 'server-row-1' } });
     expect(second).toEqual({ duplicate: true, result: { id: 'server-row-1' } });
   });
+
+  it('aggregates watermarks in the database instead of loading every event', async () => {
+    const qb = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        { entityType: 'habit-entry', cursor: '7' },
+        { entityType: 'stream', cursor: '14' },
+      ]),
+    };
+    const eventRepo = {
+      ...createEventRepoMock(),
+      find: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+    };
+    const service = new SyncService(eventRepo as any, createMutationRepoMock() as any);
+
+    const result = await service.getWatermarks('account-1');
+
+    expect(result).toEqual({ 'habit-entry': 7, stream: 14 });
+    expect(eventRepo.createQueryBuilder).toHaveBeenCalledWith('event');
+    expect(qb.select).toHaveBeenCalledWith('event.entityType', 'entityType');
+    expect(qb.addSelect).toHaveBeenCalledWith('MAX(event.sequence)', 'cursor');
+    expect(qb.where).toHaveBeenCalledWith('event.accountId = :accountId', {
+      accountId: 'account-1',
+    });
+    expect(qb.groupBy).toHaveBeenCalledWith('event.entityType');
+    expect(eventRepo.find).not.toHaveBeenCalled();
+  });
 });

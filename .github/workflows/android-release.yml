@@ -80,6 +80,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run API cache tests
+        run: node --test src/apiCache.test.mjs
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile shell tests
+        env:
+          VITE_NATIVE_APP: ''
+        run: npx playwright test tests/auth/native-app.spec.ts tests/auth/mobile-gate.spec.ts --project=chromium
+
       - name: Build web app
         run: npm run build
 

@@ -779,6 +779,7 @@ code {
 
 .auth-screen--native .auth-brand {
   margin-bottom: 1.25rem;
+  animation: nativeCardRise 320ms ease-out both;
 }
 
 .auth-brand__mark {
@@ -798,6 +799,8 @@ code {
   border-radius: 0.9rem;
   background: rgba(125, 211, 252, 0.14);
   color: var(--color-accent);
+  box-shadow: 0 0 0 rgba(125, 211, 252, 0);
+  animation: nativeScoreGlow 3.8s ease-in-out infinite;
 }
 
 .auth-brand__title {
@@ -822,6 +825,7 @@ code {
 
 .auth-screen--native .auth-copy {
   margin: 0.6rem 0 1.2rem;
+  animation: nativeCardRise 360ms ease-out 60ms both;
 }
 
 .auth-copy h1 {
@@ -852,6 +856,7 @@ code {
 .auth-screen--native .auth-form {
   gap: 0.95rem;
   margin-top: clamp(1rem, 4vh, 2.5rem);
+  animation: nativeCardRise 380ms ease-out 110ms both;
 }
 
 .auth-screen--native .field {
@@ -876,6 +881,13 @@ code {
   background: rgba(255, 255, 255, 0.055);
   border-color: rgba(255, 255, 255, 0.1);
   font-size: 1.05rem;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.auth-screen--native .auth-input:focus {
+  border-color: rgba(125, 211, 252, 0.42);
+  background: rgba(125, 211, 252, 0.075);
+  box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.11);
 }
 
 .auth-check-row {
@@ -913,6 +925,12 @@ code {
   min-height: 3.75rem;
   border-radius: 1rem;
   font-size: 1rem;
+  transition: transform 150ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.auth-screen--native .auth-submit:active,
+.auth-screen--native .auth-form .btn:active {
+  transform: scale(0.98);
 }
 
 .auth-switch {
@@ -938,6 +956,7 @@ code {
   border-radius: 1.05rem;
   background: rgba(255, 255, 255, 0.055);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  animation: nativeCardRise 340ms ease-out 90ms both;
 }
 
 .auth-mode-switch__item {
@@ -950,6 +969,11 @@ code {
   font-size: 0.95rem;
   font-weight: 800;
   text-decoration: none;
+  transition: transform 150ms ease, color 160ms ease, background 160ms ease;
+}
+
+.auth-mode-switch__item:active {
+  transform: scale(0.97);
 }
 
 .auth-mode-switch__item.active {
@@ -995,7 +1019,7 @@ code {
   .auth-screen--native .auth-input,
   .auth-screen--native .auth-submit,
   .auth-screen--native .auth-form .btn {
-    min-height: 3.5rem;
+    min-height: 56px;
   }
 }
 
@@ -1488,6 +1512,26 @@ body.native-mobile-app .api-status-label {
   display: none;
 }
 
+@keyframes nativeHeaderDrop {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nativeCardRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nativeScoreGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(125, 211, 252, 0); }
+  50% { box-shadow: 0 0 28px rgba(125, 211, 252, 0.22); }
+}
+
+@keyframes nativeSyncSweep {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(130%); }
+}
+
 .native-app-header {
   position: fixed;
   top: 0;
@@ -1504,6 +1548,7 @@ body.native-mobile-app .api-status-label {
   gap: 0.75rem;
   background: rgba(7, 11, 20, 0.96);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  animation: nativeHeaderDrop 260ms ease-out both;
 }
 
 .native-app-header__mark {
@@ -1553,6 +1598,14 @@ body.native-mobile-app .api-status-label {
   background: rgba(255, 255, 255, 0.045);
   color: var(--color-text-primary);
   cursor: pointer;
+  transition: transform 150ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.native-app-header__button:active,
+.native-icon-button:active,
+.native-action-card:active,
+body.native-mobile-app .sidebar .nav-link:active {
+  transform: scale(0.96);
 }
 
 .native-dashboard {
@@ -1560,6 +1613,19 @@ body.native-mobile-app .api-status-label {
   gap: 0.95rem;
 }
 
+.native-dashboard > * {
+  animation: nativeCardRise 360ms ease-out both;
+}
+
+.native-dashboard > *:nth-child(1) { animation-delay: 20ms; }
+.native-dashboard > *:nth-child(2) { animation-delay: 70ms; }
+.native-dashboard > *:nth-child(3) { animation-delay: 120ms; }
+.native-dashboard > *:nth-child(4) { animation-delay: 170ms; }
+.native-dashboard > *:nth-child(5) { animation-delay: 220ms; }
+.native-dashboard > *:nth-child(6) { animation-delay: 270ms; }
+.native-dashboard > *:nth-child(7) { animation-delay: 320ms; }
+
+.native-sync-strip,
 .native-dashboard-hero,
 .native-today-card,
 .native-insight-card,
@@ -1568,6 +1634,55 @@ body.native-mobile-app .api-status-label {
   background: rgba(16, 22, 36, 0.88);
   border-radius: 1.05rem;
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
+}
+
+.native-sync-strip {
+  position: relative;
+  min-height: 2.35rem;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.8rem;
+  background: rgba(10, 14, 24, 0.76);
+  overflow: hidden;
+}
+
+.native-sync-strip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.14), transparent);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+
+.native-sync-strip span {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.native-sync-strip strong {
+  color: var(--color-text-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.native-sync-strip--syncing {
+  border-color: rgba(125, 211, 252, 0.28);
+}
+
+.native-sync-strip--syncing::after {
+  animation: nativeSyncSweep 1.2s ease-in-out infinite;
+}
+
+.native-sync-strip--offline {
+  border-color: rgba(251, 191, 36, 0.35);
 }
 
 .native-dashboard-hero {
@@ -1600,6 +1715,7 @@ body.native-mobile-app .api-status-label {
 }
 
 .native-score-orb {
+  position: relative;
   width: 4.5rem;
   min-width: 4.5rem;
   height: 4.5rem;
@@ -1609,6 +1725,7 @@ body.native-mobile-app .api-status-label {
   border-radius: 1.15rem;
   background: rgba(125, 211, 252, 0.14);
   color: var(--color-accent);
+  animation: nativeScoreGlow 3.6s ease-in-out infinite;
 }
 
 .native-score-orb strong {
@@ -1640,6 +1757,17 @@ body.native-mobile-app .api-status-label {
   color: var(--color-text-primary);
   text-align: left;
   cursor: pointer;
+  transition: transform 150ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.native-action-card:hover,
+.native-action-card:focus-visible,
+.native-app-header__button:hover,
+.native-app-header__button:focus-visible,
+.native-icon-button:hover,
+.native-icon-button:focus-visible {
+  border-color: rgba(125, 211, 252, 0.24);
+  background: rgba(125, 211, 252, 0.08);
 }
 
 .native-action-card__icon {
@@ -1736,6 +1864,11 @@ body.native-mobile-app .api-status-label {
   border-radius: 0.95rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
+  transition: transform 160ms ease, border-color 180ms ease;
+}
+
+.native-metric-card:active {
+  transform: scale(0.98);
 }
 
 .native-metric-card__icon {

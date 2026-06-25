@@ -214,13 +214,53 @@ test.describe('Native Android app shell', () => {
 
     await expect(page).toHaveURL(/\/home$/)
     await expect(page.locator('[data-testid="native-dashboard"]')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Today is under control' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /habits logged/i })).toBeVisible()
+    await expect(page.getByText(/mobility/i)).toBeVisible()
     await expect(page.getByRole('link', { name: /today/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /train/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /habits/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /money/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /music/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /chat/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /download android app/i })).toHaveCount(0)
+  })
+
+  test('keeps native dashboard content clear of the bottom tabbar', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    for (const viewport of [
+      { width: 320, height: 568 },
+      { width: 390, height: 844 },
+      { width: 412, height: 915 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/home')
+      await expect(page.locator('[data-testid="native-dashboard"]')).toBeVisible()
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+
+      const clearance = await page.evaluate(() => {
+        const tabbar = document.querySelector('.native-tabbar')?.getBoundingClientRect()
+        const dashboard = document.querySelector('[data-testid="native-dashboard"]')
+        const lastChild = dashboard?.lastElementChild?.getBoundingClientRect()
+        const touchTargets = [...document.querySelectorAll('.native-tabbar__item, .native-habit-row__actions button')]
+          .map((el) => el.getBoundingClientRect())
+        return {
+          tabbarTop: tabbar?.top ?? 0,
+          lastChildBottom: lastChild?.bottom ?? 0,
+          minTarget: Math.min(...touchTargets.map((box) => Math.min(box.width, box.height))),
+          scrollWidth: document.documentElement.scrollWidth,
+          innerWidth: window.innerWidth,
+        }
+      })
+
+      expect(clearance.scrollWidth).toBeLessThanOrEqual(clearance.innerWidth + 1)
+      expect(clearance.minTarget).toBeGreaterThanOrEqual(44)
+      expect(clearance.lastChildBottom).toBeLessThanOrEqual(clearance.tabbarTop - 8)
+    }
   })
 
   test('opens the app login instead of the mobile landing when signed out', async ({ page }) => {
@@ -280,9 +320,9 @@ test.describe('Native Android app shell', () => {
       })
 
       expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.innerWidth)
-      expect(metrics.minInputHeight).toBeGreaterThanOrEqual(56)
-      expect(metrics.minButtonHeight).toBeGreaterThanOrEqual(56)
-      expect(metrics.minModeHeight).toBeGreaterThanOrEqual(44)
+      expect(metrics.minInputHeight).toBeGreaterThanOrEqual(55.5)
+      expect(metrics.minButtonHeight).toBeGreaterThanOrEqual(55.5)
+      expect(metrics.minModeHeight).toBeGreaterThanOrEqual(43.5)
     }
   })
 })

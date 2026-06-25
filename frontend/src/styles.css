@@ -21,7 +21,7 @@
   /* Text */
   --color-text-primary: #e6eef6;
   --color-text-secondary: rgba(230, 238, 246, 0.70);
-  --color-text-muted: rgba(230, 238, 246, 0.45);
+  --color-text-muted: rgba(230, 238, 246, 0.62);
 
   /* Accent */
   --color-accent: #7dd3fc;
@@ -1362,7 +1362,11 @@ code {
 /* ===== Capacitor / Android Native Shell ===== */
 body.native-mobile-app {
   --native-header-height: 4.25rem;
-  --native-tabbar-height: 4.9rem;
+  --native-tabbar-height: 5.35rem;
+  --native-surface: rgba(16, 22, 36, 0.86);
+  --native-surface-strong: rgba(22, 29, 45, 0.94);
+  --native-border: rgba(255, 255, 255, 0.09);
+  --native-muted: rgba(226, 232, 240, 0.72);
   overscroll-behavior-y: none;
   background:
     linear-gradient(180deg, #090d18 0%, #101624 46%, #090d18 100%);
@@ -1388,7 +1392,7 @@ body.native-mobile-app .content {
   padding:
     calc(env(safe-area-inset-top, 0px) + var(--native-header-height) + 0.75rem)
     1rem
-    calc(env(safe-area-inset-bottom, 0px) + var(--native-tabbar-height) + 0.9rem)
+    calc(env(safe-area-inset-bottom, 0px) + var(--native-tabbar-height) + 1.6rem)
     1rem !important;
 }
 
@@ -1608,13 +1612,77 @@ body.native-mobile-app .sidebar .nav-link:active {
   transform: scale(0.96);
 }
 
+.native-update-prompt {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--native-tabbar-height) + 0.55rem);
+  z-index: 125;
+  min-height: 3.2rem;
+  padding: 0.55rem 0.55rem 0.55rem 0.8rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 0.95rem;
+  background: rgba(8, 13, 23, 0.96);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+}
+
+.native-update-prompt div {
+  min-width: 0;
+  display: grid;
+  gap: 0.08rem;
+}
+
+.native-update-prompt strong {
+  color: var(--color-text-primary);
+  font-size: 0.86rem;
+  line-height: 1.1;
+}
+
+.native-update-prompt span {
+  color: var(--native-muted);
+  font-size: 0.72rem;
+}
+
+.native-update-prompt a,
+.native-update-prompt button {
+  min-height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.72rem;
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.native-update-prompt a {
+  padding: 0 0.75rem;
+  background: var(--color-accent);
+  color: #04111d;
+  text-decoration: none;
+}
+
+.native-update-prompt button {
+  width: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
+}
+
 .native-dashboard {
   display: grid;
   gap: 0.95rem;
 }
 
 .native-dashboard > * {
-  animation: nativeCardRise 360ms ease-out both;
+  animation: nativeCardRise 180ms ease-out both;
+}
+
+body.native-mobile-app .native-dashboard > * {
+  animation: none;
 }
 
 .native-dashboard > *:nth-child(1) { animation-delay: 20ms; }
@@ -1628,12 +1696,14 @@ body.native-mobile-app .sidebar .nav-link:active {
 .native-sync-strip,
 .native-dashboard-hero,
 .native-today-card,
+.native-primary-action,
+.native-checklist-card,
 .native-insight-card,
 .native-activity-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(16, 22, 36, 0.88);
-  border-radius: 1.05rem;
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--native-border);
+  background: var(--native-surface);
+  border-radius: 1rem;
+  box-shadow: none;
 }
 
 .native-sync-strip {
@@ -1694,6 +1764,188 @@ body.native-mobile-app .sidebar .nav-link:active {
   gap: 1rem;
 }
 
+.native-primary-action {
+  min-height: 9rem;
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+  background:
+    linear-gradient(135deg, rgba(125, 211, 252, 0.12), rgba(16, 22, 36, 0.9) 44%),
+    var(--native-surface-strong);
+}
+
+.native-primary-action h1,
+.native-checklist-card h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 1.28rem;
+  line-height: 1.16;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.native-primary-action p,
+.native-checklist-card p {
+  margin: 0.45rem 0 0;
+  color: var(--native-muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.native-primary-action__button {
+  min-height: 3rem;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 0.9rem;
+  background: var(--color-accent);
+  color: #04111d;
+  font: inherit;
+  font-weight: 850;
+}
+
+.native-checklist-card {
+  padding: 1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.native-checklist-card .native-section-head {
+  margin-bottom: 0;
+}
+
+.native-habit-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.native-habit-row {
+  min-height: 4rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.62rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.native-habit-row__icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  flex: 0 0 auto;
+}
+
+.native-habit-row__copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.native-habit-row__copy strong {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 0.93rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-habit-row__copy small {
+  overflow: hidden;
+  color: var(--native-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-habit-row__actions {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 2.75rem);
+  gap: 0.25rem;
+}
+
+.native-habit-row__actions button {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--native-muted);
+}
+
+.native-habit-row__actions button.is-active {
+  background: rgba(125, 211, 252, 0.16);
+  border-color: rgba(125, 211, 252, 0.34);
+  color: var(--color-accent);
+}
+
+.native-link-row {
+  min-height: 2.85rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 0.78rem;
+  background: rgba(125, 211, 252, 0.08);
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.native-quick-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.native-quick-row button {
+  min-height: 5.1rem;
+  min-width: 0;
+  padding: 0.7rem 0.55rem;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 0.32rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.native-quick-row button span,
+.native-quick-row button small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-quick-row button span {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.native-quick-row button small {
+  color: var(--native-muted);
+  font-size: 0.72rem;
+}
+
 .native-eyebrow {
   display: block;
   margin-bottom: 0.45rem;
@@ -1725,7 +1977,7 @@ body.native-mobile-app .sidebar .nav-link:active {
   border-radius: 1.15rem;
   background: rgba(125, 211, 252, 0.14);
   color: var(--color-accent);
-  animation: nativeScoreGlow 3.6s ease-in-out infinite;
+  animation: none;
 }
 
 .native-score-orb strong {

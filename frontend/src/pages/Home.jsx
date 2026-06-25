@@ -97,6 +97,82 @@ function NativeMetricCard({ icon, label, value, sub, accent = 'var(--color-accen
   )
 }
 
+function NativeHabitRow({ habit, onStatus }) {
+  const currentStatus = habit.todayStatus || 'none'
+  const color = habit.habitColor || habit.color || '#a78bfa'
+  const logged = currentStatus !== 'none'
+
+  return (
+    <div className={`native-habit-row native-habit-row--${logged ? currentStatus : 'open'}`}>
+      <div className="native-habit-row__icon" style={{ color, background: `${color}22` }}>
+        <Icon name={habit.habitIconName || habit.iconName || 'circle-check'} size={17} />
+      </div>
+      <div className="native-habit-row__copy">
+        <strong>{habit.habitName || habit.name}</strong>
+        <small>{habit.currentStreak ? `${habit.currentStreak} day streak` : 'Ready to log'}</small>
+      </div>
+      <div className="native-habit-row__actions" aria-label={`${habit.habitName || habit.name} status`}>
+        <button
+          type="button"
+          className={currentStatus === 'success' ? 'is-active' : ''}
+          onClick={() => onStatus(habit, 'success')}
+          aria-label={`Mark ${habit.habitName || habit.name} done`}
+        >
+          <Icon name="check" size={15} />
+        </button>
+        <button
+          type="button"
+          className={currentStatus === 'skip' ? 'is-active' : ''}
+          onClick={() => onStatus(habit, 'skip')}
+          aria-label={`Skip ${habit.habitName || habit.name}`}
+        >
+          <Icon name="minus" size={15} />
+        </button>
+        <button
+          type="button"
+          className={currentStatus === 'fail' || currentStatus === 'missed' ? 'is-active' : ''}
+          onClick={() => onStatus(habit, 'fail')}
+          aria-label={`Mark ${habit.habitName || habit.name} missed`}
+        >
+          <Icon name="x" size={15} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function NativePrimaryAction({ activeWorkout, weeklySummary, nav }) {
+  if (activeWorkout) {
+    return (
+      <section className="native-primary-action native-primary-action--workout">
+        <div>
+          <span className="native-eyebrow">Active workout</span>
+          <h1>{activeWorkout.name || 'Workout in progress'}</h1>
+          <p>{activeWorkout.startedAt ? `Started ${formatLastSynced(activeWorkout.startedAt)}` : 'Resume and keep logging without rebuilding context.'}</p>
+        </div>
+        <button type="button" className="native-primary-action__button" onClick={() => nav('/workout/active')}>
+          <Icon name="play" size={18} />
+          Continue
+        </button>
+      </section>
+    )
+  }
+
+  return (
+    <section className="native-primary-action">
+      <div>
+        <span className="native-eyebrow">Next action</span>
+        <h1>Start the day from what is due now</h1>
+        <p>{weeklySummary?.workouts ? `${weeklySummary.workouts} workouts this week. Keep the loop short.` : 'Log habits first, then start training when ready.'}</p>
+      </div>
+      <button type="button" className="native-primary-action__button" onClick={() => nav('/workout/active')}>
+        <Icon name="dumbbell" size={18} />
+        Train
+      </button>
+    </section>
+  )
+}
+
 function NativeHomeDashboard({
   intelligence,
   activityItems,
@@ -112,89 +188,79 @@ function NativeHomeDashboard({
   loaded,
   snapshotMeta,
   syncState,
+  activeWorkout,
+  habits,
+  onHabitStatus,
 }) {
   const firstPrompt = intelligence.aiPrompts?.[0]
   const primaryInsight = intelligence.insights?.[0]
+  const openHabits = habits.filter((habit) => !habit.todayStatus || habit.todayStatus === 'none')
+  const loggedHabits = habits.filter((habit) => habit.todayStatus && habit.todayStatus !== 'none')
+  const visibleHabits = [...openHabits, ...loggedHabits].slice(0, 4)
+  const loggedCount = loggedHabits.length
+  const incompleteCount = Math.max(totalHabits - loggedCount, 0)
 
   return (
     <div className="native-dashboard" data-testid="native-dashboard">
       <section className={`native-sync-strip native-sync-strip--${syncState || 'idle'}`}>
-        <span>{syncState === 'offline' ? 'Offline cache' : syncState === 'syncing' ? 'Syncing' : 'Ready'}</span>
+        <span>{syncState === 'offline' ? 'Offline cache' : syncState === 'syncing' ? 'Refreshing cache' : 'Cached'}</span>
         <strong>{formatLastSynced(snapshotMeta?.generatedAt || snapshotMeta?.checkedAt)}</strong>
       </section>
 
-      <section className="native-dashboard-hero">
-        <div>
-          <span className="native-eyebrow">Daily control</span>
-          <h1>{intelligence.headline}</h1>
-        </div>
-        <div className="native-score-orb" aria-label={`Weekly score ${intelligence.score}`}>
-          <strong>{intelligence.score}</strong>
-          <span>score</span>
-        </div>
-      </section>
+      <NativePrimaryAction activeWorkout={activeWorkout} weeklySummary={weeklySummary} nav={nav} />
 
-      <section className="native-action-grid" aria-label="Quick actions">
-        <NativeActionCard
-          icon="zap"
-          title="Workout"
-          value={`${weeklySummary?.workouts ?? 0} this week`}
-          tone="success"
-          onClick={() => nav('/workout/active')}
-        />
-        <NativeActionCard
-          icon="heart-pulse"
-          title="Habits"
-          value={`${todayCompleted}/${totalHabits || 0} today`}
-          tone="habits"
-          onClick={() => nav('/habits')}
-        />
-        <NativeActionCard
-          icon="receipt"
-          title="Money"
-          value={`$${Math.round(monthlySpent)}`}
-          tone="money"
-          onClick={() => nav('/finance/transactions')}
-        />
-        <NativeActionCard
-          icon="trophy"
-          title="Ranking"
-          value={`${spotifyStats?.totalStreams ?? 0} streams`}
-          tone="music"
-          onClick={() => nav('/spotify/ranking')}
-        />
-        <NativeActionCard
-          icon="library"
-          title="Media"
-          value="Library"
-          tone="media"
-          onClick={() => nav('/media')}
-        />
-        <NativeActionCard
-          icon="sparkles"
-          title="AI"
-          value="Analyze"
-          tone="ai"
-          onClick={() => openAiPrompt(firstPrompt)}
-        />
-      </section>
-
-      <section className="native-today-card">
-        <div className="native-today-card__ring">
-          <ProgressRing value={habitCompletionPct} size={88} strokeWidth={8} color="#a78bfa" />
-          <strong>{habitCompletionPct}%</strong>
+      <section className="native-checklist-card">
+        <div className="native-section-head">
+          <div>
+            <span className="native-eyebrow">Today</span>
+            <h2>{loggedCount}/{totalHabits} habits logged</h2>
+            <p>{incompleteCount > 0 ? `${incompleteCount} remaining` : 'Daily checklist clear'}</p>
+          </div>
+          <div className="native-today-card__ring">
+            <ProgressRing value={habitCompletionPct} size={64} strokeWidth={7} color="#a78bfa" />
+            <strong>{habitCompletionPct}%</strong>
+          </div>
         </div>
-        <div className="native-today-card__copy">
-          <span>Today</span>
-          <strong>{todayCompleted} habits done</strong>
-          <small>{totalHabits > 0 ? `${Math.max(totalHabits - todayCompleted, 0)} remaining` : 'No habits configured'}</small>
+        <div className="native-habit-list">
+          {!loaded ? (
+            <p className="journal-empty">Loading cached habits...</p>
+          ) : visibleHabits.length === 0 ? (
+            <p className="journal-empty">No active habits configured.</p>
+          ) : (
+            visibleHabits.map((habit) => (
+              <NativeHabitRow
+                key={habit.id || habit.habitId}
+                habit={habit}
+                onStatus={onHabitStatus}
+              />
+            ))
+          )}
         </div>
-        <button type="button" className="native-icon-button" onClick={() => nav('/habits')} aria-label="Open habits">
-          <Icon name="chevron-right" size={20} />
+        <button type="button" className="native-link-row" onClick={() => nav('/habits')}>
+          <span>Open full habit log</span>
+          <Icon name="chevron-right" size={17} />
         </button>
       </section>
 
-      <section className="native-metric-strip" aria-label="Weekly snapshot">
+      <section className="native-quick-row" aria-label="Secondary actions">
+        <button type="button" onClick={() => nav('/finance/transactions')}>
+          <Icon name="receipt" size={18} />
+          <span>Add expense</span>
+          <small>${Math.round(monthlySpent)}</small>
+        </button>
+        <button type="button" onClick={() => nav('/spotify/ranking')}>
+          <Icon name="trophy" size={18} />
+          <span>Ranking</span>
+          <small>{formatNumberShort(spotifyStats?.totalStreams ?? 0)} streams</small>
+        </button>
+        <button type="button" onClick={() => openAiPrompt(firstPrompt)}>
+          <Icon name="sparkles" size={18} />
+          <span>Ask AI</span>
+          <small>{intelligence.score} score</small>
+        </button>
+      </section>
+
+      <section className="native-metric-strip native-metric-strip--compact" aria-label="Weekly snapshot">
         <NativeMetricCard
           icon="dumbbell"
           label="Training"
@@ -279,12 +345,14 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false)
   const [mobileSnapshotMeta, setMobileSnapshotMeta] = useState(null)
   const [mobileSyncState, setMobileSyncState] = useState('idle')
+  const [activeWorkout, setActiveWorkout] = useState(null)
 
   const applyMobileSnapshot = useCallback((snapshot) => {
     if (!snapshot) return
     setIntelligence(snapshot.intelligence || null)
     setSpotifyStats(snapshot.spotify?.stats || null)
     setWorkoutTotals(snapshot.workout?.totals || null)
+    setActiveWorkout(snapshot.workout?.activeSession || null)
     setWorkoutStreamStats(null)
     setHabitsSummary(mapMobileHabitSummary(snapshot.habits?.today || []))
     setHabitsTrends({ dailyCompletions: snapshot.habits?.dailyCompletions || [] })
@@ -444,8 +512,45 @@ export default function Home() {
       },
     }
 
+    if (nativeApp) {
+      sessionStorage.setItem('personal-server:pending-chat-prompt', JSON.stringify(detail))
+      nav('/chat')
+      return
+    }
+
     window.dispatchEvent(new CustomEvent('personal-server:chat-prompt', { detail }))
   }
+
+  const handleNativeHabitStatus = useCallback(async (habit, status) => {
+    const habitId = habit.id || habit.habitId
+    if (!habitId) return
+    const date = toLocalDateKey()
+    const previous = habitsSummary
+    const currentStatus = habit.todayStatus || 'none'
+    const nextStatus = currentStatus === status ? 'none' : status
+
+    setHabitsSummary((items) => (items || []).map((item) => {
+      const itemId = item.id || item.habitId
+      if (itemId !== habitId) return item
+      return {
+        ...item,
+        todayStatus: nextStatus === 'none' ? null : nextStatus,
+        completedToday: nextStatus === 'success',
+      }
+    }))
+
+    try {
+      if (nextStatus === 'none') {
+        await api.delete(`/habits/${habitId}/entries/${date}`)
+      } else if (currentStatus !== 'none') {
+        await api.patch(`/habits/${habitId}/entries/${date}`, { status: nextStatus })
+      } else {
+        await api.post(`/habits/${habitId}/entries`, { date, status: nextStatus })
+      }
+    } catch {
+      setHabitsSummary(previous)
+    }
+  }, [habitsSummary])
 
   if (nativeApp) {
     return (
@@ -464,6 +569,9 @@ export default function Home() {
         loaded={loaded}
         snapshotMeta={mobileSnapshotMeta}
         syncState={mobileSyncState}
+        activeWorkout={activeWorkout}
+        habits={habitsArray}
+        onHabitStatus={handleNativeHabitStatus}
       />
     )
   }
@@ -778,4 +886,11 @@ function formatLastSynced(value) {
   if (hours < 24) return `${hours}h ago`
   const days = Math.round(hours / 24)
   return `${days}d ago`
+}
+
+function toLocalDateKey(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }

@@ -8,6 +8,13 @@ import { Modal } from '../../components/shared/Modal'
 import Icon from '../../components/icons/Icon'
 import IconPicker from '../../components/finance/IconPicker'
 import PageHeader from '../../components/PageHeader'
+import { isNativeMobileApp } from '../../mobilePlatform'
+import {
+  cancelNotifications,
+  requestNotificationPermission,
+  scheduleHabitReminder,
+  scheduleWorkoutReminder,
+} from '../../notifications'
 
 const HABITS_COLOR = '#a78bfa'
 
@@ -962,8 +969,9 @@ function ImportTab() {
 // ─── Reminders Tab ───────────────────────────────────────────────────────────
 
 function RemindersTab() {
+  const nativeApp = isNativeMobileApp()
   const [permission, setPermission] = useState(
-    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+    nativeApp ? 'prompt' : typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
   const [reminderTime, setReminderTime] = useState(
     () => localStorage.getItem('habits-reminder-time') || '20:00'
@@ -973,10 +981,33 @@ function RemindersTab() {
   )
   const [testSent, setTestSent] = useState(false)
 
-  const isSupported = typeof Notification !== 'undefined'
+  const isSupported = nativeApp || typeof Notification !== 'undefined'
+
+  useEffect(() => {
+    if (!nativeApp || !enabled) return
+    const [hour, minute] = reminderTime.split(':').map((part) => Number(part))
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return
+    scheduleHabitReminder({
+      id: 410001,
+      title: 'Habit reminder',
+      body: "Log today's habits while the day is still fresh.",
+      hour,
+      minute,
+    }).then((ok) => setPermission(ok ? 'granted' : 'denied'))
+      .catch(() => setPermission('denied'))
+  }, [nativeApp, enabled, reminderTime])
 
   async function requestPermission() {
     if (!isSupported) return
+    if (nativeApp) {
+      const allowed = await requestNotificationPermission()
+      setPermission(allowed ? 'granted' : 'denied')
+      if (allowed && !enabled) {
+        setEnabled(true)
+        localStorage.setItem('habits-reminder-enabled', 'true')
+      }
+      return
+    }
     const result = await Notification.requestPermission()
     setPermission(result)
     if (result === 'granted' && !enabled) {
@@ -988,6 +1019,10 @@ function RemindersTab() {
   function toggleEnabled(val) {
     setEnabled(val)
     localStorage.setItem('habits-reminder-enabled', val ? 'true' : 'false')
+    if (!val && nativeApp) {
+      cancelNotifications([410001, 410002]).catch(() => {})
+      return
+    }
     if (val && permission !== 'granted') {
       requestPermission()
     }
@@ -998,8 +1033,20 @@ function RemindersTab() {
     localStorage.setItem('habits-reminder-time', time)
   }
 
-  function sendTestNotification() {
+  async function sendTestNotification() {
     if (permission !== 'granted') return
+    if (nativeApp) {
+      const ok = await scheduleWorkoutReminder({
+        id: 410002,
+        title: 'Personal Server',
+        body: 'Notifications are working.',
+        at: new Date(Date.now() + 1500),
+      }).catch(() => false)
+      if (!ok) return
+      setTestSent(true)
+      setTimeout(() => setTestSent(false), 3000)
+      return
+    }
     new Notification('Habit Reminder', {
       body: "Don't forget to log your habits today!",
       icon: '/icon-192.png',
@@ -1019,7 +1066,7 @@ function RemindersTab() {
 
         {!isSupported ? (
           <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-            Your browser does not support notifications.
+            Notifications are not available in this environment.
           </div>
         ) : permission === 'granted' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
@@ -1033,7 +1080,7 @@ function RemindersTab() {
               Notifications blocked
             </div>
             <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-              Please enable notifications in your browser settings for this site.
+              Please enable notifications in Android app settings or browser settings.
             </div>
           </div>
         ) : (
@@ -1100,7 +1147,9 @@ function RemindersTab() {
       )}
 
       <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', padding: '0 0.25rem' }}>
-        Reminders use browser notifications and require this tab to be open. For more reliable reminders, install the app as a PWA.
+        {nativeApp
+          ? 'Android reminders are scheduled locally on this phone and keep working when the app is closed.'
+          : 'Browser reminders require this site to be allowed to send notifications.'}
       </div>
     </div>
   )

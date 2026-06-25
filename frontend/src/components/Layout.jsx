@@ -9,6 +9,7 @@ import { api, checkDataValidity, preloadDashboardData } from '../api'
 import PWAInstallPrompt from './PWAInstallPrompt'
 import { isNativeMobileApp } from '../mobilePlatform'
 import Icon from './icons/Icon'
+import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
 
 const NATIVE_ROUTE_TITLES = [
   { match: /^\/home$/, title: 'Today', subtitle: 'Overview' },
@@ -17,6 +18,7 @@ const NATIVE_ROUTE_TITLES = [
   { match: /^\/finance/, title: 'Money', subtitle: 'Spending and wallets' },
   { match: /^\/spotify/, title: 'Music', subtitle: 'Spotify insights' },
   { match: /^\/media/, title: 'Media', subtitle: 'Library' },
+  { match: /^\/chat/, title: 'Assistant', subtitle: 'AI copilot' },
   { match: /^\/settings/, title: 'Settings', subtitle: 'Account and app' },
 ]
 
@@ -44,6 +46,40 @@ function NativeAppHeader() {
         <Icon name="settings" size={20} />
       </button>
     </header>
+  )
+}
+
+function NativeUpdatePrompt() {
+  const [update, setUpdate] = useState(null)
+
+  useEffect(() => {
+    let ignore = false
+    checkForAndroidUpdate().then((next) => {
+      if (!ignore && next) setUpdate(next)
+    })
+    return () => { ignore = true }
+  }, [])
+
+  if (!update) return null
+
+  return (
+    <div className="native-update-prompt" role="status">
+      <div>
+        <strong>APK update available</strong>
+        <span>{update.version}</span>
+      </div>
+      <a href={update.apkUrl} target="_blank" rel="noreferrer">Download</a>
+      <button
+        type="button"
+        aria-label="Dismiss update"
+        onClick={() => {
+          dismissAndroidUpdate(update.id)
+          setUpdate(null)
+        }}
+      >
+        <Icon name="x" size={15} />
+      </button>
+    </div>
   )
 }
 
@@ -93,7 +129,8 @@ export default function Layout() {
         </div>
       </main>
       <ApiStatus />
-      <ChatPanel />
+      {nativeApp && <NativeUpdatePrompt />}
+      {!nativeApp && <ChatPanel />}
       {!nativeApp && <PWAInstallPrompt />}
     </div>
   )

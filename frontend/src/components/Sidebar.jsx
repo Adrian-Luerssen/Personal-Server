@@ -137,7 +137,7 @@ export default function Sidebar({ collapsed, onToggle }) {
       { to: '/workout', match: '/workout', icon: 'dumbbell', label: 'Train', dot: hasActiveWorkout },
       { to: '/habits', match: '/habits', icon: 'heart-pulse', label: 'Habits', badge: incompleteHabits > 0 ? incompleteHabits : null },
       { to: '/finance', match: '/finance', icon: 'wallet', label: 'Money' },
-      { to: spotifyLinked ? '/spotify/personal' : '/spotify/global', match: '/spotify', icon: 'music', label: 'Music' },
+      { to: '/chat', match: '/chat', icon: 'message-square', label: 'Chat' },
     ]
 
     return (

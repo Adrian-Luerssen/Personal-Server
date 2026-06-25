@@ -26,6 +26,7 @@ import HabitsSettings from './pages/Habits/HabitsSettings'
 import Media from './pages/Media/Media'
 import MediaImport from './pages/Media/MediaImport'
 import MediaSettings from './pages/Media/MediaSettings'
+import ChatPage from './pages/Chat/ChatPage'
 import Settings from './pages/Settings/Settings'
 import SpotifyCallback from './pages/Spotify/SpotifyCallback'
 import { PreferencesProvider } from './contexts/PreferencesContext'
@@ -56,6 +57,7 @@ const GuardedHabitsSettings = withRefreshGuard(HabitsSettings)
 const GuardedMedia = withRefreshGuard(Media)
 const GuardedMediaImport = withRefreshGuard(MediaImport)
 const GuardedMediaSettings = withRefreshGuard(MediaSettings)
+const GuardedChatPage = withRefreshGuard(ChatPage)
 const GuardedSettings = withRefreshGuard(Settings)
 const GuardedSpotifyCallback = withRefreshGuard(SpotifyCallback)
 
@@ -118,6 +120,7 @@ export default function AppRouter() {
               <Route path="/media" element={<GuardedMedia />} />
               <Route path="/media/import" element={<GuardedMediaImport />} />
               <Route path="/media/settings" element={<GuardedMediaSettings />} />
+              <Route path="/chat" element={<GuardedChatPage />} />
               <Route path="/habits" element={<GuardedHabits />} />
               <Route path="/habits/settings" element={<GuardedHabitsSettings />} />
               <Route path="/habits/import" element={<Navigate to="/habits/settings?tab=import" replace />} />

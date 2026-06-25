@@ -127,7 +127,7 @@ function MarkdownMessage({ text }) {
   )
 }
 
-export default function ChatPanel() {
+export default function ChatPanel({ inline = false }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState('list')
   const [conversations, setConversations] = useState([])
@@ -137,10 +137,12 @@ export default function ChatPanel() {
   const [sending, setSending] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [sendContext, setSendContext] = useState(true)
+  const [connectionState, setConnectionState] = useState('idle')
 
   const messagesEndRef = useRef(null)
   const socketRef = useRef(null)
   const pageContext = usePageContext()
+  const panelOpen = inline || open
 
   useEffect(() => {
     if (view === 'detail' && messagesEndRef.current) {
@@ -198,16 +200,22 @@ export default function ChatPanel() {
   }, [])
 
   useEffect(() => {
-    if (!open) return undefined
+    if (!panelOpen) return undefined
     const { accessToken } = getTokens()
     if (!accessToken) return undefined
 
     const socketBase = getApiBase().replace(/\/api$/, '')
+    setConnectionState('connecting')
     const socket = io(`${socketBase}/chat/user`, {
       auth: { token: accessToken },
       transports: ['websocket', 'polling'],
     })
     socketRef.current = socket
+
+    socket.on('connect', () => setConnectionState('connected'))
+    socket.on('disconnect', () => setConnectionState('offline'))
+    socket.on('connect_error', () => setConnectionState('error'))
+    socket.io.on('reconnect_attempt', () => setConnectionState('connecting'))
 
     socket.on('message:new', (message) => {
       const normalized = normalizeMessage(message)
@@ -244,16 +252,17 @@ export default function ChatPanel() {
     return () => {
       socketRef.current = null
       socket.disconnect()
+      setConnectionState('idle')
     }
-  }, [open, activeConvId, fetchConversations])
+  }, [panelOpen, activeConvId, fetchConversations])
 
   useEffect(() => {
     if (!activeConvId || !socketRef.current?.connected) return
     socketRef.current.emit('session:join', { conversationId: activeConvId })
-  }, [activeConvId, open])
+  }, [activeConvId, panelOpen])
 
   useEffect(() => {
-    if (!open) return undefined
+    if (!panelOpen) return undefined
 
     if (view === 'detail' && activeConvId) {
       fetchMessages()
@@ -268,10 +277,10 @@ export default function ChatPanel() {
     }
 
     return undefined
-  }, [open, view, activeConvId, fetchMessages, fetchConversations])
+  }, [panelOpen, view, activeConvId, fetchMessages, fetchConversations])
 
   useEffect(() => {
-    if (open) return undefined
+    if (panelOpen) return undefined
 
     const checkUnread = async () => {
       const list = await fetchConversations()
@@ -281,7 +290,7 @@ export default function ChatPanel() {
     checkUnread()
     const interval = setInterval(checkUnread, POLL_CLOSED_MS)
     return () => clearInterval(interval)
-  }, [open, fetchConversations, computeUnread])
+  }, [panelOpen, fetchConversations, computeUnread])
 
   useEffect(() => {
     const handler = (event) => {
@@ -293,6 +302,19 @@ export default function ChatPanel() {
     window.addEventListener('personal-server:chat-prompt', handler)
     return () => window.removeEventListener('personal-server:chat-prompt', handler)
   }, [startConversationWithPrompt])
+
+  useEffect(() => {
+    if (!inline) return
+    const raw = sessionStorage.getItem('personal-server:pending-chat-prompt')
+    if (!raw) return
+    sessionStorage.removeItem('personal-server:pending-chat-prompt')
+    try {
+      const detail = JSON.parse(raw)
+      if (detail?.text) startConversationWithPrompt(detail)
+    } catch {
+      // Ignore invalid persisted prompt payloads.
+    }
+  }, [inline, startConversationWithPrompt])
 
   const openConversation = (convId) => {
     setActiveConvId(convId)
@@ -351,6 +373,10 @@ export default function ChatPanel() {
                 ack.message,
               ),
             )
+          } else if (ack?.success === false) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === tempMsg.id ? { ...m, status: 'error' } : m))
+            )
           }
         })
       } else {
@@ -378,7 +404,7 @@ export default function ChatPanel() {
 
   return (
     <>
-      {!open && (
+      {!inline && !open && (
         <button className="chat-toggle-btn" onClick={() => setOpen(true)} aria-label="Open chat">
           <Icon name="message-square" size={22} />
           {unreadCount > 0 && (
@@ -387,12 +413,14 @@ export default function ChatPanel() {
         </button>
       )}
 
-      <div
-        className={`chat-panel-overlay${open ? ' open' : ''}`}
-        onClick={() => setOpen(false)}
-      />
+      {!inline && (
+        <div
+          className={`chat-panel-overlay${open ? ' open' : ''}`}
+          onClick={() => setOpen(false)}
+        />
+      )}
 
-      <div className={`chat-panel${open ? ' open' : ''}`}>
+      <div className={`chat-panel${panelOpen ? ' open' : ''}${inline ? ' chat-panel--inline' : ''}`}>
         <div className="chat-panel-header">
           {view === 'detail' && (
             <button className="chat-header-btn" onClick={backToList} aria-label="Back">
@@ -400,10 +428,25 @@ export default function ChatPanel() {
             </button>
           )}
           <h3>{view === 'list' ? 'Chat' : 'Conversation'}</h3>
-          <button className="chat-header-btn" onClick={() => setOpen(false)} aria-label="Close chat">
-            <Icon name="x" size={18} />
-          </button>
+          {!inline && (
+            <button className="chat-header-btn" onClick={() => setOpen(false)} aria-label="Close chat">
+              <Icon name="x" size={18} />
+            </button>
+          )}
         </div>
+
+        {panelOpen && connectionState !== 'connected' && (
+          <div className={`chat-connection-banner chat-connection-banner--${connectionState}`}>
+            <Icon name={connectionState === 'connecting' ? 'loader' : 'wifi-off'} size={14} />
+            <span>
+              {connectionState === 'connecting'
+                ? 'Connecting to assistant'
+                : connectionState === 'error'
+                  ? 'Assistant connection failed. Messages can still be saved.'
+                  : 'Assistant offline. Messages will use the saved fallback.'}
+            </span>
+          </div>
+        )}
 
         {view === 'list' && (
           <div className="chat-conv-list">

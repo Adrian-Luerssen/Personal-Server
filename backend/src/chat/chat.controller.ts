@@ -20,6 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
+import { ChatRelayBus } from './chat-relay.bus';
 import { NoAuth, ReqUser } from '../system/auth/auth.decorator';
 import { Account } from '../system/accounts/account.entity';
 
@@ -29,7 +30,10 @@ import { Account } from '../system/accounts/account.entity';
 export class ChatController {
   private readonly skillContent: string;
 
-  constructor(private readonly chatService: ChatService) {
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly relay: ChatRelayBus,
+  ) {
     const skillPath = [
       path.join(__dirname, 'skill.md'),
       path.join(process.cwd(), 'src', 'chat', 'skill.md'),
@@ -82,7 +86,15 @@ export class ChatController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { text: string; pageContext?: Record<string, any> },
   ) {
-    return this.chatService.sendMessage(id, account.id, body.text, body.pageContext);
+    const message = await this.chatService.sendMessage(
+      id,
+      account.id,
+      body.text,
+      body.pageContext,
+    );
+    this.relay.emitToUserSession(id, 'message:new', message);
+    this.relay.broadcastToAllAgents('message:new', message);
+    return message;
   }
 
   @Delete('conversations/:id')

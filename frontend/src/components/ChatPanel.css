@@ -79,6 +79,21 @@
   transform: translateX(0);
 }
 
+.chat-panel--inline {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  max-width: none;
+  min-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--native-header-height) - var(--native-tabbar-height) - env(safe-area-inset-bottom, 0px) - 1.6rem);
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--native-header-height) - var(--native-tabbar-height) - env(safe-area-inset-bottom, 0px) - 1.6rem);
+  transform: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background: rgba(10, 15, 26, 0.92);
+  box-shadow: none;
+}
+
 body.native-mobile-app .chat-toggle-btn {
   top: calc(env(safe-area-inset-top, 0px) + 0.7rem);
   right: 4.45rem;
@@ -127,6 +142,39 @@ body.native-mobile-app .chat-input-area {
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.85rem);
 }
 
+body.native-mobile-app .chat-panel--inline {
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  max-width: none;
+  border-radius: 1rem;
+  transform: none;
+}
+
+body.native-mobile-app .chat-panel--inline .chat-panel-header {
+  padding: 0.75rem 0.85rem;
+}
+
+body.native-mobile-app .chat-panel--inline .chat-conv-list,
+body.native-mobile-app .chat-panel--inline .chat-messages {
+  padding: 0.85rem;
+}
+
+body.native-mobile-app .chat-panel--inline .chat-input-area {
+  padding: 0.75rem 0.85rem 0.85rem;
+}
+
+body.native-mobile-app .chat-panel--inline .chat-send-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.native-chat-page {
+  min-height: 100%;
+}
+
 /* Header */
 .chat-panel-header {
   display: flex;
@@ -143,6 +191,32 @@ body.native-mobile-app .chat-input-area {
   font-size: var(--font-size-base);
   color: var(--color-text-primary);
   font-weight: 600;
+}
+
+.chat-connection-banner {
+  min-height: 2.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.48rem 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(251, 191, 36, 0.09);
+  color: #fde68a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.chat-connection-banner--error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+}
+
+.chat-connection-banner--connecting svg {
+  animation: chatSpin 900ms linear infinite;
+}
+
+@keyframes chatSpin {
+  to { transform: rotate(360deg); }
 }
 
 .chat-header-btn {

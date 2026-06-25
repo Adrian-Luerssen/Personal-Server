@@ -54,13 +54,13 @@ describe('DataService', () => {
       // Verify correct deletion order (FK constraints)
       const queryCalls = mockQueryRunner.query.mock.calls;
       expect(queryCalls).toHaveLength(7);
-      expect(queryCalls[0][0]).toContain('workout_set');
-      expect(queryCalls[1][0]).toContain('workout_session');
-      expect(queryCalls[2][0]).toContain('routine_exercise');
-      expect(queryCalls[3][0]).toContain('routine');
-      expect(queryCalls[4][0]).toContain('body_weight_entry');
-      expect(queryCalls[5][0]).toContain('workout_exercise');
-      expect(queryCalls[6][0]).toContain('workout_category');
+      expect(queryCalls[0][0]).toContain('app_workout_set');
+      expect(queryCalls[1][0]).toContain('app_workout_session');
+      expect(queryCalls[2][0]).toContain('app_routine_exercise');
+      expect(queryCalls[3][0]).toContain('app_routine');
+      expect(queryCalls[4][0]).toContain('app_body_weight_entry');
+      expect(queryCalls[5][0]).toContain('app_workout_exercise');
+      expect(queryCalls[6][0]).toContain('app_workout_category');
 
       // Each query uses the accountId parameter
       queryCalls.forEach(call => {
@@ -101,13 +101,13 @@ describe('DataService', () => {
 
       const queryCalls = mockQueryRunner.query.mock.calls;
       expect(queryCalls).toHaveLength(5);
-      expect(queryCalls[0][0]).toContain('finance_transactions');
-      expect(queryCalls[1][0]).toContain('finance_subscriptions');
+      expect(queryCalls[0][0]).toContain('app_finance_transactions');
+      expect(queryCalls[1][0]).toContain('app_finance_subscriptions');
       // Subcategories before parent categories
-      expect(queryCalls[2][0]).toContain('finance_categories');
+      expect(queryCalls[2][0]).toContain('app_finance_categories');
       expect(queryCalls[2][0]).toContain('parentCategoryId');
-      expect(queryCalls[3][0]).toContain('finance_categories');
-      expect(queryCalls[4][0]).toContain('finance_wallets');
+      expect(queryCalls[3][0]).toContain('app_finance_categories');
+      expect(queryCalls[4][0]).toContain('app_finance_wallets');
 
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
       expect(mockCacheManager.reset).toHaveBeenCalled();
@@ -132,10 +132,10 @@ describe('DataService', () => {
 
       const queryCalls = mockQueryRunner.query.mock.calls;
       expect(queryCalls).toHaveLength(2);
-      expect(queryCalls[0][0]).toContain('habit_entry');
-      expect(queryCalls[1][0]).toContain('DELETE FROM habit');
+      expect(queryCalls[0][0]).toContain('app_habit_entry');
+      expect(queryCalls[1][0]).toContain('DELETE FROM app_habit');
       // Ensure it's not deleting habit_entry again
-      expect(queryCalls[1][0]).not.toContain('habit_entry');
+      expect(queryCalls[1][0]).not.toContain('app_habit_entry');
 
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     });
@@ -151,18 +151,18 @@ describe('DataService', () => {
   describe('deleteMusicData', () => {
     const accountId = 'test-account-id';
 
-    it('should delete streams before tracks, albums, artists, playlists', async () => {
+    it('should delete streams and playlists before tracks, albums, artists', async () => {
       const result = await service.deleteMusicData(accountId);
 
       expect(result).toEqual({ success: true, module: 'music' });
 
       const queryCalls = mockQueryRunner.query.mock.calls;
       expect(queryCalls).toHaveLength(5);
-      expect(queryCalls[0][0]).toContain('stream');
-      expect(queryCalls[1][0]).toContain('track');
-      expect(queryCalls[2][0]).toContain('album');
-      expect(queryCalls[3][0]).toContain('artist');
-      expect(queryCalls[4][0]).toContain('playlist');
+      expect(queryCalls[0][0]).toContain('app_stream');
+      expect(queryCalls[1][0]).toContain('app_playlist');
+      expect(queryCalls[2][0]).toContain('app_track');
+      expect(queryCalls[3][0]).toContain('app_album');
+      expect(queryCalls[4][0]).toContain('app_artist');
 
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     });
@@ -185,8 +185,8 @@ describe('DataService', () => {
 
       const queryCalls = mockQueryRunner.query.mock.calls;
       expect(queryCalls).toHaveLength(2);
-      expect(queryCalls[0][0]).toContain('chat_message');
-      expect(queryCalls[1][0]).toContain('chat_conversation');
+      expect(queryCalls[0][0]).toContain('app_chat_message');
+      expect(queryCalls[1][0]).toContain('app_chat_conversation');
 
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     });

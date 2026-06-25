@@ -116,6 +116,7 @@ describe('SpotifyService beta access', () => {
         spotifyUserId: 'spotify-user-1',
         displayName: 'Allowed Tester',
         email: 'allowed@example.com',
+        profileImageUrl: 'https://example.com/avatar.jpg',
         scopes: ['user-read-email', 'user-read-private'],
       })
     );

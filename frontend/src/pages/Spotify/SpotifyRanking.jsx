@@ -42,25 +42,54 @@ function initials(name) {
     .join('') || 'SU'
 }
 
+function UserAvatar({ user, size = 34 }) {
+  const [failed, setFailed] = useState(false)
+  const showImage = Boolean(user.profileImageUrl && !failed)
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size >= 44 ? 'var(--radius-md)' : 'var(--radius-sm)',
+        background: 'var(--color-accent-muted)',
+        color: 'var(--color-accent)',
+        display: 'grid',
+        placeItems: 'center',
+        fontWeight: 800,
+        flexShrink: 0,
+        fontSize: size >= 44 ? '1rem' : '0.8rem',
+        overflow: 'hidden',
+      }}
+    >
+      {showImage ? (
+        <img
+          src={user.profileImageUrl}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            objectFit: 'cover',
+          }}
+        />
+      ) : (
+        initials(user.displayName)
+      )}
+    </div>
+  )
+}
+
 function RankingPodiumCard({ user }) {
   const medals = ['#fbbf24', '#cbd5e1', '#f97316']
   return (
     <div className="card" style={{ display: 'grid', gap: '0.75rem', minHeight: 170 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-          <div style={{
-            width: 44,
-            height: 44,
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--color-accent-muted)',
-            display: 'grid',
-            placeItems: 'center',
-            color: 'var(--color-accent)',
-            fontWeight: 800,
-            flexShrink: 0,
-          }}>
-            {initials(user.displayName)}
-          </div>
+          <UserAvatar user={user} size={44} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: '0.8rem', color: medals[user.rank - 1], fontWeight: 800 }}>
               #{user.rank}
@@ -217,20 +246,7 @@ export default function SpotifyRanking() {
                     <td style={{ padding: '0.85rem 0.5rem', fontWeight: 800 }}>#{user.rank}</td>
                     <td style={{ padding: '0.85rem 0.5rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                        <div style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: 'var(--radius-sm)',
-                          background: 'var(--color-accent-muted)',
-                          color: 'var(--color-accent)',
-                          display: 'grid',
-                          placeItems: 'center',
-                          fontWeight: 800,
-                          flexShrink: 0,
-                          fontSize: '0.8rem',
-                        }}>
-                          {initials(user.displayName)}
-                        </div>
+                        <UserAvatar user={user} size={34} />
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {user.displayName}

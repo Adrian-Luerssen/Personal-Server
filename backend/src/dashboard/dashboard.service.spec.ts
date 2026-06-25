@@ -618,6 +618,7 @@ describe('DashboardService', () => {
             accountId: 'account-1',
             displayName: 'Arianna',
             spotifyUserId: '11145917586',
+            profileImageUrl: 'https://example.com/arianna.jpg',
             streamCount: '91',
             uniqueTracks: '44',
             msListened: '123000',
@@ -682,6 +683,7 @@ describe('DashboardService', () => {
               expect.objectContaining({
                 rank: 1,
                 displayName: 'Arianna',
+                profileImageUrl: 'https://example.com/arianna.jpg',
                 streamCount: 91,
               }),
             ],

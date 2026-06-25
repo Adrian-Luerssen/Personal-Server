@@ -146,6 +146,7 @@ export interface DashboardMobileSnapshotResponse {
       accountId: string;
       displayName: string;
       spotifyUserId?: string;
+      profileImageUrl?: string;
       streamCount: number;
       uniqueTracks: number;
       msListened: number;
@@ -621,6 +622,7 @@ export class DashboardService {
           accountId: row.accountId,
           displayName: row.displayName || "Spotify User",
           spotifyUserId: row.spotifyUserId || undefined,
+          profileImageUrl: row.profileImageUrl || undefined,
           streamCount: this.parseNumber(row.streamCount),
           uniqueTracks: this.parseNumber(row.uniqueTracks),
           msListened: this.parseNumber(row.msListened),
@@ -804,6 +806,10 @@ export class DashboardService {
           s."accountId"::text
         ) AS "displayName",
         MAX(sc."spotifyUserId") AS "spotifyUserId",
+        COALESCE(
+          MAX(NULLIF(sc."profileImageUrl", '')),
+          MAX(sc.images->0->>'url')
+        ) AS "profileImageUrl",
         COUNT(*) AS "streamCount",
         COUNT(DISTINCT s."trackId") AS "uniqueTracks",
         COALESCE(SUM(t.duration), 0) AS "msListened",

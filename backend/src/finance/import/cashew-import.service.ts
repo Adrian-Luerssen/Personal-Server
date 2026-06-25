@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource, QueryRunner } from "typeorm";
 import { FinanceWallet } from "../entities/wallet.entity";
@@ -10,10 +10,14 @@ import * as os from "os";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import { Response } from "express";
+import { createImportProgressSender } from "../../utils/sse";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 type AnyObject = Record<string, any>;
 
 const PREVIEW_TTL_MS = 30 * 60 * 1000;
+const BULK_INSERT_CHUNK_SIZE = 500;
 
 interface CashewPreviewData {
   filePath: string;
@@ -48,9 +52,12 @@ export class CashewImportService {
     @InjectRepository(FinanceTransaction)
     private readonly transactionRepo: Repository<FinanceTransaction>,
     @InjectDataSource()
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {
-    setInterval(() => this.cleanupExpired(), 5 * 60 * 1000);
+    const cleanupTimer = setInterval(() => this.cleanupExpired(), 5 * 60 * 1000);
+    cleanupTimer.unref?.();
   }
 
   private cleanupExpired() {
@@ -87,6 +94,16 @@ export class CashewImportService {
     if (isNaN(n)) return null;
     // Cashew stores seconds; convert to milliseconds for JS Date
     return new Date(n < 1e12 ? n * 1000 : n);
+  }
+
+  private async insertInChunks(
+    manager: QueryRunner["manager"],
+    entity: any,
+    rows: AnyObject[]
+  ): Promise<void> {
+    for (let i = 0; i < rows.length; i += BULK_INSERT_CHUNK_SIZE) {
+      await manager.insert(entity, rows.slice(i, i + BULK_INSERT_CHUNK_SIZE));
+    }
   }
 
   // =========== PREVIEW ===========
@@ -207,12 +224,7 @@ export class CashewImportService {
   // =========== EXECUTE with SSE ===========
 
   async executeImport(account: Account, previewId: string, res: Response): Promise<void> {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders();
-
-    const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const send = createImportProgressSender(res);
 
     const previewData = this.previewCache.get(previewId);
     if (!previewData) {
@@ -256,8 +268,27 @@ export class CashewImportService {
       });
 
       await queryRunner.commitTransaction();
+      await this.recordImportSync(account.id, "cashew-import", previewData.counts);
 
-      send({ stage: "complete", progress: 100, message: "Import completed successfully!" });
+      send({
+        stage: "complete",
+        progress: 100,
+        message: "Import completed successfully!",
+        summary: {
+          wallets: {
+            created: previewData.counts.wallets.new,
+            existing: previewData.counts.wallets.existing,
+          },
+          categories: {
+            created: previewData.counts.categories.new,
+            existing: previewData.counts.categories.existing,
+          },
+          transactions: {
+            created: previewData.counts.transactions.new,
+            existing: previewData.counts.transactions.existing,
+          },
+        },
+      });
 
       // Cleanup
       this.previewCache.delete(previewId);
@@ -315,7 +346,7 @@ export class CashewImportService {
         try { fs.unlinkSync(previewData.filePath); } catch {}
       }
 
-      return {
+      const result = {
         stage: "complete",
         progress: 100,
         message: "Import completed successfully!",
@@ -332,6 +363,8 @@ export class CashewImportService {
           existing: transactionsBefore,
         },
       };
+      await this.recordImportSync(account.id, "cashew-import", previewData.counts);
+      return result;
     } catch (err) {
       try { await queryRunner.rollbackTransaction(); } catch {}
       const msg = err instanceof Error ? err.message : String(err);
@@ -362,17 +395,27 @@ export class CashewImportService {
       return idMap;
     }
 
+    const existingWallets = await manager.find(FinanceWallet, {
+      where: { accountId: account.id },
+      select: ["id", "externalId"],
+    });
+    const walletByExternalId = new Map(
+      existingWallets
+        .filter((wallet) => wallet.externalId)
+        .map((wallet) => [wallet.externalId!, wallet])
+    );
+    const walletsToInsert: FinanceWallet[] = [];
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const externalId = String(row.wallet_pk);
       if (!externalId) continue;
 
-      let wallet = await manager.findOne(FinanceWallet, {
-        where: { accountId: account.id, externalId },
-      });
-
+      const wallet = walletByExternalId.get(externalId);
       if (!wallet) {
-        wallet = manager.create(FinanceWallet, {
+        const id = randomUUID();
+        const newWallet = manager.create(FinanceWallet, {
+          id,
           accountId: account.id,
           account,
           externalId,
@@ -382,13 +425,18 @@ export class CashewImportService {
           currency: (row.currency || "EUR").toUpperCase(),
           order: typeof row.order === "number" ? row.order : i,
         });
-        wallet = await manager.save(wallet);
+        walletsToInsert.push(newWallet);
+        idMap.set(externalId, id);
+      } else {
+        idMap.set(externalId, wallet.id);
       }
 
-      idMap.set(externalId, wallet.id);
-      onProgress(i + 1, rows.length);
+      if ((i + 1) % BULK_INSERT_CHUNK_SIZE === 0 || i + 1 === rows.length) {
+        onProgress(i + 1, rows.length);
+      }
     }
 
+    await this.insertInChunks(manager, FinanceWallet, walletsToInsert);
     return idMap;
   }
 
@@ -409,18 +457,30 @@ export class CashewImportService {
       return idMap;
     }
 
+    const existingCategories = await manager.find(FinanceCategory, {
+      where: { accountId: account.id },
+      select: ["id", "externalId"],
+    });
+    const categoryByExternalId = new Map(
+      existingCategories
+        .filter((category) => category.externalId)
+        .map((category) => [category.externalId!, category])
+    );
+    const categoriesToInsert: FinanceCategory[] = [];
+
+    const totalProgressUnits = Math.max(rows.length * 2, 1);
+
     // First pass: create all categories (without parent links)
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const externalId = String(row.category_pk);
       if (!externalId) continue;
 
-      let category = await manager.findOne(FinanceCategory, {
-        where: { accountId: account.id, externalId },
-      });
-
+      const category = categoryByExternalId.get(externalId);
       if (!category) {
-        category = manager.create(FinanceCategory, {
+        const id = randomUUID();
+        const newCategory = manager.create(FinanceCategory, {
+          id,
           accountId: account.id,
           account,
           externalId,
@@ -430,12 +490,18 @@ export class CashewImportService {
           isIncome: row.income === 1,
           parentCategoryId: null, // set in second pass
         });
-        category = await manager.save(category);
+        categoriesToInsert.push(newCategory);
+        idMap.set(externalId, id);
+      } else {
+        idMap.set(externalId, category.id);
       }
 
-      idMap.set(externalId, category.id);
-      onProgress(Math.floor((i + 1) / 2), rows.length);
+      if ((i + 1) % BULK_INSERT_CHUNK_SIZE === 0 || i + 1 === rows.length) {
+        onProgress(i + 1, totalProgressUnits);
+      }
     }
+
+    await this.insertInChunks(manager, FinanceCategory, categoriesToInsert);
 
     // Second pass: set parent links
     for (let i = 0; i < rows.length; i++) {
@@ -451,8 +517,12 @@ export class CashewImportService {
       if (!ourId || !parentId) continue;
 
       await manager.update(FinanceCategory, ourId, { parentCategoryId: parentId });
-      onProgress(Math.floor(rows.length / 2) + i + 1, rows.length);
+      if ((i + 1) % BULK_INSERT_CHUNK_SIZE === 0 || i + 1 === rows.length) {
+        onProgress(rows.length + i + 1, totalProgressUnits);
+      }
     }
+
+    onProgress(totalProgressUnits, totalProgressUnits);
 
     return idMap;
   }
@@ -480,17 +550,23 @@ export class CashewImportService {
       return;
     }
 
-    const BATCH_SIZE = 50;
+    const existingTransactions = await manager.find(FinanceTransaction, {
+      where: { accountId: account.id },
+      select: ["externalId"],
+    });
+    const existingExternalIds = new Set(
+      existingTransactions
+        .map((tx) => tx.externalId)
+        .filter((externalId): externalId is string => Boolean(externalId))
+    );
+    const transactionsToInsert: FinanceTransaction[] = [];
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const externalId = String(row.transaction_pk);
       if (!externalId) continue;
 
-      // Check if already exists
-      const existing = await manager.findOne(FinanceTransaction, {
-        where: { accountId: account.id, externalId },
-      });
-      if (existing) {
+      if (existingExternalIds.has(externalId)) {
         onProgress(i + 1, rows.length);
         continue;
       }
@@ -515,12 +591,14 @@ export class CashewImportService {
         type: row.type ?? null,
       });
 
-      await manager.save(tx);
+      transactionsToInsert.push(tx);
 
-      if ((i + 1) % BATCH_SIZE === 0 || i + 1 === rows.length) {
+      if ((i + 1) % BULK_INSERT_CHUNK_SIZE === 0 || i + 1 === rows.length) {
         onProgress(i + 1, rows.length);
       }
     }
+
+    await this.insertInChunks(manager, FinanceTransaction, transactionsToInsert);
   }
 
   // =========== DIRECT IMPORT (no preview) ===========
@@ -550,6 +628,7 @@ export class CashewImportService {
       await this.importTransactions(account, db, queryRunner, walletIdMap, categoryIdMap, () => {});
 
       await queryRunner.commitTransaction();
+      await this.recordImportSync(account.id, "cashew-import");
       return { status: "ok" };
     } catch (err) {
       try { await queryRunner.rollbackTransaction(); } catch {}
@@ -562,5 +641,28 @@ export class CashewImportService {
         try { fs.unlinkSync(filePath); } catch {}
       }
     }
+  }
+
+  private async recordImportSync(
+    accountId: string,
+    source: string,
+    counts?: CashewPreviewData["counts"]
+  ): Promise<void> {
+    if (!this.syncService) return;
+    if (
+      counts &&
+      counts.wallets.new === 0 &&
+      counts.categories.new === 0 &&
+      counts.transactions.new === 0
+    ) {
+      return;
+    }
+
+    await this.syncService.recordEvent(accountId, {
+      entityType: "finance-transaction",
+      entityId: randomUUID(),
+      operation: SyncOperation.UPSERT,
+      payload: { source, counts: counts ?? null },
+    });
   }
 }

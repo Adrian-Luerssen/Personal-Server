@@ -1,4 +1,10 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
+
+def frontendPackageJson = new JsonSlurper().parse(file('../../package.json'))
+def resolvedVersionName = System.getenv("ANDROID_VERSION_NAME") ?: frontendPackageJson.version ?: "0.0.0"
+def resolvedVersionCode = (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
 
 android {
     namespace = "com.adrianluerssen.personalserver"
@@ -12,8 +18,8 @@ android {
         applicationId "com.adrianluerssen.personalserver"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode resolvedVersionCode
+        versionName resolvedVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

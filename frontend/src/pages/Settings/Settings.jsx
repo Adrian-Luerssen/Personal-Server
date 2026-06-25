@@ -8,6 +8,7 @@ import Account from './Account'
 import DataManagement from './DataManagement'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
+import { APP_BUILD_TIME, APP_VERSION, formatBuildTime } from '../../appVersion.mjs'
 
 const SETTINGS_TABS = new Set(['account', 'connections', 'agent-keys', 'appearance', 'preferences', 'data'])
 
@@ -146,6 +147,17 @@ export default function Settings() {
             <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
               {t('settings.themeDesc')}
             </p>
+          </div>
+
+          <div className="settings-version-card">
+            <div>
+              <span>App version</span>
+              <strong>v{APP_VERSION}</strong>
+            </div>
+            <div>
+              <span>Build</span>
+              <strong>{formatBuildTime(APP_BUILD_TIME)}</strong>
+            </div>
           </div>
         </div>
       )}

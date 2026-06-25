@@ -9,6 +9,7 @@ export { SessionCard } from './SessionCard'
 export { SetRow } from './SetRow'
 export { StepIndicator } from './StepIndicator'
 export { ProgressBar } from './ProgressBar'
+export { ImportProgressPanel } from './ImportProgressPanel'
 export {
   formatNumberShort,
   formatDuration,

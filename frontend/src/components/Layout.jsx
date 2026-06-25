@@ -10,6 +10,7 @@ import PWAInstallPrompt from './PWAInstallPrompt'
 import { isNativeMobileApp } from '../mobilePlatform'
 import Icon from './icons/Icon'
 import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
+import { APP_VERSION } from '../appVersion.mjs'
 
 const NATIVE_ROUTE_TITLES = [
   { match: /^\/home$/, title: 'Today', subtitle: 'Overview' },
@@ -34,7 +35,7 @@ function NativeAppHeader() {
     <header className="native-app-header">
       <div className="native-app-header__mark" aria-hidden="true">PS</div>
       <div className="native-app-header__copy">
-        <span>{current.subtitle}</span>
+        <span>{current.subtitle} · v{APP_VERSION}</span>
         <strong>{current.title}</strong>
       </div>
       <button
@@ -66,7 +67,7 @@ function NativeUpdatePrompt() {
     <div className="native-update-prompt" role="status">
       <div>
         <strong>APK update available</strong>
-        <span>{update.version}</span>
+        <span>Installed v{update.currentVersion} · Latest {update.version}</span>
       </div>
       <a href={update.apkUrl} target="_blank" rel="noreferrer">Download</a>
       <button

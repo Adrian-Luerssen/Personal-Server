@@ -48,6 +48,48 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
     super(repo);
   }
 
+  private getPrimaryProfileImageUrl(
+    images?: Array<{ url?: string; height?: number; width?: number }> | null
+  ): string | undefined {
+    return images?.find((image) => image?.url)?.url;
+  }
+
+  private async refreshStoredProfile(
+    accountId: string,
+    accessToken: string
+  ): Promise<void> {
+    try {
+      const me = await this.getCurrentUser(accessToken);
+      this.assertBetaAccessAllowed({ email: me.email });
+      await this.updateProfile(accountId, {
+        spotifyUserId: me.id,
+        displayName: me.display_name,
+        email: me.email,
+        profileUrl: me.external_urls?.spotify,
+        profileImageUrl: this.getPrimaryProfileImageUrl(me.images),
+        images: me.images,
+      });
+    } catch (error) {
+      Logger.warn(
+        `Failed to refresh Spotify profile for account ${accountId}: ${error}`,
+        "SpotifyProfile"
+      );
+    }
+  }
+
+  private async refreshStoredProfileIfMissing(
+    credentials: SpotifyCredentials,
+    accessToken: string
+  ): Promise<void> {
+    if (
+      credentials.profileImageUrl ||
+      this.getPrimaryProfileImageUrl(credentials.images)
+    ) {
+      return;
+    }
+    await this.refreshStoredProfile(credentials.accountId, accessToken);
+  }
+
   private getBetaAllowedEmails(): string[] {
     const raw = this.configService.get<string>("SPOTIFY_BETA_ALLOWED_EMAILS") || "";
     const emails = raw
@@ -124,18 +166,26 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
         const refreshed = await this.refreshAccessToken(
           credentials.refreshToken
         );
-        await this.upsertTokens(accountId, {
+        const updatedCredentials = await this.upsertTokens(accountId, {
           accessToken: refreshed.access_token,
           refreshToken: refreshed.refresh_token || credentials.refreshToken,
           tokenType: refreshed.token_type,
           scope: refreshed.scope,
           expiresIn: refreshed.expires_in,
         });
+        await this.refreshStoredProfileIfMissing(
+          updatedCredentials,
+          refreshed.access_token
+        );
         return refreshed.access_token;
       } catch (error) {
         return null;
       }
     }
+    await this.refreshStoredProfileIfMissing(
+      credentials,
+      credentials.accessToken
+    );
     return credentials.accessToken;
   }
 
@@ -681,6 +731,7 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
       displayName: me.display_name,
       email: me.email,
       profileUrl: me.external_urls?.spotify,
+      profileImageUrl: this.getPrimaryProfileImageUrl(me.images),
       images: me.images,
     });
   }
@@ -692,15 +743,22 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
       displayName?: string;
       email?: string;
       profileUrl?: string;
+      profileImageUrl?: string;
       images?: Array<{ url: string; height?: number; width?: number }>;
     }
   ): Promise<SpotifyCredentials> {
+    const normalizedProfile = { ...profile };
+    const profileImageUrl =
+      profile.profileImageUrl || this.getPrimaryProfileImageUrl(profile.images);
+    if (profileImageUrl) {
+      normalizedProfile.profileImageUrl = profileImageUrl;
+    }
     const existing = await this.getByAccountId(accountId);
     if (!existing) {
-      const created = this.repo.create({ accountId, ...profile });
+      const created = this.repo.create({ accountId, ...normalizedProfile });
       return await this.repo.save(created);
     }
-    Object.assign(existing, profile);
+    Object.assign(existing, normalizedProfile);
     return await this.repo.save(existing);
   }
 
@@ -766,6 +824,7 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
           accessToken: refreshToken.access_token,
           refreshToken: refreshToken.refresh_token || user.refreshToken,
         });
+        await this.refreshStoredProfile(user.accountId, refreshToken.access_token);
       }
     }
   }

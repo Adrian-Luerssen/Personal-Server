@@ -39,5 +39,6 @@ mobile-landing.png
 
 # Claude/Superpowers working files
 .claude/
+.codex-remote-attachments/
 .playwright-mcp/
 .superpowers/

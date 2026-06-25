@@ -80,8 +80,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run API cache tests
-        run: node --test src/apiCache.test.mjs
+      - name: Resolve app version
+        id: app_version
+        run: |
+          app_version="$(node -p "require('./package.json').version")"
+          build_time="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "version=$app_version" >> "$GITHUB_OUTPUT"
+          echo "build_time=$build_time" >> "$GITHUB_OUTPUT"
+
+      - name: Run API cache and version tests
+        run: node --test src/apiCache.test.mjs src/appVersion.test.mjs src/importFileTypes.test.mjs src/importProgress.test.mjs
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -92,6 +100,9 @@ jobs:
         run: npx playwright test tests/auth/native-app.spec.ts tests/auth/mobile-gate.spec.ts --project=chromium
 
       - name: Build web app
+        env:
+          VITE_APP_VERSION: ${{ steps.app_version.outputs.version }}
+          VITE_APP_BUILD_TIME: ${{ steps.app_version.outputs.build_time }}
         run: npm run build
 
       - name: Sync Capacitor Android project
@@ -122,6 +133,8 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_NAME: ${{ steps.app_version.outputs.version }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: |
           chmod +x android/gradlew
           cd android
@@ -146,6 +159,99 @@ jobs:
           "$APK_SIGNER" verify --verbose "$APK_PATH"
           cp "$APK_PATH" personal-server.apk
 
+      - name: Prepare release metadata
+        env:
+          APP_VERSION: ${{ steps.app_version.outputs.version }}
+          APP_BUILD_TIME: ${{ steps.app_version.outputs.build_time }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_REF: ${{ github.ref_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          RELEASE_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          APK_SHA256="$(sha256sum personal-server.apk | awk '{print $1}')"
+          APK_SIZE_BYTES="$(wc -c < personal-server.apk | tr -d '[:space:]')"
+          APK_SIZE_MB="$(node -e "console.log((Number(process.argv[1]) / 1024 / 1024).toFixed(2))" "$APK_SIZE_BYTES")"
+          RELEASE_COMMIT_SHORT="${RELEASE_COMMIT::7}"
+          COMMIT_URL="https://github.com/${RELEASE_REPOSITORY}/commit/${RELEASE_COMMIT}"
+          RUN_URL="https://github.com/${RELEASE_REPOSITORY}/actions/runs/${RELEASE_RUN_ID}"
+          COMMIT_SUBJECT="$(git log -1 --pretty=%s "$RELEASE_COMMIT")"
+          RECENT_COMMITS="$(git log -5 --pretty=format:'- `%h` %s')"
+          if [ "$RELEASE_TAG" = "android-latest" ]; then
+            RELEASE_CHANNEL="Rolling latest Android build"
+          else
+            RELEASE_CHANNEL="Tagged Android release"
+          fi
+
+          cat > release-notes.md <<EOF
+          ## Personal Server Android APK
+
+          ### Deployment
+          | Field | Value |
+          | --- | --- |
+          | Channel | ${RELEASE_CHANNEL} |
+          | App version | \`${APP_VERSION}\` |
+          | Android versionCode | \`${RELEASE_RUN_NUMBER}\` |
+          | Build time | \`${APP_BUILD_TIME}\` |
+          | Release tag | \`${RELEASE_TAG}\` |
+          | Source ref | \`${RELEASE_REF_TYPE}:${RELEASE_REF}\` |
+          | Commit | [\`${RELEASE_COMMIT_SHORT}\`](${COMMIT_URL}) |
+          | Workflow run | [#${RELEASE_RUN_NUMBER}](${RUN_URL}) |
+          | API target | \`VITE_API_BASE\` repository secret, validated as public HTTPS |
+
+          ### APK Asset
+          | Field | Value |
+          | --- | --- |
+          | File | \`personal-server.apk\` |
+          | Size | \`${APK_SIZE_MB} MB\` |
+          | SHA-256 | \`${APK_SHA256}\` |
+          | Signing | Signed release APK verified with Android \`apksigner\` |
+
+          ### Verification
+          - API cache and app version tests passed.
+          - Mobile shell and mobile landing gate Playwright tests passed.
+          - Vite production build completed.
+          - Capacitor Android project sync completed.
+          - Gradle \`assembleRelease\` completed.
+
+          ### Included Changes
+          Latest commit: ${COMMIT_SUBJECT}
+
+          ${RECENT_COMMITS}
+
+          ### Install
+          Download \`personal-server.apk\` from the release assets and install it on Android. If Android blocks the install, allow installs from your browser or file manager for this APK.
+          EOF
+
+          cat > personal-server-release.json <<EOF
+          {
+            "appVersion": "${APP_VERSION}",
+            "androidVersionCode": "${RELEASE_RUN_NUMBER}",
+            "buildTime": "${APP_BUILD_TIME}",
+            "releaseTag": "${RELEASE_TAG}",
+            "releaseChannel": "${RELEASE_CHANNEL}",
+            "sourceRef": "${RELEASE_REF_TYPE}:${RELEASE_REF}",
+            "commit": "${RELEASE_COMMIT}",
+            "workflowRun": "${RUN_URL}",
+            "apk": {
+              "file": "personal-server.apk",
+              "sizeBytes": ${APK_SIZE_BYTES},
+              "sha256": "${APK_SHA256}",
+              "signed": true
+            },
+            "verification": [
+              "api-cache-and-version-tests",
+              "mobile-shell-playwright-tests",
+              "vite-production-build",
+              "capacitor-android-sync",
+              "gradle-assemble-release",
+              "apksigner-verify"
+            ]
+          }
+          EOF
+
       - name: Move stable release tag
         if: steps.release.outputs.tag == 'android-latest'
         env:
@@ -158,12 +264,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          RELEASE_NAME: ${{ steps.release.outputs.tag }}
-          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_NAME: 'Personal Server Android v${{ steps.app_version.outputs.version }}'
         run: |
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
-            gh release create "$RELEASE_TAG" --title "$RELEASE_NAME" --notes "Android APK build for Personal Server."
+            gh release create "$RELEASE_TAG" --title "$RELEASE_NAME" --notes-file release-notes.md
           gh release edit "$RELEASE_TAG" \
             --title "$RELEASE_NAME" \
-            --notes "Latest Android APK build for commit ${RELEASE_COMMIT}."
-          gh release upload "$RELEASE_TAG" personal-server.apk --clobber
+            --notes-file release-notes.md
+          gh release upload "$RELEASE_TAG" personal-server.apk personal-server-release.json --clobber

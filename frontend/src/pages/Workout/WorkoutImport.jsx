@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { apiFetch } from '../../api'
 import { getTokens } from '../../auth'
 import { getApiBase } from '../../config'
-import { LoadingSpinner, StepIndicator, ProgressBar } from '../../components/shared'
+import { LoadingSpinner, StepIndicator, ImportProgressPanel } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import { getImportAccept, getImportFileDescription } from '../../importFileTypes.mjs'
+import { isNativeMobileApp } from '../../mobilePlatform'
+import { streamImportProgress } from '../../importProgress.mjs'
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
@@ -57,6 +60,7 @@ function formatFileSize(bytes) {
 function FileSelectStep({ file, setFile, onNext }) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
+  const fileDescription = getImportFileDescription('fitnotes')
 
   const handleFile = (f) => {
     if (f) { setFile(f) }
@@ -125,7 +129,7 @@ function FileSelectStep({ file, setFile, onNext }) {
               Drag & drop your .db file here
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              or click to browse · .db, .sqlite, .sqlite3
+              or click to browse · {fileDescription}
             </div>
           </>
         )}
@@ -133,7 +137,7 @@ function FileSelectStep({ file, setFile, onNext }) {
         <input
           ref={inputRef}
           type="file"
-          accept=".db,.sqlite,.sqlite3,.fitnotes"
+          accept={getImportAccept('fitnotes', { native: isNativeMobileApp() })}
           style={{ display: 'none' }}
           onChange={(e) => handleFile(e.target.files?.[0])}
         />
@@ -446,11 +450,13 @@ const STAGE_ICONS = {
 function ProgressStep({ previewId, options, onComplete, onError }) {
   const [progress, setProgress] = useState({ stage: 'starting', progress: 0, current: 0, total: 0, message: '' })
   const [errorMsg, setErrorMsg] = useState(null)
+  const [events, setEvents] = useState([])
 
   useEffect(() => {
     if (!previewId) return
 
     let cancelled = false
+    const controller = new AbortController()
 
     const run = async () => {
       try {
@@ -465,56 +471,28 @@ function ProgressStep({ previewId, options, onComplete, onError }) {
         })
 
         const url = `${base}/workout/import/fitnotes/execute/${previewId}?${params}`
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: 'text/event-stream',
-          },
-        })
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => '')
-          throw new Error(`Import failed (${res.status}): ${text || res.statusText}`)
-        }
-
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buf = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done || cancelled) break
-          buf += decoder.decode(value, { stream: true })
-
-          // Parse SSE lines
-          const lines = buf.split('\n')
-          buf = lines.pop() // keep last incomplete line
-
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue
-            const jsonStr = line.slice(5).trim()
-            if (!jsonStr) continue
-            try {
-              const data = JSON.parse(jsonStr)
-              if (!cancelled) {
-                setProgress(data)
-                if (data.stage === 'complete') {
-                  onComplete(data.summary || data)
-                  return
-                }
-                if (data.stage === 'error') {
-                  setErrorMsg(data.error || data.message || 'Import error')
-                  onError(data.error || data.message)
-                  return
-                }
-              }
-            } catch (_) {
-              // skip malformed lines
+        await streamImportProgress({
+          url,
+          accessToken,
+          signal: controller.signal,
+          onEvent: (data) => {
+            if (cancelled) return
+            setProgress(data)
+            setEvents((items) => [...items, data].slice(-20))
+            if (data.stage === 'complete') {
+              onComplete(data.summary || data)
+              controller.abort()
+            }
+            if (data.stage === 'error') {
+              const message = data.error || data.message || 'Import error'
+              setErrorMsg(message)
+              onError(message)
+              controller.abort()
             }
           }
-        }
+        })
       } catch (e) {
-        if (!cancelled) {
+        if (!cancelled && e.name !== 'AbortError') {
           setErrorMsg(e.message)
           onError(e.message)
         }
@@ -522,53 +500,22 @@ function ProgressStep({ previewId, options, onComplete, onError }) {
     }
 
     run()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [previewId, options])
 
-  const icon = STAGE_ICONS[progress.stage] || 'hourglass_empty'
-  const label = STAGE_LABELS[progress.stage] || progress.stage
-  const isError = progress.stage === 'error' || errorMsg
-  const isDone = progress.stage === 'complete'
-
   return (
-    <div className="card" style={{ ...card, textAlign: 'center' }}>
-      <Icon
-        name={icon}
-        size={56}
-        style={{
-          color: isError ? 'var(--color-error)' : isDone ? 'var(--color-success)' : 'var(--color-accent)',
-          marginBottom: '1rem',
-          display: 'block',
-          animation: (!isError && !isDone) ? 'spin 2s linear infinite' : 'none',
-        }}
-      />
-
-      <h3 style={{ marginBottom: '0.5rem' }}>
-        {isError ? 'Import Failed' : isDone ? 'Import Complete!' : 'Importing…'}
-      </h3>
-
-      {errorMsg ? (
-        <div className="alert-error" style={{ marginBottom: '1rem', textAlign: 'left' }}>{errorMsg}</div>
-      ) : (
-        <>
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1.25rem', fontSize: '0.9rem' }}>
-            {progress.message || label}
-          </p>
-          <div style={{ marginBottom: '0.75rem' }}>
-            <ProgressBar value={progress.progress} label={label} />
-          </div>
-          {progress.total > 0 && (
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              {progress.current.toLocaleString()} / {progress.total.toLocaleString()}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Keyframe for spinning icon */}
-      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
-    </div>
+    <ImportProgressPanel
+      progress={progress}
+      events={events}
+      errorMsg={errorMsg}
+      stageIcons={STAGE_ICONS}
+      stageLabels={STAGE_LABELS}
+    />
   )
+
 }
 
 // ─── Step 5: Summary ──────────────────────────────────────────────────────────

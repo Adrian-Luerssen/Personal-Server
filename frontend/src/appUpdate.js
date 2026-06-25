@@ -1,4 +1,5 @@
 import { ANDROID_APK_URL, isNativeMobileApp } from './mobilePlatform'
+import { APP_VERSION, getReleaseVersionStatus } from './appVersion.mjs'
 
 const RELEASE_API_URL = 'https://api.github.com/repos/Adrian-Luerssen/Personal-Server/releases/latest'
 const LAST_CHECK_KEY = 'personal-server:update:last-check'
@@ -25,10 +26,14 @@ export async function checkForAndroidUpdate({ force = false } = {}) {
       : null
     const updateId = String(asset?.id || release.id || release.tag_name || release.published_at || '')
     if (!updateId || localStorage.getItem(DISMISSED_KEY) === updateId) return null
+    const versionStatus = getReleaseVersionStatus(release.tag_name, APP_VERSION)
+    if (versionStatus === 'current' || versionStatus === 'older') return null
 
     return {
       id: updateId,
       version: release.tag_name || 'latest',
+      currentVersion: APP_VERSION,
+      versionStatus,
       name: release.name || 'Android update',
       publishedAt: release.published_at,
       apkUrl: asset?.browser_download_url || ANDROID_APK_URL,

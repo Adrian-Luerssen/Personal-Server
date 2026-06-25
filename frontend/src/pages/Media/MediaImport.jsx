@@ -2,17 +2,20 @@ import React, { useState, useRef, useCallback } from 'react'
 import { apiFetch } from '../../api'
 import { getTokens } from '../../auth'
 import { getApiBase } from '../../config'
-import { LoadingSpinner, StepIndicator, ProgressBar } from '../../components/shared'
+import { LoadingSpinner, StepIndicator, ImportProgressPanel } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
+import { getImportAccept, getImportFileDescription } from '../../importFileTypes.mjs'
+import { isNativeMobileApp } from '../../mobilePlatform'
+import { streamImportProgress } from '../../importProgress.mjs'
 
 const MEDIA_COLOR = '#f472b6'
 
 const SOURCES = [
-  { id: 'mal-anime',  label: 'MyAnimeList (Anime)', icon: 'tv',        endpoint: '/media/import/mal/anime/preview', accept: '.xml,.gz,.xml.gz', desc: 'Export from MAL Settings > Account > Export' },
-  { id: 'mal-manga',  label: 'MyAnimeList (Manga)', icon: 'book-open', endpoint: '/media/import/mal/manga/preview', accept: '.xml,.gz,.xml.gz', desc: 'Same MAL export, contains manga list' },
-  { id: 'tvtime',     label: 'TVTime',              icon: 'monitor',   endpoint: '/media/import/tvtime/preview',    accept: '.csv', desc: 'Export from TVTime settings' },
-  { id: 'goodreads',  label: 'Goodreads',           icon: 'book',      endpoint: '/media/import/goodreads/preview', accept: '.csv', desc: 'My Books > Import/Export > Export Library' },
+  { id: 'mal-anime',  label: 'MyAnimeList (Anime)', icon: 'tv',        endpoint: '/media/import/mal/anime/preview', fileType: 'mal', desc: 'Export from MAL Settings > Account > Export' },
+  { id: 'mal-manga',  label: 'MyAnimeList (Manga)', icon: 'book-open', endpoint: '/media/import/mal/manga/preview', fileType: 'mal', desc: 'Same MAL export, contains manga list' },
+  { id: 'tvtime',     label: 'TVTime',              icon: 'monitor',   endpoint: '/media/import/tvtime/preview', fileType: 'tvtime', desc: 'Export from TVTime settings' },
+  { id: 'goodreads',  label: 'Goodreads',           icon: 'book',      endpoint: '/media/import/goodreads/preview', fileType: 'goodreads', desc: 'My Books > Import/Export > Export Library' },
 ]
 
 function formatFileSize(bytes) {
@@ -25,6 +28,7 @@ function formatFileSize(bytes) {
 
 function SourceStep({ source, setSource, file, setFile, onNext }) {
   const inputRef = useRef(null)
+  const nativePicker = isNativeMobileApp()
 
   return (
     <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -74,9 +78,15 @@ function SourceStep({ source, setSource, file, setFile, onNext }) {
               <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{formatFileSize(file.size)}</div>
             </>
           ) : (
-            <div style={{ color: 'var(--color-text-muted)' }}>Click to select {source.accept} file</div>
+            <div style={{ color: 'var(--color-text-muted)' }}>Click to select {getImportFileDescription(source.fileType)} file</div>
           )}
-          <input ref={inputRef} type="file" accept={source.accept} style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] || null)} />
+          <input
+            ref={inputRef}
+            type="file"
+            accept={getImportAccept(source.fileType, { native: nativePicker })}
+            style={{ display: 'none' }}
+            onChange={e => setFile(e.target.files?.[0] || null)}
+          />
         </div>
       )}
 
@@ -269,69 +279,59 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
 function ProgressStep({ previewId, onComplete, onError }) {
   const [progress, setProgress] = useState({ stage: 'starting', progress: 0, current: 0, total: 0, message: 'Starting...' })
   const [errorMsg, setErrorMsg] = useState(null)
+  const [events, setEvents] = useState([])
 
   React.useEffect(() => {
     if (!previewId) return
     let cancelled = false
+    const controller = new AbortController()
     const run = async () => {
       try {
         const { accessToken } = getTokens()
         const base = getApiBase()
-        const res = await fetch(`${base}/media/import/execute/${previewId}`, {
-          headers: { Authorization: `Bearer ${accessToken}`, Accept: 'text/event-stream' },
-        })
-        if (!res.ok) throw new Error(`Import failed (${res.status})`)
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buf = ''
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done || cancelled) break
-          buf += decoder.decode(value, { stream: true })
-          const lines = buf.split('\n')
-          buf = lines.pop()
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue
-            try {
-              const data = JSON.parse(line.slice(5).trim())
-              if (!cancelled) {
-                setProgress(data)
-                if (data.stage === 'complete') { onComplete(data.summary || data); return }
-                if (data.stage === 'error') { setErrorMsg(data.error || data.message); onError(data.error); return }
-              }
-            } catch {}
+        await streamImportProgress({
+          url: `${base}/media/import/execute/${previewId}`,
+          accessToken,
+          signal: controller.signal,
+          onEvent: (data) => {
+            if (cancelled) return
+            setProgress(data)
+            setEvents((items) => [...items, data].slice(-20))
+            if (data.stage === 'complete') {
+              onComplete(data.summary || data)
+              controller.abort()
+            }
+            if (data.stage === 'error') {
+              const message = data.error || data.message || 'Import error'
+              setErrorMsg(message)
+              onError(message)
+              controller.abort()
+            }
           }
-        }
+        })
       } catch (e) {
-        if (!cancelled) { setErrorMsg(e.message); onError(e.message) }
+        if (!cancelled && e.name !== 'AbortError') { setErrorMsg(e.message); onError(e.message) }
       }
     }
     run()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [previewId])
 
-  const isError = errorMsg
-  const isDone = progress.stage === 'complete'
+  const STAGE_ICONS = { starting: 'hourglass', creating: 'plus-circle', replacing: 'refresh-cw', complete: 'check-circle', error: 'alert-circle' }
+  const STAGE_LABELS = { starting: 'Preparing...', creating: 'Creating items...', replacing: 'Updating duplicates...', complete: 'Complete!', error: 'Error' }
 
   return (
-    <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-      <Icon
-        name={isError ? 'alert-circle' : isDone ? 'check-circle' : 'clapperboard'}
-        size={56}
-        style={{ color: isError ? 'var(--color-error)' : isDone ? 'var(--color-success)' : MEDIA_COLOR, marginBottom: '1rem', display: 'block', animation: (!isError && !isDone) ? 'spin 2s linear infinite' : 'none' }}
-      />
-      <h3 style={{ marginBottom: '0.5rem' }}>{isError ? 'Import Failed' : isDone ? 'Import Complete!' : 'Importing...'}</h3>
-      {errorMsg ? (
-        <div className="alert-error" style={{ marginTop: '1rem', textAlign: 'left' }}>{errorMsg}</div>
-      ) : (
-        <>
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1.25rem', fontSize: '0.9rem' }}>{progress.message}</p>
-          <ProgressBar value={progress.progress} color={MEDIA_COLOR} />
-          {progress.total > 0 && <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>{progress.current?.toLocaleString()} / {progress.total?.toLocaleString()}</div>}
-        </>
-      )}
-      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
-    </div>
+    <ImportProgressPanel
+      progress={progress}
+      events={events}
+      errorMsg={errorMsg}
+      stageIcons={STAGE_ICONS}
+      stageLabels={STAGE_LABELS}
+      color={MEDIA_COLOR}
+    />
   )
 }
 

@@ -16,6 +16,7 @@ import { Account } from "../../system/accounts/account.entity";
 import { Cache } from "cache-manager";
 import { SyncOperation } from "../../sync/sync-event.entity";
 import { SyncService } from "../../sync/sync.service";
+import { randomUUID } from "crypto";
 
 export interface MediaStats {
   total: number;
@@ -27,6 +28,8 @@ export interface MediaStats {
   completed: number;
   ratingsDistribution: Record<string, number>;
 }
+
+const MEDIA_BULK_INSERT_CHUNK_SIZE = 500;
 
 @Injectable()
 export class MediaService {
@@ -277,19 +280,19 @@ export class MediaService {
       externalIds?: Record<string, any>;
     }>
   ): Promise<{ created: number; skipped: number }> {
-    let created = 0;
     let skipped = 0;
+    const existing = await this.mediaRepo.find({
+      where: { accountId: account.id },
+      select: ["title", "type"],
+    });
+    const seenKeys = new Set(
+      existing.map((item) => this.mediaIdentityKey(item.title, item.type))
+    );
+    const toInsert: MediaItem[] = [];
 
     for (const dto of items) {
-      const existing = await this.mediaRepo.findOne({
-        where: {
-          accountId: account.id,
-          title: dto.title,
-          type: dto.type,
-        },
-      });
-
-      if (existing) {
+      const key = this.mediaIdentityKey(dto.title, dto.type);
+      if (seenKeys.has(key)) {
         skipped++;
         continue;
       }
@@ -302,13 +305,22 @@ export class MediaService {
         metadata: dto.metadata ?? {},
         externalIds: dto.externalIds ?? {},
       });
-      const saved = await this.mediaRepo.save(item);
-      await this.recordSync(account.id, saved, SyncOperation.UPSERT);
-      created++;
+      toInsert.push(item);
+      seenKeys.add(key);
     }
 
+    for (let i = 0; i < toInsert.length; i += MEDIA_BULK_INSERT_CHUNK_SIZE) {
+      await this.mediaRepo.insert(
+        toInsert.slice(i, i + MEDIA_BULK_INSERT_CHUNK_SIZE)
+      );
+    }
     await this.cacheManager.reset();
-    return { created, skipped };
+    await this.recordBulkImportSync(account.id, toInsert.length, skipped);
+    return { created: toInsert.length, skipped };
+  }
+
+  private mediaIdentityKey(title: string, type: MediaType): string {
+    return `${title.trim().toLowerCase()}::${type}`;
   }
 
   private async recordSync(
@@ -322,6 +334,24 @@ export class MediaService {
       entityId: item.id,
       operation,
       payload: operation === SyncOperation.DELETE ? null : item,
+    });
+  }
+
+  private async recordBulkImportSync(
+    accountId: string,
+    created: number,
+    skipped: number
+  ) {
+    if (!this.syncService || created === 0) return;
+    await this.syncService.recordEvent(accountId, {
+      entityType: "media-item",
+      entityId: randomUUID(),
+      operation: SyncOperation.UPSERT,
+      payload: {
+        source: "media-import",
+        created,
+        skipped,
+      },
     });
   }
 

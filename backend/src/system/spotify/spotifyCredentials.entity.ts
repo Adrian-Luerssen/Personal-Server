@@ -22,6 +22,10 @@ export class SpotifyCredentials extends AbstractAccountOwnedEntity {
   @Column({ nullable: true })
   profileUrl?: string;
 
+  @ApiProperty({ description: "Primary Spotify profile image URL" })
+  @Column({ nullable: true })
+  profileImageUrl?: string;
+
   @ApiProperty({ description: "Spotify user images" })
   @Column({ type: "json", nullable: true })
   images?: Array<{ url: string; height?: number; width?: number }>;

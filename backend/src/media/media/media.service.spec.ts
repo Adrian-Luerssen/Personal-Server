@@ -27,6 +27,7 @@ describe('MediaService', () => {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((dto: any) => ({ ...dto })),
       save: jest.fn((entity: any) => Promise.resolve({ id: 'new-id', ...entity })),
+      insert: jest.fn().mockResolvedValue({}),
       remove: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -371,11 +372,10 @@ describe('MediaService', () => {
   // ========== BULK CREATE ==========
 
   describe('bulkCreate', () => {
-    it('should skip items that already exist (by title+type)', async () => {
-      mockRepo.findOne
-        .mockResolvedValueOnce({ id: 'existing' }) // first item exists
-        .mockResolvedValueOnce(null); // second item is new
-
+    it('should preload existing media and insert new items in bulk', async () => {
+      mockRepo.find.mockResolvedValue([
+        { title: 'Existing Show', type: MediaType.ANIME },
+      ]);
       const items = [
         { title: 'Existing Show', type: MediaType.ANIME },
         { title: 'New Show', type: MediaType.ANIME },
@@ -385,11 +385,25 @@ describe('MediaService', () => {
 
       expect(result.created).toBe(1);
       expect(result.skipped).toBe(1);
-      expect(mockRepo.save).toHaveBeenCalledTimes(1);
+      expect(mockRepo.find).toHaveBeenCalledWith({
+        where: { accountId: 'acc-123' },
+        select: ['title', 'type'],
+      });
+      expect(mockRepo.findOne).not.toHaveBeenCalled();
+      expect(mockRepo.save).not.toHaveBeenCalled();
+      expect(mockRepo.insert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            title: 'New Show',
+            type: MediaType.ANIME,
+            accountId: 'acc-123',
+          }),
+        ]),
+      );
     });
 
     it('should reset cache after bulk import', async () => {
-      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.find.mockResolvedValue([]);
 
       await service.bulkCreate(mockAccount, [
         { title: 'Show 1', type: MediaType.TV },

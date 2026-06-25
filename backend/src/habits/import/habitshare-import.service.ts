@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Habit } from "../entities/habit.entity";
@@ -6,6 +6,9 @@ import { HabitEntry, HabitStatus } from "../entities/habit-entry.entity";
 import { Account } from "../../system/accounts/account.entity";
 import { randomUUID } from "crypto";
 import { Response } from "express";
+import { createImportProgressSender } from "../../utils/sse";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 export interface HabitShareRow {
   Habit: string;
@@ -40,8 +43,30 @@ export interface HabitShareImportResult {
   warnings: string[];
 }
 
+interface ParsedHabitShareRows {
+  byHabit: Map<string, HabitShareRow[]>;
+  totalEntries: number;
+  warnings: string[];
+}
+
+interface HabitShareImportProgress {
+  onHabitsStart?: () => void;
+  onHabit?: (current: number, total: number) => void;
+  onEntriesStart?: (total: number) => void;
+  onEntries?: (current: number, total: number) => void;
+}
+
+type HabitEntryUpsertRow = {
+  habitId: string;
+  accountId: string;
+  date: string;
+  status: HabitStatus;
+  comment: string | null;
+};
+
 const VALID_STATUSES = new Set<string>(["success", "fail", "skip"]);
 const PREVIEW_TTL_MS = 30 * 60 * 1000;
+const ENTRY_UPSERT_CHUNK_SIZE = 500;
 
 @Injectable()
 export class HabitShareImportService {
@@ -52,9 +77,12 @@ export class HabitShareImportService {
     @InjectRepository(Habit)
     private readonly habitRepo: Repository<Habit>,
     @InjectRepository(HabitEntry)
-    private readonly entryRepo: Repository<HabitEntry>
+    private readonly entryRepo: Repository<HabitEntry>,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {
-    setInterval(() => this.cleanupExpired(), 5 * 60 * 1000);
+    const cleanupTimer = setInterval(() => this.cleanupExpired(), 5 * 60 * 1000);
+    cleanupTimer.unref?.();
   }
 
   private cleanupExpired() {
@@ -131,6 +159,166 @@ export class HabitShareImportService {
     }
     fields.push(current);
     return fields;
+  }
+
+  private groupValidRows(rows: HabitShareRow[]): ParsedHabitShareRows {
+    const byHabit = new Map<string, HabitShareRow[]>();
+    const warnings: string[] = [];
+    let totalEntries = 0;
+
+    for (const row of rows) {
+      if (!VALID_STATUSES.has(row.Status)) {
+        const warning = `Skipping invalid status '${row.Status}' for ${row.Habit} on ${row.Date}`;
+        this.logger.warn(warning);
+        warnings.push(warning);
+        continue;
+      }
+
+      if (!byHabit.has(row.Habit)) byHabit.set(row.Habit, []);
+      byHabit.get(row.Habit)!.push(row);
+      totalEntries++;
+    }
+
+    return { byHabit, totalEntries, warnings };
+  }
+
+  private entryKey(habitId: string, date: string): string {
+    return `${habitId}:${date}`;
+  }
+
+  private normalizeComment(comment?: string): string | null {
+    return comment && comment.length > 0 ? comment : null;
+  }
+
+  private async executePreparedImport(
+    account: Account,
+    previewId: string,
+    previewData: HabitSharePreviewData,
+    progress?: HabitShareImportProgress
+  ): Promise<HabitShareImportResult> {
+    const rows = this.parseCsv(previewData.csvContent);
+    const { byHabit, totalEntries, warnings } = this.groupValidRows(rows);
+
+    let habitsCreated = 0;
+    let habitsExisting = 0;
+    let entriesCreated = 0;
+
+    const habitMap = new Map<string, Habit>();
+    const existingHabits = await this.habitRepo.find({
+      where: { accountId: account.id },
+    });
+    for (const h of existingHabits) {
+      habitMap.set(h.name, h);
+    }
+
+    const habitNames = [...byHabit.keys()];
+    progress?.onHabitsStart?.();
+    for (let i = 0; i < habitNames.length; i++) {
+      const habitName = habitNames[i];
+      let habit = habitMap.get(habitName);
+      if (!habit) {
+        habit = this.habitRepo.create({
+          name: habitName,
+          accountId: account.id,
+          account,
+          isActive: true,
+        });
+        habit = await this.habitRepo.save(habit);
+        habitMap.set(habitName, habit);
+        habitsCreated++;
+        this.logger.log(`Created habit: ${habitName}`);
+      } else {
+        habitsExisting++;
+      }
+      progress?.onHabit?.(i + 1, habitNames.length);
+    }
+
+    const existingEntries = await this.entryRepo.find({
+      where: { accountId: account.id },
+      select: ["habitId", "date", "status", "comment"],
+    });
+    const existingEntryMap = new Map<string, HabitEntry>();
+    for (const entry of existingEntries) {
+      existingEntryMap.set(this.entryKey(entry.habitId, String(entry.date)), entry);
+    }
+
+    const importedEntryMap = new Map<string, HabitEntryUpsertRow>();
+    for (const [habitName, habitRows] of byHabit.entries()) {
+      const habit = habitMap.get(habitName)!;
+      for (const row of habitRows) {
+        importedEntryMap.set(this.entryKey(habit.id, row.Date), {
+          habitId: habit.id,
+          accountId: account.id,
+          date: row.Date,
+          status: row.Status as HabitStatus,
+          comment: this.normalizeComment(row.Comment),
+        });
+      }
+    }
+
+    const rowsToUpsert: HabitEntryUpsertRow[] = [];
+    for (const imported of importedEntryMap.values()) {
+      const existing = existingEntryMap.get(
+        this.entryKey(imported.habitId, imported.date)
+      );
+      if (
+        existing &&
+        existing.status === imported.status &&
+        this.normalizeComment(existing.comment) === imported.comment
+      ) {
+        continue;
+      }
+      rowsToUpsert.push(imported);
+    }
+
+    progress?.onEntriesStart?.(rowsToUpsert.length);
+    let persistedEntries = 0;
+    for (let i = 0; i < rowsToUpsert.length; i += ENTRY_UPSERT_CHUNK_SIZE) {
+      const chunk = rowsToUpsert.slice(i, i + ENTRY_UPSERT_CHUNK_SIZE);
+      await this.entryRepo.upsert(chunk, ["habitId", "date"]);
+      persistedEntries += chunk.length;
+      progress?.onEntries?.(persistedEntries, rowsToUpsert.length);
+    }
+
+    entriesCreated = rowsToUpsert.length;
+    const entriesExisting = Math.max(totalEntries - entriesCreated, 0);
+
+    this.logger.log(
+      `Import complete: ${habitsCreated} habits created, ${entriesCreated} entries created/updated, ${entriesExisting} skipped`
+    );
+
+    const result = {
+      habits: { created: habitsCreated, existing: habitsExisting },
+      entries: { created: entriesCreated, existing: entriesExisting },
+      warnings,
+    };
+    await this.recordImportSync(account.id, previewId, result);
+
+    this.previewCache.delete(previewId);
+
+    return result;
+  }
+
+  private async recordImportSync(
+    accountId: string,
+    previewId: string,
+    result: HabitShareImportResult
+  ): Promise<void> {
+    if (!this.syncService) return;
+    if (result.habits.created === 0 && result.entries.created === 0) return;
+
+    await this.syncService.recordEvent(accountId, {
+      entityType: "habit-entry",
+      entityId: randomUUID(),
+      operation: SyncOperation.UPSERT,
+      payload: {
+        source: "habitshare-import",
+        previewId,
+        habits: result.habits,
+        entries: result.entries,
+        warnings: result.warnings,
+      },
+    });
   }
 
   // ========== PREVIEW ==========
@@ -234,102 +422,7 @@ export class HabitShareImportService {
       throw new Error("Unauthorized");
     }
 
-    const rows = this.parseCsv(previewData.csvContent);
-
-    let habitsCreated = 0;
-    let habitsExisting = 0;
-    let entriesCreated = 0;
-    let entriesExisting = 0;
-    const warnings: string[] = [];
-
-    // Build habit map (name -> Habit entity)
-    const habitMap = new Map<string, Habit>();
-
-    const existingHabits = await this.habitRepo.find({
-      where: { accountId: account.id },
-    });
-    for (const h of existingHabits) {
-      habitMap.set(h.name, h);
-    }
-
-    // Group rows by habit name to process together
-    const byHabit = new Map<string, HabitShareRow[]>();
-    for (const row of rows) {
-      if (!VALID_STATUSES.has(row.Status)) {
-        this.logger.warn(`Skipping invalid status '${row.Status}' for ${row.Habit} on ${row.Date}`);
-        continue;
-      }
-      if (!byHabit.has(row.Habit)) byHabit.set(row.Habit, []);
-      byHabit.get(row.Habit)!.push(row);
-    }
-
-    // Process each habit
-    for (const [habitName, habitRows] of byHabit.entries()) {
-      // Get or create habit
-      let habit = habitMap.get(habitName);
-      if (!habit) {
-        habit = this.habitRepo.create({
-          name: habitName,
-          accountId: account.id,
-          account,
-          isActive: true,
-        });
-        habit = await this.habitRepo.save(habit);
-        habitMap.set(habitName, habit);
-        habitsCreated++;
-        this.logger.log(`Created habit: ${habitName}`);
-      } else {
-        habitsExisting++;
-      }
-
-      // Process entries
-      for (const row of habitRows) {
-        const status = row.Status as HabitStatus;
-        const existing = await this.entryRepo.findOne({
-          where: {
-            habitId: habit.id,
-            date: row.Date,
-            accountId: account.id,
-          },
-        });
-
-        if (existing) {
-          if (existing.status !== status || existing.comment !== row.Comment) {
-            existing.status = status;
-            existing.comment = row.Comment;
-            await this.entryRepo.save(existing);
-            entriesCreated++; // updated counts as "created" for the summary
-          } else {
-            entriesExisting++;
-          }
-        } else {
-          const entry = this.entryRepo.create({
-            habitId: habit.id,
-            habit,
-            accountId: account.id,
-            account,
-            date: row.Date,
-            status,
-            comment: row.Comment,
-          });
-          await this.entryRepo.save(entry);
-          entriesCreated++;
-        }
-      }
-    }
-
-    this.logger.log(
-      `Import complete: ${habitsCreated} habits created, ${entriesCreated} entries created/updated, ${entriesExisting} skipped`
-    );
-
-    // Cleanup preview
-    this.previewCache.delete(previewId);
-
-    return {
-      habits: { created: habitsCreated, existing: habitsExisting },
-      entries: { created: entriesCreated, existing: entriesExisting },
-      warnings,
-    };
+    return this.executePreparedImport(account, previewId, previewData);
   }
 
   // ========== EXECUTE with SSE ==========
@@ -339,12 +432,7 @@ export class HabitShareImportService {
     previewId: string,
     res: Response
   ): Promise<void> {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders();
-
-    const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const send = createImportProgressSender(res);
 
     const previewData = this.previewCache.get(previewId);
     if (!previewData) {
@@ -361,116 +449,46 @@ export class HabitShareImportService {
     try {
       send({ stage: "starting", progress: 0, message: "Starting HabitShare import..." });
 
-      const rows = this.parseCsv(previewData.csvContent);
-
-      let habitsCreated = 0;
-      let habitsExisting = 0;
-      let entriesCreated = 0;
-      let entriesExisting = 0;
-
-      const habitMap = new Map<string, Habit>();
-      const existingHabits = await this.habitRepo.find({
-        where: { accountId: account.id },
+      const result = await this.executePreparedImport(account, previewId, previewData, {
+        onHabitsStart: () => {
+          send({ stage: "habits", progress: 5, message: "Creating habits..." });
+        },
+        onHabit: (current, total) => {
+          send({
+            stage: "habits",
+            progress: total > 0 ? 5 + (current / total) * 15 : 20,
+            current,
+            total,
+            message: total > 0 ? `Habits (${current}/${total})` : "No habits to create",
+          });
+        },
+        onEntriesStart: (total) => {
+          send({
+            stage: "entries",
+            progress: total > 0 ? 20 : 95,
+            current: 0,
+            total,
+            message: total > 0 ? "Importing entries..." : "Entries already up to date",
+          });
+        },
+        onEntries: (current, total) => {
+          send({
+            stage: "entries",
+            progress: total > 0 ? 20 + (current / total) * 75 : 95,
+            current,
+            total,
+            message: `Entries (${current}/${total})`,
+          });
+        },
       });
-      for (const h of existingHabits) {
-        habitMap.set(h.name, h);
-      }
-
-      // Group rows by habit
-      const byHabit = new Map<string, HabitShareRow[]>();
-      for (const row of rows) {
-        if (!VALID_STATUSES.has(row.Status)) continue;
-        if (!byHabit.has(row.Habit)) byHabit.set(row.Habit, []);
-        byHabit.get(row.Habit)!.push(row);
-      }
-
-      const totalEntries = [...byHabit.values()].reduce((s, r) => s + r.length, 0);
-      let processedEntries = 0;
-
-      // ---- Stage 1: Habits (0-20%) ----
-      send({ stage: "habits", progress: 5, message: "Creating habits..." });
-      const habitNames = [...byHabit.keys()];
-      for (let i = 0; i < habitNames.length; i++) {
-        const habitName = habitNames[i];
-        let habit = habitMap.get(habitName);
-        if (!habit) {
-          habit = this.habitRepo.create({
-            name: habitName,
-            accountId: account.id,
-            account,
-            isActive: true,
-          });
-          habit = await this.habitRepo.save(habit);
-          habitMap.set(habitName, habit);
-          habitsCreated++;
-        } else {
-          habitsExisting++;
-        }
-        send({
-          stage: "habits",
-          progress: 5 + ((i + 1) / habitNames.length) * 15,
-          current: i + 1,
-          total: habitNames.length,
-          message: `Habits (${i + 1}/${habitNames.length})`,
-        });
-      }
-
-      // ---- Stage 2: Entries (20-95%) ----
-      send({ stage: "entries", progress: 20, message: "Importing entries..." });
-      for (const [habitName, habitRows] of byHabit.entries()) {
-        const habit = habitMap.get(habitName)!;
-
-        for (const row of habitRows) {
-          const status = row.Status as HabitStatus;
-          const existing = await this.entryRepo.findOne({
-            where: { habitId: habit.id, date: row.Date, accountId: account.id },
-          });
-
-          if (existing) {
-            if (existing.status !== status || existing.comment !== row.Comment) {
-              existing.status = status;
-              existing.comment = row.Comment;
-              await this.entryRepo.save(existing);
-              entriesCreated++;
-            } else {
-              entriesExisting++;
-            }
-          } else {
-            const entry = this.entryRepo.create({
-              habitId: habit.id,
-              habit,
-              accountId: account.id,
-              account,
-              date: row.Date,
-              status,
-              comment: row.Comment,
-            });
-            await this.entryRepo.save(entry);
-            entriesCreated++;
-          }
-
-          processedEntries++;
-          if (processedEntries % 25 === 0 || processedEntries === totalEntries) {
-            send({
-              stage: "entries",
-              progress: 20 + (processedEntries / totalEntries) * 75,
-              current: processedEntries,
-              total: totalEntries,
-              message: `Entries (${processedEntries}/${totalEntries})`,
-            });
-          }
-        }
-      }
-
-      this.previewCache.delete(previewId);
 
       send({
         stage: "complete",
         progress: 100,
         message: "Import completed successfully!",
         summary: {
-          habits: { created: habitsCreated, existing: habitsExisting },
-          entries: { created: entriesCreated, existing: entriesExisting },
+          habits: result.habits,
+          entries: result.entries,
         },
       });
     } catch (err) {

@@ -1,6 +1,6 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, DataSource, QueryRunner } from "typeorm";
+import { In, Repository, DataSource, QueryRunner } from "typeorm";
 import { WorkoutCategory } from "src/workout/categories/category.entity";
 import { WorkoutExercise } from "src/workout/exercises/exercise.entity";
 import { BodyWeightEntry } from "src/workout/bodyweight/bodyweight.entity";
@@ -19,6 +19,9 @@ import * as os from "os";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import { Response } from "express";
+import { createImportProgressSender } from "../../utils/sse";
+import { SyncOperation } from "../../sync/sync-event.entity";
+import { SyncService } from "../../sync/sync.service";
 
 type SqliteOpenResult = {
   db: any; // better-sqlite3 Database
@@ -29,6 +32,7 @@ type AnyObject = Record<string, any>;
 
 // In-memory preview cache (TTL: 30 minutes)
 const PREVIEW_TTL_MS = 30 * 60 * 1000;
+const BULK_INSERT_CHUNK_SIZE = 500;
 
 @Injectable()
 export class FitNotesImportService {
@@ -47,10 +51,16 @@ export class FitNotesImportService {
     @InjectRepository(WorkoutSet)
     private readonly setRepo: Repository<WorkoutSet>,
     @InjectDataSource()
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    @Optional()
+    private readonly syncService?: SyncService
   ) {
     // Cleanup expired previews every 5 minutes
-    setInterval(() => this.cleanupExpiredPreviews(), 5 * 60 * 1000);
+    const cleanupTimer = setInterval(
+      () => this.cleanupExpiredPreviews(),
+      5 * 60 * 1000
+    );
+    cleanupTimer.unref?.();
   }
 
   private cleanupExpiredPreviews() {
@@ -146,6 +156,16 @@ export class FitNotesImportService {
     if (v === null || v === undefined || v === "") return null;
     const n = Number(v);
     return isNaN(n) ? null : n;
+  }
+
+  private async insertInChunks(
+    manager: QueryRunner["manager"],
+    entity: any,
+    rows: AnyObject[]
+  ): Promise<void> {
+    for (let i = 0; i < rows.length; i += BULK_INSERT_CHUNK_SIZE) {
+      await manager.insert(entity, rows.slice(i, i + BULK_INSERT_CHUNK_SIZE));
+    }
   }
 
   // ============ PREVIEW ============
@@ -370,15 +390,7 @@ export class FitNotesImportService {
     previewId: string,
     res: Response
   ): Promise<void> {
-    // Set up SSE headers
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders();
-
-    const sendProgress = (event: FitNotesProgressEvent) => {
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-    };
+    const sendProgress = createImportProgressSender(res);
 
     const previewData = this.previewCache.get(previewId);
     if (!previewData) {
@@ -523,6 +535,7 @@ export class FitNotesImportService {
 
       // Commit transaction
       await queryRunner.commitTransaction();
+      await this.recordImportSync(account.id, "fitnotes-import", previewData.preview.counts);
 
       sendProgress({
         stage: "complete",
@@ -530,6 +543,28 @@ export class FitNotesImportService {
         current: 0,
         total: 0,
         message: "Import completed successfully!",
+        summary: {
+          categories: {
+            created: previewData.preview.counts.categories.new,
+            existing: previewData.preview.counts.categories.existing,
+          },
+          exercises: {
+            created: previewData.preview.counts.exercises.new,
+            existing: previewData.preview.counts.exercises.existing,
+          },
+          sessions: {
+            created: previewData.preview.counts.sessions.new,
+            existing: previewData.preview.counts.sessions.existing,
+          },
+          sets: {
+            created: previewData.preview.counts.sets.new,
+            existing: previewData.preview.counts.sets.existing,
+          },
+          bodyweight: {
+            created: previewData.preview.counts.bodyweight.new,
+            existing: previewData.preview.counts.bodyweight.existing,
+          },
+        },
       });
 
       // Cleanup preview
@@ -578,24 +613,33 @@ export class FitNotesImportService {
     const rows: AnyObject[] = db.prepare(`SELECT * FROM ${table}`).all();
     const manager = queryRunner.manager;
 
+    const existingCategories = await manager.find(WorkoutCategory, {
+      where: { accountId: account.id },
+      select: ["name"],
+    });
+    const existingNames = new Set(existingCategories.map((category) => category.name));
+    const categoriesToInsert: WorkoutCategory[] = [];
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const name = (row.name || "").toString().trim();
       if (!name) continue;
 
-      const existing = await manager.findOne(WorkoutCategory, {
-        where: { accountId: account.id, name },
-      });
-      if (!existing) {
+      if (!existingNames.has(name)) {
         const cat = manager.create(WorkoutCategory, {
           accountId: account.id,
           account,
           name,
         });
-        await manager.save(cat);
+        categoriesToInsert.push(cat);
+        existingNames.add(name);
       }
-      onProgress(i + 1, rows.length);
+      if ((i + 1) % BULK_INSERT_CHUNK_SIZE === 0 || i + 1 === rows.length) {
+        onProgress(i + 1, rows.length);
+      }
     }
+
+    await this.insertInChunks(manager, WorkoutCategory, categoriesToInsert);
   }
 
   private async importExercisesWithRunner(
@@ -632,6 +676,14 @@ export class FitNotesImportService {
     }
 
     const rows: AnyObject[] = db.prepare(`SELECT * FROM ${table}`).all();
+    const existingExercises = await manager.find(WorkoutExercise, {
+      where: { accountId: account.id },
+    });
+    const exerciseByName = new Map(
+      existingExercises.map((exercise) => [exercise.name, exercise])
+    );
+    const exercisesToInsert: WorkoutExercise[] = [];
+    const exercisesToUpdate: WorkoutExercise[] = [];
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -643,9 +695,7 @@ export class FitNotesImportService {
         categoryId = categoryMap.get(row.category_id) || null;
       }
 
-      let existing = await manager.findOne(WorkoutExercise, {
-        where: { accountId: account.id, name },
-      });
+      const existing = exerciseByName.get(name);
       if (!existing) {
         const ex = manager.create(WorkoutExercise, {
           accountId: account.id,
@@ -654,12 +704,19 @@ export class FitNotesImportService {
           categoryId,
           notes: row.notes || null,
         });
-        await manager.save(ex);
+        exercisesToInsert.push(ex);
       } else if (categoryId && !existing.categoryId) {
         existing.categoryId = categoryId;
-        await manager.save(existing);
+        exercisesToUpdate.push(existing);
       }
-      onProgress(i + 1, rows.length);
+      if ((i + 1) % BULK_INSERT_CHUNK_SIZE === 0 || i + 1 === rows.length) {
+        onProgress(i + 1, rows.length);
+      }
+    }
+
+    await this.insertInChunks(manager, WorkoutExercise, exercisesToInsert);
+    if (exercisesToUpdate.length > 0) {
+      await manager.save(exercisesToUpdate);
     }
   }
 
@@ -684,6 +741,18 @@ export class FitNotesImportService {
       }
     }
 
+    const dates = rows
+      .map((row) => this.normalizeDate(row.date))
+      .filter((date): date is string => Boolean(date));
+    const existingEntries =
+      dates.length > 0
+        ? await manager.find(BodyWeightEntry, {
+            where: { accountId: account.id, date: In([...new Set(dates)]) },
+          })
+        : [];
+    const existingByDate = new Map(existingEntries.map((entry) => [entry.date, entry]));
+    const entriesToUpsert: AnyObject[] = [];
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const dateVal = row.date;
@@ -694,25 +763,27 @@ export class FitNotesImportService {
       const weight = Number(weightVal);
       if (!date || isNaN(weight)) continue;
 
-      let existing = await manager.findOne(BodyWeightEntry, {
-        where: { accountId: account.id, date },
-      });
-      if (!existing) {
-        await manager.save(
-          manager.create(BodyWeightEntry, {
-            accountId: account.id,
-            account,
-            date,
-            weightKg: weight,
-            note: row.comments || null,
-          })
-        );
-      } else if (existing.weightKg !== weight) {
-        existing.weightKg = weight;
-        if (row.comments) existing.note = row.comments;
-        await manager.save(existing);
+      const existing = existingByDate.get(date);
+      if (!existing || Number(existing.weightKg) !== weight || existing.note !== (row.comments || null)) {
+        entriesToUpsert.push({
+          accountId: account.id,
+          account,
+          date,
+          weightKg: weight,
+          note: row.comments || null,
+        });
       }
-      onProgress(i + 1, rows.length);
+      if ((i + 1) % BULK_INSERT_CHUNK_SIZE === 0 || i + 1 === rows.length) {
+        onProgress(i + 1, rows.length);
+      }
+    }
+
+    for (let i = 0; i < entriesToUpsert.length; i += BULK_INSERT_CHUNK_SIZE) {
+      await manager.upsert(
+        BodyWeightEntry,
+        entriesToUpsert.slice(i, i + BULK_INSERT_CHUNK_SIZE),
+        ["accountId", "date"]
+      );
     }
   }
 
@@ -773,7 +844,27 @@ export class FitNotesImportService {
     const totalSets = rows.length;
 
     // Session cache to avoid repeated lookups
-    const sessionCache = new Map<string, WorkoutSession>();
+    const dates = Object.keys(grouped);
+    const existingSessions =
+      dates.length > 0
+        ? await manager.find(WorkoutSession, {
+            where: { accountId: account.id, date: In(dates) },
+          })
+        : [];
+    const sessionCache = new Map(existingSessions.map((session) => [session.date, session]));
+    const sessionRowsToInsert: WorkoutSession[] = [];
+    const sessionRowsToUpdate: WorkoutSession[] = [];
+    const existingSets = await manager.find(WorkoutSet, {
+      where: { accountId: account.id },
+      select: ["sessionId", "order"],
+    });
+    const maxOrderBySession = new Map<string, number>();
+    for (const set of existingSets) {
+      maxOrderBySession.set(
+        set.sessionId,
+        Math.max(maxOrderBySession.get(set.sessionId) ?? -1, set.order)
+      );
+    }
 
     for (const [date, items] of Object.entries(grouped)) {
       const workout = workoutRows.find((w) => {
@@ -791,39 +882,36 @@ export class FitNotesImportService {
 
       let session = sessionCache.get(date);
       if (!session) {
-        session = await manager.findOne(WorkoutSession, {
-          where: { accountId: account.id, date },
+        session = manager.create(WorkoutSession, {
+          id: randomUUID(),
+          accountId: account.id,
+          account,
+          date,
+          title: null,
+          notes: null,
+          startAt: startAt ?? new Date(`${date}T06:00:00.000Z`),
+          endAt: endAt ?? null,
         });
-      }
-
-      if (!session) {
-        session = await manager.save(
-          manager.create(WorkoutSession, {
-            accountId: account.id,
-            account,
-            date,
-            title: null,
-            notes: null,
-            startAt: startAt ?? new Date(`${date}T06:00:00.000Z`),
-            endAt: endAt ?? null,
-          })
-        );
+        sessionRowsToInsert.push(session);
       } else if ((startAt && !session.startAt) || (endAt && !session.endAt)) {
         if (startAt && !session.startAt) session.startAt = startAt;
         if (endAt && !session.endAt) session.endAt = endAt;
-        session = await manager.save(session);
+        sessionRowsToUpdate.push(session);
       }
 
       sessionCache.set(date, session);
+    }
 
-      // Get next order
-      const orderResult = await manager
-        .createQueryBuilder(WorkoutSet, "s")
-        .where("s.sessionId = :sessionId", { sessionId: session.id })
-        .select("MAX(s.order)", "max")
-        .getRawOne<{ max: number | null }>();
-      let nextOrder = (orderResult?.max ?? -1) + 1;
+    await this.insertInChunks(manager, WorkoutSession, sessionRowsToInsert);
+    if (sessionRowsToUpdate.length > 0) {
+      await manager.save(sessionRowsToUpdate);
+    }
 
+    const setRowsToInsert: WorkoutSet[] = [];
+
+    for (const [date, items] of Object.entries(grouped)) {
+      const session = sessionCache.get(date)!;
+      let nextOrder = (maxOrderBySession.get(session.id) ?? -1) + 1;
       for (const row of items) {
         const exerciseId = row.exercise_id;
         const exercise = exerciseId ? exerciseMap.get(exerciseId) : null;
@@ -833,39 +921,30 @@ export class FitNotesImportService {
         const distance = this.toNumberOrNull(row.distance);
         const durationSec = this.toNumberOrNull(row.duration_seconds);
 
-        // Simple dedup check
-        const existing = await manager.findOne(WorkoutSet, {
-          where: {
+        setRowsToInsert.push(
+          manager.create(WorkoutSet, {
+            accountId: account.id,
+            account,
             sessionId: session.id,
             order: nextOrder,
-            exerciseId: exercise?.id ?? undefined,
-          },
-        });
-
-        if (!existing) {
-          await manager.save(
-            manager.create(WorkoutSet, {
-              accountId: account.id,
-              account,
-              sessionId: session.id,
-              order: nextOrder,
-              exerciseId: exercise?.id ?? null,
-              reps,
-              weight,
-              distance,
-              durationSec,
-              rpe: null,
-              notes: null,
-            })
-          );
-        }
+            exerciseId: exercise?.id ?? null,
+            reps,
+            weight,
+            distance,
+            durationSec,
+            rpe: null,
+            notes: null,
+          })
+        );
         nextOrder++;
         processedSets++;
-        if (processedSets % 100 === 0 || processedSets === totalSets) {
+        if (processedSets % BULK_INSERT_CHUNK_SIZE === 0 || processedSets === totalSets) {
           onProgress(processedSets, totalSets);
         }
       }
     }
+
+    await this.insertInChunks(manager, WorkoutSet, setRowsToInsert);
   }
 
   // ============ LEGACY METHOD (for backwards compatibility) ============
@@ -916,6 +995,7 @@ export class FitNotesImportService {
       );
 
       await queryRunner.commitTransaction();
+      await this.recordImportSync(account.id, "fitnotes-import");
       return { status: "ok" };
     } catch (err) {
       try {
@@ -934,5 +1014,30 @@ export class FitNotesImportService {
         } catch {}
       }
     }
+  }
+
+  private async recordImportSync(
+    accountId: string,
+    source: string,
+    counts?: FitNotesPreviewResponse["counts"]
+  ): Promise<void> {
+    if (!this.syncService) return;
+    if (
+      counts &&
+      counts.categories.new === 0 &&
+      counts.exercises.new === 0 &&
+      counts.sessions.new === 0 &&
+      counts.sets.new === 0 &&
+      counts.bodyweight.new === 0
+    ) {
+      return;
+    }
+
+    await this.syncService.recordEvent(accountId, {
+      entityType: "workout-session",
+      entityId: randomUUID(),
+      operation: SyncOperation.UPSERT,
+      payload: { source, counts: counts ?? null },
+    });
   }
 }

@@ -225,6 +225,7 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
       accountId: string;
       displayName: string;
       spotifyUserId?: string;
+      profileImageUrl?: string;
       streamCount: number;
       uniqueTracks: number;
       msListened: number;
@@ -259,6 +260,13 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
         "displayName"
       )
       .addSelect('MAX(spotify."spotifyUserId")', "spotifyUserId")
+      .addSelect(
+        `COALESCE(
+          MAX(NULLIF(spotify."profileImageUrl", '')),
+          MAX(spotify.images->0->>'url')
+        )`,
+        "profileImageUrl"
+      )
       .addSelect("COUNT(*)", "streamCount")
       .addSelect('COUNT(DISTINCT stream."trackId")', "uniqueTracks")
       .addSelect("COALESCE(SUM(track.duration), 0)", "msListened")
@@ -279,6 +287,7 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
       accountId: string;
       displayName?: string;
       spotifyUserId?: string;
+      profileImageUrl?: string;
       streamCount: string;
       uniqueTracks: string;
       msListened: string;
@@ -294,6 +303,7 @@ export class StreamsService extends TypeOrmCrudService<Stream> {
         accountId: row.accountId,
         displayName: row.displayName || "Spotify User",
         spotifyUserId: row.spotifyUserId || undefined,
+        profileImageUrl: row.profileImageUrl || undefined,
         streamCount: Number(row.streamCount || 0),
         uniqueTracks: Number(row.uniqueTracks || 0),
         msListened: Number(row.msListened || 0),

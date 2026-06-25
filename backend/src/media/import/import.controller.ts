@@ -27,6 +27,7 @@ import { GoodreadsImportService } from "./goodreads-import.service";
 import { MediaService } from "../media/media.service";
 import { Response } from "express";
 import { MediaStatus } from "../entities/media-item.entity";
+import { createImportProgressSender } from "../../utils/sse";
 
 // In-memory preview store
 const previewStore = new Map<
@@ -133,12 +134,7 @@ export class MediaImportController {
     @Param("previewId") previewId: string,
     @Res() res: Response
   ): Promise<void> {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders();
-
-    const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const send = createImportProgressSender(res);
 
     const preview = previewStore.get(previewId);
     if (!preview) {
@@ -179,10 +175,17 @@ export class MediaImportController {
       const total = toCreate.length + toReplace.length;
 
       // Create new items
-      for (let i = 0; i < toCreate.length; i++) {
-        const dto = toCreate[i];
-        try {
-          await this.mediaService.create(account, {
+      if (toCreate.length > 0) {
+        send({
+          stage: "creating",
+          progress: 5,
+          current: 0,
+          total,
+          message: `Creating new media items (0/${toCreate.length})`,
+        });
+        const bulkResult = await this.mediaService.bulkCreate(
+          account,
+          toCreate.map((dto) => ({
             title: dto.title,
             type: dto.type,
             status: dto.status ?? MediaStatus.PLANNING,
@@ -190,26 +193,17 @@ export class MediaImportController {
             coverUrl: dto.coverUrl ?? undefined,
             metadata: dto.metadata ?? {},
             externalIds: dto.externalIds ?? {},
-          });
-          created++;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if (msg.includes("duplicate") || msg.includes("unique") || msg.includes("UNIQUE")) {
-            skipped++;
-          } else {
-            skipped++;
-          }
-        }
-
-        if ((i + 1) % 5 === 0 || i + 1 === toCreate.length) {
-          send({
-            stage: "importing",
-            progress: 5 + ((i + 1) / total) * 90,
-            current: i + 1,
-            total,
-            message: `Creating new items (${i + 1}/${toCreate.length})`,
-          });
-        }
+          }))
+        );
+        created += bulkResult.created;
+        skipped += bulkResult.skipped;
+        send({
+          stage: "creating",
+          progress: total > 0 ? 5 + (toCreate.length / total) * 90 : 95,
+          current: toCreate.length,
+          total,
+          message: `Creating new items (${toCreate.length}/${toCreate.length})`,
+        });
       }
 
       // Replace duplicates

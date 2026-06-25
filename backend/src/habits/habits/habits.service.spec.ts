@@ -202,4 +202,118 @@ describe('HabitsService', () => {
       );
     });
   });
+
+  describe('getAllStreaks', () => {
+    const mockAccount = { id: 'acc-123' } as any;
+
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-06-25T12:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('counts weekly habit streaks by completed weeks instead of successful days', async () => {
+      mockHabitRepo.find.mockResolvedValue([
+        {
+          id: 'habit-weekly',
+          accountId: 'acc-123',
+          name: 'Gym',
+          iconName: 'dumbbell',
+          color: '#ef4444',
+          frequencyType: 'weekly',
+          frequencyTarget: 4,
+          trackingType: 'boolean',
+        },
+      ]);
+      mockEntryRepo.find.mockResolvedValue([
+        ...['2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25'],
+        ...['2026-06-15', '2026-06-16', '2026-06-17', '2026-06-18'],
+        ...['2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11'],
+      ].map((date) => ({
+        habitId: 'habit-weekly',
+        accountId: 'acc-123',
+        date,
+        status: 'success',
+      })));
+
+      const result = await service.getAllStreaks(mockAccount);
+
+      expect(result[0].currentStreak).toBe(3);
+      expect(result[0].longestStreak).toBe(3);
+    });
+
+    it('ignores an unfinished current week and keeps the previous weekly streak', async () => {
+      mockHabitRepo.find.mockResolvedValue([
+        {
+          id: 'habit-weekly',
+          accountId: 'acc-123',
+          name: 'Gym',
+          iconName: 'dumbbell',
+          color: '#ef4444',
+          frequencyType: 'weekly',
+          frequencyTarget: 4,
+          trackingType: 'boolean',
+        },
+      ]);
+      mockEntryRepo.find.mockResolvedValue([
+        ...['2026-06-22', '2026-06-24'],
+        ...['2026-06-15', '2026-06-16', '2026-06-17', '2026-06-18'],
+        ...['2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11'],
+      ].map((date) => ({
+        habitId: 'habit-weekly',
+        accountId: 'acc-123',
+        date,
+        status: 'success',
+      })));
+
+      const result = await service.getAllStreaks(mockAccount);
+
+      expect(result[0].currentStreak).toBe(2);
+      expect(result[0].longestStreak).toBe(2);
+    });
+
+    it('counts monthly and yearly habit streaks by filled calendar periods', async () => {
+      mockHabitRepo.find.mockResolvedValue([
+        {
+          id: 'habit-monthly',
+          accountId: 'acc-123',
+          name: 'Review',
+          iconName: 'circle-check',
+          color: '#a78bfa',
+          frequencyType: 'monthly',
+          frequencyTarget: 1,
+          trackingType: 'boolean',
+        },
+        {
+          id: 'habit-yearly',
+          accountId: 'acc-123',
+          name: 'Checkup',
+          iconName: 'circle-check',
+          color: '#a78bfa',
+          frequencyType: 'yearly',
+          frequencyTarget: 1,
+          trackingType: 'boolean',
+        },
+      ]);
+      mockEntryRepo.find.mockResolvedValue([
+        { habitId: 'habit-monthly', accountId: 'acc-123', date: '2026-06-01', status: 'success' },
+        { habitId: 'habit-monthly', accountId: 'acc-123', date: '2026-05-12', status: 'success' },
+        { habitId: 'habit-monthly', accountId: 'acc-123', date: '2026-04-03', status: 'success' },
+        { habitId: 'habit-yearly', accountId: 'acc-123', date: '2026-01-10', status: 'success' },
+        { habitId: 'habit-yearly', accountId: 'acc-123', date: '2025-05-14', status: 'success' },
+        { habitId: 'habit-yearly', accountId: 'acc-123', date: '2024-09-30', status: 'success' },
+      ]);
+
+      const result = await service.getAllStreaks(mockAccount);
+      const monthly = result.find((habit) => habit.habitId === 'habit-monthly');
+      const yearly = result.find((habit) => habit.habitId === 'habit-yearly');
+
+      expect(monthly?.currentStreak).toBe(3);
+      expect(monthly?.longestStreak).toBe(3);
+      expect(yearly?.currentStreak).toBe(3);
+      expect(yearly?.longestStreak).toBe(3);
+    });
+  });
 });

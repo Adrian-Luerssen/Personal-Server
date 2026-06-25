@@ -61,6 +61,8 @@ export interface CalendarResponse {
   }[];
 }
 
+type HabitFrequencyType = "daily" | "weekly" | "monthly" | "yearly";
+
 @Injectable()
 export class HabitsService {
   constructor(
@@ -154,73 +156,179 @@ export class HabitsService {
   // ========== STREAK CALCULATION ==========
 
   async getStreak(account: Account, habitId: string): Promise<HabitStreak> {
-    await this.findOne(account, habitId);
+    const habit = await this.findOne(account, habitId);
 
     const entries = await this.entryRepo.find({
       where: { habitId, accountId: account.id },
       order: { date: "DESC" },
     });
 
-    return this.calculateStreak(entries);
+    return this.calculateStreak(habit, entries);
   }
 
-  private calculateStreak(entries: HabitEntry[]): HabitStreak {
+  private calculateStreak(
+    habit: Pick<Habit, "frequencyType" | "frequencyTarget">,
+    entries: HabitEntry[]
+  ): HabitStreak {
     if (entries.length === 0) {
       return { current: 0, longest: 0, lastSuccess: null };
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-
-    const dateMap = new Map<string, HabitStatus>();
+    const frequencyType = this.normalizeFrequencyType(habit.frequencyType);
+    const frequencyTarget = Math.max(1, Number(habit.frequencyTarget || 1));
+    const successCountsByPeriod = new Map<string, number>();
+    const failuresByPeriod = new Map<string, number>();
     let lastSuccess: string | null = null;
 
     for (const entry of entries) {
-      dateMap.set(entry.date, entry.status);
-      if (!lastSuccess && entry.status === "success") {
-        lastSuccess = entry.date;
+      const periodKey = this.getPeriodKey(entry.date, frequencyType);
+      if (entry.status === "success") {
+        successCountsByPeriod.set(
+          periodKey,
+          (successCountsByPeriod.get(periodKey) || 0) + 1
+        );
+        if (!lastSuccess || entry.date > lastSuccess) {
+          lastSuccess = entry.date;
+        }
+      } else if (entry.status === "fail") {
+        failuresByPeriod.set(periodKey, (failuresByPeriod.get(periodKey) || 0) + 1);
       }
     }
 
-    // -- Current streak --
+    const passedPeriods = new Set<string>();
+    for (const [periodKey, successCount] of successCountsByPeriod.entries()) {
+      if (successCount >= frequencyTarget) {
+        passedPeriods.add(periodKey);
+      }
+    }
+
+    if (passedPeriods.size === 0) {
+      return { current: 0, longest: 0, lastSuccess };
+    }
+
     let currentStreak = 0;
-    let checkDate = new Date(today);
+    let currentPeriod = this.getCurrentPeriodKey(frequencyType);
 
-    if (!dateMap.has(today)) {
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-
-    while (true) {
-      const dateStr = checkDate.toISOString().slice(0, 10);
-      const status = dateMap.get(dateStr);
-
-      if (!status) break;
-      if (status === "success") {
-        currentStreak++;
-      } else if (status === "fail") {
-        break;
+    if (!passedPeriods.has(currentPeriod)) {
+      if (
+        frequencyType === "daily" &&
+        (failuresByPeriod.get(currentPeriod) || 0) > 0
+      ) {
+        currentPeriod = "";
+      } else {
+        currentPeriod = this.getPreviousPeriodKey(currentPeriod, frequencyType);
       }
-
-      checkDate.setDate(checkDate.getDate() - 1);
     }
 
-    // -- Longest streak --
-    const sortedEntries = [...entries].sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
+    while (currentPeriod && passedPeriods.has(currentPeriod)) {
+      currentStreak++;
+      currentPeriod = this.getPreviousPeriodKey(currentPeriod, frequencyType);
+    }
 
+    const sortedPassedPeriods = [...passedPeriods].sort();
     let longestStreak = 0;
     let runningStreak = 0;
+    let previousPeriod: string | null = null;
 
-    for (const entry of sortedEntries) {
-      if (entry.status === "success") {
+    for (const periodKey of sortedPassedPeriods) {
+      if (
+        previousPeriod === null ||
+        periodKey === this.getNextPeriodKey(previousPeriod, frequencyType)
+      ) {
         runningStreak++;
-        if (runningStreak > longestStreak) longestStreak = runningStreak;
-      } else if (entry.status === "fail") {
-        runningStreak = 0;
+      } else {
+        runningStreak = 1;
       }
+      if (runningStreak > longestStreak) longestStreak = runningStreak;
+      previousPeriod = periodKey;
     }
 
     return { current: currentStreak, longest: longestStreak, lastSuccess };
+  }
+
+  private normalizeFrequencyType(value?: string): HabitFrequencyType {
+    if (
+      value === "weekly" ||
+      value === "monthly" ||
+      value === "yearly" ||
+      value === "daily"
+    ) {
+      return value;
+    }
+    return "daily";
+  }
+
+  private getCurrentPeriodKey(frequencyType: HabitFrequencyType): string {
+    return this.getPeriodKey(new Date().toISOString().slice(0, 10), frequencyType);
+  }
+
+  private getPeriodKey(dateString: string, frequencyType: HabitFrequencyType): string {
+    return this.formatDateKey(
+      this.getPeriodStartDate(this.parseDateOnly(dateString), frequencyType)
+    );
+  }
+
+  private getPeriodStartDate(date: Date, frequencyType: HabitFrequencyType): Date {
+    const normalized = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+    );
+
+    if (frequencyType === "weekly") {
+      const dayOfWeek = normalized.getUTCDay();
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      normalized.setUTCDate(normalized.getUTCDate() + diffToMonday);
+      return normalized;
+    }
+
+    if (frequencyType === "monthly") {
+      return new Date(Date.UTC(normalized.getUTCFullYear(), normalized.getUTCMonth(), 1));
+    }
+
+    if (frequencyType === "yearly") {
+      return new Date(Date.UTC(normalized.getUTCFullYear(), 0, 1));
+    }
+
+    return normalized;
+  }
+
+  private getPreviousPeriodKey(
+    periodKey: string,
+    frequencyType: HabitFrequencyType
+  ): string {
+    const date = this.parseDateOnly(periodKey);
+    if (frequencyType === "weekly") {
+      date.setUTCDate(date.getUTCDate() - 7);
+    } else if (frequencyType === "monthly") {
+      date.setUTCMonth(date.getUTCMonth() - 1);
+    } else if (frequencyType === "yearly") {
+      date.setUTCFullYear(date.getUTCFullYear() - 1);
+    } else {
+      date.setUTCDate(date.getUTCDate() - 1);
+    }
+    return this.formatDateKey(date);
+  }
+
+  private getNextPeriodKey(periodKey: string, frequencyType: HabitFrequencyType): string {
+    const date = this.parseDateOnly(periodKey);
+    if (frequencyType === "weekly") {
+      date.setUTCDate(date.getUTCDate() + 7);
+    } else if (frequencyType === "monthly") {
+      date.setUTCMonth(date.getUTCMonth() + 1);
+    } else if (frequencyType === "yearly") {
+      date.setUTCFullYear(date.getUTCFullYear() + 1);
+    } else {
+      date.setUTCDate(date.getUTCDate() + 1);
+    }
+    return this.formatDateKey(date);
+  }
+
+  private parseDateOnly(dateString: string): Date {
+    const [year, month, day] = dateString.split("-").map(Number);
+    return new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+  }
+
+  private formatDateKey(date: Date): string {
+    return date.toISOString().slice(0, 10);
   }
 
   // ========== STATS ==========
@@ -298,7 +406,7 @@ export class HabitsService {
     const results: HabitSummaryItem[] = [];
     for (const habit of habits) {
       const entries = entriesByHabit.get(habit.id) || [];
-      const streak = this.calculateStreak(entries);
+      const streak = this.calculateStreak(habit, entries);
       const stats = this.computeStats(entries);
 
       results.push({

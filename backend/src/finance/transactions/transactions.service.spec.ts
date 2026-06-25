@@ -57,7 +57,7 @@ describe('TransactionsService', () => {
     jest.resetAllMocks();
   });
 
-  it('should quote mixed-case finance columns when building filtered transaction queries', async () => {
+  it('should use TypeORM property paths for selected columns and quoted SQL filters', async () => {
     const qb = makeQueryBuilder();
     repo.createQueryBuilder.mockReturnValue(qb);
 
@@ -88,6 +88,26 @@ describe('TransactionsService', () => {
     expect(qb.andWhere).toHaveBeenCalledWith('t."isIncome" = :isIncome', {
       isIncome: false,
     });
+    expect(qb.select).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        't.isIncome',
+        't.transactionDate',
+        't.createdAt',
+        't.linkedTransferId',
+        't.subscriptionId',
+        'category.iconName',
+        'category.parentCategoryId',
+        'parentCategory.iconName',
+        'wallet.iconName',
+      ]),
+    );
+    expect(qb.select).not.toHaveBeenCalledWith(
+      expect.arrayContaining([
+        't."isIncome"',
+        't."transactionDate"',
+        'category."iconName"',
+      ]),
+    );
     expect(qb.orderBy).toHaveBeenCalledWith('t."transactionDate"', 'DESC');
     expect(qb.addOrderBy).toHaveBeenCalledWith('t."createdAt"', 'DESC');
   });

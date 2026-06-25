@@ -89,13 +89,29 @@ export class TransactionsService {
       .leftJoin("category.parentCategory", "parentCategory")
       .leftJoinAndSelect("t.wallet", "wallet")
       .select([
-        't.id', 't.name', 't.amount', 't."isIncome"', 't.type',
-        't."transactionDate"', 't.note', 't."createdAt"',
-        't."linkedTransferId"', 't."subscriptionId"',
-        'category.id', 'category.name', 'category.colour', 'category."iconName"',
-        'category."parentCategoryId"',
-        'parentCategory.id', 'parentCategory.name', 'parentCategory.colour', 'parentCategory."iconName"',
-        'wallet.id', 'wallet.name', 'wallet.colour', 'wallet."iconName"',
+        "t.id",
+        "t.name",
+        "t.amount",
+        "t.isIncome",
+        "t.type",
+        "t.transactionDate",
+        "t.note",
+        "t.createdAt",
+        "t.linkedTransferId",
+        "t.subscriptionId",
+        "category.id",
+        "category.name",
+        "category.colour",
+        "category.iconName",
+        "category.parentCategoryId",
+        "parentCategory.id",
+        "parentCategory.name",
+        "parentCategory.colour",
+        "parentCategory.iconName",
+        "wallet.id",
+        "wallet.name",
+        "wallet.colour",
+        "wallet.iconName",
       ]);
 
     this.applyFilters(qb, account.id, filters);

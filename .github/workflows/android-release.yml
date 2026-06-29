@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to create or update'
-        required: true
-        default: 'android-latest'
+        description: 'Optional release tag to create or update'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -36,14 +36,23 @@ jobs:
       - name: Resolve release tag
         id: release
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          app_version="$(node -p "require('./package.json').version")"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.release_tag }}" ]; then
             release_tag="${{ inputs.release_tag }}"
           elif [ "${{ github.ref_type }}" = "tag" ]; then
             release_tag="${{ github.ref_name }}"
           else
-            release_tag="android-latest"
+            release_tag="android-v${app_version}.${GITHUB_RUN_NUMBER}"
+          fi
+          release_version="${release_tag#android-v}"
+          release_version="${release_version#v}"
+          if ! printf '%s' "$release_version" | grep -Eq '^[0-9]+(\.[0-9]+){0,3}$'; then
+            release_version="${app_version}.${GITHUB_RUN_NUMBER}"
           fi
           echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "stable_tag=android-latest" >> "$GITHUB_OUTPUT"
+          echo "base_version=$app_version" >> "$GITHUB_OUTPUT"
+          echo "release_version=$release_version" >> "$GITHUB_OUTPUT"
 
       - name: Validate Android app configuration
         env:
@@ -81,13 +90,15 @@ jobs:
       - name: Resolve app version
         id: app_version
         run: |
-          app_version="$(node -p "require('./package.json').version")"
+          base_version="${{ steps.release.outputs.base_version }}"
+          release_version="${{ steps.release.outputs.release_version }}"
           build_time="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          echo "version=$app_version" >> "$GITHUB_OUTPUT"
+          echo "version=$release_version" >> "$GITHUB_OUTPUT"
+          echo "base_version=$base_version" >> "$GITHUB_OUTPUT"
           echo "build_time=$build_time" >> "$GITHUB_OUTPUT"
 
       - name: Run API cache, Android, workflow, and permission tests
-        run: node --test src/apiCache.test.mjs src/appVersion.test.mjs src/importFileTypes.test.mjs src/importProgress.test.mjs src/mobilePlatform.test.mjs src/androidReleaseWorkflow.test.mjs src/androidWidgets.test.mjs src/androidNativeWidgets.test.mjs src/notificationPermission.test.mjs
+        run: node --test src/apiCache.test.mjs src/appVersion.test.mjs src/importFileTypes.test.mjs src/importProgress.test.mjs src/mobilePlatform.test.mjs src/androidReleaseWorkflow.test.mjs src/androidWidgets.test.mjs src/androidNativeWidgets.test.mjs src/androidNativeShell.test.mjs src/notificationPermission.test.mjs
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -160,6 +171,7 @@ jobs:
       - name: Prepare release metadata
         env:
           APP_VERSION: ${{ steps.app_version.outputs.version }}
+          APP_BASE_VERSION: ${{ steps.app_version.outputs.base_version }}
           APP_BUILD_TIME: ${{ steps.app_version.outputs.build_time }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           RELEASE_COMMIT: ${{ github.sha }}
@@ -177,11 +189,7 @@ jobs:
           RUN_URL="https://github.com/${RELEASE_REPOSITORY}/actions/runs/${RELEASE_RUN_ID}"
           COMMIT_SUBJECT="$(git log -1 --pretty=%s "$RELEASE_COMMIT")"
           RECENT_COMMITS="$(git log -5 --pretty=format:'- `%h` %s')"
-          if [ "$RELEASE_TAG" = "android-latest" ]; then
-            RELEASE_CHANNEL="Rolling latest Android build"
-          else
-            RELEASE_CHANNEL="Tagged Android release"
-          fi
+          RELEASE_CHANNEL="Versioned Android APK release"
 
           cat > release-notes.md <<EOF
           ## Personal Server Android APK
@@ -191,6 +199,7 @@ jobs:
           | --- | --- |
           | Channel | ${RELEASE_CHANNEL} |
           | App version | \`${APP_VERSION}\` |
+          | Base app version | \`${APP_BASE_VERSION}\` |
           | Android versionCode | \`${RELEASE_RUN_NUMBER}\` |
           | Build time | \`${APP_BUILD_TIME}\` |
           | Release tag | \`${RELEASE_TAG}\` |
@@ -226,6 +235,7 @@ jobs:
           cat > personal-server-release.json <<EOF
           {
             "appVersion": "${APP_VERSION}",
+            "baseAppVersion": "${APP_BASE_VERSION}",
             "androidVersionCode": "${RELEASE_RUN_NUMBER}",
             "buildTime": "${APP_BUILD_TIME}",
             "releaseTag": "${RELEASE_TAG}",
@@ -250,10 +260,9 @@ jobs:
           }
           EOF
 
-      - name: Move stable release tag
-        if: steps.release.outputs.tag == 'android-latest'
+      - name: Move stable android-latest pointer
         env:
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.stable_tag }}
         run: |
           git tag --force "$RELEASE_TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$RELEASE_TAG" --force

@@ -7,6 +7,13 @@ function absoluteRounded(value) {
   return Math.round(Math.abs(numberValue(value)))
 }
 
+function firstPositiveNumber(values, fallback = 0) {
+  const positive = values.find((value) => numberValue(value) > 0)
+  if (positive != null) return positive
+  const present = values.find((value) => value != null)
+  return present ?? fallback
+}
+
 function pluralizeHabit(count) {
   return `${count} habit${count === 1 ? '' : 's'}`
 }
@@ -39,10 +46,11 @@ export function createAndroidWidgetSnapshot(dashboard = {}) {
     dashboard.finance?.monthlySpent ??
     0
   const streams =
-    dashboard.weeklySummary?.streams ??
-    dashboard.spotify?.stats?.totalStreams ??
-    dashboard.spotify?.stats?.streams ??
-    0
+    firstPositiveNumber([
+      dashboard.weeklySummary?.streams,
+      dashboard.spotify?.stats?.totalStreams,
+      dashboard.spotify?.stats?.streams,
+    ])
   const habitsRemaining = Math.max(0, habitsTotal - habitsDone)
   const lockScreenStatus =
     habitsTotal === 0

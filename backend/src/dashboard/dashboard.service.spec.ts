@@ -413,15 +413,18 @@ describe('DashboardService', () => {
       expect(spendingQuery).toContain('NOT IN (1, 3)');
     });
 
-    it('should query streams with track join for account filtering', async () => {
+    it('should query weekly streams by stream account ownership', async () => {
       setupWeeklyMocks();
 
       await service.getWeeklySummary(accountId);
 
       const streamsQuery = mockDataSource.query.mock.calls[3][0];
       expect(streamsQuery).toContain('app_stream');
-      expect(streamsQuery).toContain('app_track');
-      expect(streamsQuery).toContain('WHERE t."accountId" = $1 AND s."streamedAt" >= $2');
+      expect(streamsQuery).toContain('WHERE s."accountId" = $1 AND s."streamedAt" >= $2');
+      expect(streamsQuery).toContain("s.platform = 'spotify'");
+      expect(streamsQuery).toContain('s."streamType" = \'play\'');
+      expect(streamsQuery).toContain('s."isValidPlay" = true');
+      expect(streamsQuery).not.toContain('t."accountId"');
     });
 
     it('should handle zero spending as numeric 0 not string', async () => {

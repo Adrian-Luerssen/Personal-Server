@@ -58,3 +58,12 @@ test('web detection can become native later when the app bridge loads', async ()
     }
   }
 })
+
+test('default Android APK URL resolves through the latest GitHub release asset', async () => {
+  const { ANDROID_APK_URL } = await importFreshMobilePlatform()
+
+  assert.equal(
+    ANDROID_APK_URL,
+    'https://github.com/Adrian-Luerssen/Personal-Server/releases/latest/download/personal-server.apk',
+  )
+})

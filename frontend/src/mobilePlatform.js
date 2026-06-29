@@ -1,6 +1,6 @@
 export const ANDROID_APK_URL =
   import.meta.env?.VITE_ANDROID_APK_URL ||
-  'https://github.com/Adrian-Luerssen/Personal-Server/releases/download/android-latest/personal-server.apk';
+  'https://github.com/Adrian-Luerssen/Personal-Server/releases/latest/download/personal-server.apk';
 
 let nativeMobileAppDetected = false;
 

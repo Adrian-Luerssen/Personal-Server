@@ -658,7 +658,7 @@
 
 .native-habit-actions {
   display: grid;
-  grid-template-columns: 1.35fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.45rem;
 }
 
@@ -678,10 +678,10 @@
   font-weight: 850;
 }
 
-.native-habit-actions__primary {
-  border: 0 !important;
-  background: var(--color-success) !important;
-  color: #04111d !important;
+.native-habit-actions button.is-active {
+  border-color: color-mix(in srgb, var(--status-color) 72%, transparent);
+  background: var(--status-color);
+  color: #04111d;
 }
 
 .native-plan-row {

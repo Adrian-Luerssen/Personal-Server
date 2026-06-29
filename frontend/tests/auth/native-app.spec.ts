@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-async function mockNativeApi(page, options: { malformedWorkoutPrs?: boolean } = {}) {
+async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean } = {}) {
   const habits = [
     {
       id: 'sleep',
@@ -241,7 +241,7 @@ async function mockNativeApi(page, options: { malformedWorkoutPrs?: boolean } = 
       return route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify([
-          { id: 'sleep', name: 'Sleep', completedToday: true, todayStatus: 'success', selectedStatus: 'success', currentStreak: 8, longestStreak: 8, successRate: 92 },
+          { id: 'sleep', name: 'Sleep', completedToday: false, todayStatus: 'none', selectedStatus: 'none', currentStreak: 0, longestStreak: 8, successRate: 92 },
           { id: 'caffeine', name: 'Caffeine', completedToday: false, todayStatus: 'none', selectedStatus: 'none', currentStreak: 0, longestStreak: 4, successRate: 77 },
         ]),
       })
@@ -252,7 +252,7 @@ async function mockNativeApi(page, options: { malformedWorkoutPrs?: boolean } = 
         contentType: 'application/json',
         body: JSON.stringify({
           habits: { sleep: habits[0], caffeine: habits[1] },
-          entries: [{ habitId: 'sleep', date: today, status: 'success' }],
+          entries: [],
         }),
       })
     }
@@ -304,9 +304,10 @@ async function mockNativeApi(page, options: { malformedWorkoutPrs?: boolean } = 
     }
 
     if (path === '/finance/transactions' && method === 'GET') {
+      const items = options.emptyTransactions ? [] : financeTransactions
       return route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ items: financeTransactions, total: financeTransactions.length }),
+        body: JSON.stringify({ items, total: items.length }),
       })
     }
 
@@ -558,6 +559,34 @@ test.describe('Native Android app shell', () => {
     await expect(page.locator('table')).toHaveCount(0)
   })
 
+  test('keeps the transaction add action aligned with the feed header when the feed is empty', async ({ page }) => {
+    await mockNativeApi(page, { emptyTransactions: true })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/finance/transactions')
+
+    const feedCard = page.locator('.native-finance-card', { hasText: 'Feed' })
+    await expect(feedCard.getByText(/no transactions match this view/i)).toBeVisible()
+    await expect(page.locator('.native-finance-floating-add')).toHaveCount(0)
+    await expect(feedCard.getByRole('button', { name: /add transaction/i })).toBeVisible()
+
+    const alignment = await feedCard.evaluate((card) => {
+      const cardBox = card.getBoundingClientRect()
+      const addButton = card.querySelector('[aria-label="Add transaction"]')?.getBoundingClientRect()
+      const emptyState = card.querySelector('.native-empty-state')?.getBoundingClientRect()
+      return {
+        addInsideCard: Boolean(addButton && addButton.right <= cardBox.right + 1 && addButton.left >= cardBox.left - 1),
+        addAboveEmptyState: Boolean(addButton && emptyState && addButton.bottom <= emptyState.top + 1),
+      }
+    })
+
+    expect(alignment).toEqual({ addInsideCard: true, addAboveEmptyState: true })
+  })
+
   test('opens an app-native transaction sheet with keypad and fast pickers', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
@@ -593,6 +622,26 @@ test.describe('Native Android app shell', () => {
     await expect(caffeine.getByRole('button', { name: /increase caffeine/i })).toBeVisible()
     await caffeine.getByRole('button', { name: /increase caffeine/i }).click()
     await expect(caffeine.getByLabel(/caffeine value/i)).toHaveValue('1')
+  })
+
+  test('does not preselect a boolean habit decision before the user logs it', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/habits')
+
+    const sleep = page.getByTestId('native-habit-card-sleep')
+    await expect(sleep).toBeVisible()
+
+    for (const label of ['Done', 'Skip', 'Missed']) {
+      const button = sleep.getByRole('button', { name: new RegExp(`^${label}$`, 'i') })
+      await expect(button).toHaveAttribute('aria-pressed', 'false')
+      await expect(button).not.toHaveClass(/is-active/)
+    }
   })
 
   test('provides a searchable native menu for all major app sections', async ({ page }) => {
@@ -645,6 +694,35 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('link', { name: /import habits/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /finance settings/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /import workouts/i })).toBeVisible()
+  })
+
+  test('keeps native notification switches inside their settings rows', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/settings?section=notifications')
+
+    await expect(page.getByRole('heading', { name: /^Notifications$/i })).toBeVisible()
+    const switchReport = await page.evaluate(() => {
+      return [...document.querySelectorAll('.native-toggle-row')].map((row) => {
+        const rowBox = row.getBoundingClientRect()
+        const switchBox = row.querySelector('.native-toggle-row__switch')?.getBoundingClientRect()
+        return {
+          label: row.textContent?.trim() || '',
+          switchInsideRow: Boolean(switchBox && switchBox.left >= rowBox.left - 1 && switchBox.right <= rowBox.right + 1),
+          rowDoesNotOverflow: row.scrollWidth <= row.clientWidth + 1,
+        }
+      })
+    })
+
+    expect(switchReport.length).toBeGreaterThan(0)
+    for (const row of switchReport) {
+      expect(row, row.label).toMatchObject({ switchInsideRow: true, rowDoesNotOverflow: true })
+    }
   })
 
   test('shows native widget controls with Samsung lock-screen guidance', async ({ page }) => {

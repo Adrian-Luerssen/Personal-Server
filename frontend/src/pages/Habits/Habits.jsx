@@ -870,19 +870,21 @@ function NativeHabitLogCard({ habit, saving, onToggle, onNumericSubmit }) {
       {isNumeric ? (
         <NumericHabitControl habit={habit} saving={saving} onSubmit={(value) => onNumericSubmit(habit, value)} />
       ) : (
-        <div className="native-habit-actions">
-          <button type="button" className="native-habit-actions__primary" disabled={saving} onClick={() => onToggle(habit, 'success')}>
-            <Icon name="check-circle" size={18} />
-            Done
-          </button>
-          <button type="button" disabled={saving} onClick={() => onToggle(habit, 'skip')}>
-            <Icon name="minus-circle" size={17} />
-            Skip
-          </button>
-          <button type="button" disabled={saving} onClick={() => onToggle(habit, 'fail')}>
-            <Icon name="x-circle" size={17} />
-            Missed
-          </button>
+        <div className="native-habit-actions" role="group" aria-label={`${habit.name} status`}>
+          {Object.entries(STATUS_META).map(([nextStatus, meta]) => (
+            <button
+              key={nextStatus}
+              type="button"
+              className={status === nextStatus ? 'is-active' : ''}
+              style={{ '--status-color': meta.color }}
+              aria-pressed={status === nextStatus}
+              disabled={saving}
+              onClick={() => onToggle(habit, nextStatus)}
+            >
+              <Icon name={meta.icon} size={17} />
+              {meta.shortLabel}
+            </button>
+          ))}
         </div>
       )}
     </article>

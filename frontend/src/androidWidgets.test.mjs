@@ -56,6 +56,16 @@ describe('Android widget snapshot bridge', () => {
     assert.equal(Object.hasOwn(snapshot, 'lockScreenStreams'), false)
   })
 
+  it('does not let a zero weekly stream count hide registered Spotify stats', () => {
+    const snapshot = createAndroidWidgetSnapshot({
+      weeklySummary: { streams: 0 },
+      spotify: { stats: { totalStreams: 37 } },
+      habits: { today: [] },
+    })
+
+    assert.equal(snapshot.streams, 37)
+  })
+
   it('sends the snapshot to the native widget plugin when running in Capacitor', async () => {
     const calls = []
     const plugin = {

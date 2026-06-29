@@ -552,7 +552,13 @@ function NativeFinanceTransactionsView({
             <h2>Feed</h2>
             <p>{transactions.length} transactions in this view.</p>
           </div>
-          <button type="button" onClick={() => navigate('/settings?section=data')}>Data</button>
+          <div className="native-section-head__actions">
+            <button type="button" className="native-feed-add-button" aria-label="Add transaction" onClick={() => onAddTx('expense')}>
+              <Icon name="plus" size={16} />
+              Add
+            </button>
+            <button type="button" onClick={() => navigate('/settings?section=data')}>Data</button>
+          </div>
         </div>
         <div className="native-transaction-list">
           {loading ? (
@@ -566,10 +572,6 @@ function NativeFinanceTransactionsView({
           )}
         </div>
       </section>
-
-      <button type="button" className="native-finance-floating-add" aria-label="Add transaction" onClick={() => onAddTx('expense')}>
-        <Icon name="plus" size={24} />
-      </button>
     </div>
   )
 }

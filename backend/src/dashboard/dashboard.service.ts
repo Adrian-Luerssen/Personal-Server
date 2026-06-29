@@ -291,8 +291,10 @@ export class DashboardService {
     // Streams this week
     const streams = await this.dataSource.query(
       `SELECT COUNT(*) as count FROM app_stream s
-       INNER JOIN app_track t ON s."trackId" = t.id
-       WHERE t."accountId" = $1 AND s."streamedAt" >= $2`,
+       WHERE s."accountId" = $1 AND s."streamedAt" >= $2
+       AND s.platform = 'spotify'
+       AND s."streamType" = 'play'
+       AND s."isValidPlay" = true`,
       [accountId, from]
     );
 

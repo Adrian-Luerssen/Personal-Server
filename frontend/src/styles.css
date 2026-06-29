@@ -1360,16 +1360,20 @@ code {
 }
 
 /* ===== Capacitor / Android Native Shell ===== */
+html:has(body.native-mobile-app) {
+  background: #030712;
+}
+
 body.native-mobile-app {
   --native-header-height: 4.85rem;
   --native-tabbar-height: 5.35rem;
+  --native-shell-bg: #030712;
   --native-surface: rgba(16, 22, 36, 0.86);
   --native-surface-strong: rgba(22, 29, 45, 0.94);
   --native-border: rgba(255, 255, 255, 0.09);
   --native-muted: rgba(226, 232, 240, 0.72);
   overscroll-behavior-y: none;
-  background:
-    linear-gradient(180deg, #090d18 0%, #101624 46%, #090d18 100%);
+  background: var(--native-shell-bg);
 }
 
 body.native-mobile-app,
@@ -1377,6 +1381,7 @@ body.native-mobile-app #root,
 body.native-mobile-app .app,
 body.native-mobile-app .layout {
   min-height: 100dvh;
+  background: var(--native-shell-bg);
 }
 
 body.native-mobile-app .layout {
@@ -2133,6 +2138,11 @@ body.native-mobile-app .sidebar .nav-link:active {
   cursor: pointer;
 }
 
+.native-toggle-row {
+  grid-template-columns: minmax(0, 1fr) 3.1rem;
+  overflow: hidden;
+}
+
 .native-menu-row__icon,
 .native-settings-row__icon,
 .native-plan-row__icon {
@@ -2239,6 +2249,8 @@ body.native-mobile-app .sidebar .nav-link:active {
 
 .native-toggle-row__switch {
   position: relative;
+  justify-self: end;
+  flex: 0 0 auto;
   width: 3.1rem;
   height: 1.7rem;
   border-radius: var(--radius-full);
@@ -2813,6 +2825,18 @@ body.native-mobile-app .native-dashboard > * {
   margin-bottom: 0.85rem;
 }
 
+.native-section-head > div:first-child {
+  min-width: 0;
+}
+
+.native-section-head__actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .native-section-head button {
   min-height: 2.75rem;
   padding: 0 0.7rem;
@@ -3302,6 +3326,15 @@ body.native-mobile-app .native-dashboard > * {
   place-items: center;
   border-radius: 1.1rem;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+}
+
+.native-feed-add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  border-color: rgba(251, 191, 36, 0.28) !important;
+  background: rgba(251, 191, 36, 0.14) !important;
+  color: #fbbf24 !important;
 }
 
 .native-month-row {

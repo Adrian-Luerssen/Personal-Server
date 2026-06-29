@@ -61,6 +61,19 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
       categoryId: financeCategories[1].id,
     },
   ]
+  await page.route('https://api.github.com/repos/Adrian-Luerssen/Personal-Server/releases/latest', async (route) => {
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'test-current-release',
+        tag_name: 'android-v0.0.1',
+        name: 'Personal Server Android v0.0.1',
+        published_at: '2026-06-24T09:00:00.000Z',
+        assets: [],
+      }),
+    })
+  })
+
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     const path = url.pathname.replace(/^\/api/, '')
@@ -75,6 +88,19 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
 
     if (path === '/sync/watermarks') {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ watermarks: {} }) })
+    }
+
+    if (path === '/app/versions/status') {
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          installedVersion: '0.0.1',
+          updateAvailable: false,
+          updateRequired: false,
+          latest: null,
+          installed: null,
+        }),
+      })
     }
 
     if (path === '/dashboard/mobile') {
@@ -460,7 +486,9 @@ test.describe('Native Android app shell', () => {
     await expect(page.locator('.native-tabbar__item', { hasText: 'Menu' })).toBeVisible()
     await expect(page.locator('.native-tabbar__item', { hasText: 'Assistant' })).toBeVisible()
     await expect(page.locator('.native-app-switcher__item')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: /switch app/i })).toContainText('Overview')
+    const switcher = page.getByRole('button', { name: /switch app/i })
+    await expect(switcher).toContainText('Apps')
+    await expect(switcher).toHaveAccessibleName(/current app Overview/i)
     await expect(page.getByRole('button', { name: /open settings/i })).toBeVisible()
     await expect(page.locator('.native-tabbar__item')).toHaveCount(3)
     await expect(page.getByRole('link', { name: /download android app/i })).toHaveCount(0)
@@ -477,7 +505,8 @@ test.describe('Native Android app shell', () => {
     await page.goto('/habits')
 
     const switcher = page.getByRole('button', { name: /switch app/i })
-    await expect(switcher).toContainText('Habits')
+    await expect(switcher).toContainText('Apps')
+    await expect(switcher).toHaveAccessibleName(/current app Habits/i)
     await switcher.click()
     await expect(page.getByRole('dialog', { name: /switch app/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /training workout log/i })).toBeVisible()
@@ -494,7 +523,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/finance')
 
-    await expect(page.getByRole('button', { name: /switch app/i })).toContainText('Money')
+    await expect(page.getByRole('button', { name: /switch app/i })).toHaveAccessibleName(/current app Money/i)
     await expect(page.locator('.native-tabbar__item')).toHaveText([
       /Summary/,
       /Transactions/,
@@ -503,7 +532,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/workout')
 
-    await expect(page.getByRole('button', { name: /switch app/i })).toContainText('Training')
+    await expect(page.getByRole('button', { name: /switch app/i })).toHaveAccessibleName(/current app Training/i)
     await expect(page.locator('.native-tabbar__item')).toHaveText([
       /Today/,
       /Active/,
@@ -513,7 +542,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/habits')
 
-    await expect(page.getByRole('button', { name: /switch app/i })).toContainText('Habits')
+    await expect(page.getByRole('button', { name: /switch app/i })).toHaveAccessibleName(/current app Habits/i)
     await expect(page.locator('.native-tabbar__item')).toHaveText([
       /Today/,
       /Plan/,
@@ -788,7 +817,27 @@ test.describe('Native Android app shell', () => {
       await page.setViewportSize(viewport)
       await page.goto('/home')
       await expect(page.locator('[data-testid="native-dashboard"]')).toBeVisible()
-      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+      await page.evaluate(() => {
+        const scroller = [
+          document.querySelector('#root'),
+          document.querySelector('.content'),
+          document.scrollingElement,
+          document.documentElement,
+        ].find((element) => element && element.scrollHeight > element.clientHeight) || document.documentElement
+        scroller.scrollTop = scroller.scrollHeight
+      })
+      await page.waitForFunction(() => {
+        const scroller = [
+          document.querySelector('#root'),
+          document.querySelector('.content'),
+          document.scrollingElement,
+          document.documentElement,
+        ].find((element) => element && element.scrollHeight > element.clientHeight) || document.documentElement
+        const viewportHeight = scroller === document.scrollingElement || scroller === document.documentElement
+          ? window.innerHeight
+          : scroller.clientHeight
+        return scroller.scrollTop + viewportHeight >= scroller.scrollHeight - 2
+      })
 
       const clearance = await page.evaluate(() => {
         const tabbar = document.querySelector('.native-tabbar')?.getBoundingClientRect()

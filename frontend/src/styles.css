@@ -1408,6 +1408,8 @@ code {
 /* ===== Capacitor / Android Native Shell ===== */
 html:has(body.native-mobile-app) {
   background: #030712;
+  scroll-padding-top: calc(env(safe-area-inset-top, 0px) + var(--native-header-height) + 0.8rem);
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--native-tabbar-height) + 1rem);
 }
 
 body.native-mobile-app {
@@ -1440,6 +1442,7 @@ body.native-mobile-app .content {
   min-height: 100dvh;
   max-width: 100vw;
   overflow-x: hidden;
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--native-tabbar-height) + 1rem);
   padding:
     calc(env(safe-area-inset-top, 0px) + var(--native-header-height) + 0.6rem)
     1rem
@@ -2573,6 +2576,7 @@ body.native-mobile-app .sidebar .nav-link:active {
 
 body.native-mobile-app .native-dashboard > * {
   animation: none;
+  scroll-margin-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--native-tabbar-height) + 1rem);
 }
 
 .native-dashboard > *:nth-child(1) { animation-delay: 20ms; }

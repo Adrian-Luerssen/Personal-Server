@@ -1,5 +1,7 @@
 import { isNativeMobileApp } from './mobilePlatform.js'
 
+export const HEALTH_CONNECT_AUTO_SYNC_KEY = 'personal-server-health-connect-last-sync'
+
 function getPlugin() {
   if (!isNativeMobileApp()) return null
   return window.Capacitor?.Plugins?.PersonalServerHealth || null
@@ -98,6 +100,41 @@ export async function syncHealthConnectSteps({ days = 30 } = {}) {
   }
   const { api } = await import('./api.js')
   return api.post('/activity/daily/sync', payload)
+}
+
+export function shouldAutoSyncHealthConnectSteps({
+  nativeApp,
+  permissionsGranted,
+  lastSync,
+  now = Date.now(),
+  minIntervalMs = 60 * 60_000,
+} = {}) {
+  if (nativeApp !== true || permissionsGranted !== true) return false
+  const previous = Number(lastSync || 0)
+  return !Number.isFinite(previous) || previous <= 0 || now - previous >= minIntervalMs
+}
+
+export async function maybeAutoSyncHealthConnectSteps({
+  days = 7,
+  storage = typeof localStorage !== 'undefined' ? localStorage : null,
+  now = Date.now(),
+  minIntervalMs = 60 * 60_000,
+} = {}) {
+  if (!isNativeMobileApp()) return { skipped: true, reason: 'not-native' }
+  const status = await getHealthConnectStatus()
+  if (!shouldAutoSyncHealthConnectSteps({
+    nativeApp: true,
+    permissionsGranted: status.permissionsGranted,
+    lastSync: storage?.getItem(HEALTH_CONNECT_AUTO_SYNC_KEY),
+    now,
+    minIntervalMs,
+  })) {
+    return { skipped: true, reason: status.permissionsGranted ? 'fresh' : 'permission-needed' }
+  }
+
+  const result = await syncHealthConnectSteps({ days })
+  storage?.setItem(HEALTH_CONNECT_AUTO_SYNC_KEY, String(now))
+  return result
 }
 
 function optionalNumber(value) {

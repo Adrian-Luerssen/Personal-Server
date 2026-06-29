@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   isPromptableNotificationPermission,
   NOTIFICATION_PERMISSION_AUTO_REQUEST_KEY,
+  normalizeNativeNotificationCapability,
   shouldAutoRequestNativeNotificationPermission,
 } from './notificationPermission.mjs'
 
@@ -74,5 +75,55 @@ test('native app does not auto-request when already asked, non-native, granted, 
       permission: 'unsupported',
     }),
     false,
+  )
+})
+
+test('native notification capability separates display permission from exact reminder alarms', () => {
+  assert.deepEqual(
+    normalizeNativeNotificationCapability({
+      permission: 'granted',
+      enabled: true,
+      exact: 'granted',
+    }),
+    {
+      permission: 'granted',
+      enabled: true,
+      exact: 'granted',
+      canDisplay: true,
+      canScheduleReminders: true,
+      exactAlarmBlocked: false,
+    },
+  )
+
+  assert.deepEqual(
+    normalizeNativeNotificationCapability({
+      permission: 'granted',
+      enabled: false,
+      exact: 'granted',
+    }),
+    {
+      permission: 'granted',
+      enabled: false,
+      exact: 'granted',
+      canDisplay: false,
+      canScheduleReminders: false,
+      exactAlarmBlocked: false,
+    },
+  )
+
+  assert.deepEqual(
+    normalizeNativeNotificationCapability({
+      permission: 'granted',
+      enabled: true,
+      exact: 'denied',
+    }),
+    {
+      permission: 'granted',
+      enabled: true,
+      exact: 'denied',
+      canDisplay: true,
+      canScheduleReminders: false,
+      exactAlarmBlocked: true,
+    },
   )
 })

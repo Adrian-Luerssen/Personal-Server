@@ -128,14 +128,7 @@ export const NATIVE_APPS = [
     root: '/settings',
     tone: 'info',
     matches: ['/settings'],
-    tabs: [
-      destination('/settings', 'Index', 'settings', { exact: true }),
-      destination('/settings?section=data', 'Data', 'database', { activeIncludes: 'section=data', dataHub: true }),
-      destination('/settings?section=notifications', 'Alerts', 'bell', { activeIncludes: 'section=notifications' }),
-      destination('/settings?section=widgets', 'Widgets', 'panel-top', { activeIncludes: 'section=widgets' }),
-      destination('/settings?section=sync', 'Sync', 'refresh-cw', { activeIncludes: 'section=sync' }),
-      destination('/settings?section=updates', 'Updates', 'smartphone', { activeIncludes: 'section=updates' }),
-    ],
+    tabs: [],
   },
 ]
 
@@ -151,7 +144,12 @@ export function getNativeAppForPath(path) {
 }
 
 export function getNativeTabsForPath(path) {
-  return getNativeAppForPath(path).tabs
+  return getNativeAppForPath(path).tabs || []
+}
+
+export function getNativeAppSwitcherOptions(path) {
+  const currentApp = getNativeAppForPath(path)
+  return NATIVE_APPS.filter((app) => app.id !== currentApp.id)
 }
 
 export function isNativeDestinationActive(tab, pathname, search = '') {

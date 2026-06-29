@@ -41,6 +41,11 @@ describe('Android native widgets', () => {
       assert.match(todayLayout, new RegExp(`@\\+id/${id}`))
     }
 
+    for (const id of ['widget_today_brief_card', 'widget_today_brief_detail', 'widget_today_habits_card', 'widget_today_spend_card']) {
+      assert.match(updater, new RegExp(`R\\.id\\.${id}`))
+      assert.match(todayLayout, new RegExp(`@\\+id/${id}`))
+    }
+
     for (const id of ['widget_habits_root', 'widget_habits_ratio', 'widget_habits_remaining', 'widget_habits_updated']) {
       assert.match(updater, new RegExp(`R\\.id\\.${id}`))
       assert.match(habitsLayout, new RegExp(`@\\+id/${id}`))
@@ -58,5 +63,14 @@ describe('Android native widgets', () => {
     assert.match(plugin, /void getWidgetStatus/)
     assert.match(plugin, /void pinWidget/)
     assert.match(plugin, /isRequestPinAppWidgetSupported/)
+  })
+
+  it('uses the 4x2 Today widget space for a brief card and contained metric cells', () => {
+    const todayLayout = readAndroidFile('res/layout/widget_today_summary.xml')
+
+    assert.match(todayLayout, /@drawable\/widget_brief_background/)
+    assert.match(todayLayout, /@drawable\/widget_metric_background/)
+    assert.doesNotMatch(todayLayout, /android:gravity="bottom"/)
+    assert.match(todayLayout, /@string\/widget_label_remaining/)
   })
 })

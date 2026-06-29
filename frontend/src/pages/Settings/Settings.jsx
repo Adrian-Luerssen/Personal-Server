@@ -12,8 +12,10 @@ import { APP_BUILD_TIME, APP_VERSION, formatBuildTime } from '../../appVersion.m
 import { ANDROID_APK_URL, isNativeMobileApp } from '../../mobilePlatform'
 import { checkDataValidity, clearApiCache } from '../../api'
 import {
-  getNotificationPermissionStatus,
+  deliverCustomNotification,
+  getNativeNotificationStatus,
   initializeNativeNotifications,
+  openExactNotificationSettings,
 } from '../../notifications'
 import { checkForAndroidUpdate } from '../../appUpdate'
 import {
@@ -131,31 +133,84 @@ function NativePreferenceToggle({ storageKey, label, description, defaultEnabled
 }
 
 function NativeNotificationsSection() {
-  const [permission, setPermission] = useState('unknown')
+  const [notificationStatus, setNotificationStatus] = useState({
+    supported: true,
+    permission: 'unknown',
+    enabled: true,
+    exact: 'unknown',
+    canDisplay: false,
+    canScheduleReminders: false,
+  })
+  const [message, setMessage] = useState('Ready')
 
   useEffect(() => {
     let ignore = false
-    getNotificationPermissionStatus()
-      .then((status) => { if (!ignore) setPermission(status) })
-      .catch(() => { if (!ignore) setPermission('unsupported') })
+    getNativeNotificationStatus()
+      .then((status) => { if (!ignore) setNotificationStatus(status) })
+      .catch(() => { if (!ignore) setNotificationStatus((current) => ({ ...current, permission: 'unsupported', supported: false })) })
     return () => { ignore = true }
   }, [])
 
   async function requestPermission() {
     const result = await initializeNativeNotifications({ requestIfPrompt: true })
-    setPermission(result.permission || 'unsupported')
+    setNotificationStatus({
+      supported: result.supported !== false,
+      permission: result.permission || 'unsupported',
+      enabled: result.enabled !== false,
+      exact: result.exact || 'unknown',
+      canDisplay: result.canDisplay === true,
+      canScheduleReminders: result.canScheduleReminders === true,
+      exactAlarmBlocked: result.exactAlarmBlocked === true,
+    })
+    setMessage(result.canDisplay ? 'Notifications enabled on this phone.' : 'Android did not grant notification delivery.')
+  }
+
+  async function sendTest() {
+    const delivered = await deliverCustomNotification({
+      id: `settings-test-${Date.now()}`,
+      nativeId: 520099,
+      title: 'Personal Server',
+      body: 'Notifications are working on this phone.',
+      actionUrl: '/settings?section=notifications',
+    }).catch(() => false)
+    setMessage(delivered ? 'Test notification sent.' : 'Test notification could not be delivered.')
+    const latest = await getNativeNotificationStatus().catch(() => null)
+    if (latest) setNotificationStatus(latest)
+  }
+
+  async function openExactSettings() {
+    const opened = await openExactNotificationSettings().catch(() => false)
+    setMessage(opened ? 'Android opened exact alarm settings.' : 'Exact alarm settings are unavailable on this Android version.')
   }
 
   return (
     <section className="native-settings-card">
       <div className="native-status-strip">
         <span>Permission</span>
-        <strong>{permission}</strong>
+        <strong>{notificationStatus.canDisplay ? 'ready' : notificationStatus.permission}</strong>
       </div>
-      <button type="button" className="native-primary-button" onClick={requestPermission}>
-        <Icon name="bell" size={18} />
-        Enable notifications
-      </button>
+      <div className="native-status-strip">
+        <span>Exact reminders</span>
+        <strong>{notificationStatus.exactAlarmBlocked ? 'needs Android setting' : notificationStatus.exact}</strong>
+      </div>
+      <div className="native-settings-actions">
+        <button type="button" className="native-primary-button" onClick={requestPermission}>
+          <Icon name="bell" size={18} />
+          Enable notifications
+        </button>
+        <button type="button" className="native-secondary-button" onClick={sendTest} disabled={!notificationStatus.canDisplay}>
+          <Icon name="bell-ring" size={18} />
+          Send test
+        </button>
+        <button type="button" className="native-secondary-button" onClick={openExactSettings} disabled={!notificationStatus.exactAlarmBlocked}>
+          <Icon name="clock" size={18} />
+          Reminder alarms
+        </button>
+      </div>
+      <div className="native-status-strip">
+        <span>Last action</span>
+        <strong>{message}</strong>
+      </div>
       <div className="native-toggle-list">
         <NativePreferenceToggle storageKey="notify:habit-reminders" label="Habit reminders" description="Daily reminders to log habits." />
         <NativePreferenceToggle storageKey="notify:missed-habits" label="Missed habit nudges" description="Follow-up reminders when habits remain open." />
@@ -286,7 +341,14 @@ function NativeIntegrationsSection() {
     setStatus('Requesting Health Connect step permission...')
     try {
       const result = await requestHealthConnectPermissions()
-      setStatus(result.granted ? 'Health Connect permission granted.' : 'Health Connect permission was not granted.')
+      if (result.granted) {
+        setStatus('Health Connect permission granted. Syncing recent steps...')
+        const synced = await syncHealthConnectSteps({ days: 30 })
+        setStatus(`Health Connect ready. Synced ${synced.imported || 0} daily step records.`)
+        await checkDataValidity()
+      } else {
+        setStatus('Health Connect permission was not granted.')
+      }
       await refresh()
     } catch (error) {
       setStatus(error.message || 'Could not request Health Connect permission.')

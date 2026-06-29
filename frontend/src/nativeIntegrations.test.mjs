@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  HEALTH_CONNECT_AUTO_SYNC_KEY,
   buildActivityMetricPayload,
   normalizeHealthConnectStatus,
+  shouldAutoSyncHealthConnectSteps,
 } from './nativeHealth.mjs'
 import {
   buildPaymentSuggestionPayload,
@@ -47,6 +49,32 @@ test('normalizeHealthConnectStatus maps native availability codes to user-facing
   assert.equal(normalizeHealthConnectStatus({ status: 'available' }).available, true)
   assert.equal(normalizeHealthConnectStatus({ status: 'update_required' }).action, 'install_or_update')
   assert.equal(normalizeHealthConnectStatus(null).available, false)
+})
+
+test('Health Connect auto sync only runs in native app after permission and freshness window', () => {
+  assert.equal(HEALTH_CONNECT_AUTO_SYNC_KEY, 'personal-server-health-connect-last-sync')
+  assert.equal(shouldAutoSyncHealthConnectSteps({ nativeApp: false, permissionsGranted: true }), false)
+  assert.equal(shouldAutoSyncHealthConnectSteps({ nativeApp: true, permissionsGranted: false }), false)
+  assert.equal(
+    shouldAutoSyncHealthConnectSteps({
+      nativeApp: true,
+      permissionsGranted: true,
+      lastSync: 1000,
+      now: 30 * 60_000,
+      minIntervalMs: 60 * 60_000,
+    }),
+    false,
+  )
+  assert.equal(
+    shouldAutoSyncHealthConnectSteps({
+      nativeApp: true,
+      permissionsGranted: true,
+      lastSync: 1000,
+      now: 2 * 60 * 60_000,
+      minIntervalMs: 60 * 60_000,
+    }),
+    true,
+  )
 })
 
 test('buildPaymentSuggestionPayload strips raw notification fields and normalizes amount data', () => {

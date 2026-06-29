@@ -97,10 +97,16 @@ public final class PersonalServerWidgetUpdater {
         views.setTextViewText(R.id.widget_today_score, String.valueOf(snapshot.score));
         views.setTextViewText(R.id.widget_today_habits, snapshot.habitsDone + "/" + snapshot.habitsTotal);
         views.setTextViewText(R.id.widget_today_workouts, String.valueOf(snapshot.workoutsThisWeek));
-        views.setTextViewText(R.id.widget_today_spend, "EUR " + snapshot.monthlySpend);
+        views.setTextViewText(R.id.widget_today_spend, formatCurrency(snapshot.monthlySpend, snapshot.currency));
         views.setTextViewText(R.id.widget_today_streams, String.valueOf(snapshot.streams));
         views.setTextViewText(R.id.widget_today_status, snapshot.status);
+        views.setTextViewText(R.id.widget_today_brief_detail, snapshot.briefDetail);
         views.setTextViewText(R.id.widget_today_updated, snapshot.updatedLabel);
+        views.setContentDescription(R.id.widget_today_brief_card, snapshot.status + ". " + snapshot.briefDetail);
+        views.setContentDescription(R.id.widget_today_habits_card, "Habits " + snapshot.habitsDone + " of " + snapshot.habitsTotal);
+        views.setContentDescription(R.id.widget_today_workouts_card, "Training " + snapshot.workoutsThisWeek);
+        views.setContentDescription(R.id.widget_today_spend_card, "Spend " + formatCurrency(snapshot.monthlySpend, snapshot.currency));
+        views.setContentDescription(R.id.widget_today_streams_card, "Streams " + snapshot.streams);
         views.setOnClickPendingIntent(R.id.widget_today_root, launchAppIntent(context));
         return views;
     }
@@ -138,6 +144,7 @@ public final class PersonalServerWidgetUpdater {
         };
         int[] secondaryTextIds = new int[] {
             R.id.widget_today_label,
+            R.id.widget_today_brief_detail,
             R.id.widget_today_habits_label,
             R.id.widget_today_workouts_label,
             R.id.widget_today_spend_label,
@@ -146,10 +153,8 @@ public final class PersonalServerWidgetUpdater {
             R.id.widget_today_updated
         };
 
-        views.setInt(R.id.widget_today_root, "setBackgroundColor", palette.background);
         for (int id : primaryTextIds) views.setTextColor(id, palette.primaryText);
         for (int id : secondaryTextIds) views.setTextColor(id, palette.secondaryText);
-        views.setInt(R.id.widget_today_score_box, "setBackgroundColor", palette.accentMuted);
         views.setTextColor(R.id.widget_today_score, palette.accent);
     }
 
@@ -207,8 +212,10 @@ public final class PersonalServerWidgetUpdater {
         final int habitsRemaining;
         final int workoutsThisWeek;
         final int monthlySpend;
+        final String currency;
         final int streams;
         final String status;
+        final String briefDetail;
         final String lockScreenStatus;
         final String updatedLabel;
 
@@ -219,8 +226,10 @@ public final class PersonalServerWidgetUpdater {
             int habitsRemaining,
             int workoutsThisWeek,
             int monthlySpend,
+            String currency,
             int streams,
             String status,
+            String briefDetail,
             String lockScreenStatus,
             String updatedLabel
         ) {
@@ -230,8 +239,10 @@ public final class PersonalServerWidgetUpdater {
             this.habitsRemaining = habitsRemaining;
             this.workoutsThisWeek = workoutsThisWeek;
             this.monthlySpend = monthlySpend;
+            this.currency = currency;
             this.streams = streams;
             this.status = status;
+            this.briefDetail = briefDetail;
             this.lockScreenStatus = lockScreenStatus;
             this.updatedLabel = updatedLabel;
         }
@@ -247,15 +258,23 @@ public final class PersonalServerWidgetUpdater {
                 habitsRemaining,
                 json.optInt("workoutsThisWeek", 0),
                 json.optInt("monthlySpend", 0),
+                normalizeCurrency(json.optString("currency", "EUR")),
                 json.optInt("streams", 0),
                 json.optString("status", "Open app to sync"),
+                json.optString("briefDetail", ""),
                 json.optString("lockScreenStatus", formatLockScreenStatus(habitsTotal, habitsRemaining)),
                 formatUpdated(json.optString("generatedAt", ""))
             );
         }
 
         static WidgetSnapshot empty() {
-            return new WidgetSnapshot(0, 0, 0, 0, 0, 0, 0, "Open app to sync", "Open app to sync", "No local snapshot");
+            return new WidgetSnapshot(0, 0, 0, 0, 0, 0, "EUR", 0, "Open app to sync", "Open app to sync", "Open app to sync", "No local snapshot");
+        }
+
+        private static String normalizeCurrency(String value) {
+            if (value == null || value.trim().isEmpty()) return "EUR";
+            String normalized = value.trim().toUpperCase();
+            return normalized.matches("[A-Z]{3}") ? normalized : "EUR";
         }
 
         private static String formatLockScreenStatus(int habitsTotal, int habitsRemaining) {
@@ -274,6 +293,23 @@ public final class PersonalServerWidgetUpdater {
                 return "Updated recently";
             }
         }
+    }
+
+    private static String formatCurrency(int amount, String currency) {
+        String code = currency == null || currency.isEmpty() ? "EUR" : currency.toUpperCase();
+        return code + " " + compactNumber(amount);
+    }
+
+    private static String compactNumber(int value) {
+        int absolute = Math.abs(value);
+        if (absolute >= 1000000) return trimDecimal(absolute / 1000000f) + "M";
+        if (absolute >= 1000) return trimDecimal(absolute / 1000f) + "K";
+        return String.valueOf(absolute);
+    }
+
+    private static String trimDecimal(float value) {
+        String formatted = String.format(java.util.Locale.US, "%.1f", value);
+        return formatted.endsWith(".0") ? formatted.substring(0, formatted.length() - 2) : formatted;
     }
 
     static final class WidgetPalette {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   getNativeAppForPath,
+  getNativeAppSwitcherOptions,
   getNativeTabsForPath,
   NATIVE_APPS,
 } from './nativeNavigation.mjs';
@@ -53,5 +54,20 @@ describe('native adaptive app navigation', () => {
       NATIVE_APPS.map((app) => app.id),
       ['overview', 'training', 'habits', 'money', 'music', 'media', 'assistant', 'settings'],
     );
+  });
+
+  it('does not render a settings tabbar that duplicates the settings index', () => {
+    assert.deepEqual(getNativeTabsForPath('/settings').map((tab) => tab.label), []);
+    assert.deepEqual(getNativeTabsForPath('/settings?section=notifications').map((tab) => tab.label), []);
+  });
+
+  it('omits the current app from the app switcher choices', () => {
+    const settingsOptions = getNativeAppSwitcherOptions('/settings');
+    assert.equal(settingsOptions.some((app) => app.id === 'settings'), false);
+    assert.equal(settingsOptions.some((app) => app.id === 'overview'), true);
+
+    const overviewOptions = getNativeAppSwitcherOptions('/home');
+    assert.equal(overviewOptions.some((app) => app.id === 'overview'), false);
+    assert.equal(overviewOptions.some((app) => app.id === 'settings'), true);
   });
 });

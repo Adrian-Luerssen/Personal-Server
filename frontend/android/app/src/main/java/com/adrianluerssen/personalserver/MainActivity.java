@@ -5,6 +5,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import com.getcapacitor.BridgeActivity;
 import com.adrianluerssen.personalserver.health.PersonalServerHealthPlugin;
 import com.adrianluerssen.personalserver.payments.PersonalServerPaymentsPlugin;
@@ -24,8 +25,14 @@ public class MainActivity extends BridgeActivity {
 
     private void configureSystemBars() {
         Window window = getWindow();
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         window.setStatusBarColor(NATIVE_SHELL_COLOR);
         window.setNavigationBarColor(NATIVE_SHELL_COLOR);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setStatusBarContrastEnforced(false);
+            window.setNavigationBarContrastEnforced(false);
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.setNavigationBarDividerColor(NATIVE_SHELL_COLOR);

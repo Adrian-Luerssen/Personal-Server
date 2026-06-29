@@ -36,12 +36,42 @@
         <activity
             android:name=".health.HealthConnectRationaleActivity"
             android:exported="true"
-            android:permission="com.google.android.apps.healthdata.permission.START_ONBOARDING"
             android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+            android:name=".health.HealthConnectPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".health.HealthConnectRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".health.HealthConnectLegacyOnboardingActivity"
+            android:exported="true"
+            android:targetActivity=".health.HealthConnectRationaleActivity"
+            android:permission="com.google.android.apps.healthdata.permission.START_ONBOARDING">
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_ONBOARDING" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".health.HealthConnectFrameworkOnboardingActivity"
+            android:exported="true"
+            android:targetActivity=".health.HealthConnectRationaleActivity"
+            android:permission="android.permission.health.START_ONBOARDING">
+            <intent-filter>
+                <action android:name="android.health.connect.action.SHOW_ONBOARDING" />
+            </intent-filter>
+        </activity-alias>
 
         <service
             android:name=".payments.PaymentNotificationListenerService"
@@ -105,6 +135,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />

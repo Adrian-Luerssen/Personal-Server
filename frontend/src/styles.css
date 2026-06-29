@@ -1401,6 +1401,10 @@ body.native-mobile-app .content {
     1rem !important;
 }
 
+body.native-mobile-app .layout.native-no-tabbar .content {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem) !important;
+}
+
 body.native-mobile-app .content-shell {
   max-width: 100%;
 }
@@ -1429,7 +1433,7 @@ body.native-mobile-app .sidebar {
     calc(env(safe-area-inset-bottom, 0px) + 0.45rem);
   border-right: 0;
   border-top: 1px solid var(--glass-border);
-  background: rgba(7, 11, 20, 0.96) !important;
+  background: var(--native-shell-bg) !important;
   box-shadow: 0 -8px 26px rgba(0, 0, 0, 0.32);
   overflow: visible;
 }
@@ -1561,7 +1565,7 @@ body.native-mobile-app .api-status-label {
     0.55rem;
   display: flex;
   align-items: center;
-  background: rgba(7, 11, 20, 0.96);
+  background: var(--native-shell-bg);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   animation: nativeHeaderDrop 260ms ease-out both;
 }

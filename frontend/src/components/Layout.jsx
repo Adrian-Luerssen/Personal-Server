@@ -13,7 +13,8 @@ import Icon from './icons/Icon'
 import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
 import { APP_VERSION } from '../appVersion.mjs'
 import { pollPendingAiNotifications } from '../aiNotifications.mjs'
-import { getNativeAppForPath, NATIVE_APPS } from '../nativeNavigation.mjs'
+import { maybeAutoSyncHealthConnectSteps } from '../nativeHealth.mjs'
+import { getNativeAppForPath, getNativeAppSwitcherOptions, getNativeTabsForPath } from '../nativeNavigation.mjs'
 
 const NATIVE_ROUTE_TITLES = [
   { match: /^\/home$/, title: 'Today', subtitle: 'Overview' },
@@ -32,6 +33,8 @@ function NativeAppHeader() {
   const navigate = useNavigate()
   const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
   const currentApp = getNativeAppForPath(location.pathname)
+  const appSwitcherOptions = getNativeAppSwitcherOptions(location.pathname)
+  const isSettingsRoute = location.pathname.startsWith('/settings')
   const current = NATIVE_ROUTE_TITLES.find((item) => item.match.test(location.pathname)) || {
     title: 'Personal Server',
     subtitle: 'Private dashboard',
@@ -70,14 +73,16 @@ function NativeAppHeader() {
           <span>{currentApp.label}</span>
           <Icon name={appSwitcherOpen ? 'chevron-up' : 'chevron-down'} size={15} aria-hidden="true" />
         </button>
-        <button
-          type="button"
-          className="native-app-header__button"
-          onClick={() => navigate('/settings')}
-          aria-label="Open settings"
-        >
-          <Icon name="settings" size={20} />
-        </button>
+        {!isSettingsRoute && (
+          <button
+            type="button"
+            className="native-app-header__button"
+            onClick={() => navigate('/settings')}
+            aria-label="Open settings"
+          >
+            <Icon name="settings" size={20} />
+          </button>
+        )}
       </div>
       {appSwitcherOpen && (
         <>
@@ -108,12 +113,11 @@ function NativeAppHeader() {
               </button>
             </div>
             <nav className="native-app-sheet__grid" aria-label="Choose app">
-              {NATIVE_APPS.map((app) => (
+              {appSwitcherOptions.map((app) => (
                 <NavLink
                   key={app.id}
                   to={app.root}
-                  className={`native-app-sheet__item native-app-sheet__item--${app.tone}${app.id === currentApp.id ? ' active' : ''}`}
-                  aria-current={app.id === currentApp.id ? 'page' : undefined}
+                  className={`native-app-sheet__item native-app-sheet__item--${app.tone}`}
                   onClick={() => setAppSwitcherOpen(false)}
                 >
                   <span aria-hidden="true">
@@ -169,6 +173,7 @@ export default function Layout() {
   const nativeApp = isNativeMobileApp()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
+  const hasNativeTabbar = !nativeApp || getNativeTabsForPath(location.pathname).length > 0
 
   // Preload dashboard data on app mount so pages load instantly
   useEffect(() => {
@@ -224,8 +229,40 @@ export default function Layout() {
     }
   }, [nativeApp])
 
+  useEffect(() => {
+    if (!nativeApp) return undefined
+    let cancelled = false
+
+    const syncSteps = () => {
+      if (cancelled) return
+      maybeAutoSyncHealthConnectSteps({ days: 7 })
+        .then((result) => {
+          if (!cancelled && result && !result.skipped && (result.imported || 0) > 0) {
+            checkDataValidity().catch(() => {})
+            api.get('/dashboard/mobile', { force: true }).catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
+
+    syncSteps()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') syncSteps()
+    }
+    window.addEventListener('focus', syncSteps)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    const interval = window.setInterval(syncSteps, 60 * 60_000)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', syncSteps)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.clearInterval(interval)
+    }
+  }, [nativeApp])
+
   return (
-    <div className={"layout" + (collapsed ? ' sidebar-collapsed' : '')}>
+    <div className={"layout" + (collapsed ? ' sidebar-collapsed' : '') + (nativeApp && !hasNativeTabbar ? ' native-no-tabbar' : '')}>
       <GradientMesh />
       {nativeApp && <NativeAppHeader />}
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />

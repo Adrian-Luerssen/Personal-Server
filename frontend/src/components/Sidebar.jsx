@@ -140,6 +140,8 @@ export default function Sidebar({ collapsed, onToggle }) {
     const currentApp = getNativeAppForPath(location.pathname)
     const nativeTabs = getNativeTabsForPath(location.pathname)
 
+    if (nativeTabs.length === 0) return null
+
     return (
       <aside className={`sidebar native-tabbar native-tabbar--${currentApp.tone}`} aria-label={`${currentApp.label} app navigation`}>
         <nav className="nav">

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api, subscribeToApiPath } from '../api'
 import { saveAndroidWidgetSnapshot } from '../androidWidgets.mjs'
 import { AnimatedNumber, formatDuration, formatNumberShort } from '../components/shared'
+import { formatCompactMoney, formatMoney, normalizeCurrency } from '../moneyFormat.mjs'
 import PageHeader from '../components/PageHeader'
 import ProgressRing from '../components/ProgressRing'
 import ScrollReveal from '../components/ScrollReveal'
@@ -181,9 +182,11 @@ function NativeHomeDashboard({
   habitCompletionPct,
   todayCompleted,
   totalHabits,
-  monthlySpent,
+  todaySpent,
+  financeCurrency,
   workoutTotals,
   spotifyStats,
+  todayStreams,
   openAiPrompt,
   nav,
   loaded,
@@ -247,12 +250,12 @@ function NativeHomeDashboard({
         <button type="button" onClick={() => nav('/finance/transactions')}>
           <Icon name="receipt" size={18} />
           <span>Add expense</span>
-          <small>${Math.round(monthlySpent)}</small>
+          <small>{formatCompactMoney(todaySpent, financeCurrency)}</small>
         </button>
         <button type="button" onClick={() => nav('/spotify/ranking')}>
           <Icon name="trophy" size={18} />
           <span>Ranking</span>
-          <small>{formatNumberShort(spotifyStats?.totalStreams ?? 0)} streams</small>
+          <small>{formatNumberShort(todayStreams)} today</small>
         </button>
         <button type="button" onClick={() => openAiPrompt(firstPrompt)}>
           <Icon name="sparkles" size={18} />
@@ -272,15 +275,15 @@ function NativeHomeDashboard({
         <NativeMetricCard
           icon="wallet"
           label="Spend"
-          value={`$${Math.round(monthlySpent)}`}
-          sub="month"
+          value={formatMoney(todaySpent, financeCurrency)}
+          sub="today"
           accent="#fbbf24"
         />
         <NativeMetricCard
           icon="music"
           label="Music"
-          value={formatNumberShort(spotifyStats?.totalStreams ?? 0)}
-          sub="streams"
+          value={formatNumberShort(todayStreams)}
+          sub="today"
           accent="#7dd3fc"
         />
       </section>
@@ -352,7 +355,11 @@ export default function Home() {
     if (!snapshot) return
     saveAndroidWidgetSnapshot(snapshot).catch(() => {})
     setIntelligence(snapshot.intelligence || null)
-    setSpotifyStats(snapshot.spotify?.stats || null)
+    setSpotifyStats({
+      ...(snapshot.spotify?.stats || {}),
+      todayStreams: snapshot.today?.streams ?? snapshot.spotify?.stats?.todayStreams ?? 0,
+      todayMsListened: snapshot.today?.msListened ?? snapshot.spotify?.stats?.todayMsListened ?? 0,
+    })
     setWorkoutTotals(snapshot.workout?.totals || null)
     setActiveWorkout(snapshot.workout?.activeSession || null)
     setWorkoutStreamStats(null)
@@ -361,6 +368,9 @@ export default function Home() {
     setFinanceSummary({
       ...(snapshot.finance?.summary || {}),
       totalExpenses: snapshot.finance?.summary?.totalExpense ?? snapshot.finance?.monthlySpent ?? 0,
+      todayExpense: snapshot.today?.financeSpent ?? snapshot.finance?.summary?.todayExpense ?? snapshot.finance?.todaySpent ?? 0,
+      todayIncome: snapshot.today?.financeIncome ?? snapshot.finance?.summary?.todayIncome ?? 0,
+      currency: normalizeCurrency(snapshot.today?.financeCurrency ?? snapshot.finance?.currency ?? snapshot.finance?.summary?.currency),
     })
     setRecentSessions(snapshot.workout?.recentSessions || [])
     setWeeklySummary(snapshot.weeklySummary || null)
@@ -457,6 +467,9 @@ export default function Home() {
   const habitCompletionPct = totalHabits > 0 ? Math.round((todayCompleted / totalHabits) * 100) : 0
   const bestStreak = habitsArray.reduce((max, habit) => Math.max(max, habit.longestStreak ?? 0), 0)
   const monthlySpent = Math.abs(financeSummary?.totalExpenses ?? financeSummary?.total ?? 0)
+  const financeCurrency = normalizeCurrency(financeSummary?.currency)
+  const todaySpent = Math.abs(financeSummary?.todayExpense ?? financeSummary?.todaySpent ?? 0)
+  const todayStreams = Number(spotifyStats?.todayStreams ?? 0) || 0
   const activityItems = useMemo(() => buildActivityFeed(habitsArray, recentSessions), [habitsArray, recentSessions])
 
   const intelligenceFallback = useMemo(() => {
@@ -475,7 +488,7 @@ export default function Home() {
       snapshot: [
         { id: 'training', label: 'Training', value: `${weeklySummary?.workouts ?? 0} sessions`, note: 'Weekly workout cadence' },
         { id: 'habits', label: 'Habits', value: `${habitCompletionPct}%`, note: "Today's completion rate" },
-        { id: 'spending', label: 'Spending', value: `$${Math.round(monthlySpent)}`, note: 'Current monthly expenses' },
+        { id: 'spending', label: 'Spending', value: formatMoney(monthlySpent, financeCurrency), note: 'Current monthly expenses' },
         { id: 'media', label: 'Listening', value: `${weeklySummary?.streams ?? 0} streams`, note: 'Streams in the current week' },
       ],
       insights: workoutHabitCorrelation ? [
@@ -497,7 +510,7 @@ export default function Home() {
         },
       ],
     }
-  }, [intelligence, workoutTotals, habitCompletionPct, weeklySummary, monthlySpent, workoutHabitCorrelation])
+  }, [intelligence, workoutTotals, habitCompletionPct, weeklySummary, monthlySpent, financeCurrency, workoutHabitCorrelation])
 
   const openAiPrompt = (prompt, insight) => {
     const detail = {
@@ -556,6 +569,7 @@ export default function Home() {
       intelligence: intelligenceFallback,
       habits: { today: nextHabits },
       workout: { totals: workoutTotals },
+      today: { financeSpent: todaySpent, financeCurrency, streams: todayStreams },
       finance: { summary: financeSummary },
       spotify: { stats: spotifyStats },
       weeklySummary,
@@ -572,7 +586,7 @@ export default function Home() {
     } catch {
       setHabitsSummary(previous)
     }
-  }, [financeSummary, habitsSummary, intelligenceFallback, spotifyStats, weeklySummary, workoutTotals])
+  }, [financeCurrency, financeSummary, habitsSummary, intelligenceFallback, spotifyStats, todaySpent, todayStreams, weeklySummary, workoutTotals])
 
   if (nativeApp) {
     return (
@@ -583,9 +597,11 @@ export default function Home() {
         habitCompletionPct={habitCompletionPct}
         todayCompleted={todayCompleted}
         totalHabits={totalHabits}
-        monthlySpent={monthlySpent}
+        todaySpent={todaySpent}
+        financeCurrency={financeCurrency}
         workoutTotals={workoutTotals}
         spotifyStats={spotifyStats}
+        todayStreams={todayStreams}
         openAiPrompt={openAiPrompt}
         nav={nav}
         loaded={loaded}

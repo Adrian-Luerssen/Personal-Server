@@ -7,11 +7,36 @@ function absoluteRounded(value) {
   return Math.round(Math.abs(numberValue(value)))
 }
 
+function compactNumber(value) {
+  const number = Math.round(Math.abs(numberValue(value)))
+  if (number >= 1_000_000) return `${trimDecimal(number / 1_000_000)}M`
+  if (number >= 1_000) return `${trimDecimal(number / 1_000)}K`
+  return String(number)
+}
+
+function trimDecimal(value) {
+  return value.toFixed(1).replace(/\.0$/, '')
+}
+
 function firstPositiveNumber(values, fallback = 0) {
   const positive = values.find((value) => numberValue(value) > 0)
   if (positive != null) return positive
   const present = values.find((value) => value != null)
   return present ?? fallback
+}
+
+function firstPresentNumber(values, fallback = 0) {
+  const present = values.find((value) => value != null && Number.isFinite(Number(value)))
+  return present ?? fallback
+}
+
+function normalizeCurrency(currency) {
+  const normalized = String(currency || 'EUR').trim().toUpperCase()
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : 'EUR'
+}
+
+function formatBriefMoney(value, currency) {
+  return `${normalizeCurrency(currency)} ${compactNumber(value)}`
 }
 
 function pluralizeHabit(count) {
@@ -40,17 +65,34 @@ export function createAndroidWidgetSnapshot(dashboard = {}) {
     dashboard.workout?.totals?.thisWeek ??
     dashboard.workout?.totals?.totalWorkouts ??
     0
-  const monthlySpend =
-    dashboard.finance?.summary?.totalExpense ??
-    dashboard.finance?.summary?.totalExpenses ??
-    dashboard.finance?.monthlySpent ??
-    0
-  const streams =
-    firstPositiveNumber([
+  const todaySpend = firstPresentNumber([
+    dashboard.today?.financeSpent,
+    dashboard.finance?.todaySpent,
+    dashboard.finance?.summary?.todayExpense,
+  ], null)
+  const monthlySpend = todaySpend != null
+    ? todaySpend
+    : firstPresentNumber([
+        dashboard.finance?.summary?.totalExpense,
+        dashboard.finance?.summary?.totalExpenses,
+        dashboard.finance?.monthlySpent,
+      ])
+  const explicitTodayStreams = firstPresentNumber([
+    dashboard.today?.streams,
+    dashboard.spotify?.stats?.todayStreams,
+  ], null)
+  const streams = explicitTodayStreams != null
+    ? explicitTodayStreams
+    : firstPositiveNumber([
       dashboard.weeklySummary?.streams,
       dashboard.spotify?.stats?.totalStreams,
       dashboard.spotify?.stats?.streams,
     ])
+  const currency = normalizeCurrency(
+    dashboard.today?.financeCurrency ??
+    dashboard.finance?.currency ??
+    dashboard.finance?.summary?.currency,
+  )
   const habitsRemaining = Math.max(0, habitsTotal - habitsDone)
   const lockScreenStatus =
     habitsTotal === 0
@@ -58,17 +100,23 @@ export function createAndroidWidgetSnapshot(dashboard = {}) {
       : habitsRemaining === 0
         ? 'All habits logged'
         : `${pluralizeHabit(habitsRemaining)} remaining`
+  const roundedSpend = absoluteRounded(monthlySpend)
+  const roundedStreams = Math.round(numberValue(streams))
+  const roundedWorkouts = Math.round(numberValue(workoutsThisWeek))
+  const briefDetail = `${compactNumber(roundedWorkouts)} train - ${formatBriefMoney(roundedSpend, currency)} spend - ${compactNumber(roundedStreams)} streams`
 
   return {
     score: Math.round(numberValue(dashboard.intelligence?.score, 0)),
     habitsDone,
     habitsTotal,
     habitsRemaining,
-    workoutsThisWeek: Math.round(numberValue(workoutsThisWeek)),
-    monthlySpend: absoluteRounded(monthlySpend),
-    streams: Math.round(numberValue(streams)),
+    workoutsThisWeek: roundedWorkouts,
+    monthlySpend: roundedSpend,
+    currency,
+    streams: roundedStreams,
     generatedAt: dashboard.generatedAt || new Date().toISOString(),
-    status: dashboard.status || 'Fresh snapshot',
+    status: dashboard.status || lockScreenStatus,
+    briefDetail,
     lockScreenStatus,
     lockScreenSensitive: false,
   }

@@ -76,6 +76,13 @@ export interface DashboardMobileSnapshotResponse {
     spending: number;
     streams: number;
   };
+  today: {
+    financeIncome: number;
+    financeSpent: number;
+    financeCurrency: string;
+    streams: number;
+    msListened: number;
+  };
   workoutHabitCorrelation: {
     workoutDays: {
       completionRate: number;
@@ -127,18 +134,27 @@ export interface DashboardMobileSnapshotResponse {
     summary: {
       totalIncome: number;
       totalExpense: number;
+      todayIncome: number;
+      todayExpense: number;
       netBalance: number;
       incomeCount: number;
       expenseCount: number;
+      currency: string;
     };
     monthlySpent: number;
+    todaySpent: number;
+    currency: string;
   };
   spotify: {
     stats: {
       totalStreams: number;
+      todayStreams: number;
       msListened: number;
+      todayMsListened: number;
       uniqueTracks: number;
       uniqueArtists: number;
+      todayUniqueTracks: number;
+      todayUniqueArtists: number;
       lastStream?: string;
     };
     rankingPreview: Array<{
@@ -497,6 +513,9 @@ export class DashboardService {
     const accountId = account.id;
     const now = new Date();
     const today = formatDateYYYYMMDDInZone(now, "Europe/Madrid");
+    const tomorrowDate = new Date(now);
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrow = formatDateYYYYMMDDInZone(tomorrowDate, "Europe/Madrid");
     const monthStart = `${today.slice(0, 7)}-01`;
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
@@ -512,7 +531,9 @@ export class DashboardService {
       activeSessionRows,
       recentSessionRows,
       financeRows,
+      financeTodayRows,
       spotifyRows,
+      spotifyTodayRows,
       rankingRows,
       watermarks,
     ] = await Promise.all([
@@ -525,7 +546,9 @@ export class DashboardService {
       this.getMobileActiveWorkout(accountId),
       this.getMobileRecentWorkouts(accountId),
       this.getMobileFinanceSummary(accountId, monthStart),
+      this.getMobileFinanceSummary(accountId, today, tomorrow),
       this.getMobileSpotifyStats(accountId),
+      this.getMobileSpotifyStats(accountId, today, tomorrow),
       this.getMobileSpotifyRanking(),
       this.syncService?.getWatermarks(accountId) ?? Promise.resolve({}),
     ]);
@@ -560,9 +583,18 @@ export class DashboardService {
 
     const workoutTotalsRow = workoutTotalRows[0] ?? {};
     const financeRow = financeRows[0] ?? {};
+    const financeTodayRow = financeTodayRows[0] ?? {};
     const spotifyRow = spotifyRows[0] ?? {};
+    const spotifyTodayRow = spotifyTodayRows[0] ?? {};
     const totalIncome = this.parseNumber(financeRow.totalIncome);
     const totalExpense = this.parseNumber(financeRow.totalExpense);
+    const todayIncome = this.parseNumber(financeTodayRow.totalIncome);
+    const todayExpense = this.parseNumber(financeTodayRow.totalExpense);
+    const currency = String(
+      financeTodayRow.currency || financeRow.currency || "EUR"
+    ).toUpperCase();
+    const todayStreams = this.parseNumber(spotifyTodayRow.totalStreams);
+    const todayMsListened = this.parseNumber(spotifyTodayRow.msListened);
 
     return {
       accountId,
@@ -573,6 +605,13 @@ export class DashboardService {
       },
       intelligence,
       weeklySummary,
+      today: {
+        financeIncome: todayIncome,
+        financeSpent: todayExpense,
+        financeCurrency: currency,
+        streams: todayStreams,
+        msListened: todayMsListened,
+      },
       workoutHabitCorrelation,
       habits: {
         total: totalHabits,
@@ -603,18 +642,27 @@ export class DashboardService {
         summary: {
           totalIncome,
           totalExpense,
+          todayIncome,
+          todayExpense,
           netBalance: totalIncome - totalExpense,
           incomeCount: this.parseNumber(financeRow.incomeCount),
           expenseCount: this.parseNumber(financeRow.expenseCount),
+          currency,
         },
         monthlySpent: totalExpense,
+        todaySpent: todayExpense,
+        currency,
       },
       spotify: {
         stats: {
           totalStreams: this.parseNumber(spotifyRow.totalStreams),
+          todayStreams,
           msListened: this.parseNumber(spotifyRow.msListened),
+          todayMsListened,
           uniqueTracks: this.parseNumber(spotifyRow.uniqueTracks),
           uniqueArtists: this.parseNumber(spotifyRow.uniqueArtists),
+          todayUniqueTracks: this.parseNumber(spotifyTodayRow.uniqueTracks),
+          todayUniqueArtists: this.parseNumber(spotifyTodayRow.uniqueArtists),
           lastStream: spotifyRow.lastStream
             ? new Date(spotifyRow.lastStream).toISOString()
             : undefined,
@@ -764,20 +812,34 @@ export class DashboardService {
     );
   }
 
-  private getMobileFinanceSummary(accountId: string, monthStart: string) {
+  private getMobileFinanceSummary(accountId: string, fromDate: string, toDate?: string) {
+    const dateUpperBound = toDate ? ' AND tx."transactionDate" < $3' : "";
     return this.dataSource.query(
       `SELECT
-        COALESCE(SUM(CASE WHEN "isIncome" = true THEN amount ELSE 0 END), 0) AS "totalIncome",
-        COALESCE(SUM(CASE WHEN "isIncome" = false AND (type IS NULL OR type NOT IN (1, 3)) THEN amount ELSE 0 END), 0) AS "totalExpense",
-        COUNT(*) FILTER (WHERE "isIncome" = true) AS "incomeCount",
-        COUNT(*) FILTER (WHERE "isIncome" = false AND (type IS NULL OR type NOT IN (1, 3))) AS "expenseCount"
-       FROM app_finance_transactions
-       WHERE "accountId" = $1 AND "transactionDate" >= $2`,
-      [accountId, monthStart]
+        COALESCE(SUM(CASE WHEN tx."isIncome" = true THEN tx.amount ELSE 0 END), 0) AS "totalIncome",
+        COALESCE(SUM(CASE WHEN tx."isIncome" = false AND (tx.type IS NULL OR tx.type NOT IN (1, 3)) THEN tx.amount ELSE 0 END), 0) AS "totalExpense",
+        COUNT(*) FILTER (WHERE tx."isIncome" = true) AS "incomeCount",
+        COUNT(*) FILTER (WHERE tx."isIncome" = false AND (tx.type IS NULL OR tx.type NOT IN (1, 3))) AS "expenseCount",
+        COALESCE(
+          MAX(NULLIF(wallet.currency, '')),
+          (
+            SELECT MAX(NULLIF(fallback_wallet.currency, ''))
+            FROM app_finance_wallets fallback_wallet
+            WHERE fallback_wallet."accountId" = $1
+          ),
+          'EUR'
+        ) AS "currency"
+       FROM app_finance_transactions tx
+       LEFT JOIN app_finance_wallets wallet
+        ON wallet.id = tx."walletId" AND wallet."accountId" = tx."accountId"
+       WHERE tx."accountId" = $1 AND tx."transactionDate" >= $2${dateUpperBound}`,
+      toDate ? [accountId, fromDate, toDate] : [accountId, fromDate]
     );
   }
 
-  private getMobileSpotifyStats(accountId: string) {
+  private getMobileSpotifyStats(accountId: string, fromDate?: string, toDate?: string) {
+    const lowerBound = fromDate ? ' AND s."streamedAt" >= $2' : "";
+    const upperBound = toDate ? ' AND s."streamedAt" < $3' : "";
     return this.dataSource.query(
       `SELECT
         COUNT(*) AS "totalStreams",
@@ -791,8 +853,8 @@ export class DashboardService {
        WHERE s."accountId" = $1
         AND s.platform = 'spotify'
         AND s."streamType" = 'play'
-        AND s."isValidPlay" = true`,
-      [accountId]
+        AND s."isValidPlay" = true${lowerBound}${upperBound}`,
+      fromDate && toDate ? [accountId, fromDate, toDate] : fromDate ? [accountId, fromDate] : [accountId]
     );
   }
 

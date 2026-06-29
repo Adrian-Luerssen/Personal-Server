@@ -12,7 +12,9 @@
     <string name="widget_lock_description">Privacy-safe Personal Server summary for compatible Android lock screens.</string>
     <string name="widget_empty_status">Open app to sync</string>
     <string name="widget_empty_updated">No local snapshot</string>
+    <string name="widget_empty_brief_detail">Open the app to refresh the daily brief.</string>
     <string name="widget_label_score">Score</string>
+    <string name="widget_label_remaining">Remaining</string>
     <string name="widget_label_habits">Habits</string>
     <string name="widget_label_train">Train</string>
     <string name="widget_label_spend">Spend</string>

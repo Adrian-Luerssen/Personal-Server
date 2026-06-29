@@ -1,11 +1,16 @@
 import { isNativeMobileApp } from './mobilePlatform'
-import { isPromptableNotificationPermission } from './notificationPermission.mjs'
+import {
+  isPromptableNotificationPermission,
+  normalizeNativeNotificationCapability,
+} from './notificationPermission.mjs'
 
 export const REMINDER_NOTIFICATION_CHANNEL_ID = 'personal-server-reminders'
 export const AI_NOTIFICATION_CHANNEL_ID = 'personal-server-ai'
 
 async function getLocalNotifications() {
   if (!isNativeMobileApp()) return null
+  const nativePlugin = window.Capacitor?.Plugins?.LocalNotifications
+  if (nativePlugin) return nativePlugin
   try {
     const mod = await import('@capacitor/local-notifications')
     return mod.LocalNotifications
@@ -22,7 +27,7 @@ export async function requestNotificationPermission() {
   if (current.display === 'granted') {
     await ensureReminderNotificationChannel(LocalNotifications)
     await ensureAiNotificationChannel(LocalNotifications)
-    return true
+    return areNotificationsEnabled(LocalNotifications)
   }
 
   const requested = await LocalNotifications.requestPermissions()
@@ -30,7 +35,7 @@ export async function requestNotificationPermission() {
 
   await ensureReminderNotificationChannel(LocalNotifications)
   await ensureAiNotificationChannel(LocalNotifications)
-  return true
+  return areNotificationsEnabled(LocalNotifications)
 }
 
 export async function getNotificationPermissionStatus() {
@@ -63,9 +68,64 @@ export async function initializeNativeNotifications({ requestIfPrompt = true } =
       await ensureAiNotificationChannel(LocalNotifications)
     }
 
-    return { supported: true, permission }
+    const enabled = await areNotificationsEnabled(LocalNotifications)
+    const exact = await getExactNotificationSetting(LocalNotifications)
+    const capability = normalizeNativeNotificationCapability({ permission, enabled, exact })
+    return { supported: true, ...capability }
   } catch {
     return { supported: false, permission: 'unsupported' }
+  }
+}
+
+export async function getNativeNotificationStatus() {
+  const LocalNotifications = await getLocalNotifications()
+  if (!LocalNotifications) {
+    return { supported: false, ...normalizeNativeNotificationCapability() }
+  }
+
+  try {
+    const current = await LocalNotifications.checkPermissions()
+    const enabled = await areNotificationsEnabled(LocalNotifications)
+    const exact = await getExactNotificationSetting(LocalNotifications)
+    return {
+      supported: true,
+      ...normalizeNativeNotificationCapability({
+        permission: current.display || 'prompt',
+        enabled,
+        exact,
+      }),
+    }
+  } catch {
+    return { supported: false, ...normalizeNativeNotificationCapability() }
+  }
+}
+
+export async function openExactNotificationSettings() {
+  const LocalNotifications = await getLocalNotifications()
+  if (!LocalNotifications || typeof LocalNotifications.changeExactNotificationSetting !== 'function') {
+    return false
+  }
+  await LocalNotifications.changeExactNotificationSetting()
+  return true
+}
+
+async function areNotificationsEnabled(LocalNotifications) {
+  if (typeof LocalNotifications.areEnabled !== 'function') return true
+  try {
+    const result = await LocalNotifications.areEnabled()
+    return result?.value !== false
+  } catch {
+    return true
+  }
+}
+
+async function getExactNotificationSetting(LocalNotifications) {
+  if (typeof LocalNotifications.checkExactNotificationSetting !== 'function') return 'unknown'
+  try {
+    const result = await LocalNotifications.checkExactNotificationSetting()
+    return result?.value || 'unknown'
+  } catch {
+    return 'unknown'
   }
 }
 
@@ -119,6 +179,7 @@ export async function deliverCustomNotification({ id, nativeId, title, body, act
           title: title || 'Personal Server',
           body: body || '',
           channelId: AI_NOTIFICATION_CHANNEL_ID,
+          autoCancel: true,
           extra: {
             notificationId: id,
             actionUrl: actionUrl || null,
@@ -145,6 +206,8 @@ export async function scheduleHabitReminder({ id, title, body, hour, minute }) {
   if (!LocalNotifications) return false
   const allowed = await requestNotificationPermission()
   if (!allowed) return false
+  const exact = await getExactNotificationSetting(LocalNotifications)
+  if (exact === 'denied') return false
 
   await LocalNotifications.schedule({
     notifications: [
@@ -156,6 +219,7 @@ export async function scheduleHabitReminder({ id, title, body, hour, minute }) {
         schedule: {
           on: { hour, minute },
           repeats: true,
+          allowWhileIdle: true,
         },
       },
     ],
@@ -168,6 +232,8 @@ export async function scheduleWorkoutReminder({ id, title, body, at }) {
   if (!LocalNotifications) return false
   const allowed = await requestNotificationPermission()
   if (!allowed) return false
+  const exact = await getExactNotificationSetting(LocalNotifications)
+  if (exact === 'denied') return false
 
   await LocalNotifications.schedule({
     notifications: [
@@ -176,7 +242,7 @@ export async function scheduleWorkoutReminder({ id, title, body, at }) {
         title,
         body,
         channelId: REMINDER_NOTIFICATION_CHANNEL_ID,
-        schedule: { at },
+        schedule: { at, allowWhileIdle: true },
       },
     ],
   })

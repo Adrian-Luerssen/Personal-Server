@@ -16,3 +16,24 @@ export function shouldAutoRequestNativeNotificationPermission({
     isPromptableNotificationPermission(permission)
   )
 }
+
+export function normalizeNativeNotificationCapability({
+  permission = 'unsupported',
+  enabled = true,
+  exact = 'unknown',
+} = {}) {
+  const displayPermission = permission || 'unsupported'
+  const deviceEnabled = enabled !== false
+  const exactSetting = exact || 'unknown'
+  const canDisplay = displayPermission === 'granted' && deviceEnabled
+  const exactAlarmBlocked = exactSetting === 'denied'
+
+  return {
+    permission: displayPermission,
+    enabled: deviceEnabled,
+    exact: exactSetting,
+    canDisplay,
+    canScheduleReminders: canDisplay && !exactAlarmBlocked,
+    exactAlarmBlocked,
+  }
+}

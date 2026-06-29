@@ -604,6 +604,16 @@ describe('DashboardService', () => {
             totalExpense: '250.75',
             incomeCount: '1',
             expenseCount: '7',
+            currency: 'EUR',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            totalIncome: '0',
+            totalExpense: '12.50',
+            incomeCount: '0',
+            expenseCount: '1',
+            currency: 'EUR',
           },
         ])
         .mockResolvedValueOnce([
@@ -612,6 +622,15 @@ describe('DashboardService', () => {
             msListened: '123000',
             uniqueTracks: '44',
             uniqueArtists: '20',
+            lastStream: '2026-06-24T09:00:00.000Z',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            totalStreams: '3',
+            msListened: '540000',
+            uniqueTracks: '3',
+            uniqueArtists: '2',
             lastStream: '2026-06-24T09:00:00.000Z',
           },
         ])
@@ -674,12 +693,17 @@ describe('DashboardService', () => {
               totalExpense: 250.75,
               netBalance: 749.5,
               expenseCount: 7,
+              currency: 'EUR',
+              todayExpense: 12.5,
             }),
             monthlySpent: 250.75,
+            todaySpent: 12.5,
+            currency: 'EUR',
           }),
           spotify: expect.objectContaining({
             stats: expect.objectContaining({
               totalStreams: 91,
+              todayStreams: 3,
               uniqueArtists: 20,
             }),
             rankingPreview: [
@@ -694,6 +718,12 @@ describe('DashboardService', () => {
         }),
       );
       expect(mockSyncService.getWatermarks).toHaveBeenCalledWith(accountId);
+      const financeTodayQuery = mockDataSource.query.mock.calls[6];
+      expect(financeTodayQuery[0]).toContain('"transactionDate" < $3');
+      expect(financeTodayQuery[1]).toEqual([accountId, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
+      const spotifyTodayQuery = mockDataSource.query.mock.calls[8];
+      expect(spotifyTodayQuery[0]).toContain('s."streamedAt" < $3');
+      expect(spotifyTodayQuery[1]).toEqual([accountId, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
     });
   });
 

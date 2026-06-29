@@ -13,10 +13,10 @@ import { isNativeMobileApp } from '../../mobilePlatform'
 import { streamImportProgress } from '../../importProgress.mjs'
 import {
   cancelNotifications,
+  deliverCustomNotification,
   getNotificationPermissionStatus,
   requestNotificationPermission,
   scheduleHabitReminder,
-  scheduleWorkoutReminder,
 } from '../../notifications'
 
 const HABITS_COLOR = '#a78bfa'
@@ -995,11 +995,12 @@ function RemindersTab() {
   async function sendTestNotification() {
     if (permission !== 'granted') return
     if (nativeApp) {
-      const ok = await scheduleWorkoutReminder({
+      const ok = await deliverCustomNotification({
         id: 410002,
+        nativeId: 410002,
         title: 'Personal Server',
         body: 'Notifications are working.',
-        at: new Date(Date.now() + 1500),
+        actionUrl: '/habits/settings?tab=reminders',
       }).catch(() => false)
       if (!ok) return
       setTestSent(true)

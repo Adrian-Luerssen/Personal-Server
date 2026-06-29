@@ -29,9 +29,11 @@ describe('Android widget snapshot bridge', () => {
       habitsRemaining: 2,
       workoutsThisWeek: 4,
       monthlySpend: 247,
+      currency: 'EUR',
       streams: 4590,
       generatedAt: '2026-06-25T16:30:00.000Z',
-      status: 'Fresh snapshot',
+      status: '2 habits remaining',
+      briefDetail: '4 train - EUR 247 spend - 4.6K streams',
       lockScreenStatus: '2 habits remaining',
       lockScreenSensitive: false,
     })
@@ -52,6 +54,7 @@ describe('Android widget snapshot bridge', () => {
 
     assert.equal(snapshot.lockScreenSensitive, false)
     assert.equal(snapshot.lockScreenStatus, '1 habit remaining')
+    assert.equal(snapshot.status, '1 habit remaining')
     assert.equal(Object.hasOwn(snapshot, 'lockScreenSpend'), false)
     assert.equal(Object.hasOwn(snapshot, 'lockScreenStreams'), false)
   })
@@ -64,6 +67,20 @@ describe('Android widget snapshot bridge', () => {
     })
 
     assert.equal(snapshot.streams, 37)
+  })
+
+  it('uses explicit today values without falling back to month or all-time totals', () => {
+    const snapshot = createAndroidWidgetSnapshot({
+      today: { financeSpent: 0, financeCurrency: 'EUR', streams: 0 },
+      weeklySummary: { streams: 91 },
+      finance: { monthlySpent: 1205, summary: { totalExpense: 1205, currency: 'EUR' } },
+      spotify: { stats: { totalStreams: 6100 } },
+      habits: { today: [] },
+    })
+
+    assert.equal(snapshot.monthlySpend, 0)
+    assert.equal(snapshot.currency, 'EUR')
+    assert.equal(snapshot.streams, 0)
   })
 
   it('sends the snapshot to the native widget plugin when running in Capacitor', async () => {

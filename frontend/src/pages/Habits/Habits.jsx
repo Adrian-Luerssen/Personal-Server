@@ -632,7 +632,7 @@ function NativeHabitsView({
   quickAddOpen,
   createHabit,
 }) {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const requestedView = searchParams.get('view')
   const isValidView = ['today', 'plan', 'history', 'insights'].includes(requestedView)
   const [view, setView] = useState(isValidView ? requestedView : 'today')
@@ -640,22 +640,6 @@ function NativeHabitsView({
   useEffect(() => {
     setView(isValidView ? requestedView : 'today')
   }, [isValidView, requestedView])
-
-  function selectView(nextView) {
-    setView(nextView)
-    if (nextView === 'today') {
-      setSearchParams({})
-    } else {
-      setSearchParams({ view: nextView })
-    }
-  }
-
-  const tabs = [
-    { key: 'today', label: 'Today', icon: 'check-circle' },
-    { key: 'plan', label: 'Plan', icon: 'list-checks' },
-    { key: 'history', label: 'History', icon: 'calendar-days' },
-    { key: 'insights', label: 'Insights', icon: 'bar-chart-3' },
-  ]
 
   return (
     <div className="native-habits-page">
@@ -670,33 +654,17 @@ function NativeHabitsView({
 
       {loadError && <div className="alert-error" role="alert">{loadError}</div>}
 
-      <div className="native-habits-actions">
-        <button type="button" onClick={() => setSelectedDate((date) => addDays(date, -1))}>
+      <div className="native-habits-actions native-habits-date-rail">
+        <button type="button" aria-label="Previous day" onClick={() => setSelectedDate((date) => addDays(date, -1))}>
           <Icon name="chevron-left" size={18} />
-          Previous
         </button>
-        <button type="button" onClick={() => setSelectedDate(toDateKey())}>
+        <button type="button" className="native-habits-date-rail__today" onClick={() => setSelectedDate(toDateKey())}>
           Today
         </button>
-        <button type="button" onClick={() => setSelectedDate((date) => addDays(date, 1))}>
-          Next
+        <button type="button" aria-label="Next day" onClick={() => setSelectedDate((date) => addDays(date, 1))}>
           <Icon name="chevron-right" size={18} />
         </button>
       </div>
-
-      <nav className="native-section-tabs" aria-label="Habit sections">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            className={view === tab.key ? 'is-active' : ''}
-            onClick={() => selectView(tab.key)}
-          >
-            <Icon name={tab.icon} size={16} />
-            {tab.label}
-          </button>
-        ))}
-      </nav>
 
       {view === 'today' && (
         <section className="native-habit-panel">
@@ -1037,6 +1005,14 @@ function NumericHabitControl({ habit, saving, onSubmit }) {
           onClick={() => adjust(1)}
         >
           <Icon name="plus" size={18} />
+        </button>
+        <button
+          type="button"
+          className="habit-numeric-stepper__button habit-numeric-stepper__button--boost"
+          aria-label={`Increase ${habit.name} by 5`}
+          onClick={() => adjust(5)}
+        >
+          +5
         </button>
         <button
           className="habit-numeric-stepper__save"

@@ -503,12 +503,12 @@ function NativeFinanceDashboard({
     <div className="native-finance-page native-dashboard" data-testid="native-finance-dashboard">
       <section className="native-finance-hero">
         <div>
-          <span className="native-eyebrow">Finance</span>
-          <h1>Money</h1>
-          <p>{getPeriodLabel(period)}</p>
+          <span className="native-eyebrow">Money</span>
+          <h1>{loading ? '...' : formatCurrency(netFlow)}</h1>
+          <p>{getPeriodLabel(period)} net flow</p>
         </div>
         <div className="native-finance-balance">
-          <span>Total balance</span>
+          <span>Wallets</span>
           <strong>{loading ? '...' : formatCurrency(totalBalance)}</strong>
         </div>
       </section>
@@ -529,11 +529,11 @@ function NativeFinanceDashboard({
       <section className="native-finance-actions" aria-label="Quick transaction actions">
         <button type="button" className="native-finance-action native-finance-action--expense" onClick={() => onAddTransaction('expense')}>
           <Icon name="arrow-up" size={18} />
-          <span>Add expense</span>
+          <span>Expense</span>
         </button>
         <button type="button" className="native-finance-action native-finance-action--income" onClick={() => onAddTransaction('income')}>
           <Icon name="arrow-down" size={18} />
-          <span>Add income</span>
+          <span>Income</span>
         </button>
         <button type="button" className="native-finance-action native-finance-action--transfer" onClick={() => onAddTransaction('transfer')}>
           <Icon name="arrow-left-right" size={18} />

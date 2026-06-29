@@ -53,8 +53,15 @@ describe('native adaptive app navigation', () => {
   it('keeps a selectable app layer available for all major domains', () => {
     assert.deepEqual(
       NATIVE_APPS.map((app) => app.id),
-      ['overview', 'training', 'habits', 'money', 'music', 'media', 'assistant', 'settings'],
+      ['overview', 'training', 'habits', 'money', 'music', 'media', 'assistant'],
     );
+  });
+
+  it('treats settings as shell chrome rather than another selectable app', () => {
+    assert.equal(getNativeAppForPath('/settings').id, 'settings');
+    assert.equal(NATIVE_APPS.some((app) => app.id === 'settings'), false);
+    assert.equal(getNativeAppSwitcherOptions('/settings').some((app) => app.id === 'settings'), false);
+    assert.equal(getNativeAppSwitcherOptions('/home').some((app) => app.id === 'settings'), false);
   });
 
   it('does not render a settings tabbar that duplicates the settings index', () => {
@@ -69,7 +76,7 @@ describe('native adaptive app navigation', () => {
 
     const overviewOptions = getNativeAppSwitcherOptions('/home');
     assert.equal(overviewOptions.some((app) => app.id === 'overview'), false);
-    assert.equal(overviewOptions.some((app) => app.id === 'settings'), true);
+    assert.equal(overviewOptions.some((app) => app.id === 'training'), true);
   });
 
   it('maps Android back gestures to an in-app destination before the OS exits', () => {

@@ -23,6 +23,17 @@ function isSettingsDataRoute(path) {
   return SETTINGS_DATA_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
+export const NATIVE_SETTINGS_APP = {
+  id: 'settings',
+  label: 'Settings',
+  subtitle: 'System control',
+  icon: 'settings',
+  root: '/settings',
+  tone: 'info',
+  matches: ['/settings'],
+  tabs: [],
+}
+
 export const NATIVE_APPS = [
   {
     id: 'overview',
@@ -34,7 +45,7 @@ export const NATIVE_APPS = [
     matches: ['/home', '/menu'],
     tabs: [
       destination('/home', 'Today', 'home', { exact: true }),
-      destination('/menu', 'Menu', 'grid-3x3'),
+      destination('/menu', 'Apps', 'grid-3x3'),
       destination('/chat', 'Assistant', 'message-square'),
     ],
   },
@@ -115,19 +126,6 @@ export const NATIVE_APPS = [
     root: '/chat',
     tone: 'ai',
     matches: ['/chat'],
-    tabs: [
-      destination('/chat', 'Chat', 'message-square', { exact: true }),
-      destination('/settings?section=notifications', 'Alerts', 'bell', { activeIncludes: 'section=notifications' }),
-    ],
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    subtitle: 'App control',
-    icon: 'settings',
-    root: '/settings',
-    tone: 'info',
-    matches: ['/settings'],
     tabs: [],
   },
 ]
@@ -135,7 +133,10 @@ export const NATIVE_APPS = [
 export function getNativeAppForPath(path) {
   const pathname = normalizePath(path)
   if (isSettingsDataRoute(pathname)) {
-    return NATIVE_APPS.find((app) => app.id === 'settings') || NATIVE_APPS[0]
+    return NATIVE_SETTINGS_APP
+  }
+  if (pathname.startsWith('/settings')) {
+    return NATIVE_SETTINGS_APP
   }
   return (
     NATIVE_APPS.find((app) => app.matches.some((prefix) => pathname.startsWith(prefix))) ||

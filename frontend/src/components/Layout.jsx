@@ -11,7 +11,6 @@ import PWAInstallPrompt from './PWAInstallPrompt'
 import { isNativeMobileApp } from '../mobilePlatform'
 import Icon from './icons/Icon'
 import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
-import { APP_VERSION } from '../appVersion.mjs'
 import { pollPendingAiNotifications } from '../aiNotifications.mjs'
 import {
   LIVE_STEP_SYNC_INTERVAL_MS,
@@ -75,7 +74,7 @@ function NativeAppHeader() {
       <div className="native-app-header__top">
         <div className={`native-app-header__mark native-app-header__mark--${currentApp.tone}`} aria-hidden="true">PS</div>
         <div className="native-app-header__copy">
-          <span>{current.subtitle} - v{APP_VERSION}</span>
+          <span>{current.subtitle}</span>
           <strong>{current.title}</strong>
         </div>
         <button
@@ -84,10 +83,10 @@ function NativeAppHeader() {
           onClick={() => setAppSwitcherOpen((open) => !open)}
           aria-expanded={appSwitcherOpen}
           aria-controls="native-app-switcher-sheet"
-          aria-label={`Switch app, current app ${currentApp.label}`}
+          aria-label={`Open app menu, current area ${currentApp.label}`}
         >
-          <Icon name={currentApp.icon} size={16} />
-          <span className="native-app-header__selector-label">Apps</span>
+          <Icon name="grid-3x3" size={16} />
+          <span className="native-app-header__selector-label">Menu</span>
           <Icon name={appSwitcherOpen ? 'chevron-up' : 'chevron-down'} size={15} aria-hidden="true" />
         </button>
         {!isSettingsRoute && (
@@ -117,7 +116,7 @@ function NativeAppHeader() {
           >
             <div className="native-app-sheet__header">
               <div>
-                <span>Current app</span>
+                <span>Current area</span>
                 <strong>{currentApp.label}</strong>
               </div>
               <button

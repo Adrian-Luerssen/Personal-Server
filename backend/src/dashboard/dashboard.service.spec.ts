@@ -646,6 +646,24 @@ describe('DashboardService', () => {
             msListened: '123000',
             lastStream: '2026-06-24T09:00:00.000Z',
           },
+        ])
+        .mockResolvedValueOnce([
+          {
+            date: '2026-06-29',
+            source: 'health-connect',
+            steps: '8450',
+            distanceMeters: '6200',
+            activeCalories: '310',
+            syncedAt: '2026-06-29T12:30:00.000Z',
+          },
+          {
+            date: '2026-06-28',
+            source: 'health-connect',
+            steps: '7200',
+            distanceMeters: '5100',
+            activeCalories: '260',
+            syncedAt: '2026-06-28T12:30:00.000Z',
+          },
         ]);
 
       const result = await (service as any).getMobileSnapshot(account);
@@ -660,6 +678,26 @@ describe('DashboardService', () => {
           },
           intelligence: expect.objectContaining({ focus: 'steady' }),
           weeklySummary: expect.objectContaining({ streams: 91 }),
+          activity: {
+            today: {
+              date: '2026-06-29',
+              source: 'health-connect',
+              steps: 8450,
+              distanceMeters: 6200,
+              activeCalories: 310,
+              syncedAt: '2026-06-29T12:30:00.000Z',
+            },
+            week: {
+              steps: 15650,
+              distanceMeters: 11300,
+              activeCalories: 570,
+              daysWithData: 2,
+            },
+            recent: [
+              expect.objectContaining({ date: '2026-06-29', steps: 8450 }),
+              expect.objectContaining({ date: '2026-06-28', steps: 7200 }),
+            ],
+          },
           workoutHabitCorrelation: expect.objectContaining({ totalWorkoutDays: 3 }),
           habits: expect.objectContaining({
             total: 1,

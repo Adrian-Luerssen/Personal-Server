@@ -14,7 +14,12 @@ import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
 import { APP_VERSION } from '../appVersion.mjs'
 import { pollPendingAiNotifications } from '../aiNotifications.mjs'
 import { maybeAutoSyncHealthConnectSteps } from '../nativeHealth.mjs'
-import { getNativeAppForPath, getNativeAppSwitcherOptions, getNativeTabsForPath } from '../nativeNavigation.mjs'
+import {
+  getNativeAppForPath,
+  getNativeAppSwitcherOptions,
+  getNativeBackDestination,
+  getNativeTabsForPath,
+} from '../nativeNavigation.mjs'
 
 const NATIVE_ROUTE_TITLES = [
   { match: /^\/home$/, title: 'Today', subtitle: 'Overview' },
@@ -172,6 +177,7 @@ function NativeUpdatePrompt() {
 export default function Layout() {
   const nativeApp = isNativeMobileApp()
   const location = useLocation()
+  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const hasNativeTabbar = !nativeApp || getNativeTabsForPath(location.pathname).length > 0
 
@@ -260,6 +266,21 @@ export default function Layout() {
       window.clearInterval(interval)
     }
   }, [nativeApp])
+
+  useEffect(() => {
+    if (!nativeApp) return undefined
+
+    window.personalServerHandleNativeBack = () => {
+      const destination = getNativeBackDestination(location.pathname, location.search)
+      if (!destination) return false
+      navigate(destination)
+      return true
+    }
+
+    return () => {
+      delete window.personalServerHandleNativeBack
+    }
+  }, [location.pathname, location.search, navigate, nativeApp])
 
   return (
     <div className={"layout" + (collapsed ? ' sidebar-collapsed' : '') + (nativeApp && !hasNativeTabbar ? ' native-no-tabbar' : '')}>

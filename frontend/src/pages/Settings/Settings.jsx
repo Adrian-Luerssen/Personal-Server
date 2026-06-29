@@ -20,10 +20,16 @@ import {
 import { checkForAndroidUpdate } from '../../appUpdate'
 import {
   getHealthConnectStatus,
+  getSyncedActivityMetrics,
   openHealthConnectSettings,
   requestHealthConnectPermissions,
   syncHealthConnectSteps,
 } from '../../nativeHealth.mjs'
+import {
+  readNotificationPreferences,
+  updateNotificationPreference,
+  updateNotificationQuietHours,
+} from '../../notificationPreferences.mjs'
 import {
   configurePaymentDetection,
   getPaymentDetectionStatus,
@@ -104,23 +110,28 @@ function NativeSettingsShell({ title, description, icon, onBack, children }) {
   )
 }
 
-function NativePreferenceToggle({ storageKey, label, description, defaultEnabled = true }) {
-  const [enabled, setEnabled] = useState(() => {
+function NativePreferenceToggle({ storageKey, label, description, defaultEnabled = true, enabled: controlledEnabled, onChange }) {
+  const [internalEnabled, setInternalEnabled] = useState(() => {
+    if (!storageKey) return defaultEnabled
     const stored = localStorage.getItem(storageKey)
     return stored == null ? defaultEnabled : stored === 'true'
   })
+  const enabled = typeof controlledEnabled === 'boolean' ? controlledEnabled : internalEnabled
 
-  function toggle() {
-    const next = !enabled
-    setEnabled(next)
-    localStorage.setItem(storageKey, String(next))
+  function handleChange(next) {
+    if (onChange) {
+      onChange(next)
+      return
+    }
+    setInternalEnabled(next)
+    if (storageKey) localStorage.setItem(storageKey, String(next))
   }
 
   return (
     <button
       type="button"
       className={`native-toggle-row ${enabled ? 'is-on' : ''}`}
-      onClick={toggle}
+      onClick={() => handleChange(!enabled)}
       aria-pressed={enabled}
     >
       <span>
@@ -132,7 +143,37 @@ function NativePreferenceToggle({ storageKey, label, description, defaultEnabled
   )
 }
 
+function NativeNotificationPreferenceRow({ id, label, description, preferences, setPreferences, timeLabel = 'Time' }) {
+  const preference = preferences[id] || { enabled: false }
+
+  function update(patch) {
+    setPreferences(updateNotificationPreference(localStorage, id, patch))
+  }
+
+  return (
+    <div className="native-notification-pref">
+      <NativePreferenceToggle
+        enabled={preference.enabled}
+        label={label}
+        description={description}
+        onChange={(enabled) => update({ enabled })}
+      />
+      {preference.time && preference.enabled && (
+        <label className="native-time-field">
+          <span>{timeLabel}</span>
+          <input
+            type="time"
+            value={preference.time}
+            onChange={(event) => update({ time: event.target.value })}
+          />
+        </label>
+      )}
+    </div>
+  )
+}
+
 function NativeNotificationsSection() {
+  const [preferences, setPreferences] = useState(() => readNotificationPreferences())
   const [notificationStatus, setNotificationStatus] = useState({
     supported: true,
     permission: 'unknown',
@@ -212,13 +253,35 @@ function NativeNotificationsSection() {
         <strong>{message}</strong>
       </div>
       <div className="native-toggle-list">
-        <NativePreferenceToggle storageKey="notify:habit-reminders" label="Habit reminders" description="Daily reminders to log habits." />
-        <NativePreferenceToggle storageKey="notify:missed-habits" label="Missed habit nudges" description="Follow-up reminders when habits remain open." />
-        <NativePreferenceToggle storageKey="notify:workouts" label="Workout reminders" description="Training prompts and active workout nudges." />
-        <NativePreferenceToggle storageKey="notify:finance" label="Finance reminders" description="Budget, subscription, and import completion alerts." defaultEnabled={false} />
-        <NativePreferenceToggle storageKey="notify:assistant" label="Assistant replies" description="Notify when the AI assistant responds." />
-        <NativePreferenceToggle storageKey="notify:assistant-custom" label="AI custom alerts" description="Allow the assistant to write contextual notifications for you." />
-        <NativePreferenceToggle storageKey="notify:updates" label="App updates" description="APK release and required update notices." />
+        <NativeNotificationPreferenceRow id="habitReminders" label="Habit reminders" description="Daily reminders to log habits." preferences={preferences} setPreferences={setPreferences} />
+        <NativeNotificationPreferenceRow id="missedHabits" label="Missed habit nudges" description="Follow-up reminders when habits remain open." preferences={preferences} setPreferences={setPreferences} timeLabel="Nudge time" />
+        <NativeNotificationPreferenceRow id="workouts" label="Workout reminders" description="Training prompts and active workout nudges." preferences={preferences} setPreferences={setPreferences} />
+        <NativeNotificationPreferenceRow id="finance" label="Finance reminders" description="Budget, subscription, and import completion alerts." preferences={preferences} setPreferences={setPreferences} />
+        <NativeNotificationPreferenceRow id="assistant" label="Assistant replies" description="Notify when the AI assistant responds." preferences={preferences} setPreferences={setPreferences} />
+        <NativeNotificationPreferenceRow id="assistantCustom" label="AI custom alerts" description="Allow the assistant to write contextual notifications for you." preferences={preferences} setPreferences={setPreferences} />
+        <NativeNotificationPreferenceRow id="updates" label="App updates" description="APK release and required update notices." preferences={preferences} setPreferences={setPreferences} />
+        <div className="native-quiet-hours">
+          <div>
+            <strong>Quiet hours</strong>
+            <small>Suppress non-critical nudges during this window.</small>
+          </div>
+          <label className="native-time-field">
+            <span>Start</span>
+            <input
+              type="time"
+              value={preferences.quietHours.start}
+              onChange={(event) => setPreferences(updateNotificationQuietHours(localStorage, { start: event.target.value }))}
+            />
+          </label>
+          <label className="native-time-field">
+            <span>End</span>
+            <input
+              type="time"
+              value={preferences.quietHours.end}
+              onChange={(event) => setPreferences(updateNotificationQuietHours(localStorage, { end: event.target.value }))}
+            />
+          </label>
+        </div>
       </div>
     </section>
   )
@@ -319,17 +382,20 @@ function NativeWidgetsSection() {
 
 function NativeIntegrationsSection() {
   const [health, setHealth] = useState({ status: 'checking', available: false, action: 'unsupported' })
+  const [activity, setActivity] = useState({ today: null, week: { steps: 0, daysWithData: 0 }, recent: [] })
   const [payments, setPayments] = useState({ supported: false, enabled: false, notificationAccess: false, pendingCount: 0 })
   const [status, setStatus] = useState('Ready')
   const [busy, setBusy] = useState(false)
 
   async function refresh() {
-    const [healthStatus, paymentStatus] = await Promise.all([
+    const [healthStatus, paymentStatus, activityStatus] = await Promise.all([
       getHealthConnectStatus(),
       getPaymentDetectionStatus(),
+      getSyncedActivityMetrics({ days: 7 }).catch(() => null),
     ])
     setHealth(healthStatus)
     setPayments(paymentStatus)
+    if (activityStatus) setActivity(activityStatus)
   }
 
   useEffect(() => {
@@ -346,6 +412,8 @@ function NativeIntegrationsSection() {
         const synced = await syncHealthConnectSteps({ days: 30 })
         setStatus(`Health Connect ready. Synced ${synced.imported || 0} daily step records.`)
         await checkDataValidity()
+        const latest = await getSyncedActivityMetrics({ days: 7 }).catch(() => null)
+        if (latest) setActivity(latest)
       } else {
         setStatus('Health Connect permission was not granted.')
       }
@@ -364,6 +432,8 @@ function NativeIntegrationsSection() {
       const result = await syncHealthConnectSteps({ days: 30 })
       setStatus(`Synced ${result.imported || 0} daily step records.`)
       await checkDataValidity()
+      const latest = await getSyncedActivityMetrics({ days: 7 }).catch(() => null)
+      if (latest) setActivity(latest)
     } catch (error) {
       setStatus(error.message || 'Could not sync Health Connect steps.')
     } finally {
@@ -415,6 +485,18 @@ function NativeIntegrationsSection() {
           <div className="native-status-strip">
             <span>Status</span>
             <strong>{health.permissionsGranted ? 'Ready' : health.available ? 'Permission needed' : health.status}</strong>
+          </div>
+          <div className="native-health-summary">
+            <div>
+              <span>Today</span>
+              <strong>{activity.today?.steps ?? 0}</strong>
+              <small>steps</small>
+            </div>
+            <div>
+              <span>7 days</span>
+              <strong>{activity.week?.steps ?? 0}</strong>
+              <small>{activity.week?.daysWithData ?? 0} days synced</small>
+            </div>
           </div>
           <div className="native-settings-actions">
             <button type="button" className="native-primary-button" onClick={requestHealth} disabled={busy || !health.available}>

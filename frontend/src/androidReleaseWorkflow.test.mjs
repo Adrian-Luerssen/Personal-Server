@@ -25,3 +25,11 @@ test('android release workflow injects the generated release version into the AP
   assert.match(workflow, /VITE_APP_VERSION: \$\{\{ steps\.app_version\.outputs\.version \}\}/)
   assert.match(workflow, /ANDROID_VERSION_NAME: \$\{\{ steps\.app_version\.outputs\.version \}\}/)
 })
+
+test('android release workflow publishes a real changelog in release notes', () => {
+  assert.match(workflow, /fetch-depth:\s*0/)
+  assert.match(workflow, /PREVIOUS_ANDROID_TAG=/)
+  assert.match(workflow, /CHANGELOG_COMMITS=/)
+  assert.match(workflow, /### Changelog/)
+  assert.match(workflow, /"changelog": \{/)
+})

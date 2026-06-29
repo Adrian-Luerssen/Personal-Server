@@ -18,6 +18,10 @@ import {
   requestNotificationPermission,
   scheduleHabitReminder,
 } from '../../notifications'
+import {
+  readNotificationPreferences,
+  updateNotificationPreference,
+} from '../../notificationPreferences.mjs'
 
 const HABITS_COLOR = '#a78bfa'
 
@@ -926,10 +930,10 @@ function RemindersTab() {
     nativeApp ? 'prompt' : typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
   const [reminderTime, setReminderTime] = useState(
-    () => localStorage.getItem('habits-reminder-time') || '20:00'
+    () => readNotificationPreferences().habitReminders.time
   )
   const [enabled, setEnabled] = useState(
-    () => localStorage.getItem('habits-reminder-enabled') === 'true'
+    () => readNotificationPreferences().habitReminders.enabled
   )
   const [testSent, setTestSent] = useState(false)
 
@@ -977,7 +981,7 @@ function RemindersTab() {
 
   function toggleEnabled(val) {
     setEnabled(val)
-    localStorage.setItem('habits-reminder-enabled', val ? 'true' : 'false')
+    updateNotificationPreference(localStorage, 'habitReminders', { enabled: val })
     if (!val && nativeApp) {
       cancelNotifications([410001, 410002]).catch(() => {})
       return
@@ -989,7 +993,7 @@ function RemindersTab() {
 
   function updateTime(time) {
     setReminderTime(time)
-    localStorage.setItem('habits-reminder-time', time)
+    updateNotificationPreference(localStorage, 'habitReminders', { time })
   }
 
   async function sendTestNotification() {

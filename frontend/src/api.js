@@ -91,7 +91,8 @@ const responseCache = createApiResponseCache({
 function invalidateCache(path) {
   const prefix = '/' + path.split('/').filter(Boolean)[0]; // e.g. "/finance"
   const prefixes = [prefix];
-  if (['/finance', '/habits', '/workout', '/streams', '/media'].includes(prefix)) {
+  const dashboardPrefixes = ['/finance', '/habits', '/workout', '/streams', '/media', '/activity'];
+  if (dashboardPrefixes.includes(prefix)) {
     prefixes.push('/dashboard');
   }
   responseCache.invalidatePrefixes(prefixes);

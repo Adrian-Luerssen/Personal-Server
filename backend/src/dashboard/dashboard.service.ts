@@ -83,6 +83,30 @@ export interface DashboardMobileSnapshotResponse {
     streams: number;
     msListened: number;
   };
+  activity: {
+    today: {
+      date: string;
+      source: string;
+      steps: number;
+      distanceMeters: number | null;
+      activeCalories: number | null;
+      syncedAt?: string;
+    } | null;
+    week: {
+      steps: number;
+      distanceMeters: number;
+      activeCalories: number;
+      daysWithData: number;
+    };
+    recent: Array<{
+      date: string;
+      source: string;
+      steps: number;
+      distanceMeters: number | null;
+      activeCalories: number | null;
+      syncedAt?: string;
+    }>;
+  };
   workoutHabitCorrelation: {
     workoutDays: {
       completionRate: number;
@@ -535,6 +559,7 @@ export class DashboardService {
       spotifyRows,
       spotifyTodayRows,
       rankingRows,
+      activityRows,
       watermarks,
     ] = await Promise.all([
       this.getDashboardIntelligence(accountId),
@@ -550,6 +575,7 @@ export class DashboardService {
       this.getMobileSpotifyStats(accountId),
       this.getMobileSpotifyStats(accountId, today, tomorrow),
       this.getMobileSpotifyRanking(),
+      this.getMobileActivityRows(accountId, weekStart, tomorrow),
       this.syncService?.getWatermarks(accountId) ?? Promise.resolve({}),
     ]);
 
@@ -612,6 +638,7 @@ export class DashboardService {
         streams: todayStreams,
         msListened: todayMsListened,
       },
+      activity: this.mapMobileActivity(activityRows, today),
       workoutHabitCorrelation,
       habits: {
         total: totalHabits,
@@ -742,6 +769,23 @@ export class DashboardService {
        WHERE h."accountId" = $1 AND h."isActive" = true
        ORDER BY "completedToday" ASC, h.name ASC`,
       [accountId, today]
+    );
+  }
+
+  private getMobileActivityRows(accountId: string, from: string, to: string) {
+    return this.dataSource.query(
+      `SELECT date,
+              source,
+              steps,
+              "distanceMeters",
+              "activeCalories",
+              "syncedAt"
+       FROM activity_daily_metrics
+       WHERE "accountId" = $1
+         AND date >= $2
+         AND date < $3
+       ORDER BY date DESC`,
+      [accountId, from, to]
     );
   }
 
@@ -969,6 +1013,36 @@ export class DashboardService {
       startAt: row.startAt ? new Date(row.startAt).toISOString() : null,
       endAt: row.endAt ? new Date(row.endAt).toISOString() : null,
       setCount: this.parseNumber(row.setCount),
+    };
+  }
+
+  private mapMobileActivity(rows: any[], today: string) {
+    const recent = (Array.isArray(rows) ? rows : []).map((row) => ({
+      date: this.toDateOnly(row.date),
+      source: row.source || "health-connect",
+      steps: this.parseNumber(row.steps),
+      distanceMeters:
+        row.distanceMeters == null ? null : this.parseNumber(row.distanceMeters),
+      activeCalories:
+        row.activeCalories == null ? null : this.parseNumber(row.activeCalories),
+      syncedAt: row.syncedAt ? new Date(row.syncedAt).toISOString() : undefined,
+    }));
+
+    const todayMetric = recent.find((row) => row.date === today) || null;
+    const week = recent.reduce(
+      (acc, row) => ({
+        steps: acc.steps + row.steps,
+        distanceMeters: acc.distanceMeters + (row.distanceMeters || 0),
+        activeCalories: acc.activeCalories + (row.activeCalories || 0),
+        daysWithData: acc.daysWithData + (row.steps > 0 ? 1 : 0),
+      }),
+      { steps: 0, distanceMeters: 0, activeCalories: 0, daysWithData: 0 }
+    );
+
+    return {
+      today: todayMetric,
+      week,
+      recent: recent.slice(0, 7),
     };
   }
 

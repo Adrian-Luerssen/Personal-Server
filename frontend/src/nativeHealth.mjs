@@ -55,6 +55,37 @@ export function buildActivityMetricPayload(records) {
   }
 }
 
+export function summarizeActivityMetrics(records, today = new Date().toISOString().slice(0, 10)) {
+  const recent = (Array.isArray(records) ? records : [])
+    .map((record) => {
+      const metric = {
+        date: String(record.date || '').slice(0, 10),
+        steps: Math.max(0, Math.round(Number(record.steps || 0))),
+        distanceMeters: optionalNumber(record.distanceMeters),
+        activeCalories: optionalNumber(record.activeCalories),
+      }
+      if (record.source) metric.source = record.source
+      if (record.syncedAt) metric.syncedAt = record.syncedAt
+      return metric
+    })
+    .filter((record) => record.date)
+    .sort((a, b) => b.date.localeCompare(a.date))
+
+  return {
+    today: recent.find((record) => record.date === today) || null,
+    week: recent.reduce(
+      (acc, record) => ({
+        steps: acc.steps + record.steps,
+        distanceMeters: acc.distanceMeters + (record.distanceMeters || 0),
+        activeCalories: acc.activeCalories + (record.activeCalories || 0),
+        daysWithData: acc.daysWithData + (record.steps > 0 ? 1 : 0),
+      }),
+      { steps: 0, distanceMeters: 0, activeCalories: 0, daysWithData: 0 },
+    ),
+    recent,
+  }
+}
+
 export async function getHealthConnectStatus() {
   const plugin = getPlugin()
   if (!plugin) return normalizeHealthConnectStatus(null)
@@ -100,6 +131,17 @@ export async function syncHealthConnectSteps({ days = 30 } = {}) {
   }
   const { api } = await import('./api.js')
   return api.post('/activity/daily/sync', payload)
+}
+
+export async function getSyncedActivityMetrics({ days = 7 } = {}) {
+  const to = new Date()
+  const from = new Date()
+  from.setDate(to.getDate() - Math.max(1, days - 1))
+  const fromKey = from.toISOString().slice(0, 10)
+  const toKey = to.toISOString().slice(0, 10)
+  const { api } = await import('./api.js')
+  const rows = await api.get(`/activity/daily?from=${fromKey}&to=${toKey}`)
+  return summarizeActivityMetrics(rows, toKey)
 }
 
 export function shouldAutoSyncHealthConnectSteps({

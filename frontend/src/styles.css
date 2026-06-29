@@ -149,7 +149,10 @@
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body, #root { height: 100%; }
+html, body, #root {
+  height: 100%;
+  background: #030712;
+}
 
 body {
   margin: 0;
@@ -2282,6 +2285,93 @@ body.native-mobile-app .sidebar .nav-link:active {
   background: #04111d;
 }
 
+.native-notification-pref {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.native-time-field {
+  min-width: 0;
+  display: grid;
+  gap: 0.28rem;
+  color: var(--native-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.native-time-field input {
+  width: 100%;
+  min-height: 2.65rem;
+  padding: 0 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.8rem;
+  background: rgba(3, 7, 18, 0.72);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.native-quiet-hours {
+  min-width: 0;
+  padding: 0.8rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(5.75rem, 0.45fr) minmax(5.75rem, 0.45fr);
+  gap: 0.65rem;
+  align-items: end;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.native-quiet-hours strong,
+.native-quiet-hours small {
+  display: block;
+}
+
+.native-quiet-hours small {
+  margin-top: 0.18rem;
+  color: var(--native-muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.native-health-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.native-health-summary > div {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid rgba(125, 211, 252, 0.14);
+  border-radius: 0.85rem;
+  background: rgba(125, 211, 252, 0.07);
+}
+
+.native-health-summary span,
+.native-health-summary small {
+  display: block;
+  color: var(--native-muted);
+  font-size: 0.75rem;
+}
+
+.native-health-summary strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--color-text-primary);
+  font-size: 1.1rem;
+}
+
+@media (max-width: 420px) {
+  .native-quiet-hours {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .native-quiet-hours > div {
+    grid-column: 1 / -1;
+  }
+}
+
 .native-info-list {
   display: grid;
   gap: 0.45rem;
@@ -2761,6 +2851,10 @@ body.native-mobile-app .native-dashboard > * {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem;
+}
+
+.native-metric-strip--compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .native-metric-card {

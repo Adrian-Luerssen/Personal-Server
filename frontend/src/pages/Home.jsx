@@ -187,6 +187,7 @@ function NativeHomeDashboard({
   workoutTotals,
   spotifyStats,
   todayStreams,
+  activitySummary,
   openAiPrompt,
   nav,
   loaded,
@@ -286,6 +287,13 @@ function NativeHomeDashboard({
           sub="today"
           accent="#7dd3fc"
         />
+        <NativeMetricCard
+          icon="activity"
+          label="Steps"
+          value={formatNumberShort(activitySummary?.today?.steps ?? 0)}
+          sub="today"
+          accent="#38bdf8"
+        />
       </section>
 
       {primaryInsight && (
@@ -350,6 +358,7 @@ export default function Home() {
   const [mobileSnapshotMeta, setMobileSnapshotMeta] = useState(null)
   const [mobileSyncState, setMobileSyncState] = useState('idle')
   const [activeWorkout, setActiveWorkout] = useState(null)
+  const [activitySummary, setActivitySummary] = useState(null)
 
   const applyMobileSnapshot = useCallback((snapshot) => {
     if (!snapshot) return
@@ -372,6 +381,7 @@ export default function Home() {
       todayIncome: snapshot.today?.financeIncome ?? snapshot.finance?.summary?.todayIncome ?? 0,
       currency: normalizeCurrency(snapshot.today?.financeCurrency ?? snapshot.finance?.currency ?? snapshot.finance?.summary?.currency),
     })
+    setActivitySummary(snapshot.activity || null)
     setRecentSessions(snapshot.workout?.recentSessions || [])
     setWeeklySummary(snapshot.weeklySummary || null)
     setWorkoutHabitCorrelation(snapshot.workoutHabitCorrelation || null)
@@ -602,6 +612,7 @@ export default function Home() {
         workoutTotals={workoutTotals}
         spotifyStats={spotifyStats}
         todayStreams={todayStreams}
+        activitySummary={activitySummary}
         openAiPrompt={openAiPrompt}
         nav={nav}
         loaded={loaded}

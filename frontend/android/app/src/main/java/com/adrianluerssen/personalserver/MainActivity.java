@@ -6,6 +6,10 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.WebView;
+import androidx.activity.OnBackPressedCallback;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import com.adrianluerssen.personalserver.health.PersonalServerHealthPlugin;
 import com.adrianluerssen.personalserver.payments.PersonalServerPaymentsPlugin;
@@ -21,13 +25,25 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PersonalServerWidgetsPlugin.class);
         super.onCreate(savedInstanceState);
         configureSystemBars();
+        configureBackNavigation();
     }
 
     private void configureSystemBars() {
         Window window = getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        WindowCompat.setDecorFitsSystemWindows(window, false);
         window.setStatusBarColor(NATIVE_SHELL_COLOR);
         window.setNavigationBarColor(NATIVE_SHELL_COLOR);
+
+        View content = findViewById(android.R.id.content);
+        if (content != null) {
+            content.setBackgroundColor(NATIVE_SHELL_COLOR);
+        }
+
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView != null) {
+            webView.setBackgroundColor(NATIVE_SHELL_COLOR);
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.setStatusBarContrastEnforced(false);
@@ -47,5 +63,39 @@ public class MainActivity extends BridgeActivity {
             flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
         }
         decorView.setSystemUiVisibility(flags);
+
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decorView);
+        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(false);
+        controller.setSystemBarsBehavior(
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        );
+    }
+
+    private void configureBackNavigation() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+                if (webView == null) {
+                    moveTaskToBack(true);
+                    return;
+                }
+
+                webView.evaluateJavascript(
+                    "(function(){return window.personalServerHandleNativeBack ? window.personalServerHandleNativeBack() : false;})()",
+                    handled -> {
+                        if ("true".equals(handled)) {
+                            return;
+                        }
+                        if (webView.canGoBack()) {
+                            webView.goBack();
+                            return;
+                        }
+                        moveTaskToBack(true);
+                    }
+                );
+            }
+        });
     }
 }

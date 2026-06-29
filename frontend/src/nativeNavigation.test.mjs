@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   getNativeAppForPath,
   getNativeAppSwitcherOptions,
+  getNativeBackDestination,
   getNativeTabsForPath,
   NATIVE_APPS,
 } from './nativeNavigation.mjs';
@@ -69,5 +70,16 @@ describe('native adaptive app navigation', () => {
     const overviewOptions = getNativeAppSwitcherOptions('/home');
     assert.equal(overviewOptions.some((app) => app.id === 'overview'), false);
     assert.equal(overviewOptions.some((app) => app.id === 'settings'), true);
+  });
+
+  it('maps Android back gestures to an in-app destination before the OS exits', () => {
+    assert.equal(getNativeBackDestination('/home'), null);
+    assert.equal(getNativeBackDestination('/menu'), '/home');
+    assert.equal(getNativeBackDestination('/chat'), '/home');
+    assert.equal(getNativeBackDestination('/settings?section=notifications'), '/settings');
+    assert.equal(getNativeBackDestination('/settings'), '/home');
+    assert.equal(getNativeBackDestination('/finance/transactions'), '/finance');
+    assert.equal(getNativeBackDestination('/workout/history'), '/workout');
+    assert.equal(getNativeBackDestination('/habits', '?view=history'), '/habits');
   });
 });

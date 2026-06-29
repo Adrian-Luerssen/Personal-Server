@@ -161,3 +161,44 @@ export function isNativeDestinationActive(tab, pathname, search = '') {
   if (tab.exact) return current === tab.to || (currentPath === targetPath && !search && !tab.to.includes('?'))
   return currentPath.startsWith(targetPath)
 }
+
+export function getNativeBackDestination(path, search = '') {
+  const pathname = normalizePath(path)
+  const embeddedQuery = String(path || '').includes('?')
+    ? `?${String(path).split('?').slice(1).join('?')}`
+    : ''
+  const query = String(search || embeddedQuery || '')
+
+  if (pathname === '/home' || pathname === '/login' || pathname === '/register') {
+    return null
+  }
+
+  if (pathname === '/settings') {
+    return query.includes('section=') ? '/settings' : '/home'
+  }
+
+  if (pathname === '/menu' || pathname === '/chat') {
+    return '/home'
+  }
+
+  if (pathname.startsWith('/finance/') && pathname !== '/finance') {
+    return '/finance'
+  }
+  if (pathname.startsWith('/workout/') && pathname !== '/workout') {
+    return '/workout'
+  }
+  if (pathname === '/habits' && query) {
+    return '/habits'
+  }
+  if (pathname.startsWith('/habits/') && pathname !== '/habits') {
+    return '/habits'
+  }
+  if (pathname.startsWith('/spotify/') && pathname !== '/spotify/personal') {
+    return '/spotify/personal'
+  }
+  if (pathname.startsWith('/media/') && pathname !== '/media') {
+    return '/media'
+  }
+
+  return '/home'
+}

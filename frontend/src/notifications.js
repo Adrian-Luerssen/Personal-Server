@@ -3,6 +3,7 @@ import {
   isPromptableNotificationPermission,
   normalizeNativeNotificationCapability,
 } from './notificationPermission.mjs'
+import { isNotificationPreferenceEnabled } from './notificationPreferences.mjs'
 
 export const REMINDER_NOTIFICATION_CHANNEL_ID = 'personal-server-reminders'
 export const AI_NOTIFICATION_CHANNEL_ID = 'personal-server-ai'
@@ -202,6 +203,7 @@ export async function deliverCustomNotification({ id, nativeId, title, body, act
 }
 
 export async function scheduleHabitReminder({ id, title, body, hour, minute }) {
+  if (!isNotificationPreferenceEnabled('habitReminders')) return false
   const LocalNotifications = await getLocalNotifications()
   if (!LocalNotifications) return false
   const allowed = await requestNotificationPermission()
@@ -228,6 +230,7 @@ export async function scheduleHabitReminder({ id, title, body, hour, minute }) {
 }
 
 export async function scheduleWorkoutReminder({ id, title, body, at }) {
+  if (!isNotificationPreferenceEnabled('workouts')) return false
   const LocalNotifications = await getLocalNotifications()
   if (!LocalNotifications) return false
   const allowed = await requestNotificationPermission()

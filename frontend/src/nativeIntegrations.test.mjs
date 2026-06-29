@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   HEALTH_CONNECT_AUTO_SYNC_KEY,
   buildActivityMetricPayload,
+  summarizeActivityMetrics,
   normalizeHealthConnectStatus,
   shouldAutoSyncHealthConnectSteps,
 } from './nativeHealth.mjs'
@@ -43,6 +44,35 @@ test('buildActivityMetricPayload rejects impossible step values before syncing',
     () => buildActivityMetricPayload([{ date: '2026-06-29', steps: -3 }]),
     /steps must be non-negative/,
   )
+})
+
+test('summarizeActivityMetrics exposes today and weekly step totals for native UI', () => {
+  const summary = summarizeActivityMetrics(
+    [
+      { date: '2026-06-29', steps: 8450, distanceMeters: 6200, activeCalories: 310 },
+      { date: '2026-06-28', steps: 7200, distanceMeters: 5100, activeCalories: 260 },
+    ],
+    '2026-06-29',
+  )
+
+  assert.deepEqual(summary, {
+    today: {
+      date: '2026-06-29',
+      steps: 8450,
+      distanceMeters: 6200,
+      activeCalories: 310,
+    },
+    week: {
+      steps: 15650,
+      distanceMeters: 11300,
+      activeCalories: 570,
+      daysWithData: 2,
+    },
+    recent: [
+      { date: '2026-06-29', steps: 8450, distanceMeters: 6200, activeCalories: 310 },
+      { date: '2026-06-28', steps: 7200, distanceMeters: 5100, activeCalories: 260 },
+    ],
+  })
 })
 
 test('normalizeHealthConnectStatus maps native availability codes to user-facing states', () => {

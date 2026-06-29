@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Resolve release tag
         id: release
@@ -188,8 +190,22 @@ jobs:
           COMMIT_URL="https://github.com/${RELEASE_REPOSITORY}/commit/${RELEASE_COMMIT}"
           RUN_URL="https://github.com/${RELEASE_REPOSITORY}/actions/runs/${RELEASE_RUN_ID}"
           COMMIT_SUBJECT="$(git log -1 --pretty=%s "$RELEASE_COMMIT")"
-          RECENT_COMMITS="$(git log -5 --pretty=format:'- `%h` %s')"
           RELEASE_CHANNEL="Versioned Android APK release"
+          PREVIOUS_ANDROID_TAG="$(git tag --list 'android-v*' --sort=-creatordate | grep -vx "$RELEASE_TAG" | head -n 1 || true)"
+          if [ -n "$PREVIOUS_ANDROID_TAG" ]; then
+            CHANGELOG_RANGE="${PREVIOUS_ANDROID_TAG}..${RELEASE_COMMIT}"
+            CHANGELOG_HEADING="Changes since ${PREVIOUS_ANDROID_TAG}"
+            CHANGELOG_COMPARE_URL="https://github.com/${RELEASE_REPOSITORY}/compare/${PREVIOUS_ANDROID_TAG}...${RELEASE_COMMIT}"
+            CHANGELOG_COMMITS="$(git log --no-merges --pretty=format:'- `%h` %s' "$CHANGELOG_RANGE" || true)"
+          else
+            CHANGELOG_RANGE="initial:${RELEASE_COMMIT}"
+            CHANGELOG_HEADING="Initial Android release changelog"
+            CHANGELOG_COMPARE_URL="${COMMIT_URL}"
+            CHANGELOG_COMMITS="$(git log --no-merges -20 --pretty=format:'- `%h` %s' "$RELEASE_COMMIT" || true)"
+          fi
+          if [ -z "$CHANGELOG_COMMITS" ]; then
+            CHANGELOG_COMMITS="- `${RELEASE_COMMIT_SHORT}` ${COMMIT_SUBJECT}"
+          fi
 
           cat > release-notes.md <<EOF
           ## Personal Server Android APK
@@ -223,10 +239,12 @@ jobs:
           - Capacitor Android project sync completed.
           - Gradle \`assembleRelease\` completed.
 
-          ### Included Changes
+          ### Changelog
+          ${CHANGELOG_HEADING}: [compare changes](${CHANGELOG_COMPARE_URL})
+
           Latest commit: ${COMMIT_SUBJECT}
 
-          ${RECENT_COMMITS}
+          ${CHANGELOG_COMMITS}
 
           ### Install
           Download \`personal-server.apk\` from the release assets and install it on Android. If Android blocks the install, allow installs from your browser or file manager for this APK.
@@ -243,6 +261,11 @@ jobs:
             "sourceRef": "${RELEASE_REF_TYPE}:${RELEASE_REF}",
             "commit": "${RELEASE_COMMIT}",
             "workflowRun": "${RUN_URL}",
+            "changelog": {
+              "previousAndroidTag": "${PREVIOUS_ANDROID_TAG}",
+              "range": "${CHANGELOG_RANGE}",
+              "compareUrl": "${CHANGELOG_COMPARE_URL}"
+            },
             "apk": {
               "file": "personal-server.apk",
               "sizeBytes": ${APK_SIZE_BYTES},

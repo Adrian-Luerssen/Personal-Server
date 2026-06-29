@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'android-v*'
   workflow_dispatch:
     inputs:
       release_tag:
@@ -88,8 +86,8 @@ jobs:
           echo "version=$app_version" >> "$GITHUB_OUTPUT"
           echo "build_time=$build_time" >> "$GITHUB_OUTPUT"
 
-      - name: Run API cache and version tests
-        run: node --test src/apiCache.test.mjs src/appVersion.test.mjs src/importFileTypes.test.mjs src/importProgress.test.mjs
+      - name: Run API cache, Android, workflow, and permission tests
+        run: node --test src/apiCache.test.mjs src/appVersion.test.mjs src/importFileTypes.test.mjs src/importProgress.test.mjs src/mobilePlatform.test.mjs src/androidReleaseWorkflow.test.mjs src/androidWidgets.test.mjs src/androidNativeWidgets.test.mjs src/notificationPermission.test.mjs
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

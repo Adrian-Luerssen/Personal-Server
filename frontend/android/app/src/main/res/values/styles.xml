@@ -19,4 +19,11 @@
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
     </style>
+
+    <style name="PersonalServerWidgetTheme" parent="@android:style/Theme.DeviceDefault.DayNight">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:textColorPrimary">#E6EEF6</item>
+        <item name="android:textColorSecondary">#A5B0C3</item>
+        <item name="android:colorBackground">#101624</item>
+    </style>
 </resources>

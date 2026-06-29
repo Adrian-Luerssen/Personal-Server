@@ -516,8 +516,8 @@ function WalletsTab() {
           <div style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
             {t('finance.noWallets')}
           </div>
-          <button className="btn" onClick={() => navigate('/finance/import')}>
-            <Icon name="download" size={18} /> {t('finance.importData')}
+          <button className="btn" onClick={() => navigate('/settings?section=data')}>
+            <Icon name="database" size={18} /> Settings and Data
           </button>
         </div>
       ) : (

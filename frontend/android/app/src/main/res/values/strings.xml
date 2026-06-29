@@ -4,4 +4,19 @@
     <string name="title_activity_main">Personal Server</string>
     <string name="package_name">com.adrianluerssen.personalserver</string>
     <string name="custom_url_scheme">com.adrianluerssen.personalserver</string>
+    <string name="widget_today_name">Today</string>
+    <string name="widget_today_description">Personal Server summary for score, habits, training, money, and streams.</string>
+    <string name="widget_habits_name">Habits</string>
+    <string name="widget_habits_description">Personal Server habit progress for today.</string>
+    <string name="widget_lock_name">Today Brief</string>
+    <string name="widget_lock_description">Privacy-safe Personal Server summary for compatible Android lock screens.</string>
+    <string name="widget_empty_status">Open app to sync</string>
+    <string name="widget_empty_updated">No local snapshot</string>
+    <string name="widget_label_score">Score</string>
+    <string name="widget_label_habits">Habits</string>
+    <string name="widget_label_train">Train</string>
+    <string name="widget_label_spend">Spend</string>
+    <string name="widget_label_streams">Streams</string>
+    <string name="widget_label_today">Today</string>
+    <string name="payment_detection_service_name">Personal Server payment detection</string>
 </resources>

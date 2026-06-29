@@ -16,7 +16,7 @@ function getIntensityColor(count, maxCount) {
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export default function HabitHeatmap() {
+export default function HabitHeatmap({ compact = false }) {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [tooltip, setTooltip] = useState(null)
@@ -87,7 +87,6 @@ export default function HabitHeatmap() {
     }
   }
 
-  const totalWidth = WEEKS * (CELL_SIZE + CELL_GAP)
   const dayLabels = ['', 'M', '', 'W', '', 'F', '']
 
   // Count totals
@@ -103,6 +102,67 @@ export default function HabitHeatmap() {
         </div>
       </div>
 
+      {compact ? (
+        <div style={{ minWidth: 0 }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '14px minmax(0, 1fr)',
+            gap: '0.35rem',
+            alignItems: 'stretch',
+          }}>
+            <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, minmax(0, 1fr))', gap: 1 }}>
+              {dayLabels.map((label, index) => (
+                <div key={index} style={{ minHeight: 3, fontSize: '0.48rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${WEEKS}, minmax(0, 1fr))`, gap: 1, minWidth: 0 }}>
+              {weeks.map((week, wi) => (
+                <div key={wi} style={{ display: 'grid', gridTemplateRows: 'repeat(7, minmax(0, 1fr))', gap: 1, minWidth: 0 }}>
+                  {week.map((day, di) => (
+                    <div
+                      key={di}
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        minHeight: 3,
+                        borderRadius: 1,
+                        background: day.isFuture ? 'transparent' : getIntensityColor(day.count, maxCount),
+                      }}
+                      title={day.isFuture ? '' : `${day.date}: ${day.count}/${day.total} completed`}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            marginTop: '0.55rem',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
+            fontSize: '0.6rem',
+            color: 'var(--color-text-muted)',
+          }}>
+            <span>Less</span>
+            {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 2,
+                  background: getIntensityColor(ratio * maxCount || (i === 0 ? 0 : 1), maxCount || 1),
+                }}
+              />
+            ))}
+            <span>More</span>
+          </div>
+        </div>
+      ) : (
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }}>
         {/* Month labels */}
         <div style={{ display: 'flex', marginLeft: 20, marginBottom: 2 }}>
@@ -181,6 +241,7 @@ export default function HabitHeatmap() {
           <span>More</span>
         </div>
       </div>
+      )}
     </div>
   )
 }

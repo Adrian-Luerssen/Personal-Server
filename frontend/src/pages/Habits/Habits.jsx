@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api, apiFetch } from '../../api'
 import {
@@ -13,6 +13,7 @@ import PageHeader from '../../components/PageHeader'
 import ProgressRing from '../../components/ProgressRing'
 import HabitCalendarGrid from '../../components/habits/HabitCalendarGrid'
 import HabitHeatmap from '../../components/habits/HabitHeatmap'
+import { isNativeMobileApp } from '../../mobilePlatform'
 import './Habits.css'
 
 const HABITS_COLOR = '#a78bfa'
@@ -130,6 +131,26 @@ function mergeHabitSummary(habits, summary, selectedEntries) {
         selectedNumericValue: entry?.numericValue,
       }
     })
+}
+
+function getCadenceUnit(habit) {
+  const type = habit.frequencyType || 'daily'
+  if (type === 'weekly') return 'weeks'
+  if (type === 'monthly') return 'months'
+  if (type === 'yearly') return 'years'
+  return 'days'
+}
+
+function getStreakLabel(habit) {
+  const streak = Number(habit.currentStreak || 0)
+  if (streak <= 0) return 'No active streak'
+  return `${streak} ${getCadenceUnit(habit)} streak`
+}
+
+function getMissedStreakLabel(habit) {
+  const missed = Number(habit.negativeStreak || habit.missedStreak || habit.currentMissedStreak || 0)
+  if (missed <= 0) return 'No missed streak'
+  return `${missed} missed ${getCadenceUnit(habit)}`
 }
 
 export default function Habits() {
@@ -352,16 +373,46 @@ export default function Habits() {
         <Icon name="plus" size={16} />
         Add Habit
       </button>
-      <button className="btn btn-ghost" type="button" onClick={() => navigate('/habits/settings?tab=import')}>
-        <Icon name="download" size={16} />
-        Import
-      </button>
-      <button className="btn btn-ghost" type="button" onClick={() => navigate('/habits/settings')}>
+      <button className="btn btn-ghost" type="button" onClick={() => navigate('/settings?section=data')}>
         <Icon name="settings" size={16} />
-        Settings
+        Settings and Data
       </button>
     </div>
   )
+
+  if (isNativeMobileApp()) {
+    return (
+      <NativeHabitsView
+        i18n={i18n}
+        navigate={navigate}
+        loading={loading}
+        loadError={loadError}
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        loadData={loadData}
+        totalHabits={totalHabits}
+        loggedCount={loggedCount}
+        doneCount={doneCount}
+        skippedCount={skippedCount}
+        missedCount={missedCount}
+        completionValue={completionValue}
+        averageSuccess={averageSuccess}
+        totalCurrentStreak={totalCurrentStreak}
+        mergedHabits={mergedHabits}
+        needsLogHabits={needsLogHabits}
+        loggedHabits={loggedHabits}
+        calendarData={calendarData}
+        progress={progress}
+        monthKey={monthKey}
+        savingEntries={savingEntries}
+        setQuickAddOpen={setQuickAddOpen}
+        toggleHabitEntry={toggleHabitEntry}
+        saveNumericEntry={saveNumericEntry}
+        quickAddOpen={quickAddOpen}
+        createHabit={createHabit}
+      />
+    )
+  }
 
   return (
     <div className="habits-page">
@@ -552,6 +603,292 @@ export default function Habits() {
   )
 }
 
+function NativeHabitsView({
+  i18n,
+  navigate,
+  loading,
+  loadError,
+  selectedDate,
+  setSelectedDate,
+  loadData,
+  totalHabits,
+  loggedCount,
+  doneCount,
+  skippedCount,
+  missedCount,
+  completionValue,
+  averageSuccess,
+  totalCurrentStreak,
+  mergedHabits,
+  needsLogHabits,
+  loggedHabits,
+  calendarData,
+  progress,
+  monthKey,
+  savingEntries,
+  setQuickAddOpen,
+  toggleHabitEntry,
+  saveNumericEntry,
+  quickAddOpen,
+  createHabit,
+}) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedView = searchParams.get('view')
+  const isValidView = ['today', 'plan', 'history', 'insights'].includes(requestedView)
+  const [view, setView] = useState(isValidView ? requestedView : 'today')
+
+  useEffect(() => {
+    setView(isValidView ? requestedView : 'today')
+  }, [isValidView, requestedView])
+
+  function selectView(nextView) {
+    setView(nextView)
+    if (nextView === 'today') {
+      setSearchParams({})
+    } else {
+      setSearchParams({ view: nextView })
+    }
+  }
+
+  const tabs = [
+    { key: 'today', label: 'Today', icon: 'check-circle' },
+    { key: 'plan', label: 'Plan', icon: 'list-checks' },
+    { key: 'history', label: 'History', icon: 'calendar-days' },
+    { key: 'insights', label: 'Insights', icon: 'bar-chart-3' },
+  ]
+
+  return (
+    <div className="native-habits-page">
+      <section className="native-habits-hero">
+        <div>
+          <span className="native-eyebrow">Daily log</span>
+          <h1>{formatSelectedDate(selectedDate, i18n.language)}</h1>
+          <p>{loggedCount}/{totalHabits} logged. {needsLogHabits.length} remaining.</p>
+        </div>
+        <ProgressRing value={completionValue} size={74} color={HABITS_COLOR} />
+      </section>
+
+      {loadError && <div className="alert-error" role="alert">{loadError}</div>}
+
+      <div className="native-habits-actions">
+        <button type="button" onClick={() => setSelectedDate((date) => addDays(date, -1))}>
+          <Icon name="chevron-left" size={18} />
+          Previous
+        </button>
+        <button type="button" onClick={() => setSelectedDate(toDateKey())}>
+          Today
+        </button>
+        <button type="button" onClick={() => setSelectedDate((date) => addDays(date, 1))}>
+          Next
+          <Icon name="chevron-right" size={18} />
+        </button>
+      </div>
+
+      <nav className="native-section-tabs" aria-label="Habit sections">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={view === tab.key ? 'is-active' : ''}
+            onClick={() => selectView(tab.key)}
+          >
+            <Icon name={tab.icon} size={16} />
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      {view === 'today' && (
+        <section className="native-habit-panel">
+          <div className="native-panel-head">
+            <div>
+              <h2>Due now</h2>
+              <p>Large actions first. Secondary states stay one tap away.</p>
+            </div>
+            <button type="button" className="native-icon-button" aria-label="Refresh habits" onClick={() => loadData({ silent: true, force: true })}>
+              <Icon name="refresh-cw" size={16} />
+            </button>
+          </div>
+          {loading ? (
+            <SkeletonCard lines={8} />
+          ) : totalHabits === 0 ? (
+            <div className="native-empty-state">
+              <Icon name="heart-pulse" size={28} />
+              <strong>No active habits</strong>
+              <p>Create a habit to start logging from the app.</p>
+              <button type="button" className="native-primary-button" onClick={() => setQuickAddOpen(true)}>Add habit</button>
+            </div>
+          ) : (
+            <div className="native-habit-stack">
+              {needsLogHabits.map((habit) => (
+                <NativeHabitLogCard
+                  key={habit.id}
+                  habit={habit}
+                  saving={Boolean(savingEntries[`${habit.id}:${selectedDate}`])}
+                  onToggle={toggleHabitEntry}
+                  onNumericSubmit={saveNumericEntry}
+                />
+              ))}
+              {loggedHabits.length > 0 && (
+                <>
+                  <h3 className="native-subheading">Logged</h3>
+                  {loggedHabits.map((habit) => (
+                    <NativeHabitLogCard
+                      key={habit.id}
+                      habit={habit}
+                      saving={Boolean(savingEntries[`${habit.id}:${selectedDate}`])}
+                      onToggle={toggleHabitEntry}
+                      onNumericSubmit={saveNumericEntry}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {view === 'plan' && (
+        <section className="native-habit-panel">
+          <div className="native-panel-head">
+            <div>
+              <h2>Plan</h2>
+              <p>Review active habits and cadence. Imports and reminders live in Settings and Data.</p>
+            </div>
+            <div className="native-panel-actions">
+              <button type="button" className="native-icon-button" aria-label="Open settings and data" onClick={() => navigate('/settings?section=data')}>
+                <Icon name="settings" size={16} />
+              </button>
+              <button type="button" className="native-icon-button" aria-label="Add habit" onClick={() => setQuickAddOpen(true)}>
+                <Icon name="plus" size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="native-habit-stack">
+            {mergedHabits.map((habit) => (
+              <div key={habit.id} className="native-plan-row">
+                <span className="native-plan-row__icon" style={{ color: habit.color || HABITS_COLOR, background: `${habit.color || HABITS_COLOR}22` }}>
+                  <Icon name={habit.iconName || 'circle-check'} size={18} />
+                </span>
+                <span>
+                  <strong>{habit.name}</strong>
+                  <small>{getFrequencyLabel(habit)} - {getStreakLabel(habit)}</small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {view === 'history' && (
+        <section className="native-habit-panel">
+          <div className="native-panel-head">
+            <div>
+              <h2>{formatMonthYear(monthKey, i18n.language)}</h2>
+              <p>Tap a day to log or correct old entries.</p>
+            </div>
+          </div>
+          {loading ? (
+            <SkeletonCard lines={7} />
+          ) : (
+            <HabitCalendarGrid
+              month={monthKey}
+              habitsMap={calendarData.habits || {}}
+              entries={calendarData.entries || []}
+              progress={progress}
+              onDayClick={setSelectedDate}
+              compact
+            />
+          )}
+          <div className="native-heatmap-wrap">
+            <HabitHeatmap compact />
+          </div>
+        </section>
+      )}
+
+      {view === 'insights' && (
+        <section className="native-habit-panel">
+          <div className="native-metric-strip native-habits-metrics">
+            <div className="native-metric-card"><span>Logged</span><strong>{loggedCount}/{totalHabits}</strong></div>
+            <div className="native-metric-card"><span>Success</span><strong>{averageSuccess}%</strong></div>
+            <div className="native-metric-card"><span>Streaks</span><strong>{totalCurrentStreak}</strong></div>
+          </div>
+          <div className="native-status-grid">
+            <div><strong>{doneCount}</strong><span>Done</span></div>
+            <div><strong>{skippedCount}</strong><span>Skipped</span></div>
+            <div><strong>{missedCount}</strong><span>Missed</span></div>
+          </div>
+          <div className="native-habit-stack">
+            {mergedHabits.map((habit) => (
+              <div key={habit.id} className="native-plan-row">
+                <span className="native-plan-row__icon" style={{ color: habit.color || HABITS_COLOR, background: `${habit.color || HABITS_COLOR}22` }}>
+                  <Icon name={habit.iconName || 'circle-check'} size={18} />
+                </span>
+                <span>
+                  <strong>{habit.name}</strong>
+                  <small>{getStreakLabel(habit)} - {getMissedStreakLabel(habit)}</small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {quickAddOpen && (
+        <QuickHabitModal
+          onClose={() => setQuickAddOpen(false)}
+          onCreate={createHabit}
+        />
+      )}
+    </div>
+  )
+}
+
+function NativeHabitLogCard({ habit, saving, onToggle, onNumericSubmit }) {
+  const status = habit.selectedStatus || 'none'
+  const statusMeta = STATUS_META[status]
+  const isNumeric = habit.trackingType === 'numeric'
+  const color = habit.color || HABITS_COLOR
+
+  return (
+    <article
+      className={`native-habit-log-card native-habit-log-card--${status}`}
+      data-testid={`native-habit-card-${habit.id}`}
+      style={{ '--habit-color': color }}
+    >
+      <div className="native-habit-log-card__top">
+        <span className="native-plan-row__icon" style={{ color, background: `${color}22` }}>
+          <Icon name={habit.iconName || 'circle-check'} size={18} />
+        </span>
+        <span>
+          <strong>{habit.name}</strong>
+          <small>{getFrequencyLabel(habit)} - {getStreakLabel(habit)}</small>
+        </span>
+        {statusMeta && <em style={{ color: statusMeta.color }}>{statusMeta.shortLabel}</em>}
+      </div>
+
+      {isNumeric ? (
+        <NumericHabitControl habit={habit} saving={saving} onSubmit={(value) => onNumericSubmit(habit, value)} />
+      ) : (
+        <div className="native-habit-actions">
+          <button type="button" className="native-habit-actions__primary" disabled={saving} onClick={() => onToggle(habit, 'success')}>
+            <Icon name="check-circle" size={18} />
+            Done
+          </button>
+          <button type="button" disabled={saving} onClick={() => onToggle(habit, 'skip')}>
+            <Icon name="minus-circle" size={17} />
+            Skip
+          </button>
+          <button type="button" disabled={saving} onClick={() => onToggle(habit, 'fail')}>
+            <Icon name="x-circle" size={17} />
+            Missed
+          </button>
+        </div>
+      )}
+    </article>
+  )
+}
+
 function HabitGroup({ title, habits, children }) {
   return (
     <div className="habits-group">
@@ -646,6 +983,7 @@ function NumericHabitControl({ habit, saving, onSubmit }) {
   const [value, setValue] = useState(habit.selectedNumericValue ?? '')
   const status = value === '' ? null : evaluateNumericStatus(habit, Number(value))
   const statusMeta = status ? STATUS_META[status] : null
+  const isNative = isNativeMobileApp()
 
   useEffect(() => {
     setValue(habit.selectedNumericValue ?? '')
@@ -656,6 +994,63 @@ function NumericHabitControl({ habit, saving, onSubmit }) {
     if (!Number.isNaN(numericValue) && numericValue >= 0) {
       onSubmit(numericValue)
     }
+  }
+
+  function adjust(delta) {
+    const current = Number(value || 0)
+    const next = Math.max(0, current + delta)
+    setValue(Number.isInteger(next) ? String(next) : String(Number(next.toFixed(2))))
+  }
+
+  if (isNative) {
+    return (
+      <div className="habit-numeric-stepper" role="group" aria-label={`${habit.name} numeric counter`}>
+        <button
+          type="button"
+          className="habit-numeric-stepper__button"
+          aria-label={`Decrease ${habit.name}`}
+          disabled={Number(value || 0) <= 0}
+          onClick={() => adjust(-1)}
+        >
+          <Icon name="minus" size={18} />
+        </button>
+        <label className="habit-numeric-stepper__value" htmlFor={`habit-value-${habit.id}`}>
+          <input
+            id={`habit-value-${habit.id}`}
+            type="number"
+            min="0"
+            step="1"
+            inputMode="decimal"
+            value={value}
+            placeholder="0"
+            aria-label={`${habit.name} value`}
+            onChange={(event) => setValue(event.target.value)}
+          />
+          {habit.numericUnit && <span>{habit.numericUnit}</span>}
+        </label>
+        <button
+          type="button"
+          className="habit-numeric-stepper__button habit-numeric-stepper__button--plus"
+          aria-label={`Increase ${habit.name}`}
+          onClick={() => adjust(1)}
+        >
+          <Icon name="plus" size={18} />
+        </button>
+        <button
+          className="habit-numeric-stepper__save"
+          type="button"
+          disabled={saving || value === ''}
+          onClick={submit}
+        >
+          {saving ? 'Logging' : 'Log'}
+        </button>
+        {statusMeta && (
+          <span className="habit-numeric-stepper__preview" style={{ '--status-color': statusMeta.color }}>
+            {statusMeta.shortLabel}
+          </span>
+        )}
+      </div>
+    )
   }
 
   return (

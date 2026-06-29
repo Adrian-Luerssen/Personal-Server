@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../api'
 import { clearApiCache } from '../../api'
 import { Modal } from '../../components/shared'
@@ -44,6 +45,58 @@ const DATA_MODULES = [
     color: '#f87171',
     description: 'All conversations and messages',
     endpoint: '/data/chat',
+  },
+]
+
+const FEATURE_CONTROL_LINKS = [
+  {
+    label: 'Import habits',
+    description: 'HabitShare CSV import with live progress',
+    to: '/habits/settings?tab=import',
+    icon: 'calendar-check',
+    color: '#a78bfa',
+  },
+  {
+    label: 'Habit settings',
+    description: 'Routines, reminders, cadence, and thresholds',
+    to: '/habits/settings',
+    icon: 'heart-pulse',
+    color: '#a78bfa',
+  },
+  {
+    label: 'Import finance',
+    description: 'Cashew backup import',
+    to: '/finance/import',
+    icon: 'landmark',
+    color: '#fbbf24',
+  },
+  {
+    label: 'Finance settings',
+    description: 'Wallets, categories, budgets, and subscriptions',
+    to: '/finance/settings',
+    icon: 'sliders-horizontal',
+    color: '#fbbf24',
+  },
+  {
+    label: 'Import media',
+    description: 'MAL, TVTime, Goodreads, and library sources',
+    to: '/media/import',
+    icon: 'library',
+    color: '#f472b6',
+  },
+  {
+    label: 'Media settings',
+    description: 'Matching, source cleanup, and library metadata',
+    to: '/media/settings',
+    icon: 'settings',
+    color: '#f472b6',
+  },
+  {
+    label: 'Import workouts',
+    description: 'Training data import',
+    to: '/workout/import',
+    icon: 'upload',
+    color: '#4ade80',
   },
 ]
 
@@ -134,9 +187,44 @@ export default function DataManagement() {
   return (
     <div className="card section">
       <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ marginBottom: '0.25rem' }}>Data Management</h2>
+        <h2 style={{ marginBottom: '0.25rem' }}>Settings and Data</h2>
         <p style={{ color: 'var(--color-text-secondary)', margin: 0, fontSize: '0.9rem' }}>
-          Delete all data for a specific module. This cannot be undone.
+          Import data, configure feature-specific settings, or delete module data from one place.
+        </p>
+      </div>
+
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h3 style={{ marginBottom: '0.75rem' }}>Feature imports and settings</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+          {FEATURE_CONTROL_LINKS.map(link => (
+            <Link
+              key={link.label}
+              to={link.to}
+              className="native-menu-row"
+              style={{
+                textDecoration: 'none',
+                color: 'inherit',
+                background: 'rgba(0,0,0,0.1)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <span className="native-menu-row__icon" aria-hidden="true" style={{ background: `${link.color}22`, color: link.color }}>
+                <Icon name={link.icon} size={20} />
+              </span>
+              <span className="native-menu-row__copy">
+                <strong>{link.label}</strong>
+                <small>{link.description}</small>
+              </span>
+              <Icon name="chevron-right" size={18} aria-hidden="true" />
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '0.75rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Destructive data actions</h3>
+        <p style={{ color: 'var(--color-text-secondary)', margin: 0, fontSize: '0.85rem' }}>
+          Delete all data for a specific module. These actions cannot be undone.
         </p>
       </div>
 

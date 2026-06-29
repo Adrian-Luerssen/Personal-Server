@@ -4,11 +4,13 @@ import { api } from '../../api'
 import CategoryPicker from './CategoryPicker'
 import WalletPicker from './WalletPicker'
 import Icon from '../icons/Icon'
+import CategoryIcon from './CategoryIcon'
+import { isNativeMobileApp } from '../../mobilePlatform'
 
-export default function TransactionForm({ transaction, wallets, categories, onClose, onSaved }) {
+export default function TransactionForm({ transaction, wallets, categories, onClose, onSaved, initialMode = 'expense' }) {
   const isEdit = !!transaction?.id
 
-  const [mode, setMode] = useState('expense') // 'expense' | 'income' | 'transfer'
+  const [mode, setMode] = useState(initialMode) // 'expense' | 'income' | 'transfer'
 
   const [form, setForm] = useState({
     name: '',
@@ -68,15 +70,36 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
     }
   }, [transaction])
 
+  useEffect(() => {
+    if (!transaction) {
+      setMode(initialMode)
+      setForm(f => ({
+        ...f,
+        isIncome: initialMode === 'income',
+      }))
+    }
+  }, [initialMode, transaction])
+
+  useEffect(() => {
+    if (!transaction && wallets?.length) {
+      setForm(f => ({
+        ...f,
+        walletId: f.walletId || wallets[0]?.id || '',
+        fromWalletId: f.fromWalletId || wallets[0]?.id || '',
+        toWalletId: f.toWalletId || wallets[1]?.id || '',
+      }))
+    }
+  }, [wallets, transaction])
+
   const setField = (key, val) => setForm(f => ({ ...f, [key]: val }))
 
   function handleModeChange(newMode) {
     setMode(newMode)
-    if (newMode === 'expense') {
-      setField('isIncome', false)
-    } else if (newMode === 'income') {
-      setField('isIncome', true)
-    }
+    setForm(f => ({
+      ...f,
+      isIncome: newMode === 'income' ? true : newMode === 'expense' ? false : f.isIncome,
+      categoryId: newMode === 'transfer' ? '' : f.categoryId,
+    }))
   }
 
   // Determine currencies for transfer wallets
@@ -89,6 +112,22 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
     [wallets, form.toWalletId]
   )
   const sameCurrency = fromWallet && toWallet && fromWallet.currency === toWallet.currency
+  const visibleCategories = useMemo(
+    () => (categories || []).filter(c => {
+      if (mode === 'transfer') return false
+      if (c.isIncome === form.isIncome) return true
+      if (c.parentCategoryId) {
+        const parent = (categories || []).find(p => p.id === c.parentCategoryId)
+        return parent?.isIncome === form.isIncome
+      }
+      return false
+    }),
+    [categories, form.isIncome, mode]
+  )
+  const selectedCategory = useMemo(
+    () => visibleCategories.find(c => c.id === form.categoryId),
+    [visibleCategories, form.categoryId]
+  )
 
   // Auto-sync amountReceived when same currency
   useEffect(() => {
@@ -97,14 +136,21 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
     }
   }, [form.amount, sameCurrency, mode])
 
+  useEffect(() => {
+    if (!transaction && mode !== 'transfer' && visibleCategories.length && !visibleCategories.some(c => c.id === form.categoryId)) {
+      setForm(f => ({ ...f, categoryId: visibleCategories[0]?.id || '' }))
+    }
+  }, [visibleCategories, form.categoryId, mode, transaction])
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
     setSaving(true)
     try {
+      const resolvedName = form.name.trim() || selectedCategory?.name || (mode === 'transfer' ? 'Transfer' : mode === 'income' ? 'Income' : 'Expense')
       if (mode === 'transfer' && !isEdit) {
         const payload = {
-          name: form.name.trim(),
+          name: resolvedName,
           fromWalletId: form.fromWalletId || null,
           toWalletId: form.toWalletId || null,
           amountSent: parseFloat(form.amount),
@@ -115,7 +161,7 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
         await api.post('/finance/transactions/transfer', payload)
       } else {
         const payload = {
-          name: form.name.trim(),
+          name: resolvedName,
           amount: parseFloat(form.amount),
           isIncome: mode === 'income' ? true : mode === 'expense' ? false : form.isIncome,
           transactionDate: form.transactionDate,
@@ -152,6 +198,32 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
   }
 
   const isTransfer = mode === 'transfer'
+
+  if (isNativeMobileApp()) {
+    return (
+      <NativeTransactionForm
+        isEdit={isEdit}
+        isTransfer={isTransfer}
+        mode={mode}
+        form={form}
+        wallets={wallets || []}
+        categories={visibleCategories}
+        selectedCategory={selectedCategory}
+        fromWallet={fromWallet}
+        toWallet={toWallet}
+        sameCurrency={sameCurrency}
+        saving={saving}
+        error={error}
+        showDeleteConfirm={showDeleteConfirm}
+        onClose={onClose}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+        onShowDeleteConfirm={setShowDeleteConfirm}
+        onModeChange={handleModeChange}
+        setField={setField}
+      />
+    )
+  }
 
   return (
     <Modal title={isEdit ? 'Edit Transaction' : 'Add Transaction'} onClose={onClose} size="medium">
@@ -381,5 +453,242 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
         </div>
       </form>
     </Modal>
+  )
+}
+
+function NativeTransactionForm({
+  isEdit,
+  isTransfer,
+  mode,
+  form,
+  wallets,
+  categories,
+  selectedCategory,
+  fromWallet,
+  toWallet,
+  sameCurrency,
+  saving,
+  error,
+  showDeleteConfirm,
+  onClose,
+  onSubmit,
+  onDelete,
+  onShowDeleteConfirm,
+  onModeChange,
+  setField,
+}) {
+  const amountLabel = form.amount ? Number(form.amount).toLocaleString('en', { maximumFractionDigits: 2 }) : '0'
+  const selectedWallet = wallets.find(w => w.id === form.walletId)
+  const keypad = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace']
+  const modeOptions = [
+    { id: 'expense', label: 'Expense', icon: 'arrow-up' },
+    { id: 'income', label: 'Income', icon: 'arrow-down' },
+    { id: 'transfer', label: 'Transfer', icon: 'arrow-left-right' },
+  ]
+
+  function appendAmount(token) {
+    const current = form.amount || ''
+    if (token === 'backspace') {
+      setField('amount', current.slice(0, -1))
+      return
+    }
+    if (token === '.' && current.includes('.')) return
+    if (current.includes('.') && current.split('.')[1]?.length >= 2) return
+    const next = current === '0' && token !== '.' ? token : `${current}${token}`
+    setField('amount', next)
+  }
+
+  return (
+    <div className="native-transaction-overlay" role="presentation">
+      <form className="native-transaction-sheet" data-testid="native-transaction-form" onSubmit={onSubmit}>
+        <div className="native-transaction-sheet__header">
+          <div>
+            <span className="native-eyebrow">Money</span>
+            <h2>{isEdit ? 'Edit Transaction' : 'Add Transaction'}</h2>
+          </div>
+          <button type="button" className="native-icon-button" aria-label="Close transaction form" onClick={onClose}>
+            <Icon name="x" size={20} />
+          </button>
+        </div>
+
+        {error && <div className="alert-error native-transaction-error">{error}</div>}
+
+        <div className="native-transaction-modes" role="group" aria-label="Transaction type">
+          {modeOptions.map(option => (
+            <button
+              key={option.id}
+              type="button"
+              className={mode === option.id ? 'is-active' : ''}
+              onClick={() => onModeChange(option.id)}
+            >
+              <Icon name={option.icon} size={15} />
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <section className={`native-transaction-amount native-transaction-amount--${mode}`}>
+          <div className="native-transaction-amount__icon">
+            <Icon name={selectedCategory?.iconName || (isTransfer ? 'arrow-left-right' : mode === 'income' ? 'arrow-down' : 'receipt')} size={24} />
+          </div>
+          <div>
+            <span>{selectedCategory?.name || (isTransfer ? 'Transfer' : mode === 'income' ? 'Income' : 'Expense')}</span>
+            <strong>{amountLabel}</strong>
+          </div>
+        </section>
+
+        {!isTransfer && (
+          <section className="native-transaction-section">
+            <div className="native-section-head">
+              <h3>Category</h3>
+              <span>{selectedCategory?.name || 'Choose'}</span>
+            </div>
+            <div className="native-category-grid">
+              {categories.slice(0, 10).map(category => (
+                <button
+                  key={category.id}
+                  type="button"
+                  className={form.categoryId === category.id ? 'is-active' : ''}
+                  onClick={() => setField('categoryId', category.id)}
+                >
+                  <CategoryIcon category={category} size={40} />
+                  <span>{category.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="native-transaction-section">
+          <div className="native-section-head">
+            <h3>{isTransfer ? 'Wallets' : 'Wallet'}</h3>
+            <span>{isTransfer ? `${fromWallet?.name || 'From'} to ${toWallet?.name || 'To'}` : selectedWallet?.name || 'Choose'}</span>
+          </div>
+          {isTransfer ? (
+            <div className="native-wallet-pickers">
+              <div>
+                <span>From</span>
+                <div className="native-chip-row">
+                  {wallets.map(wallet => (
+                    <button
+                      key={wallet.id}
+                      type="button"
+                      className={form.fromWalletId === wallet.id ? 'is-active' : ''}
+                      disabled={form.toWalletId === wallet.id}
+                      onClick={() => setField('fromWalletId', wallet.id)}
+                    >
+                      {wallet.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <span>To</span>
+                <div className="native-chip-row">
+                  {wallets.map(wallet => (
+                    <button
+                      key={wallet.id}
+                      type="button"
+                      className={form.toWalletId === wallet.id ? 'is-active' : ''}
+                      disabled={form.fromWalletId === wallet.id}
+                      onClick={() => setField('toWalletId', wallet.id)}
+                    >
+                      {wallet.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {!sameCurrency && (
+                <label className="native-transaction-field">
+                  <span>Amount received</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={form.amountReceived}
+                    onChange={event => setField('amountReceived', event.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
+                </label>
+              )}
+            </div>
+          ) : (
+            <div className="native-chip-row">
+              {wallets.map(wallet => (
+                <button
+                  key={wallet.id}
+                  type="button"
+                  className={form.walletId === wallet.id ? 'is-active' : ''}
+                  onClick={() => setField('walletId', wallet.id)}
+                >
+                  {wallet.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="native-transaction-fields">
+          <label className="native-transaction-field">
+            <span>Title</span>
+            <input
+              type="text"
+              value={form.name}
+              onChange={event => setField('name', event.target.value)}
+              placeholder={selectedCategory?.name || 'Optional title'}
+            />
+          </label>
+          <label className="native-transaction-field">
+            <span>Date</span>
+            <input
+              type="date"
+              value={form.transactionDate}
+              onChange={event => setField('transactionDate', event.target.value)}
+              required
+            />
+          </label>
+          <label className="native-transaction-field native-transaction-field--wide">
+            <span>Note</span>
+            <input
+              type="text"
+              value={form.note}
+              onChange={event => setField('note', event.target.value)}
+              placeholder="Optional note"
+            />
+          </label>
+        </section>
+
+        <div className="native-keypad" aria-label="Amount keypad">
+          {keypad.map(key => (
+            <button
+              key={key}
+              type="button"
+              aria-label={key === 'backspace' ? 'Backspace' : key}
+              onClick={() => appendAmount(key)}
+            >
+              {key === 'backspace' ? <Icon name="delete" size={18} /> : key}
+            </button>
+          ))}
+        </div>
+
+        <div className="native-transaction-actions">
+          {isEdit && !showDeleteConfirm && (
+            <button type="button" className="native-secondary-button native-secondary-button--danger" onClick={() => onShowDeleteConfirm(true)}>
+              Delete
+            </button>
+          )}
+          {isEdit && showDeleteConfirm && (
+            <button type="button" className="native-secondary-button native-secondary-button--danger" disabled={saving} onClick={onDelete}>
+              Confirm delete
+            </button>
+          )}
+          <button type="button" className="native-secondary-button" onClick={onClose}>Cancel</button>
+          <button type="submit" className="native-primary-button" disabled={saving || !form.amount || (isTransfer && (!form.fromWalletId || !form.toWalletId))}>
+            {saving ? 'Saving' : 'Save'}
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }

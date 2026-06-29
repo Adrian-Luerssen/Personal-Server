@@ -150,6 +150,20 @@ const ENDPOINT_REGISTRY: EndpointInfo[] = [
       { name: 'replyToId', in: 'body', required: false, description: 'UUID of the message being replied to' },
     ],
   },
+
+  // Notifications
+  {
+    method: 'POST', path: '/api/v1/notifications', scope: 'notifications:write',
+    description: 'Create a custom notification for the user from the AI agent',
+    parameters: [
+      { name: 'title', in: 'body', required: true, description: 'Short notification title, max 120 characters' },
+      { name: 'body', in: 'body', required: true, description: 'Notification body, max 600 characters' },
+      { name: 'category', in: 'body', required: false, description: 'assistant | habits | workout | finance | music | media | system | updates' },
+      { name: 'priority', in: 'body', required: false, description: 'low | normal | high' },
+      { name: 'actionUrl', in: 'body', required: false, description: 'In-app route to open when tapped' },
+      { name: 'scheduledFor', in: 'body', required: false, description: 'Optional ISO timestamp for deferred delivery' },
+    ],
+  },
 ];
 
 @ApiTags('API v1 - Discovery')

@@ -26,6 +26,7 @@ import PeriodSelector, { getDateRange, getPeriodLabel } from '../../components/f
 import CategoryIcon from '../../components/finance/CategoryIcon'
 import CategoryLabel from '../../components/finance/CategoryLabel'
 import TransactionForm from '../../components/finance/TransactionForm'
+import { isNativeMobileApp } from '../../mobilePlatform'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -89,6 +90,7 @@ export default function Finance() {
   const [recentTransactions, setRecentTransactions] = useState([])
   const [period, setPeriod] = useState('month')
   const [showTxForm, setShowTxForm] = useState(false)
+  const [txFormMode, setTxFormMode] = useState('expense')
 
   // Fire-and-forget: generate any pending subscription transactions on mount
   useEffect(() => {
@@ -164,11 +166,47 @@ export default function Finance() {
     }
   }
 
+  function openTransactionForm(mode = 'expense') {
+    setTxFormMode(mode)
+    setShowTxForm(true)
+  }
+
+  if (isNativeMobileApp()) {
+    return (
+      <>
+        <NativeFinanceDashboard
+          loading={loading}
+          wallets={wallets}
+          categories={categories}
+          recentTransactions={recentTransactions}
+          categorySpending={categorySpending}
+          totalBalance={totalBalance}
+          totalIncome={totalIncome}
+          totalExpenses={totalExpenses}
+          netFlow={netFlow}
+          period={period}
+          setPeriod={setPeriod}
+          navigate={navigate}
+          onAddTransaction={openTransactionForm}
+        />
+        {showTxForm && (
+          <TransactionForm
+            wallets={wallets}
+            categories={categories}
+            initialMode={txFormMode}
+            onClose={() => setShowTxForm(false)}
+            onSaved={loadDashboard}
+          />
+        )}
+      </>
+    )
+  }
+
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
         <PageHeader icon="wallet" title="Finance" accentColor="#fbbf24" />
-        <button className="btn btn-primary" onClick={() => setShowTxForm(true)}>
+        <button className="btn btn-primary" onClick={() => openTransactionForm('expense')}>
           <Icon name="plus" size={16} /> Add Transaction
         </button>
       </div>
@@ -208,10 +246,7 @@ export default function Finance() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
           {[
             { icon: 'receipt', label: 'Transactions', onClick: () => navigate('/finance/transactions'), accent: true },
-            { icon: 'landmark', label: t('finance.wallets'), onClick: () => navigate('/finance/settings?tab=wallets') },
-            { icon: 'layers', label: 'Categories', onClick: () => navigate('/finance/settings?tab=categories') },
-            { icon: 'repeat', label: 'Subscriptions', onClick: () => navigate('/finance/settings?tab=subscriptions') },
-            { icon: 'download', label: t('finance.importCashew'), onClick: () => navigate('/finance/import') },
+            { icon: 'database', label: 'Settings and Data', onClick: () => navigate('/settings?section=data') },
           ].map(action => (
             <button
               key={action.label}
@@ -272,7 +307,7 @@ export default function Finance() {
               <Icon name="landmark" size={20} style={{ marginRight: 8 }} />
               {t('finance.wallets')}
             </h3>
-            <button className="btn small" onClick={() => navigate('/finance/settings?tab=wallets')}>{t('common.viewAll')}</button>
+            <button className="btn small" onClick={() => navigate('/settings?section=data')}>Data</button>
           </div>
           {loading ? (
             <SkeletonCard lines={3} />
@@ -391,11 +426,197 @@ export default function Finance() {
         <TransactionForm
           wallets={wallets}
           categories={categories}
+          initialMode={txFormMode}
           onClose={() => setShowTxForm(false)}
           onSaved={loadDashboard}
         />
       )}
     </>
+  )
+}
+
+function NativeFinanceDashboard({
+  loading,
+  wallets,
+  recentTransactions,
+  categorySpending,
+  totalBalance,
+  totalIncome,
+  totalExpenses,
+  netFlow,
+  period,
+  setPeriod,
+  navigate,
+  onAddTransaction,
+}) {
+  const periodOptions = [
+    { id: 'week', label: 'Week' },
+    { id: 'month', label: 'Month' },
+    { id: 'year', label: 'Year' },
+    { id: 'all', label: 'All' },
+  ]
+  const topWallets = wallets.slice(0, 3)
+  const visibleTransactions = recentTransactions.slice(0, 5)
+  const visibleCategories = categorySpending.slice(0, 5)
+
+  return (
+    <div className="native-finance-page native-dashboard" data-testid="native-finance-dashboard">
+      <section className="native-finance-hero">
+        <div>
+          <span className="native-eyebrow">Finance</span>
+          <h1>Money</h1>
+          <p>{getPeriodLabel(period)}</p>
+        </div>
+        <div className="native-finance-balance">
+          <span>Total balance</span>
+          <strong>{loading ? '...' : formatCurrency(totalBalance)}</strong>
+        </div>
+      </section>
+
+      <div className="native-finance-periods" role="group" aria-label="Finance period">
+        {periodOptions.map(option => (
+          <button
+            key={option.id}
+            type="button"
+            className={period === option.id ? 'is-active' : ''}
+            onClick={() => setPeriod(option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <section className="native-finance-actions" aria-label="Quick transaction actions">
+        <button type="button" className="native-finance-action native-finance-action--expense" onClick={() => onAddTransaction('expense')}>
+          <Icon name="arrow-up" size={18} />
+          <span>Add expense</span>
+        </button>
+        <button type="button" className="native-finance-action native-finance-action--income" onClick={() => onAddTransaction('income')}>
+          <Icon name="arrow-down" size={18} />
+          <span>Add income</span>
+        </button>
+        <button type="button" className="native-finance-action native-finance-action--transfer" onClick={() => onAddTransaction('transfer')}>
+          <Icon name="arrow-left-right" size={18} />
+          <span>Transfer</span>
+        </button>
+      </section>
+
+      <section className="native-finance-metrics">
+        <NativeFinanceMetric label="Income" value={formatCurrency(totalIncome)} tone="income" />
+        <NativeFinanceMetric label="Expense" value={formatCurrency(Math.abs(totalExpenses))} tone="expense" />
+        <NativeFinanceMetric label="Net" value={formatCurrency(netFlow)} tone={netFlow >= 0 ? 'income' : 'expense'} />
+      </section>
+
+      <section className="native-finance-card">
+        <div className="native-section-head">
+          <div>
+            <h2>Wallets</h2>
+            <p>Balances that transactions will use by default.</p>
+          </div>
+          <button type="button" onClick={() => navigate('/settings?section=data')}>Data</button>
+        </div>
+        <div className="native-wallet-list">
+          {loading ? (
+            <div className="native-empty-state">Loading wallets...</div>
+          ) : topWallets.length === 0 ? (
+            <div className="native-empty-state">No wallets yet.</div>
+          ) : (
+            topWallets.map(wallet => (
+              <div key={wallet.id} className="native-wallet-row">
+                <span style={{ color: wallet.colour || FINANCE_COLOR }}>
+                  <Icon name={wallet.iconName || 'wallet'} size={17} />
+                </span>
+                <strong>{wallet.name}</strong>
+                <em>{formatCurrency(wallet.balance || 0, wallet.currency || 'EUR')}</em>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="native-finance-card">
+        <div className="native-section-head">
+          <div>
+            <h2>Recent transactions</h2>
+            <p>Tap a row to edit it.</p>
+          </div>
+          <button type="button" onClick={() => navigate('/finance/transactions')}>All</button>
+        </div>
+        <div className="native-transaction-list">
+          {loading ? (
+            <div className="native-empty-state">Loading transactions...</div>
+          ) : visibleTransactions.length === 0 ? (
+            <div className="native-empty-state">No transactions yet.</div>
+          ) : (
+            visibleTransactions.map(tx => <NativeTransactionCard key={tx.id} tx={tx} />)
+          )}
+        </div>
+      </section>
+
+      <section className="native-finance-card">
+        <div className="native-section-head">
+          <div>
+            <h2>Spending</h2>
+            <p>Largest categories in this period.</p>
+          </div>
+          <button type="button" onClick={() => navigate('/settings?section=data')}>Data</button>
+        </div>
+        <div className="native-category-spend-list">
+          {loading ? (
+            <div className="native-empty-state">Loading categories...</div>
+          ) : visibleCategories.length === 0 ? (
+            <div className="native-empty-state">No spending data.</div>
+          ) : (
+            visibleCategories.map((category, index) => (
+              <div key={category.categoryId || category.name || index} className="native-category-spend-row">
+                <CategoryIcon
+                  category={{
+                    name: category.categoryName || category.name,
+                    iconName: category.categoryIcon,
+                    colour: category.categoryColour || CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+                  }}
+                  size={34}
+                />
+                <strong>{category.categoryName || category.name || 'Uncategorized'}</strong>
+                <em>{formatCurrency(Math.abs(category.total || category.amount || 0))}</em>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function NativeFinanceMetric({ label, value, tone }) {
+  return (
+    <div className={`native-finance-metric native-finance-metric--${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function NativeTransactionCard({ tx, onClick }) {
+  const txType = getTransactionType(tx)
+  const txColor = getTransactionColor(tx)
+  const txIcon = getTransactionIcon(tx)
+  const sign = txType === 'income' ? '+' : txType === 'expense' ? '-' : ''
+
+  return (
+    <button type="button" className="native-transaction-card" onClick={onClick}>
+      <span className="native-transaction-card__icon" style={{ color: txColor, background: `${txColor}22` }}>
+        <Icon name={tx.category?.iconName || txIcon} size={17} />
+      </span>
+      <span className="native-transaction-card__copy">
+        <strong>{tx.name || tx.description || 'Untitled'}</strong>
+        <small>
+          {formatDate(tx.transactionDate || tx.date)}
+          {tx.wallet?.name ? ` - ${tx.wallet.name}` : ''}
+        </small>
+      </span>
+      <em style={{ color: txColor }}>{sign}{formatCurrency(Math.abs(tx.amount), tx.wallet?.currency || 'EUR')}</em>
+    </button>
   )
 }
 

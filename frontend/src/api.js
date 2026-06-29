@@ -252,6 +252,8 @@ const ENTITY_CACHE_PREFIXES = {
   'workout-session': ['/workout', '/dashboard'],
   'workout-set': ['/workout', '/dashboard'],
   'finance-transaction': ['/finance', '/dashboard'],
+  'finance-transaction-suggestion': ['/finance', '/dashboard'],
+  'activity-daily-metric': ['/activity', '/dashboard'],
   'media-item': ['/media', '/dashboard'],
   stream: ['/streams', '/albums', '/artists', '/playlists', '/dashboard'],
 };

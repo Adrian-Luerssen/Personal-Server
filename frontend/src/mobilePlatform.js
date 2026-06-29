@@ -2,20 +2,34 @@ export const ANDROID_APK_URL =
   import.meta.env?.VITE_ANDROID_APK_URL ||
   'https://github.com/Adrian-Luerssen/Personal-Server/releases/download/android-latest/personal-server.apk';
 
+let nativeMobileAppDetected = false;
+
 export function isNativeMobileApp() {
+  if (nativeMobileAppDetected) return true;
   if (typeof window === 'undefined') return false;
-  if (import.meta.env?.VITE_NATIVE_APP === 'true') return true;
-  if (window.__NATIVE_APP__ === true) return true;
+  if (import.meta.env?.VITE_NATIVE_APP === 'true') {
+    nativeMobileAppDetected = true;
+    return true;
+  }
+  if (window.__NATIVE_APP__ === true) {
+    nativeMobileAppDetected = true;
+    return true;
+  }
 
   const capacitor = window.Capacitor;
   if (capacitor) {
     if (typeof capacitor.isNativePlatform === 'function') {
-      return capacitor.isNativePlatform();
+      nativeMobileAppDetected = Boolean(capacitor.isNativePlatform());
+      return nativeMobileAppDetected;
     }
     if (typeof capacitor.getPlatform === 'function') {
-      return capacitor.getPlatform() !== 'web';
+      nativeMobileAppDetected = capacitor.getPlatform() !== 'web';
+      return nativeMobileAppDetected;
     }
-    if (capacitor.isNative) return true;
+    if (capacitor.isNative) {
+      nativeMobileAppDetected = true;
+      return true;
+    }
   }
 
   const protocol = window.location?.protocol;
@@ -24,7 +38,8 @@ export function isNativeMobileApp() {
     protocol === 'capacitor:' ||
     (import.meta.env?.PROD && hostname === 'localhost' && /Android/i.test(navigator.userAgent || ''));
 
-  return Boolean(nativeAssetOrigin);
+  nativeMobileAppDetected = Boolean(nativeAssetOrigin);
+  return nativeMobileAppDetected;
 }
 
 export function isMobileBrowser() {

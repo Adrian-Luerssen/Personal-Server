@@ -28,11 +28,20 @@ import MediaImport from './pages/Media/MediaImport'
 import MediaSettings from './pages/Media/MediaSettings'
 import ChatPage from './pages/Chat/ChatPage'
 import Settings from './pages/Settings/Settings'
+import MobileMenu from './pages/MobileMenu'
 import SpotifyCallback from './pages/Spotify/SpotifyCallback'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { applyChartTheme } from './chartTheme'
 import { isMobileBrowser, isNativeMobileApp } from './mobilePlatform'
 import { getTokens } from './auth'
+import {
+  getNotificationPermissionStatus,
+  initializeNativeNotifications,
+} from './notifications'
+import {
+  NOTIFICATION_PERMISSION_AUTO_REQUEST_KEY,
+  shouldAutoRequestNativeNotificationPermission,
+} from './notificationPermission.mjs'
 
 applyChartTheme()
 
@@ -59,11 +68,52 @@ const GuardedMediaImport = withRefreshGuard(MediaImport)
 const GuardedMediaSettings = withRefreshGuard(MediaSettings)
 const GuardedChatPage = withRefreshGuard(ChatPage)
 const GuardedSettings = withRefreshGuard(Settings)
+const GuardedMobileMenu = withRefreshGuard(MobileMenu)
 const GuardedSpotifyCallback = withRefreshGuard(SpotifyCallback)
 
 function NativeEntryRedirect() {
   const { accessToken, refreshToken } = getTokens()
   return <Navigate to={accessToken || refreshToken ? '/home' : '/login'} replace />
+}
+
+function NativeNotificationPermissionBoot({ nativeApp }) {
+  useEffect(() => {
+    if (!nativeApp) return
+
+    let cancelled = false
+
+    async function bootNotifications() {
+      const permission = await getNotificationPermissionStatus()
+      if (cancelled) return
+
+      const alreadyAsked =
+        localStorage.getItem(NOTIFICATION_PERMISSION_AUTO_REQUEST_KEY) === 'true'
+
+      if (
+        shouldAutoRequestNativeNotificationPermission({
+          nativeApp,
+          alreadyAsked,
+          permission,
+        })
+      ) {
+        localStorage.setItem(NOTIFICATION_PERMISSION_AUTO_REQUEST_KEY, 'true')
+        await initializeNativeNotifications({ requestIfPrompt: true })
+        return
+      }
+
+      if (permission === 'granted') {
+        await initializeNativeNotifications({ requestIfPrompt: false })
+      }
+    }
+
+    bootNotifications().catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [nativeApp])
+
+  return null
 }
 
 export default function AppRouter() {
@@ -86,6 +136,7 @@ export default function AppRouter() {
     <PreferencesProvider>
       <BrowserRouter>
         <div className="app">
+          <NativeNotificationPermissionBoot nativeApp={nativeApp} />
           {mobileBlocked ? (
             <Routes>
               <Route path="/" element={<Landing mobileGate />} />
@@ -99,6 +150,7 @@ export default function AppRouter() {
 
             <Route element={<AuthGuard><Layout /></AuthGuard>}>
               <Route path="/home" element={<GuardedHome />} />
+              <Route path="/menu" element={<GuardedMobileMenu />} />
               <Route path="/profile" element={<Navigate to="/settings" replace />} />
               <Route path="/spotify" element={<GuardedSpotifyPersonal />} />
               <Route path="/spotify/personal" element={<GuardedSpotifyPersonal />} />

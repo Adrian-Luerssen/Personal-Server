@@ -9,6 +9,8 @@ import {
   formatDuration,
   formatNumberShort,
 } from '../../components/shared'
+import { isNativeMobileApp } from '../../mobilePlatform'
+import { getSpotifyProfileImageUrl } from '../../spotifyRanking.mjs'
 
 const TIMEFRAMES = [
   { label: 'Day', value: 'today' },
@@ -44,7 +46,12 @@ function initials(name) {
 
 function UserAvatar({ user, size = 34 }) {
   const [failed, setFailed] = useState(false)
-  const showImage = Boolean(user.profileImageUrl && !failed)
+  const profileImageUrl = getSpotifyProfileImageUrl(user)
+  const showImage = Boolean(profileImageUrl && !failed)
+
+  useEffect(() => {
+    setFailed(false)
+  }, [profileImageUrl])
 
   return (
     <div
@@ -65,7 +72,7 @@ function UserAvatar({ user, size = 34 }) {
     >
       {showImage ? (
         <img
-          src={user.profileImageUrl}
+          src={profileImageUrl}
           alt=""
           loading="lazy"
           onError={() => setFailed(true)}
@@ -117,11 +124,30 @@ function RankingPodiumCard({ user }) {
   )
 }
 
+function RankingMobileRow({ user }) {
+  return (
+    <div className="native-ranking-row">
+      <div className="native-ranking-row__rank">#{user.rank}</div>
+      <UserAvatar user={user} size={40} />
+      <div className="native-ranking-row__copy">
+        <strong>{user.displayName}</strong>
+        <span>{user.spotifyUserId || 'Spotify user'}</span>
+        <small>{formatDateTime(user.lastStream)}</small>
+      </div>
+      <div className="native-ranking-row__stats">
+        <strong>{formatNumberShort(user.streamCount)}</strong>
+        <span>streams</span>
+      </div>
+    </div>
+  )
+}
+
 export default function SpotifyRanking() {
   const [timeframe, setTimeframe] = useState('week')
   const [ranking, setRanking] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const nativeApp = isNativeMobileApp()
 
   useEffect(() => {
     let ignore = false
@@ -156,15 +182,15 @@ export default function SpotifyRanking() {
   }, [rows])
 
   return (
-    <>
+    <div className={nativeApp ? 'native-spotify-ranking' : undefined}>
       <PageHeader icon="trophy" title="Spotify Ranking" />
 
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="tab-group">
+        <div className={nativeApp ? 'native-ranking-timeframes' : 'tab-group'}>
           {TIMEFRAMES.map(option => (
             <button
               key={option.value}
-              className={`tab-btn${timeframe === option.value ? ' active' : ''}`}
+              className={nativeApp ? (timeframe === option.value ? 'is-active' : '') : `tab-btn${timeframe === option.value ? ' active' : ''}`}
               onClick={() => setTimeframe(option.value)}
             >
               {option.label}
@@ -220,6 +246,22 @@ export default function SpotifyRanking() {
       </div>
 
       <div className="section">
+        {nativeApp ? (
+          <div className="card native-ranking-card">
+            <h3 style={{ marginTop: 0 }}>Full Ranking</h3>
+            {loading ? (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {Array.from({ length: 6 }).map((_, i) => <LoadingLine key={i} width="100%" />)}
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="empty-state">No ranked users yet.</div>
+            ) : (
+              <div className="native-ranking-list">
+                {rows.map(user => <RankingMobileRow key={user.accountId} user={user} />)}
+              </div>
+            )}
+          </div>
+        ) : (
         <div className="card" style={{ overflowX: 'auto' }}>
           <h3 style={{ marginTop: 0 }}>Full Ranking</h3>
           {loading ? (
@@ -277,7 +319,8 @@ export default function SpotifyRanking() {
             </table>
           )}
         </div>
+        )}
       </div>
-    </>
+    </div>
   )
 }

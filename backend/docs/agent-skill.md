@@ -35,6 +35,8 @@ Each agent key is assigned one or more scopes. Requests to endpoints outside the
 | `profile:read` | Read basic profile info |
 | `chat:read` | Read chat conversations and messages |
 | `chat:write` | Send messages and update message status |
+| `notifications:read` | Read app notification delivery state |
+| `notifications:write` | Create custom notifications for the user |
 
 ---
 
@@ -404,6 +406,60 @@ curl -X POST \
   "status": "delivered",
   "replyToId": "msg-uuid",
   "createdAt": "2026-03-09T14:30:05.000Z"
+}
+```
+
+### 3.6 Notification Endpoints
+
+Notification endpoints let the agent write contextual alerts for the user. The backend persists the notification; the mobile app decides whether to deliver it based on notification permission and user settings.
+
+#### POST /api/v1/notifications
+
+Create a custom notification.
+
+**Scope:** `notifications:write`
+
+**Request Body:**
+```json
+{
+  "title": "Workout review",
+  "body": "Your weekly workout consistency dropped below target.",
+  "category": "workout",
+  "priority": "high",
+  "actionUrl": "/workout",
+  "scheduledFor": "2026-06-25T20:00:00.000Z",
+  "metadata": { "reason": "weekly_review" }
+}
+```
+
+- `title` (string, required) - Short notification title, max 120 characters.
+- `body` (string, required) - Notification body, max 600 characters.
+- `category` (string, optional) - `assistant`, `habits`, `workout`, `finance`, `music`, `media`, `system`, or `updates`.
+- `priority` (string, optional) - `low`, `normal`, or `high`.
+- `actionUrl` (string, optional) - In-app route the user should open.
+- `scheduledFor` (ISO string, optional) - Defer delivery until this time.
+- `metadata` (object, optional) - Structured reason/context for auditability.
+
+```bash
+curl -X POST \
+  -H "X-API-Key: ps_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Workout review","body":"Your weekly workout consistency dropped below target.","category":"workout","priority":"high","actionUrl":"/workout"}' \
+  "https://your-server.com/api/v1/notifications"
+```
+
+**Response:**
+```json
+{
+  "id": "notification-uuid",
+  "source": "agent",
+  "status": "pending",
+  "category": "workout",
+  "priority": "high",
+  "title": "Workout review",
+  "body": "Your weekly workout consistency dropped below target.",
+  "actionUrl": "/workout",
+  "createdAt": "2026-06-25T14:30:00.000Z"
 }
 ```
 

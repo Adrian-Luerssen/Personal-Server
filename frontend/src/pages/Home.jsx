@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, subscribeToApiPath } from '../api'
+import { saveAndroidWidgetSnapshot } from '../androidWidgets.mjs'
 import { AnimatedNumber, formatDuration, formatNumberShort } from '../components/shared'
 import PageHeader from '../components/PageHeader'
 import ProgressRing from '../components/ProgressRing'
@@ -349,6 +350,7 @@ export default function Home() {
 
   const applyMobileSnapshot = useCallback((snapshot) => {
     if (!snapshot) return
+    saveAndroidWidgetSnapshot(snapshot).catch(() => {})
     setIntelligence(snapshot.intelligence || null)
     setSpotifyStats(snapshot.spotify?.stats || null)
     setWorkoutTotals(snapshot.workout?.totals || null)
@@ -539,6 +541,26 @@ export default function Home() {
       }
     }))
 
+    const nextHabits = (habitsSummary || []).map((item) => {
+      const itemId = item.id || item.habitId
+      if (itemId !== habitId) return item
+      return {
+        ...item,
+        todayStatus: nextStatus === 'none' ? null : nextStatus,
+        completedToday: nextStatus === 'success',
+      }
+    })
+
+    saveAndroidWidgetSnapshot({
+      generatedAt: new Date().toISOString(),
+      intelligence: intelligenceFallback,
+      habits: { today: nextHabits },
+      workout: { totals: workoutTotals },
+      finance: { summary: financeSummary },
+      spotify: { stats: spotifyStats },
+      weeklySummary,
+    }).catch(() => {})
+
     try {
       if (nextStatus === 'none') {
         await api.delete(`/habits/${habitId}/entries/${date}`)
@@ -550,7 +572,7 @@ export default function Home() {
     } catch {
       setHabitsSummary(previous)
     }
-  }, [habitsSummary])
+  }, [financeSummary, habitsSummary, intelligenceFallback, spotifyStats, weeklySummary, workoutTotals])
 
   if (nativeApp) {
     return (

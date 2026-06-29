@@ -13,6 +13,7 @@ import { isNativeMobileApp } from '../../mobilePlatform'
 import { streamImportProgress } from '../../importProgress.mjs'
 import {
   cancelNotifications,
+  getNotificationPermissionStatus,
   requestNotificationPermission,
   scheduleHabitReminder,
   scheduleWorkoutReminder,
@@ -933,6 +934,13 @@ function RemindersTab() {
   const [testSent, setTestSent] = useState(false)
 
   const isSupported = nativeApp || typeof Notification !== 'undefined'
+
+  useEffect(() => {
+    if (!nativeApp) return
+    getNotificationPermissionStatus()
+      .then(setPermission)
+      .catch(() => setPermission('unsupported'))
+  }, [nativeApp])
 
   useEffect(() => {
     if (!nativeApp || !enabled) return

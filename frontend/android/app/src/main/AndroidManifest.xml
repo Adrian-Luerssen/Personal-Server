@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -24,6 +28,31 @@
 
         </activity>
 
+        <activity
+            android:name=".health.HealthConnectPermissionActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.NoActionBar" />
+
+        <activity
+            android:name=".health.HealthConnectRationaleActivity"
+            android:exported="true"
+            android:permission="com.google.android.apps.healthdata.permission.START_ONBOARDING"
+            android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_ONBOARDING" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".payments.PaymentNotificationListenerService"
+            android:exported="false"
+            android:label="@string/payment_detection_service_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -33,10 +62,50 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <receiver
+            android:name=".widgets.PersonalServerTodayWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_today_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today_summary_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widgets.PersonalServerHabitsWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_habits_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_habits_summary_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widgets.PersonalServerLockScreenWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_lock_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_lock_screen_summary_info" />
+        </receiver>
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
 </manifest>

@@ -5,6 +5,11 @@ import { api, clearApiCache } from '../api'
 import { useTheme } from '../contexts/PreferencesContext'
 import Icon from './icons/Icon'
 import { isNativeMobileApp } from '../mobilePlatform'
+import {
+  getNativeAppForPath,
+  getNativeTabsForPath,
+  isNativeDestinationActive,
+} from '../nativeNavigation.mjs'
 
 function useIsMobile(breakpoint = 640) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= breakpoint)
@@ -132,30 +137,27 @@ export default function Sidebar({ collapsed, onToggle }) {
   }
 
   if (nativeApp) {
-    const nativeTabs = [
-      { to: '/home', match: '/home', icon: 'home', label: 'Today' },
-      { to: '/workout', match: '/workout', icon: 'dumbbell', label: 'Train', dot: hasActiveWorkout },
-      { to: '/habits', match: '/habits', icon: 'heart-pulse', label: 'Habits', badge: incompleteHabits > 0 ? incompleteHabits : null },
-      { to: '/finance', match: '/finance', icon: 'wallet', label: 'Money' },
-      { to: '/chat', match: '/chat', icon: 'message-square', label: 'Chat' },
-    ]
+    const currentApp = getNativeAppForPath(location.pathname)
+    const nativeTabs = getNativeTabsForPath(location.pathname)
 
     return (
-      <aside className="sidebar native-tabbar" aria-label="Primary app navigation">
+      <aside className={`sidebar native-tabbar native-tabbar--${currentApp.tone}`} aria-label={`${currentApp.label} app navigation`}>
         <nav className="nav">
           {nativeTabs.map((tab) => {
-            const active = location.pathname.startsWith(tab.match)
+            const active = isNativeDestinationActive(tab, location.pathname, location.search)
+            const dot =
+              (tab.to.startsWith('/workout') && hasActiveWorkout && !location.pathname.startsWith('/workout/active')) ||
+              (tab.to.startsWith('/habits') && incompleteHabits > 0 && tab.to === '/habits')
             return (
               <NavLink
-                key={tab.match}
+                key={tab.to}
                 to={tab.to}
                 className={'nav-link native-tabbar__item' + (active ? ' active' : '')}
                 aria-current={active ? 'page' : undefined}
               >
                 <Icon name={tab.icon} size={21} />
                 <span>{tab.label}</span>
-                {tab.badge && <span className="nav-badge">{tab.badge}</span>}
-                {tab.dot && <span className="nav-badge-dot" />}
+                {dot && <span className="nav-badge-dot" />}
               </NavLink>
             )
           })}
@@ -249,10 +251,6 @@ export default function Sidebar({ collapsed, onToggle }) {
               <Icon name="scale" size={20} />
               {!collapsed && <span>{t('nav.workoutBodyweight')}</span>}
             </NavLink>
-            <NavLink to="/workout/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
-              <Icon name="download" size={20} />
-              {!collapsed && <span>{t('nav.workoutImport')}</span>}
-            </NavLink>
           </div>
         )}
 
@@ -278,14 +276,6 @@ export default function Sidebar({ collapsed, onToggle }) {
               <Icon name="receipt" size={20} />
               {!collapsed && <span>{t('nav.financeTransactions')}</span>}
             </NavLink>
-            <NavLink to="/finance/settings?tab=wallets" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
-              <Icon name="landmark" size={20} />
-              {!collapsed && <span>{t('nav.financeWallets')}</span>}
-            </NavLink>
-            <NavLink to="/finance/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
-              <Icon name="download" size={20} />
-              {!collapsed && <span>{t('nav.financeImport')}</span>}
-            </NavLink>
           </div>
         )}
 
@@ -306,14 +296,6 @@ export default function Sidebar({ collapsed, onToggle }) {
             <NavLink to="/media" end className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
               <Icon name="library" size={20} />
               {!collapsed && <span>Library</span>}
-            </NavLink>
-            <NavLink to="/media/import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
-              <Icon name="download" size={20} />
-              {!collapsed && <span>Import</span>}
-            </NavLink>
-            <NavLink to="/media/settings" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
-              <Icon name="settings" size={20} />
-              {!collapsed && <span>Settings</span>}
             </NavLink>
           </div>
         )}
@@ -336,10 +318,6 @@ export default function Sidebar({ collapsed, onToggle }) {
             <NavLink to="/habits" end className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
               <Icon name="layout-dashboard" size={20} />
               {!collapsed && <span>{t('nav.habitsDashboard')}</span>}
-            </NavLink>
-            <NavLink to="/habits/settings?tab=import" className={({isActive}) => 'nav-link' + (isActive ? ' active' : '')} role="menuitem">
-              <Icon name="download" size={20} />
-              {!collapsed && <span>{t('nav.habitsImport')}</span>}
             </NavLink>
           </div>
         )}

@@ -23,7 +23,7 @@ const HABITS_COLOR = '#a78bfa'
  *  - progress: { weekly: { [weekStart]: [...] }, monthly: [...], yearly: [...] }
  *  - onDayClick: (dateStr) => void
  */
-export default function HabitCalendarGrid({ month, habitsMap, entries, progress, onDayClick }) {
+export default function HabitCalendarGrid({ month, habitsMap, entries, progress, onDayClick, compact = false }) {
   const [year, mon] = month.split('-').map(Number)
   const today = new Date().toISOString().slice(0, 10)
 
@@ -102,6 +102,10 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   const hasWeeklyGoals = Object.values(progress?.weekly || {}).some(w => w.length > 0)
+  const showWeeklyGoalsColumn = hasWeeklyGoals && !compact
+  const compactWeeklyProgress = compact && hasWeeklyGoals
+    ? Object.values(progress?.weekly || {}).flat().filter(Boolean)
+    : []
 
   return (
     <div>
@@ -150,14 +154,17 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
       )}
 
       {/* Calendar Grid */}
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ overflowX: compact ? 'visible' : 'auto', WebkitOverflowScrolling: compact ? undefined : 'touch', maxWidth: '100%' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: hasWeeklyGoals
+          gridTemplateColumns: compact
+            ? `22px repeat(7, minmax(0, 1fr))`
+            : showWeeklyGoalsColumn
             ? `28px repeat(7, 1fr) minmax(110px, auto)`
             : `28px repeat(7, 1fr)`,
           gap: '2px',
-          minWidth: hasWeeklyGoals ? 600 : 350,
+          minWidth: compact ? 0 : showWeeklyGoalsColumn ? 600 : 350,
+          width: compact ? '100%' : undefined,
         }}>
           {/* Header row */}
           <div /> {/* week label column */}
@@ -173,7 +180,7 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
               {d.slice(0, 1)}
             </div>
           ))}
-          {hasWeeklyGoals && (
+          {showWeeklyGoalsColumn && (
             <div style={{
               fontSize: '0.65rem',
               fontWeight: 600,
@@ -209,7 +216,7 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
                 {/* Day cells */}
                 {week.map((day, di) => {
                   if (!day) {
-                    return <div key={di} style={{ minHeight: 48 }} />
+                    return <div key={di} style={{ minHeight: compact ? 38 : 48 }} />
                   }
 
                   const dayEntries = entriesByDate[day.date] || []
@@ -224,7 +231,7 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
                         background: 'var(--color-bg-elevated)',
                         borderRadius: 6,
                         padding: '3px',
-                        minHeight: 48,
+                        minHeight: compact ? 38 : 48,
                         cursor: 'pointer',
                         opacity: isFuture ? 0.5 : 1,
                         outline: isToday ? `2px solid ${HABITS_COLOR}` : 'none',
@@ -255,8 +262,8 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
                             <div
                               key={habit.id}
                               style={{
-                                width: 14,
-                                height: 14,
+                                width: compact ? 10 : 14,
+                                height: compact ? 10 : 14,
                                 borderRadius: 3,
                                 background: bg,
                                 display: 'flex',
@@ -265,7 +272,7 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
                               }}
                               title={`${habit.name}: ${entry ? entry.status : 'not tracked'}`}
                             >
-                              <Icon name={habit.iconName || 'circle-check'} size={8} style={{ color }} />
+                                <Icon name={habit.iconName || 'circle-check'} size={compact ? 6 : 8} style={{ color }} />
                             </div>
                           )
                         })}
@@ -280,8 +287,8 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
                               <div
                                 key={e.habitId}
                                 style={{
-                                  width: 14,
-                                  height: 14,
+                                  width: compact ? 10 : 14,
+                                  height: compact ? 10 : 14,
                                   borderRadius: 3,
                                   background: `${STATUS_COLORS[e.status]}33`,
                                   display: 'flex',
@@ -290,7 +297,7 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
                                 }}
                                 title={`${habit.name}: ${e.status}`}
                               >
-                                <Icon name={habit.iconName || 'circle-check'} size={8} style={{ color: STATUS_COLORS[e.status] }} />
+                                <Icon name={habit.iconName || 'circle-check'} size={compact ? 6 : 8} style={{ color: STATUS_COLORS[e.status] }} />
                               </div>
                             )
                           })}
@@ -300,7 +307,7 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
                 })}
 
                 {/* Weekly sidebar */}
-                {hasWeeklyGoals && (
+                {showWeeklyGoalsColumn && (
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -318,6 +325,19 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
           })}
         </div>
       </div>
+
+      {compactWeeklyProgress.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: '0.35rem',
+          flexWrap: 'wrap',
+          marginTop: '0.65rem',
+        }}>
+          {compactWeeklyProgress.map((habit, index) => (
+            <ProgressChip key={`${habit.habitId}-${index}`} habit={habit} compact />
+          ))}
+        </div>
+      )}
 
       {/* Legend */}
       <div style={{

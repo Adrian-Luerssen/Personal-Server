@@ -780,7 +780,7 @@ export class DashboardService {
               "distanceMeters",
               "activeCalories",
               "syncedAt"
-       FROM activity_daily_metrics
+       FROM app_activity_daily_metrics
        WHERE "accountId" = $1
          AND date >= $2
          AND date < $3

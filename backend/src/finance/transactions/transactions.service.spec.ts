@@ -82,8 +82,8 @@ describe('TransactionsService', () => {
     expect(qb.andWhere).toHaveBeenCalledWith('t."transactionDate" >= :from', {
       from: new Date('2026-04-01'),
     });
-    expect(qb.andWhere).toHaveBeenCalledWith('t."transactionDate" <= :to', {
-      to: new Date('2026-04-07'),
+    expect(qb.andWhere).toHaveBeenCalledWith('t."transactionDate" < :to', {
+      to: new Date('2026-04-08T00:00:00.000Z'),
     });
     expect(qb.andWhere).toHaveBeenCalledWith('t."isIncome" = :isIncome', {
       isIncome: false,
@@ -108,8 +108,8 @@ describe('TransactionsService', () => {
         'category."iconName"',
       ]),
     );
-    expect(qb.orderBy).toHaveBeenCalledWith('t."transactionDate"', 'DESC');
-    expect(qb.addOrderBy).toHaveBeenCalledWith('t."createdAt"', 'DESC');
+    expect(qb.orderBy).toHaveBeenCalledWith('t.transactionDate', 'DESC');
+    expect(qb.addOrderBy).toHaveBeenCalledWith('t.createdAt', 'DESC');
   });
 
   it('should quote mixed-case finance columns in summary and daily aggregation queries', async () => {
@@ -136,5 +136,26 @@ describe('TransactionsService', () => {
       isIncome: false,
     });
     expect(dailyQb.select).toHaveBeenCalledWith('DATE(t."transactionDate")', 'date');
+  });
+
+  it('should make date-only upper bounds include the whole day', async () => {
+    const qb = makeQueryBuilder();
+    repo.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll(account, {
+      from: '2026-06-01',
+      to: '2026-06-29',
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('t."transactionDate" >= :from', {
+      from: new Date('2026-06-01T00:00:00.000Z'),
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('t."transactionDate" < :to', {
+      to: new Date('2026-06-30T00:00:00.000Z'),
+    });
+    expect(qb.andWhere).not.toHaveBeenCalledWith(
+      't."transactionDate" <= :to',
+      expect.anything(),
+    );
   });
 });

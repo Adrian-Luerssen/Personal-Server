@@ -56,10 +56,18 @@ export class TransactionsService {
       );
     }
     if (filters.from) {
-      qb.andWhere('t."transactionDate" >= :from', { from: new Date(filters.from) });
+      qb.andWhere('t."transactionDate" >= :from', {
+        from: this.parseDateFilter(filters.from, "from").value,
+      });
     }
     if (filters.to) {
-      qb.andWhere('t."transactionDate" <= :to', { to: new Date(filters.to) });
+      const to = this.parseDateFilter(filters.to, "to");
+      qb.andWhere(
+        to.dateOnly
+          ? 't."transactionDate" < :to'
+          : 't."transactionDate" <= :to',
+        { to: to.value }
+      );
     }
     if (filters.isIncome !== undefined) {
       qb.andWhere('t."isIncome" = :isIncome', { isIncome: filters.isIncome });
@@ -116,7 +124,7 @@ export class TransactionsService {
 
     this.applyFilters(qb, account.id, filters);
 
-    qb.orderBy('t."transactionDate"', "DESC").addOrderBy('t."createdAt"', "DESC");
+    qb.orderBy("t.transactionDate", "DESC").addOrderBy("t.createdAt", "DESC");
     qb.skip(offset).take(limit);
 
     const [items, total] = await qb.getManyAndCount();
@@ -335,5 +343,27 @@ export class TransactionsService {
       operation,
       payload: operation === SyncOperation.DELETE ? null : transaction,
     });
+  }
+
+  private parseDateFilter(
+    value: string,
+    boundary: "from" | "to"
+  ): { value: Date; dateOnly: boolean } {
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const parsed = dateOnly
+      ? new Date(`${value}T00:00:00.000Z`)
+      : new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`Invalid ${boundary} date filter`);
+    }
+
+    if (boundary === "to" && dateOnly) {
+      const nextDay = new Date(parsed);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      return { value: nextDay, dateOnly: true };
+    }
+
+    return { value: parsed, dateOnly };
   }
 }

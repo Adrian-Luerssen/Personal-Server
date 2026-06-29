@@ -8,10 +8,16 @@ const mainActivityPath = resolve(
   'android/app/src/main/java/com/adrianluerssen/personalserver/MainActivity.java',
 )
 const mainActivity = readFileSync(mainActivityPath, 'utf8')
+const manifestPath = resolve(process.cwd(), 'android/app/src/main/AndroidManifest.xml')
+const manifest = readFileSync(manifestPath, 'utf8')
 const stylesPath = resolve(process.cwd(), 'android/app/src/main/res/values/styles.xml')
 const styles = readFileSync(stylesPath, 'utf8')
 const indexHtmlPath = resolve(process.cwd(), 'index.html')
 const indexHtml = readFileSync(indexHtmlPath, 'utf8')
+const updaterPluginPath = resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/updates/PersonalServerUpdatePlugin.java',
+)
 
 test('native Android activity colors system bars to match the app shell', () => {
   assert.match(mainActivity, /setStatusBarColor/)
@@ -39,4 +45,15 @@ test('native Android back gesture navigates WebView history before backgrounding
   assert.match(mainActivity, /webView\.canGoBack\(\)/)
   assert.match(mainActivity, /webView\.goBack\(\)/)
   assert.match(mainActivity, /moveTaskToBack\(true\)/)
+})
+
+test('native Android shell exposes an in-app APK installer bridge', () => {
+  const updaterPlugin = readFileSync(updaterPluginPath, 'utf8')
+  assert.match(mainActivity, /PersonalServerUpdatePlugin/)
+  assert.match(manifest, /android\.permission\.REQUEST_INSTALL_PACKAGES/)
+  assert.match(updaterPlugin, /@CapacitorPlugin\(name = "PersonalServerUpdater"\)/)
+  assert.match(updaterPlugin, /installUpdate/)
+  assert.match(updaterPlugin, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/)
+  assert.match(updaterPlugin, /application\/vnd\.android\.package-archive/)
+  assert.match(updaterPlugin, /FileProvider\.getUriForFile/)
 })

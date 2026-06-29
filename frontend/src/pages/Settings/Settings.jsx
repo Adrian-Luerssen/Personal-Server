@@ -9,7 +9,7 @@ import DataManagement from './DataManagement'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 import { APP_BUILD_TIME, APP_VERSION, formatBuildTime } from '../../appVersion.mjs'
-import { ANDROID_APK_URL, isNativeMobileApp } from '../../mobilePlatform'
+import { isNativeMobileApp } from '../../mobilePlatform'
 import { checkDataValidity, clearApiCache } from '../../api'
 import {
   deliverCustomNotification,
@@ -17,13 +17,18 @@ import {
   initializeNativeNotifications,
   openExactNotificationSettings,
 } from '../../notifications'
-import { checkForAndroidUpdate } from '../../appUpdate'
+import { checkForAndroidUpdate, installAndroidUpdate } from '../../appUpdate'
 import {
+  configureNativeStepSync,
   getHealthConnectStatus,
+  getNativeStepSyncStatus,
   getSyncedActivityMetrics,
   openHealthConnectSettings,
+  readStepSyncPreferences,
   requestHealthConnectPermissions,
+  stopLiveStepUpdates,
   syncHealthConnectSteps,
+  writeStepSyncPreferences,
 } from '../../nativeHealth.mjs'
 import {
   readNotificationPreferences,
@@ -384,18 +389,22 @@ function NativeIntegrationsSection() {
   const [health, setHealth] = useState({ status: 'checking', available: false, action: 'unsupported' })
   const [activity, setActivity] = useState({ today: null, week: { steps: 0, daysWithData: 0 }, recent: [] })
   const [payments, setPayments] = useState({ supported: false, enabled: false, notificationAccess: false, pendingCount: 0 })
+  const [stepPreferences, setStepPreferences] = useState(() => readStepSyncPreferences())
+  const [stepSync, setStepSync] = useState({ supported: false, enabled: false, scheduled: false })
   const [status, setStatus] = useState('Ready')
   const [busy, setBusy] = useState(false)
 
   async function refresh() {
-    const [healthStatus, paymentStatus, activityStatus] = await Promise.all([
+    const [healthStatus, paymentStatus, activityStatus, nativeStepSync] = await Promise.all([
       getHealthConnectStatus(),
       getPaymentDetectionStatus(),
       getSyncedActivityMetrics({ days: 7 }).catch(() => null),
+      getNativeStepSyncStatus().catch(() => null),
     ])
     setHealth(healthStatus)
     setPayments(paymentStatus)
     if (activityStatus) setActivity(activityStatus)
+    if (nativeStepSync) setStepSync(nativeStepSync)
   }
 
   useEffect(() => {
@@ -411,6 +420,8 @@ function NativeIntegrationsSection() {
         setStatus('Health Connect permission granted. Syncing recent steps...')
         const synced = await syncHealthConnectSteps({ days: 30 })
         setStatus(`Health Connect ready. Synced ${synced.imported || 0} daily step records.`)
+        const configured = await configureNativeStepSync({ preferences: stepPreferences }).catch(() => null)
+        if (configured) setStepSync(configured)
         await checkDataValidity()
         const latest = await getSyncedActivityMetrics({ days: 7 }).catch(() => null)
         if (latest) setActivity(latest)
@@ -439,6 +450,24 @@ function NativeIntegrationsSection() {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function updateStepSync(patch) {
+    const next = writeStepSyncPreferences(localStorage, patch)
+    setStepPreferences(next)
+    if (patch.liveEnabled === false) {
+      stopLiveStepUpdates().catch(() => {})
+    }
+    const configured = await configureNativeStepSync({ preferences: next }).catch((error) => ({
+      supported: false,
+      enabled: false,
+      scheduled: false,
+      lastError: error.message,
+    }))
+    setStepSync(configured)
+    setStatus(next.backgroundEnabled
+      ? 'Background step sync configured. Android will run it periodically when constraints allow.'
+      : 'Background step sync disabled. Live in-app steps can still run when enabled.')
   }
 
   async function togglePaymentDetection() {
@@ -486,6 +515,10 @@ function NativeIntegrationsSection() {
             <span>Status</span>
             <strong>{health.permissionsGranted ? 'Ready' : health.available ? 'Permission needed' : health.status}</strong>
           </div>
+          <div className="native-status-strip">
+            <span>Background sync</span>
+            <strong>{stepSync.enabled ? (stepSync.scheduled ? `Every ${stepSync.intervalMinutes} min` : 'Enabled') : 'Off'}</strong>
+          </div>
           <div className="native-health-summary">
             <div>
               <span>Today</span>
@@ -511,6 +544,25 @@ function NativeIntegrationsSection() {
               <Icon name="settings" size={18} />
               Health settings
             </button>
+          </div>
+          <div className="native-toggle-list">
+            <NativePreferenceToggle
+              enabled={stepPreferences.liveEnabled}
+              label="Live in-app steps"
+              description="Stream step changes while Personal Server is open."
+              onChange={(liveEnabled) => updateStepSync({ liveEnabled })}
+            />
+            <NativePreferenceToggle
+              enabled={stepPreferences.backgroundEnabled}
+              label="Background step sync"
+              description="Let Android periodically sync Health Connect steps while the app is closed."
+              onChange={(backgroundEnabled) => updateStepSync({ backgroundEnabled })}
+            />
+          </div>
+          <div className="native-info-list">
+            <span>Live mode is instant while the app is open.</span>
+            <span>Background mode uses Android WorkManager, so runs are periodic and battery-aware rather than continuous.</span>
+            {stepSync.lastError && <span>Last background issue: {stepSync.lastError}</span>}
           </div>
         </article>
 
@@ -595,10 +647,27 @@ function NativeUpdatesSection() {
   const [update, setUpdate] = useState(null)
 
   async function checkUpdate() {
-    setStatus('Checking GitHub release...')
+    setStatus('Checking app version policy...')
     const next = await checkForAndroidUpdate({ force: true })
     setUpdate(next)
     setStatus(next ? `Update available: ${next.version}` : 'Installed APK is current or no APK release was found.')
+  }
+
+  async function installUpdate() {
+    if (!update) {
+      setStatus('Check for an update first.')
+      return
+    }
+    setStatus('Preparing APK installer...')
+    const result = await installAndroidUpdate(update).catch((error) => ({
+      started: false,
+      message: error.message,
+    }))
+    if (result?.needsPermission) {
+      setStatus('Allow Personal Server to install unknown apps, then try again.')
+      return
+    }
+    setStatus(result?.started === false ? (result?.message || 'Installer could not start.') : 'Android installer opened.')
   }
 
   return (
@@ -622,11 +691,18 @@ function NativeUpdatesSection() {
           <Icon name="refresh-cw" size={18} />
           Check update
         </button>
-        <a className="native-secondary-button" href={update?.apkUrl || ANDROID_APK_URL} target="_blank" rel="noreferrer">
+        <button type="button" className="native-secondary-button" onClick={installUpdate} disabled={!update}>
           <Icon name="download" size={18} />
-          APK
-        </a>
+          Install
+        </button>
       </div>
+      {update?.changelog && (
+        <div className="native-info-list">
+          {(update.changelog.features || []).slice(0, 4).map((item, index) => (
+            <span key={`feature-${index}`}>{item}</span>
+          ))}
+        </div>
+      )}
     </section>
   )
 }

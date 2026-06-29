@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import com.adrianluerssen.personalserver.health.PersonalServerHealthPlugin;
 import com.adrianluerssen.personalserver.payments.PersonalServerPaymentsPlugin;
+import com.adrianluerssen.personalserver.updates.PersonalServerUpdatePlugin;
 import com.adrianluerssen.personalserver.widgets.PersonalServerWidgetsPlugin;
 
 public class MainActivity extends BridgeActivity {
@@ -22,6 +23,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(PersonalServerHealthPlugin.class);
         registerPlugin(PersonalServerPaymentsPlugin.class);
+        registerPlugin(PersonalServerUpdatePlugin.class);
         registerPlugin(PersonalServerWidgetsPlugin.class);
         super.onCreate(savedInstanceState);
         configureSystemBars();

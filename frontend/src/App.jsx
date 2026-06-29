@@ -10,6 +10,7 @@ import SpotifyRanking from './pages/Spotify/SpotifyRanking'
 import withRefreshGuard from './withRefreshGuard'
 import Layout from './components/Layout'
 import AuthGuard from './components/AuthGuard'
+import NativeUpdateGate from './components/NativeUpdateGate'
 import Landing from './pages/Landing'
 import Workout from './pages/Workout/Workout'
 import WorkoutActive from './pages/Workout/WorkoutActive'
@@ -137,6 +138,7 @@ export default function AppRouter() {
       <BrowserRouter>
         <div className="app">
           <NativeNotificationPermissionBoot nativeApp={nativeApp} />
+          <NativeUpdateGate nativeApp={nativeApp} />
           {mobileBlocked ? (
             <Routes>
               <Route path="/" element={<Landing mobileGate />} />

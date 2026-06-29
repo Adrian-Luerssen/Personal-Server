@@ -1,4 +1,4 @@
-import { getApiBase } from "./config";
+import { getApiBase } from "./config.js";
 
 export function getTokens() {
   return {

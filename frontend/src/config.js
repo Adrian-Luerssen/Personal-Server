@@ -1,4 +1,4 @@
-import { isNativeMobileApp } from "./mobilePlatform";
+import { isNativeMobileApp } from "./mobilePlatform.js";
 
 const LOCAL_DEV_API_BASE = "http://localhost:4051";
 

@@ -5,6 +5,8 @@ import test from 'node:test'
 
 const workflowPath = resolve(process.cwd(), '../.github/workflows/android-release.yml')
 const workflow = readFileSync(workflowPath, 'utf8')
+const metadataScript = readFileSync(resolve(process.cwd(), 'scripts/generate-android-release-metadata.mjs'), 'utf8')
+const syncScript = readFileSync(resolve(process.cwd(), 'scripts/sync-android-release-version.mjs'), 'utf8')
 
 test('android release workflow runs automatically for every main-branch push', () => {
   assert.match(workflow, /push:\s*\n\s+branches:\s*\n\s+- main/)
@@ -28,8 +30,17 @@ test('android release workflow injects the generated release version into the AP
 
 test('android release workflow publishes a real changelog in release notes', () => {
   assert.match(workflow, /fetch-depth:\s*0/)
-  assert.match(workflow, /PREVIOUS_ANDROID_TAG=/)
-  assert.match(workflow, /CHANGELOG_COMMITS=/)
-  assert.match(workflow, /### Changelog/)
-  assert.match(workflow, /"changelog": \{/)
+  assert.match(metadataScript, /previousAndroidTag/)
+  assert.match(workflow, /generate-android-release-metadata\.mjs/)
+  assert.match(metadataScript, /### Changelog/)
+  assert.match(metadataScript, /features/)
+  assert.match(metadataScript, /fixes/)
+  assert.match(metadataScript, /technical/)
+})
+
+test('android release workflow can sync app version policy to the backend', () => {
+  assert.match(workflow, /APP_RELEASE_SYNC_SECRET/)
+  assert.match(workflow, /sync-android-release-version\.mjs/)
+  assert.match(syncScript, /app\/versions\/release/)
+  assert.match(workflow, /personal-server-release\.json/)
 })

@@ -13,6 +13,12 @@ import {
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 import { isNativeMobileApp } from '../../mobilePlatform'
+import {
+  getSyncedActivityMetrics,
+  mergeLiveStepIntoActivitySummary,
+  subscribeToLiveStepUpdates,
+  syncHealthConnectSteps,
+} from '../../nativeHealth.mjs'
 
 function toArray(value) {
   if (Array.isArray(value)) return value
@@ -61,7 +67,10 @@ function NativeWorkoutView({
   prsLoading,
   loadError,
   actionError,
+  activitySummary,
+  activityStatus,
   startWorkout,
+  onSyncSteps,
   onRefreshPrs,
   navigate,
 }) {
@@ -99,14 +108,36 @@ function NativeWorkoutView({
             <NativeWorkoutStat label="Week" value="..." />
             <NativeWorkoutStat label="Sets" value="..." />
             <NativeWorkoutStat label="Volume" value="..." />
+            <NativeWorkoutStat label="Steps" value="..." />
           </>
         ) : (
           <>
             <NativeWorkoutStat label="Week" value={stats.thisWeek} />
             <NativeWorkoutStat label="Sets" value={stats.totalSets} />
             <NativeWorkoutStat label="Volume" value={`${stats.totalVolume} kg`} />
+            <NativeWorkoutStat label="Steps" value={formatNumberShort(activitySummary.today?.steps || 0)} />
           </>
         )}
+      </section>
+
+      <section className="native-workout-card">
+        <div className="native-section-head">
+          <h2>Steps</h2>
+            <button type="button" onClick={onSyncSteps}>Sync steps</button>
+        </div>
+        <div className="native-health-summary">
+          <div>
+            <span>Today</span>
+            <strong>{activitySummary.today?.steps ?? 0}</strong>
+            <small>steps</small>
+          </div>
+          <div>
+            <span>7-day steps</span>
+            <strong>{activitySummary.week?.steps ?? 0}</strong>
+            <small>{activitySummary.week?.daysWithData ?? 0} days synced</small>
+          </div>
+        </div>
+        <div className="native-workout-empty">{activityStatus || 'Live steps update while the app is open.'}</div>
       </section>
 
       <section className="native-workout-card">
@@ -204,8 +235,34 @@ export default function Workout() {
   const [prsLoading, setPrsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [activitySummary, setActivitySummary] = useState({
+    today: null,
+    week: { steps: 0, distanceMeters: 0, activeCalories: 0, daysWithData: 0 },
+    recent: [],
+  })
+  const [activityStatus, setActivityStatus] = useState('')
 
   useEffect(() => { loadDashboard(); loadPRs() }, [])
+
+  useEffect(() => {
+    if (!isNativeMobileApp()) return undefined
+    let cancelled = false
+    let unsubscribe = null
+    subscribeToLiveStepUpdates((event) => {
+      if (cancelled) return
+      setActivitySummary((current) => mergeLiveStepIntoActivitySummary(current, event))
+      setActivityStatus('Live steps streaming.')
+    })
+      .then((nextUnsubscribe) => {
+        unsubscribe = nextUnsubscribe
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [])
 
   async function loadDashboard() {
     setLoading(true)
@@ -226,6 +283,8 @@ export default function Workout() {
       }
 
       const sessionsData = toWorkoutStats(await api.get('/workout/sessions?page=1&limit=20'))
+      const activity = await getSyncedActivityMetrics({ days: 7 }).catch(() => null)
+      if (activity) setActivitySummary(activity)
 
       const oneWeekAgo = new Date()
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
@@ -270,6 +329,18 @@ export default function Workout() {
     }
   }
 
+  async function syncSteps() {
+    setActivityStatus('Syncing Health Connect steps...')
+    try {
+      await syncHealthConnectSteps({ days: 30 })
+      const latest = await getSyncedActivityMetrics({ days: 7 })
+      setActivitySummary(latest)
+      setActivityStatus('Steps synced.')
+    } catch (error) {
+      setActivityStatus(error.message || 'Could not sync steps.')
+    }
+  }
+
   if (isNativeMobileApp()) {
     return (
       <NativeWorkoutView
@@ -282,7 +353,10 @@ export default function Workout() {
         prsLoading={prsLoading}
         loadError={loadError}
         actionError={actionError}
+        activitySummary={activitySummary}
+        activityStatus={activityStatus}
         startWorkout={startWorkout}
+        onSyncSteps={syncSteps}
         onRefreshPrs={loadPRs}
         navigate={navigate}
       />
@@ -327,6 +401,7 @@ export default function Workout() {
             <StatCard icon="layers" accentColor="#4ade80" label="Total Sets" value={stats.totalSets} />
             <StatCard icon="repeat" accentColor="#4ade80" label="Total Reps" value={stats.totalReps} />
             <StatCard icon="weight" accentColor="#4ade80" label="Total Volume" value={`${stats.totalVolume} kg`} />
+            <StatCard icon="activity" accentColor="#4ade80" label="Steps Today" value={activitySummary.today?.steps ?? 0} subtitle={`${activitySummary.week?.steps ?? 0} 7-day steps`} />
             {latestWeight && (
               <StatCard icon="scale" accentColor="#4ade80" label="Latest Weight" value={`${latestWeight.weightKg} kg`} subtitle={formatDate(latestWeight.date)} />
             )}

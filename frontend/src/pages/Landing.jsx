@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { api } from '../api'
 import { refreshIfPossible } from '../auth'
 import Icon from '../components/icons/Icon'
 import { ANDROID_APK_URL } from '../mobilePlatform'
 import './Landing.css'
+
+gsap.registerPlugin(ScrollTrigger)
 
 function usePrefersReducedMotion() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
@@ -93,6 +97,76 @@ function useHeroMotion(disabled) {
   return ref
 }
 
+function useLandingGsapMotion(disabled) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (disabled || !ref.current) return undefined
+
+    const ctx = gsap.context(() => {
+      gsap.utils.toArray('.landing-gsap-reveal').forEach((element) => {
+        gsap.fromTo(
+          element,
+          { autoAlpha: 0, y: 36, filter: 'blur(10px)' },
+          {
+            autoAlpha: 1,
+            y: 0,
+            filter: 'blur(0px)',
+            duration: 0.9,
+            ease: 'power3.out',
+            scrollTrigger: {
+              trigger: element,
+              start: 'top 86%',
+              once: true,
+            },
+          },
+        )
+      })
+
+      gsap.utils.toArray('.landing-media-frame img').forEach((image) => {
+        gsap.fromTo(
+          image,
+          { autoAlpha: 0.72, scale: 0.88 },
+          {
+            autoAlpha: 1,
+            scale: 1,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: image,
+              start: 'top 90%',
+              end: 'bottom 35%',
+              scrub: true,
+            },
+          },
+        )
+      })
+
+      gsap.utils.toArray('.landing-stack-card').forEach((card, index) => {
+        gsap.fromTo(
+          card,
+          { autoAlpha: 0, y: 72 + index * 24, scale: 0.94 },
+          {
+            autoAlpha: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.85,
+            ease: 'power3.out',
+            scrollTrigger: {
+              trigger: card,
+              start: 'top 88%',
+              once: true,
+            },
+          },
+        )
+      })
+    }, ref)
+
+    return () => ctx.revert()
+  }, [disabled])
+
+  return ref
+}
+
 const PRINCIPLES = [
   {
     icon: 'book-open',
@@ -163,6 +237,64 @@ const LANDING_METRIC_DEFAULTS = [
     suffix: '+',
     label: 'Listening events mapped',
     note: 'Media history connected back to routines, workouts, and weekly review.',
+  },
+]
+
+const BENTO_CARDS = [
+  {
+    title: 'Native first review',
+    text: 'The Android app opens on today, keeps cached data visible, and lets the user act before any network round trip finishes.',
+    icon: 'smartphone',
+    className: 'landing-bento-card--wide',
+    image: 'https://picsum.photos/seed/personal-data-native-review/1200/780',
+  },
+  {
+    title: 'Data validity',
+    text: 'Sync state, stale cache, and changed web records need to be visible so fast never means untrustworthy.',
+    icon: 'refresh-cw',
+    className: 'landing-bento-card--sync',
+  },
+  {
+    title: 'Assistant relay',
+    text: 'Chat persists messages, shows delivery state, and leaves reasoning to the external AI worker.',
+    icon: 'message-square',
+    className: 'landing-bento-card--dark',
+  },
+  {
+    title: 'Imports with progress',
+    text: 'Long-running imports belong in a data center with streaming progress, warnings, and retryable jobs.',
+    icon: 'database',
+    className: 'landing-bento-card--image',
+    image: 'https://picsum.photos/seed/personal-data-import-center/900/720',
+  },
+  {
+    title: 'One personal record',
+    text: 'Training, habits, finance, music, and media stay separate enough to be useful but close enough to explain the week.',
+    icon: 'layers',
+    className: 'landing-bento-card--compact',
+  },
+]
+
+const ACCORDION_PANELS = [
+  {
+    title: 'Habits',
+    text: 'Fast daily logging with cadence-aware streaks, missed-period counts, and reminder controls that live where users expect them.',
+    image: 'https://picsum.photos/seed/personal-data-habits-flow/900/1100',
+  },
+  {
+    title: 'Money',
+    text: 'Mobile transaction entry focuses on recent choices, quick review, detected payments, and a clear import/data path.',
+    image: 'https://picsum.photos/seed/personal-data-money-flow/900/1100',
+  },
+  {
+    title: 'Training',
+    text: 'Steps, workouts, bodyweight, and active sessions share the same activity layer so the app can work in the background.',
+    image: 'https://picsum.photos/seed/personal-data-training-flow/900/1100',
+  },
+  {
+    title: 'Media',
+    text: 'Shows, anime seasons, books, and listening history need hierarchy, source records, and review queues instead of flat cards.',
+    image: 'https://picsum.photos/seed/personal-data-media-flow/900/1100',
   },
 ]
 
@@ -256,6 +388,7 @@ export default function Landing({ mobileGate = false }) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const observe = useScrollReveal(prefersReducedMotion)
   const heroRef = useHeroMotion(prefersReducedMotion)
+  const gsapRootRef = useLandingGsapMotion(prefersReducedMotion)
   const [landingMetrics, setLandingMetrics] = useState(LANDING_METRIC_DEFAULTS)
 
   useEffect(() => {
@@ -286,15 +419,9 @@ export default function Landing({ mobileGate = false }) {
   }, [])
 
   return (
-    <div className="landing-editorial">
+    <div className="landing-editorial" ref={gsapRootRef}>
       <main>
         <section className="landing-editorial-hero" ref={heroRef}>
-          <div className="landing-editorial-hero__mesh" aria-hidden="true">
-            <div className="landing-editorial-hero__orb landing-editorial-hero__orb--a" />
-            <div className="landing-editorial-hero__orb landing-editorial-hero__orb--b" />
-            <div className="landing-editorial-hero__orb landing-editorial-hero__orb--c" />
-          </div>
-
           <div className="landing-editorial-hero__content">
             <div className="landing-editorial-hero__copy">
               <div className="landing-editorial-brandchip landing-editorial-hero__intro landing-editorial-hero__intro--1">
@@ -306,11 +433,10 @@ export default function Landing({ mobileGate = false }) {
               </div>
               <div className="landing-editorial-kicker landing-editorial-hero__intro landing-editorial-hero__intro--2">
                 <Icon name="sparkles" size={14} />
-                Premium quantified-self journal
+                Private quantified-self journal
               </div>
               <h1 className="landing-editorial-hero__intro landing-editorial-hero__intro--3">
-                A private place
-                <span>to understand the shape of your life.</span>
+                Understand your life without dashboard noise.
               </h1>
               <p className="landing-editorial-hero__intro landing-editorial-hero__intro--4">
                 Personal Server turns workouts, habits, spending, and media into a reflective operating journal.
@@ -342,6 +468,12 @@ export default function Landing({ mobileGate = false }) {
             </div>
 
             <div className="landing-editorial-hero__composition" ref={observe}>
+              <figure className="landing-media-frame landing-media-frame--hero" aria-label="Personal Server data workspace">
+                <img
+                  src="https://picsum.photos/seed/personal-data-command-center/1200/900"
+                  alt="A quiet personal workspace with screens, notebooks, and evening light"
+                />
+              </figure>
               <div className="landing-editorial-sheet landing-editorial-sheet--primary">
                 <div className="landing-editorial-sheet__eyebrow">Weekly brief</div>
                 <h3>Momentum is building across the week</h3>
@@ -388,14 +520,58 @@ export default function Landing({ mobileGate = false }) {
           </div>
         </section>
 
+        <section className="landing-editorial-section landing-editorial-section--bento" id="platform">
+          <div className="landing-editorial-section__lead landing-gsap-reveal">
+            <span className="landing-editorial-section__label">Product architecture</span>
+            <h2>A personal system should be fast, valid, and easier to navigate than the data behind it.</h2>
+          </div>
+          <div className="landing-bento-grid landing-gsap-reveal">
+            {BENTO_CARDS.map((card) => (
+              <article key={card.title} className={`landing-bento-card ${card.className}`}>
+                {card.image ? (
+                  <div className="landing-bento-card__media">
+                    <img src={card.image} alt="" loading="lazy" />
+                  </div>
+                ) : null}
+                <div className="landing-bento-card__copy">
+                  <span className="landing-bento-card__icon">
+                    <Icon name={card.icon} size={18} />
+                  </span>
+                  <h3>{card.title}</h3>
+                  <p>{card.text}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="landing-editorial-section landing-editorial-section--accordion" id="apps">
+          <div className="landing-horizontal-accordion landing-gsap-reveal" aria-label="Personal Server app areas">
+            {ACCORDION_PANELS.map((panel, index) => (
+              <article
+                key={panel.title}
+                className="landing-horizontal-accordion__panel"
+                tabIndex={0}
+                style={{ '--panel-index': index }}
+              >
+                <img src={panel.image} alt="" loading="lazy" />
+                <div>
+                  <span>{panel.title}</span>
+                  <p>{panel.text}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="landing-editorial-section landing-editorial-section--manifesto" id="story">
-          <div className="landing-editorial-section__lead" ref={observe}>
+          <div className="landing-editorial-section__lead landing-gsap-reveal" ref={observe}>
             <span className="landing-editorial-section__label">Manifesto</span>
             <h2>Your dashboard should feel like a review of your life, not a control panel.</h2>
           </div>
           <div className="landing-editorial-principles">
             {PRINCIPLES.map((item) => (
-              <article key={item.title} className="landing-editorial-principle" ref={observe}>
+              <article key={item.title} className="landing-editorial-principle landing-stack-card" ref={observe}>
                 <div className="landing-editorial-principle__icon">
                   <Icon name={item.icon} size={18} />
                 </div>

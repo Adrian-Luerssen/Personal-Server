@@ -1,8 +1,15 @@
 package com.adrianluerssen.personalserver.health
 
+import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.result.ActivityResult
@@ -11,13 +18,23 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import com.getcapacitor.PermissionState
 import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,14 +44,27 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
+import kotlin.math.max
+import kotlin.math.roundToLong
 
-@CapacitorPlugin(name = "PersonalServerHealth")
-class PersonalServerHealthPlugin : Plugin() {
+@CapacitorPlugin(
+    name = "PersonalServerHealth",
+    permissions = [
+        Permission(alias = "activityRecognition", strings = [Manifest.permission.ACTIVITY_RECOGNITION])
+    ]
+)
+class PersonalServerHealthPlugin : Plugin(), SensorEventListener {
+    private val stepSyncWorkName = "personal-server-background-step-sync"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val requiredPermissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class)
     )
+    private var liveStepStreamActive = false
+    private var liveBaselineSteps = 0L
+    private var liveBaselineSensorValue: Float? = null
+    private var liveStreamDate = LocalDate.now()
 
     @PluginMethod
     fun getStatus(call: PluginCall) {
@@ -50,11 +80,89 @@ class PersonalServerHealthPlugin : Plugin() {
                 } else {
                     response.put("permissionsGranted", false)
                 }
+                response.put("liveStepSensorAvailable", getStepCounterSensor() != null)
+                response.put("activityRecognitionGranted", hasActivityRecognitionPermission())
                 resolveOnMain(call, response)
             } catch (exception: Exception) {
                 rejectOnMain(call, "Failed to read Health Connect status", exception)
             }
         }
+    }
+
+    @PluginMethod
+    fun startStepStream(call: PluginCall) {
+        if (!hasActivityRecognitionPermission()) {
+            requestPermissionForAlias("activityRecognition", call, "activityRecognitionPermissionResult")
+            return
+        }
+
+        val sensor = getStepCounterSensor()
+        if (sensor == null) {
+            val response = JSObject()
+            response.put("started", false)
+            response.put("sensorAvailable", false)
+            call.resolve(response)
+            return
+        }
+
+        liveBaselineSteps = max(0L, call.getLong("baselineSteps", 0L) ?: 0L)
+        liveBaselineSensorValue = null
+        liveStreamDate = parseDate(call.getString("date"), LocalDate.now())
+        val started = getSensorManager().registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI)
+        liveStepStreamActive = started
+
+        val response = JSObject()
+        response.put("started", started)
+        response.put("sensorAvailable", true)
+        response.put("activityRecognitionGranted", true)
+        response.put("baselineSteps", liveBaselineSteps)
+        response.put("date", liveStreamDate.format(DateTimeFormatter.ISO_DATE))
+        call.resolve(response)
+    }
+
+    @PluginMethod
+    fun stopStepStream(call: PluginCall) {
+        stopLiveStepStream()
+        val response = JSObject()
+        response.put("stopped", true)
+        call.resolve(response)
+    }
+
+    @PluginMethod
+    fun configureStepSync(call: PluginCall) {
+        val input = JSObject()
+        input.put("enabled", call.getBoolean("enabled", false) ?: false)
+        input.put("intervalMinutes", call.getLong("intervalMinutes", StepSyncStore.MIN_INTERVAL_MINUTES) ?: StepSyncStore.MIN_INTERVAL_MINUTES)
+        input.put("days", call.getInt("days", 7) ?: 7)
+        input.put("apiBaseUrl", call.getString("apiBaseUrl", ""))
+        input.put("accessToken", call.getString("accessToken", ""))
+        input.put("refreshToken", call.getString("refreshToken", ""))
+        val config = StepSyncStore.save(context, input)
+        if (config.enabled) {
+            scheduleStepSync(config)
+        } else {
+            WorkManager.getInstance(context).cancelUniqueWork(stepSyncWorkName)
+        }
+        call.resolve(stepSyncStatus(config))
+    }
+
+    @PluginMethod
+    fun getStepSyncStatus(call: PluginCall) {
+        call.resolve(stepSyncStatus(StepSyncStore.read(context)))
+    }
+
+    @PermissionCallback
+    private fun activityRecognitionPermissionResult(call: PluginCall) {
+        if (hasActivityRecognitionPermission()) {
+            startStepStream(call)
+            return
+        }
+
+        val response = JSObject()
+        response.put("started", false)
+        response.put("needsPermission", true)
+        response.put("activityRecognitionGranted", false)
+        call.resolve(response)
     }
 
     @PluginMethod
@@ -157,8 +265,39 @@ class PersonalServerHealthPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        stopLiveStepStream()
         scope.cancel()
         super.handleOnDestroy()
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (!liveStepStreamActive || event?.sensor?.type != Sensor.TYPE_STEP_COUNTER) return
+        val sensorValue = event.values.firstOrNull() ?: return
+        val today = LocalDate.now()
+        if (today != liveStreamDate) {
+            liveStreamDate = today
+            liveBaselineSteps = 0L
+            liveBaselineSensorValue = sensorValue
+        }
+        val baselineSensor = liveBaselineSensorValue ?: sensorValue.also {
+            liveBaselineSensorValue = it
+        }
+        val delta = max(0L, (sensorValue - baselineSensor).roundToLong())
+        val steps = liveBaselineSteps + delta
+
+        val payload = JSObject()
+        payload.put("date", liveStreamDate.format(DateTimeFormatter.ISO_DATE))
+        payload.put("source", "android-step-counter-live")
+        payload.put("steps", steps)
+        payload.put("delta", delta)
+        payload.put("baselineSteps", liveBaselineSteps)
+        payload.put("sensorSteps", sensorValue.roundToLong())
+        payload.put("syncedAt", java.time.Instant.now().toString())
+        notifyListeners("stepCountChange", payload, true)
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        // Step counter accuracy changes do not require UI handling.
     }
 
     private fun parseDate(value: String?, fallback: LocalDate): LocalDate {
@@ -172,6 +311,73 @@ class PersonalServerHealthPlugin : Plugin() {
             HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "update_required"
             else -> "unavailable"
         }
+    }
+
+    private fun getSensorManager(): SensorManager {
+        return context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    }
+
+    private fun getStepCounterSensor(): Sensor? {
+        return getSensorManager().getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+    }
+
+    private fun hasActivityRecognitionPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true
+        return getPermissionState("activityRecognition") == PermissionState.GRANTED
+    }
+
+    private fun stopLiveStepStream() {
+        if (liveStepStreamActive) {
+            getSensorManager().unregisterListener(this)
+        }
+        liveStepStreamActive = false
+        liveBaselineSensorValue = null
+    }
+
+    private fun scheduleStepSync(config: StepSyncStore.Config) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val periodicRequest = PeriodicWorkRequestBuilder<StepBackgroundSyncWorker>(
+            config.intervalMinutes,
+            TimeUnit.MINUTES,
+        )
+            .setConstraints(constraints)
+            .addTag(stepSyncWorkName)
+            .build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            stepSyncWorkName,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            periodicRequest,
+        )
+
+        val immediateRequest = OneTimeWorkRequestBuilder<StepBackgroundSyncWorker>()
+            .setConstraints(constraints)
+            .addTag("$stepSyncWorkName-now")
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "$stepSyncWorkName-now",
+            ExistingWorkPolicy.REPLACE,
+            immediateRequest,
+        )
+    }
+
+    private fun stepSyncStatus(config: StepSyncStore.Config): JSObject {
+        val response = JSObject()
+        response.put("supported", true)
+        response.put("enabled", config.enabled)
+        response.put("scheduled", config.enabled)
+        response.put("intervalMinutes", config.intervalMinutes)
+        response.put("days", config.days)
+        response.put("hasApiBaseUrl", config.apiBaseUrl.isNotBlank())
+        response.put("hasAccessToken", config.accessToken.isNotBlank())
+        response.put("hasRefreshToken", config.refreshToken.isNotBlank())
+        response.put("lastSyncAt", config.lastSyncAt)
+        response.put("lastImported", config.lastImported)
+        response.put("lastError", config.lastError)
+        response.put("liveStepSensorAvailable", getStepCounterSensor() != null)
+        response.put("activityRecognitionGranted", hasActivityRecognitionPermission())
+        return response
     }
 
     private fun resolveOnMain(call: PluginCall, response: JSObject) {

@@ -23,6 +23,7 @@ import { MediaModule } from "./media/media.module";
 import { SyncModule } from "./sync/sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ActivityModule } from "./activity/activity.module";
+import { AppVersionsModule } from "./app-versions/app-versions.module";
 
 @Module({
   providers: [
@@ -60,6 +61,7 @@ import { ActivityModule } from "./activity/activity.module";
     MediaModule,
     SyncModule,
     ActivityModule,
+    AppVersionsModule,
     HealthModule,
     TypeOrmModule.forFeature([Tool]),
   ],

@@ -2,10 +2,16 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   HEALTH_CONNECT_AUTO_SYNC_KEY,
+  STEP_SYNC_PREFERENCES_KEY,
   buildActivityMetricPayload,
+  buildStepSyncConfig,
+  mergeLiveStepIntoActivitySummary,
+  normalizeLiveStepEvent,
+  normalizeStepSyncPreferences,
   summarizeActivityMetrics,
   normalizeHealthConnectStatus,
   shouldAutoSyncHealthConnectSteps,
+  shouldStartLiveStepStream,
 } from './nativeHealth.mjs'
 import {
   buildPaymentSuggestionPayload,
@@ -105,6 +111,94 @@ test('Health Connect auto sync only runs in native app after permission and fres
     }),
     true,
   )
+})
+
+test('live step events update the local activity summary immediately', () => {
+  const summary = summarizeActivityMetrics(
+    [
+      { date: '2026-06-29', steps: 5000, source: 'health-connect' },
+      { date: '2026-06-28', steps: 7000, source: 'health-connect' },
+    ],
+    '2026-06-29',
+  )
+
+  const event = normalizeLiveStepEvent({
+    date: '2026-06-29',
+    steps: 5123.4,
+    source: 'android-step-counter-live',
+    syncedAt: '2026-06-29T12:30:00.000Z',
+  })
+  const next = mergeLiveStepIntoActivitySummary(summary, event, '2026-06-29')
+
+  assert.equal(next.today.steps, 5123)
+  assert.equal(next.today.source, 'android-step-counter-live')
+  assert.equal(next.week.steps, 12123)
+  assert.deepEqual(
+    buildActivityMetricPayload([event]).metrics[0],
+    {
+      date: '2026-06-29',
+      source: 'android-step-counter-live',
+      steps: 5123,
+      distanceMeters: null,
+      activeCalories: null,
+      syncedAt: '2026-06-29T12:30:00.000Z',
+    },
+  )
+})
+
+test('step sync preferences allow live and background modes independently', () => {
+  assert.equal(STEP_SYNC_PREFERENCES_KEY, 'personal-server-step-sync-preferences')
+
+  const defaults = normalizeStepSyncPreferences(null)
+  assert.deepEqual(defaults, {
+    liveEnabled: true,
+    backgroundEnabled: true,
+    backgroundIntervalMinutes: 15,
+    syncDays: 7,
+  })
+
+  const customized = normalizeStepSyncPreferences({
+    liveEnabled: false,
+    backgroundEnabled: true,
+    backgroundIntervalMinutes: 4,
+    syncDays: 60,
+  })
+
+  assert.deepEqual(customized, {
+    liveEnabled: false,
+    backgroundEnabled: true,
+    backgroundIntervalMinutes: 15,
+    syncDays: 30,
+  })
+
+  assert.equal(shouldStartLiveStepStream({ nativeApp: true, liveEnabled: true }), true)
+  assert.equal(shouldStartLiveStepStream({ nativeApp: true, liveEnabled: false }), false)
+  assert.equal(shouldStartLiveStepStream({ nativeApp: false, liveEnabled: true }), false)
+})
+
+test('background step sync config carries only the native worker contract', () => {
+  const config = buildStepSyncConfig({
+    preferences: {
+      liveEnabled: true,
+      backgroundEnabled: true,
+      backgroundIntervalMinutes: 20,
+      syncDays: 10,
+    },
+    apiBaseUrl: 'https://example.com/api',
+    tokens: {
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    },
+  })
+
+  assert.deepEqual(config, {
+    enabled: true,
+    intervalMinutes: 20,
+    days: 10,
+    apiBaseUrl: 'https://example.com/api',
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+  })
 })
 
 test('buildPaymentSuggestionPayload strips raw notification fields and normalizes amount data', () => {

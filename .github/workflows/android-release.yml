@@ -100,7 +100,7 @@ jobs:
           echo "build_time=$build_time" >> "$GITHUB_OUTPUT"
 
       - name: Run API cache, Android, workflow, and permission tests
-        run: node --test src/apiCache.test.mjs src/appVersion.test.mjs src/importFileTypes.test.mjs src/importProgress.test.mjs src/mobilePlatform.test.mjs src/androidReleaseWorkflow.test.mjs src/androidWidgets.test.mjs src/androidNativeWidgets.test.mjs src/androidNativeShell.test.mjs src/notificationPermission.test.mjs
+        run: node --test src/apiCache.test.mjs src/appUpdate.test.mjs src/appVersion.test.mjs src/importFileTypes.test.mjs src/importProgress.test.mjs src/mobilePlatform.test.mjs src/androidReleaseWorkflow.test.mjs src/androidWidgets.test.mjs src/androidNativeWidgets.test.mjs src/androidNativeShell.test.mjs src/notificationPermission.test.mjs src/workoutSteps.test.mjs
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -182,106 +182,19 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_RUN_ID: ${{ github.run_id }}
           RELEASE_RUN_NUMBER: ${{ github.run_number }}
+          ANDROID_MIN_SUPPORTED_VERSION: ${{ vars.ANDROID_MIN_SUPPORTED_VERSION || '0.0.0' }}
         run: |
           APK_SHA256="$(sha256sum personal-server.apk | awk '{print $1}')"
           APK_SIZE_BYTES="$(wc -c < personal-server.apk | tr -d '[:space:]')"
           APK_SIZE_MB="$(node -e "console.log((Number(process.argv[1]) / 1024 / 1024).toFixed(2))" "$APK_SIZE_BYTES")"
-          RELEASE_COMMIT_SHORT="${RELEASE_COMMIT::7}"
-          COMMIT_URL="https://github.com/${RELEASE_REPOSITORY}/commit/${RELEASE_COMMIT}"
-          RUN_URL="https://github.com/${RELEASE_REPOSITORY}/actions/runs/${RELEASE_RUN_ID}"
-          COMMIT_SUBJECT="$(git log -1 --pretty=%s "$RELEASE_COMMIT")"
-          RELEASE_CHANNEL="Versioned Android APK release"
-          PREVIOUS_ANDROID_TAG="$(git tag --list 'android-v*' --sort=-creatordate | grep -vx "$RELEASE_TAG" | head -n 1 || true)"
-          if [ -n "$PREVIOUS_ANDROID_TAG" ]; then
-            CHANGELOG_RANGE="${PREVIOUS_ANDROID_TAG}..${RELEASE_COMMIT}"
-            CHANGELOG_HEADING="Changes since ${PREVIOUS_ANDROID_TAG}"
-            CHANGELOG_COMPARE_URL="https://github.com/${RELEASE_REPOSITORY}/compare/${PREVIOUS_ANDROID_TAG}...${RELEASE_COMMIT}"
-            CHANGELOG_COMMITS="$(git log --no-merges --pretty=format:'- `%h` %s' "$CHANGELOG_RANGE" || true)"
-          else
-            CHANGELOG_RANGE="initial:${RELEASE_COMMIT}"
-            CHANGELOG_HEADING="Initial Android release changelog"
-            CHANGELOG_COMPARE_URL="${COMMIT_URL}"
-            CHANGELOG_COMMITS="$(git log --no-merges -20 --pretty=format:'- `%h` %s' "$RELEASE_COMMIT" || true)"
-          fi
-          if [ -z "$CHANGELOG_COMMITS" ]; then
-            CHANGELOG_COMMITS="- `${RELEASE_COMMIT_SHORT}` ${COMMIT_SUBJECT}"
-          fi
+          export APK_SHA256 APK_SIZE_BYTES APK_SIZE_MB
+          node scripts/generate-android-release-metadata.mjs
 
-          cat > release-notes.md <<EOF
-          ## Personal Server Android APK
-
-          ### Deployment
-          | Field | Value |
-          | --- | --- |
-          | Channel | ${RELEASE_CHANNEL} |
-          | App version | \`${APP_VERSION}\` |
-          | Base app version | \`${APP_BASE_VERSION}\` |
-          | Android versionCode | \`${RELEASE_RUN_NUMBER}\` |
-          | Build time | \`${APP_BUILD_TIME}\` |
-          | Release tag | \`${RELEASE_TAG}\` |
-          | Source ref | \`${RELEASE_REF_TYPE}:${RELEASE_REF}\` |
-          | Commit | [\`${RELEASE_COMMIT_SHORT}\`](${COMMIT_URL}) |
-          | Workflow run | [#${RELEASE_RUN_NUMBER}](${RUN_URL}) |
-          | API target | \`VITE_API_BASE\` repository secret, validated as public HTTPS |
-
-          ### APK Asset
-          | Field | Value |
-          | --- | --- |
-          | File | \`personal-server.apk\` |
-          | Size | \`${APK_SIZE_MB} MB\` |
-          | SHA-256 | \`${APK_SHA256}\` |
-          | Signing | Signed release APK verified with Android \`apksigner\` |
-
-          ### Verification
-          - API cache and app version tests passed.
-          - Mobile shell and mobile landing gate Playwright tests passed.
-          - Vite production build completed.
-          - Capacitor Android project sync completed.
-          - Gradle \`assembleRelease\` completed.
-
-          ### Changelog
-          ${CHANGELOG_HEADING}: [compare changes](${CHANGELOG_COMPARE_URL})
-
-          Latest commit: ${COMMIT_SUBJECT}
-
-          ${CHANGELOG_COMMITS}
-
-          ### Install
-          Download \`personal-server.apk\` from the release assets and install it on Android. If Android blocks the install, allow installs from your browser or file manager for this APK.
-          EOF
-
-          cat > personal-server-release.json <<EOF
-          {
-            "appVersion": "${APP_VERSION}",
-            "baseAppVersion": "${APP_BASE_VERSION}",
-            "androidVersionCode": "${RELEASE_RUN_NUMBER}",
-            "buildTime": "${APP_BUILD_TIME}",
-            "releaseTag": "${RELEASE_TAG}",
-            "releaseChannel": "${RELEASE_CHANNEL}",
-            "sourceRef": "${RELEASE_REF_TYPE}:${RELEASE_REF}",
-            "commit": "${RELEASE_COMMIT}",
-            "workflowRun": "${RUN_URL}",
-            "changelog": {
-              "previousAndroidTag": "${PREVIOUS_ANDROID_TAG}",
-              "range": "${CHANGELOG_RANGE}",
-              "compareUrl": "${CHANGELOG_COMPARE_URL}"
-            },
-            "apk": {
-              "file": "personal-server.apk",
-              "sizeBytes": ${APK_SIZE_BYTES},
-              "sha256": "${APK_SHA256}",
-              "signed": true
-            },
-            "verification": [
-              "api-cache-and-version-tests",
-              "mobile-shell-playwright-tests",
-              "vite-production-build",
-              "capacitor-android-sync",
-              "gradle-assemble-release",
-              "apksigner-verify"
-            ]
-          }
-          EOF
+      - name: Sync app version metadata to API
+        env:
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          APP_RELEASE_SYNC_SECRET: ${{ secrets.APP_RELEASE_SYNC_SECRET }}
+        run: node scripts/sync-android-release-version.mjs
 
       - name: Move stable android-latest pointer
         env:

@@ -9,6 +9,7 @@ import ProgressRing from '../components/ProgressRing'
 import ScrollReveal from '../components/ScrollReveal'
 import Icon from '../components/icons/Icon'
 import { isNativeMobileApp } from '../mobilePlatform'
+import { mergeLiveStepIntoActivitySummary, subscribeToLiveStepUpdates } from '../nativeHealth.mjs'
 
 function DashboardStatus({ focus }) {
   const map = {
@@ -470,6 +471,25 @@ export default function Home() {
     load()
     return () => { ignore = true }
   }, [nativeApp, applyMobileSnapshot])
+
+  useEffect(() => {
+    if (!nativeApp) return undefined
+    let cancelled = false
+    let unsubscribe = null
+    subscribeToLiveStepUpdates((event) => {
+      if (cancelled) return
+      setActivitySummary((current) => mergeLiveStepIntoActivitySummary(current, event))
+    })
+      .then((nextUnsubscribe) => {
+        unsubscribe = nextUnsubscribe
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [nativeApp])
 
   const habitsArray = Array.isArray(habitsSummary) ? habitsSummary : []
   const totalHabits = habitsArray.length

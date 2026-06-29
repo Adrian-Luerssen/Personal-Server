@@ -13,7 +13,19 @@ import Icon from './icons/Icon'
 import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
 import { APP_VERSION } from '../appVersion.mjs'
 import { pollPendingAiNotifications } from '../aiNotifications.mjs'
-import { maybeAutoSyncHealthConnectSteps } from '../nativeHealth.mjs'
+import {
+  LIVE_STEP_SYNC_INTERVAL_MS,
+  STEP_SYNC_PREFERENCES_EVENT,
+  configureNativeStepSync,
+  getSyncedActivityMetrics,
+  maybeAutoSyncHealthConnectSteps,
+  readStepSyncPreferences,
+  shouldStartLiveStepStream,
+  startLiveStepUpdates,
+  stopLiveStepUpdates,
+  subscribeToLiveStepUpdates,
+  syncLiveStepSnapshot,
+} from '../nativeHealth.mjs'
 import {
   getNativeAppForPath,
   getNativeAppSwitcherOptions,
@@ -75,7 +87,7 @@ function NativeAppHeader() {
           aria-label={`Switch app, current app ${currentApp.label}`}
         >
           <Icon name={currentApp.icon} size={16} />
-          <span>{currentApp.label}</span>
+          <span className="native-app-header__selector-label">Apps</span>
           <Icon name={appSwitcherOpen ? 'chevron-up' : 'chevron-down'} size={15} aria-hidden="true" />
         </button>
         {!isSettingsRoute && (
@@ -238,10 +250,20 @@ export default function Layout() {
   useEffect(() => {
     if (!nativeApp) return undefined
     let cancelled = false
+    let unsubscribeLiveSteps = null
+    let lastLivePersistAt = 0
+    let lastPersistedSteps = 0
 
-    const syncSteps = () => {
+    const persistLiveStep = (event, { force = false } = {}) => {
       if (cancelled) return
-      maybeAutoSyncHealthConnectSteps({ days: 7 })
+      const steps = Number(event?.steps || 0)
+      const now = Date.now()
+      if (!force && now - lastLivePersistAt < LIVE_STEP_SYNC_INTERVAL_MS && Math.abs(steps - lastPersistedSteps) < 10) {
+        return
+      }
+      lastLivePersistAt = now
+      lastPersistedSteps = steps
+      syncLiveStepSnapshot(event)
         .then((result) => {
           if (!cancelled && result && !result.skipped && (result.imported || 0) > 0) {
             checkDataValidity().catch(() => {})
@@ -251,18 +273,46 @@ export default function Layout() {
         .catch(() => {})
     }
 
-    syncSteps()
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') syncSteps()
+    const startSteps = async () => {
+      if (cancelled) return
+      const preferences = readStepSyncPreferences()
+      configureNativeStepSync({ preferences }).catch(() => {})
+      maybeAutoSyncHealthConnectSteps({ days: 7 })
+        .catch(() => {})
+      if (!shouldStartLiveStepStream({ nativeApp, liveEnabled: preferences.liveEnabled })) {
+        stopLiveStepUpdates().catch(() => {})
+        return
+      }
+      const activity = await getSyncedActivityMetrics({ days: 7 }).catch(() => null)
+      if (cancelled) return
+      const today = new Date().toISOString().slice(0, 10)
+      const baselineSteps = activity?.today?.steps || 0
+      await startLiveStepUpdates({ baselineSteps, date: today }).catch(() => null)
     }
-    window.addEventListener('focus', syncSteps)
+
+    subscribeToLiveStepUpdates((event) => persistLiveStep(event))
+      .then((unsubscribe) => {
+        unsubscribeLiveSteps = unsubscribe
+      })
+      .catch(() => {})
+
+    startSteps()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') startSteps()
+      else stopLiveStepUpdates().catch(() => {})
+    }
+    window.addEventListener('focus', startSteps)
     document.addEventListener('visibilitychange', onVisibilityChange)
-    const interval = window.setInterval(syncSteps, 60 * 60_000)
+    window.addEventListener(STEP_SYNC_PREFERENCES_EVENT, startSteps)
+    const interval = window.setInterval(startSteps, 10 * 60_000)
 
     return () => {
       cancelled = true
-      window.removeEventListener('focus', syncSteps)
+      unsubscribeLiveSteps?.()
+      stopLiveStepUpdates().catch(() => {})
+      window.removeEventListener('focus', startSteps)
       document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener(STEP_SYNC_PREFERENCES_EVENT, startSteps)
       window.clearInterval(interval)
     }
   }, [nativeApp])

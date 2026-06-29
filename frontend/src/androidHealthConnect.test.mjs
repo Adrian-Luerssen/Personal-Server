@@ -32,5 +32,36 @@ describe('Android Health Connect integration', () => {
     assert.match(manifest, /android\.permission\.SCHEDULE_EXACT_ALARM/)
     assert.match(manifest, /android\.permission\.USE_EXACT_ALARM/)
     assert.match(manifest, /android\.permission\.health\.READ_STEPS/)
+    assert.match(manifest, /android\.permission\.ACTIVITY_RECOGNITION/)
+  })
+
+  it('streams live step counter events from the native Android sensor bridge', () => {
+    const plugin = readAndroidFile('java/com/adrianluerssen/personalserver/health/PersonalServerHealthPlugin.kt')
+
+    assert.match(plugin, /Sensor\.TYPE_STEP_COUNTER/)
+    assert.match(plugin, /SensorEventListener/)
+    assert.match(plugin, /startStepStream/)
+    assert.match(plugin, /stopStepStream/)
+    assert.match(plugin, /notifyListeners\("stepCountChange"/)
+  })
+
+  it('schedules periodic background step sync with WorkManager', () => {
+    const buildGradle = readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8')
+    const plugin = readAndroidFile('java/com/adrianluerssen/personalserver/health/PersonalServerHealthPlugin.kt')
+    const worker = readAndroidFile('java/com/adrianluerssen/personalserver/health/StepBackgroundSyncWorker.kt')
+
+    assert.match(buildGradle, /androidx\.work:work-runtime-ktx/)
+    assert.match(plugin, /configureStepSync/)
+    assert.match(plugin, /getStepSyncStatus/)
+    assert.match(plugin, /PeriodicWorkRequestBuilder<StepBackgroundSyncWorker>/)
+    assert.match(plugin, /enqueueUniquePeriodicWork/)
+    assert.match(plugin, /ExistingPeriodicWorkPolicy\.UPDATE/)
+    assert.match(worker, /class StepBackgroundSyncWorker/)
+    assert.match(worker, /CoroutineWorker/)
+    assert.match(worker, /HealthConnectClient/)
+    assert.match(worker, /AggregateRequest/)
+    assert.match(worker, /\/activity\/daily\/sync/)
+    assert.match(worker, /\/auth\/refresh/)
+    assert.match(worker, /Authorization/)
   })
 })

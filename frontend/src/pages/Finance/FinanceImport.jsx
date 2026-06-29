@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { apiFetch } from '../../api'
+import { apiFetch, invalidateApiCachePrefixes } from '../../api'
 import { getTokens } from '../../auth'
 import { getApiBase } from '../../config'
 import { LoadingSpinner, StepIndicator, ImportProgressPanel } from '../../components/shared'
@@ -424,6 +424,7 @@ export default function FinanceImport() {
   }
 
   const handleComplete = (summaryData) => {
+    invalidateApiCachePrefixes(['/finance', '/dashboard'])
     setSummary(summaryData)
     setStep(4)
   }

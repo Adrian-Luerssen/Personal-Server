@@ -15,6 +15,7 @@ public final class PaymentNotificationParser {
 
     public static JSONObject parse(
         String packageName,
+        String sourceNotificationKey,
         String appLabel,
         String title,
         String text,
@@ -27,12 +28,16 @@ public final class PaymentNotificationParser {
         if (amount == null || amount.value <= 0) return null;
 
         String merchant = findMerchant(combined);
-        String eventHash = sha256(packageName + "|" + occurredAt + "|" + amount.value + "|" + combined);
+        String notificationIdentity = sourceNotificationKey == null || sourceNotificationKey.trim().length() == 0
+            ? String.valueOf(occurredAt)
+            : sourceNotificationKey;
+        String eventHash = sha256(packageName + "|" + notificationIdentity + "|" + amount.value + "|" + combined);
 
         JSONObject suggestion = new JSONObject();
         suggestion.put("id", eventHash.substring(0, 18));
         suggestion.put("eventHash", eventHash);
         suggestion.put("sourcePackage", packageName);
+        suggestion.put("sourceNotificationKey", sourceNotificationKey);
         suggestion.put("sourceAppLabel", appLabel == null ? packageName : appLabel);
         suggestion.put("merchantRaw", merchant);
         suggestion.put("amount", amount.value);

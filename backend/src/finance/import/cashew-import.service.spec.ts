@@ -4,12 +4,14 @@ import { FinanceTransaction } from "../entities/transaction.entity";
 describe("CashewImportService", () => {
   const account = { id: "account-1" } as any;
 
-  function makeService() {
+  function makeService(overrides: { cacheManager?: any; syncService?: any } = {}) {
     return new CashewImportService(
       {} as any,
       {} as any,
       {} as any,
-      {} as any
+      {} as any,
+      overrides.cacheManager ?? ({ reset: jest.fn(async () => undefined) } as any),
+      overrides.syncService
     );
   }
 
@@ -100,5 +102,26 @@ describe("CashewImportService", () => {
     expect(progress.length).toBeGreaterThan(0);
     expect(progress[progress.length - 1]).toEqual([4, 4]);
     expect(progress.every(([current, total]) => current <= total)).toBe(true);
+  });
+
+  it("clears cached finance/dashboard responses after a successful import commit", async () => {
+    const cacheManager = { reset: jest.fn(async () => undefined) };
+    const syncService = { recordEvent: jest.fn(async () => ({})) };
+    const service = makeService({ cacheManager, syncService });
+
+    await (service as any).finalizeImportMutation(account.id, "cashew-import", {
+      wallets: { total: 1, new: 1, existing: 0 },
+      categories: { total: 1, new: 1, existing: 0 },
+      transactions: { total: 10, new: 10, existing: 0 },
+    });
+
+    expect(cacheManager.reset).toHaveBeenCalledTimes(1);
+    expect(syncService.recordEvent).toHaveBeenCalledWith(
+      account.id,
+      expect.objectContaining({
+        entityType: "finance-transaction",
+        operation: "upsert",
+      })
+    );
   });
 });

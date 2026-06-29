@@ -79,6 +79,28 @@ function getTransactionIcon(tx) {
   }
 }
 
+function numberValue(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function normalizeTransactionList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.transactions)) return data.transactions
+  return []
+}
+
+function looksLikeEmptyFinanceCache(summaryData, transactionsData) {
+  return (
+    normalizeTransactionList(transactionsData).length === 0 &&
+    numberValue(summaryData?.totalIncome) === 0 &&
+    numberValue(summaryData?.totalExpense ?? summaryData?.totalExpenses) === 0 &&
+    numberValue(summaryData?.incomeCount) === 0 &&
+    numberValue(summaryData?.expenseCount) === 0
+  )
+}
+
 export default function Finance() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -111,16 +133,34 @@ export default function Finance() {
       if (from) txParams.set('from', from)
       if (to) txParams.set('to', to)
 
+      const walletsPath = '/finance/wallets'
+      const categoriesPath = '/finance/categories'
+      const summaryPath = `/finance/transactions/summary?${summaryParams}`
+      const transactionsPath = `/finance/transactions?${txParams}`
+
       const [walletsData, categoriesData, summaryData, transactionsData] = await Promise.all([
-        api.get('/finance/wallets'),
-        api.get('/finance/categories'),
-        api.get(`/finance/transactions/summary?${summaryParams}`),
-        api.get(`/finance/transactions?${txParams}`),
+        api.get(walletsPath),
+        api.get(categoriesPath),
+        api.get(summaryPath),
+        api.get(transactionsPath),
       ])
       setWallets(walletsData || [])
       setCategories(categoriesData || [])
       setSummary(summaryData || {})
-      setRecentTransactions(transactionsData?.items || transactionsData?.transactions || transactionsData || [])
+      setRecentTransactions(normalizeTransactionList(transactionsData))
+
+      if (looksLikeEmptyFinanceCache(summaryData, transactionsData)) {
+        const [freshWalletsData, freshCategoriesData, freshSummaryData, freshTransactionsData] = await Promise.all([
+          api.get(walletsPath, { force: true }),
+          api.get(categoriesPath, { force: true }),
+          api.get(summaryPath, { force: true }),
+          api.get(transactionsPath, { force: true }),
+        ])
+        setWallets(freshWalletsData || [])
+        setCategories(freshCategoriesData || [])
+        setSummary(freshSummaryData || {})
+        setRecentTransactions(normalizeTransactionList(freshTransactionsData))
+      }
     } catch (e) {
       console.error('Failed to load finance dashboard:', e)
     } finally {

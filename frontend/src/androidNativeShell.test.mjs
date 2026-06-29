@@ -18,6 +18,22 @@ const updaterPluginPath = resolve(
   process.cwd(),
   'android/app/src/main/java/com/adrianluerssen/personalserver/updates/PersonalServerUpdatePlugin.java',
 )
+const paymentListenerPath = resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/payments/PaymentNotificationListenerService.java',
+)
+const paymentStorePath = resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/payments/PaymentSuggestionStore.java',
+)
+const paymentsPluginPath = resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/payments/PersonalServerPaymentsPlugin.java',
+)
+const paymentParserPath = resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/payments/PaymentNotificationParser.java',
+)
 
 test('native Android activity colors system bars to match the app shell', () => {
   assert.match(mainActivity, /setStatusBarColor/)
@@ -56,4 +72,28 @@ test('native Android shell exposes an in-app APK installer bridge', () => {
   assert.match(updaterPlugin, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/)
   assert.match(updaterPlugin, /application\/vnd\.android\.package-archive/)
   assert.match(updaterPlugin, /FileProvider\.getUriForFile/)
+})
+
+test('native payment detection cannot reprocess Personal Server prompts', () => {
+  const paymentListener = readFileSync(paymentListenerPath, 'utf8')
+  const paymentParser = readFileSync(paymentParserPath, 'utf8')
+
+  assert.match(paymentListener, /packageName\.equals\(getPackageName\(\)\)/)
+  assert.match(paymentListener, /Notification\.FLAG_GROUP_SUMMARY/)
+  assert.match(paymentListener, /CHANNEL_ID\.equals\(notification\.getChannelId\(\)\)/)
+  assert.match(paymentListener, /sbn\.getKey\(\)/)
+  assert.match(paymentParser, /sourceNotificationKey/)
+  assert.match(paymentListener, /PaymentSuggestionStore\.addSuggestion/)
+  assert.match(paymentListener, /showDetectedPaymentNotification/)
+})
+
+test('native payment bridge purges self-generated payment loop suggestions', () => {
+  const paymentStore = readFileSync(paymentStorePath, 'utf8')
+  const paymentsPlugin = readFileSync(paymentsPluginPath, 'utf8')
+
+  assert.match(paymentStore, /removeSuggestionsFromPackage/)
+  assert.match(paymentsPlugin, /purgeSelfGeneratedSuggestions/)
+  assert.match(paymentsPlugin, /PaymentSuggestionStore\.removeSuggestionsFromPackage/)
+  assert.match(paymentsPlugin, /NotificationManager/)
+  assert.match(paymentsPlugin, /manager\.cancel\(PaymentNotificationListenerService\.notificationIdForSuggestionId/)
 })

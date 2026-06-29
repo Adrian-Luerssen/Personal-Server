@@ -1,6 +1,7 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { CACHE_MANAGER, Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource, QueryRunner } from "typeorm";
+import { Cache } from "cache-manager";
 import { FinanceWallet } from "../entities/wallet.entity";
 import { FinanceCategory } from "../entities/category.entity";
 import { FinanceTransaction } from "../entities/transaction.entity";
@@ -53,6 +54,8 @@ export class CashewImportService {
     private readonly transactionRepo: Repository<FinanceTransaction>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
     @Optional()
     private readonly syncService?: SyncService
   ) {
@@ -268,7 +271,7 @@ export class CashewImportService {
       });
 
       await queryRunner.commitTransaction();
-      await this.recordImportSync(account.id, "cashew-import", previewData.counts);
+      await this.finalizeImportMutation(account.id, "cashew-import", previewData.counts);
 
       send({
         stage: "complete",
@@ -363,7 +366,7 @@ export class CashewImportService {
           existing: transactionsBefore,
         },
       };
-      await this.recordImportSync(account.id, "cashew-import", previewData.counts);
+      await this.finalizeImportMutation(account.id, "cashew-import", previewData.counts);
       return result;
     } catch (err) {
       try { await queryRunner.rollbackTransaction(); } catch {}
@@ -628,7 +631,7 @@ export class CashewImportService {
       await this.importTransactions(account, db, queryRunner, walletIdMap, categoryIdMap, () => {});
 
       await queryRunner.commitTransaction();
-      await this.recordImportSync(account.id, "cashew-import");
+      await this.finalizeImportMutation(account.id, "cashew-import");
       return { status: "ok" };
     } catch (err) {
       try { await queryRunner.rollbackTransaction(); } catch {}
@@ -643,11 +646,13 @@ export class CashewImportService {
     }
   }
 
-  private async recordImportSync(
+  private async finalizeImportMutation(
     accountId: string,
     source: string,
     counts?: CashewPreviewData["counts"]
   ): Promise<void> {
+    await this.cacheManager.reset();
+
     if (!this.syncService) return;
     if (
       counts &&

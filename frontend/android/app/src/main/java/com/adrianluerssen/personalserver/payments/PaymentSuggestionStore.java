@@ -74,6 +74,28 @@ public final class PaymentSuggestionStore {
         prefs(context).edit().putString(KEY_SUGGESTIONS, next.toString()).apply();
     }
 
+    public static synchronized JSONArray removeSuggestionsFromPackage(Context context, String packageName) {
+        JSONArray current = getSuggestions(context);
+        JSONArray next = new JSONArray();
+        JSONArray removed = new JSONArray();
+
+        for (int i = 0; i < current.length(); i += 1) {
+            JSONObject item = current.optJSONObject(i);
+            if (item == null) continue;
+            if (packageName != null && packageName.equals(item.optString("sourcePackage"))) {
+                removed.put(item);
+                continue;
+            }
+            next.put(item);
+        }
+
+        if (removed.length() > 0) {
+            prefs(context).edit().putString(KEY_SUGGESTIONS, next.toString()).apply();
+        }
+
+        return removed;
+    }
+
     private static JSONArray readArray(Context context, String key) {
         try {
             return new JSONArray(prefs(context).getString(key, "[]"));

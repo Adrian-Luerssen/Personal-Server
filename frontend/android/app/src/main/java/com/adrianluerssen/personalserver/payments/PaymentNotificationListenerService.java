@@ -18,14 +18,19 @@ import org.json.JSONObject;
 
 public class PaymentNotificationListenerService extends NotificationListenerService {
     private static final String CHANNEL_ID = "personal-server-payments";
+    private static final int NOTIFICATION_ID_BASE = 610000;
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         if (!PaymentSuggestionStore.isEnabled(this)) return;
-        if (!isAllowedPackage(sbn.getPackageName())) return;
+        String packageName = sbn.getPackageName();
+        if (packageName == null || packageName.equals(getPackageName())) return;
+        if (!isAllowedPackage(packageName)) return;
 
         Notification notification = sbn.getNotification();
         if (notification == null) return;
+        if ((notification.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && CHANNEL_ID.equals(notification.getChannelId())) return;
 
         Bundle extras = notification.extras;
         String title = getExtraText(extras, Notification.EXTRA_TITLE);
@@ -35,8 +40,9 @@ public class PaymentNotificationListenerService extends NotificationListenerServ
 
         try {
             JSONObject suggestion = PaymentNotificationParser.parse(
-                sbn.getPackageName(),
-                getAppLabel(sbn.getPackageName()),
+                packageName,
+                sbn.getKey(),
+                getAppLabel(packageName),
                 title,
                 combinedText,
                 sbn.getPostTime()
@@ -104,8 +110,12 @@ public class PaymentNotificationListenerService extends NotificationListenerServ
 
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager != null) {
-            manager.notify(610000 + Math.abs(suggestion.optString("id").hashCode() % 10000), builder.build());
+            manager.notify(notificationIdForSuggestionId(suggestion.optString("id")), builder.build());
         }
+    }
+
+    public static int notificationIdForSuggestionId(String id) {
+        return NOTIFICATION_ID_BASE + Math.abs(String.valueOf(id).hashCode() % 10000);
     }
 
     private void ensureChannel() {

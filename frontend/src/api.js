@@ -102,6 +102,10 @@ function invalidateCachePrefixes(prefixes) {
   responseCache.invalidatePrefixes(prefixes);
 }
 
+export function invalidateApiCachePrefixes(prefixes) {
+  invalidateCachePrefixes(prefixes);
+}
+
 export function clearApiCache() {
   inflightRequests.clear();
   responseCache.clearAll();

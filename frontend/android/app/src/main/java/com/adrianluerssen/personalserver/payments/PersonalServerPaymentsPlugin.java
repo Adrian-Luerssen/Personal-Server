@@ -1,6 +1,8 @@
 package com.adrianluerssen.personalserver.payments;
 
+import android.app.NotificationManager;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -11,11 +13,13 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 @CapacitorPlugin(name = "PersonalServerPayments")
 public class PersonalServerPaymentsPlugin extends Plugin {
     @PluginMethod
     public void getStatus(PluginCall call) {
+        purgeSelfGeneratedSuggestions();
         JSObject response = new JSObject();
         response.put("supported", true);
         response.put("enabled", PaymentSuggestionStore.isEnabled(getContext()));
@@ -48,6 +52,7 @@ public class PersonalServerPaymentsPlugin extends Plugin {
 
     @PluginMethod
     public void getPendingSuggestions(PluginCall call) {
+        purgeSelfGeneratedSuggestions();
         JSObject response = new JSObject();
         response.put("suggestions", PaymentSuggestionStore.getSuggestions(getContext()));
         call.resolve(response);
@@ -79,5 +84,20 @@ public class PersonalServerPaymentsPlugin extends Plugin {
             }
         }
         return false;
+    }
+
+    private void purgeSelfGeneratedSuggestions() {
+        Context context = getContext();
+        JSONArray removed = PaymentSuggestionStore.removeSuggestionsFromPackage(context, context.getPackageName());
+        if (removed.length() == 0) return;
+
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return;
+
+        for (int i = 0; i < removed.length(); i += 1) {
+            JSONObject item = removed.optJSONObject(i);
+            if (item == null) continue;
+            manager.cancel(PaymentNotificationListenerService.notificationIdForSuggestionId(item.optString("id")));
+        }
     }
 }

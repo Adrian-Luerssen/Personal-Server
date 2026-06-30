@@ -55,9 +55,18 @@ const CURRENCY_SYMBOLS = {
 }
 
 function formatCurrency(amount, currency = 'EUR') {
-  const symbol = CURRENCY_SYMBOLS[currency] || currency + ' '
-  const formatted = Math.abs(amount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return `${amount < 0 ? '-' : ''}${symbol}${formatted}`
+  try {
+    return new Intl.NumberFormat('en', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(amount || 0))
+  } catch {
+    const numericAmount = Number(amount || 0)
+    const formatted = Math.abs(numericAmount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return `${numericAmount < 0 ? '-' : ''}${currency} ${formatted}`
+  }
 }
 
 function getTransactionType(tx) {

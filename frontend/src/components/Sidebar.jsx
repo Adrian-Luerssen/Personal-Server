@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api, clearApiCache } from '../api'
 import { usePreferences, useTheme } from '../contexts/PreferencesContext'
@@ -170,7 +170,7 @@ export default function Sidebar({ collapsed, onToggle }) {
               (tab.to.startsWith('/workout') && hasActiveWorkout && !location.pathname.startsWith('/workout/active')) ||
               (tab.to.startsWith('/habits') && incompleteHabits > 0 && tab.to === '/habits')
             return (
-              <NavLink
+              <Link
                 key={tab.to}
                 to={tab.to}
                 className={'nav-link native-tabbar__item' + (active ? ' active' : '')}
@@ -179,7 +179,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                 <Icon name={tab.icon} size={21} />
                 <span>{tab.label}</span>
                 {dot && <span className="nav-badge-dot" />}
-              </NavLink>
+              </Link>
             )
           })}
         </nav>

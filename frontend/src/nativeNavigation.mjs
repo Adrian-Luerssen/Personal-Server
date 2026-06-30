@@ -117,6 +117,8 @@ export const NATIVE_APPS = [
     tone: 'media',
     matches: ['/media'],
     tabs: [
+      destination('/home', 'Today', 'home', { exact: true }),
+      destination('/menu', 'Apps', 'grid-3x3'),
       destination('/media', 'Library', 'library', { exact: true }),
     ],
   },
@@ -128,7 +130,11 @@ export const NATIVE_APPS = [
     root: '/chat',
     tone: 'ai',
     matches: ['/chat'],
-    tabs: [],
+    tabs: [
+      destination('/home', 'Today', 'home', { exact: true }),
+      destination('/menu', 'Apps', 'grid-3x3'),
+      destination('/chat', 'Assistant', 'message-square', { exact: true }),
+    ],
   },
 ]
 

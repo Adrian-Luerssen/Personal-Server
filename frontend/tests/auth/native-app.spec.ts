@@ -542,6 +542,14 @@ test.describe('Native Android app shell', () => {
       /Transactions/,
     ])
     await expect(page.locator('.native-tabbar__item', { hasText: /setup|import/i })).toHaveCount(0)
+    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Summary/])
+
+    await page.goto('/finance/transactions')
+    await expect(page.locator('.native-tabbar__item')).toHaveText([
+      /Summary/,
+      /Transactions/,
+    ])
+    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Transactions/])
 
     await page.goto('/workout')
 
@@ -552,6 +560,16 @@ test.describe('Native Android app shell', () => {
       /History/,
       /Exercises/,
     ])
+    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Today/])
+
+    await page.goto('/workout/history')
+    await expect(page.locator('.native-tabbar__item')).toHaveText([
+      /Today/,
+      /Active/,
+      /History/,
+      /Exercises/,
+    ])
+    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/History/])
 
     await page.goto('/habits')
 
@@ -563,6 +581,74 @@ test.describe('Native Android app shell', () => {
       /Insights/,
     ])
     await expect(page.locator('.native-tabbar__item', { hasText: /manage|reminders|import/i })).toHaveCount(0)
+
+    await page.goto('/media')
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Media/i)
+    await expect(page.locator('.native-tabbar__item')).toHaveText([
+      /Today/,
+      /Apps/,
+      /Library/,
+    ])
+    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Library/])
+
+    await page.goto('/chat')
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Assistant/i)
+    await expect(page.locator('.native-tabbar__item')).toHaveText([
+      /Today/,
+      /Apps/,
+      /Assistant/,
+    ])
+    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Assistant/])
+  })
+
+  test('keeps the native app switcher label readable on narrow Android headers', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    for (const viewport of [
+      { width: 320, height: 568 },
+      { width: 412, height: 915 },
+      { width: 486, height: 962 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await page.goto('/workout/history')
+      const labelReport = await page.locator('.native-app-header__selector-label').evaluate((label) => ({
+        text: label.textContent,
+        clientWidth: label.clientWidth,
+        scrollWidth: label.scrollWidth,
+      }))
+      expect(labelReport.text).toBe('Apps')
+      expect(labelReport.scrollWidth).toBeLessThanOrEqual(labelReport.clientWidth + 1)
+    }
+  })
+
+  test('renders the media app as a compact native library surface', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/media')
+
+    await expect(page.locator('.stat-card')).toHaveCount(4)
+    const mediaMetrics = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('.stat-card')].map((card) => card.getBoundingClientRect().height)
+      return {
+        maxCardHeight: Math.max(...cards),
+        iconCount: document.querySelectorAll('.stat-card-icon svg').length,
+        bottomTabs: [...document.querySelectorAll('.native-tabbar__item')].map((item) => item.textContent?.trim()),
+      }
+    })
+
+    expect(mediaMetrics.maxCardHeight).toBeLessThanOrEqual(128)
+    expect(mediaMetrics.iconCount).toBe(4)
+    expect(mediaMetrics.bottomTabs).toEqual(['Today', 'Apps', 'Library'])
   })
 
   test('uses a transaction-card native finance dashboard instead of desktop tables', async ({ page }) => {
@@ -645,9 +731,15 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('button', { name: /^expense$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /^income$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /^transfer$/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /show filters/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /filter wallet revolut/i })).toHaveCount(0)
+    await page.getByRole('button', { name: /show filters/i }).click()
     await expect(page.getByRole('button', { name: /filter wallet revolut/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /filter category food/i })).toBeVisible()
     await expect(page.getByText('Concert')).toBeVisible()
+    const concertRow = page.locator('.native-transaction-card', { hasText: 'Concert' })
+    await expect(concertRow).toContainText('Events - Santander')
+    await expect(concertRow).toContainText(/\u20ac55\.00/)
     await expect(page.locator('table')).toHaveCount(0)
   })
 

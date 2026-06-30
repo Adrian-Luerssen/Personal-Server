@@ -22,9 +22,19 @@ const TYPE_COLORS = {
   transfer: '#60a5fa',
 }
 
-function formatCurrency(amount, currency = '€') {
-  const formatted = Math.abs(amount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return `${amount < 0 ? '-' : ''}${currency}${formatted}`
+function formatCurrency(amount, currency = 'EUR') {
+  try {
+    return new Intl.NumberFormat('en', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(amount || 0))
+  } catch {
+    const numericAmount = Number(amount || 0)
+    const formatted = Math.abs(numericAmount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return `${numericAmount < 0 ? '-' : ''}${currency} ${formatted}`
+  }
 }
 
 function getTransactionType(tx) {
@@ -44,6 +54,24 @@ function getTransactionIcon(tx) {
     case 'transfer': return 'arrow-left-right'
     default: return 'receipt'
   }
+}
+
+function getTransactionCurrency(tx) {
+  return tx.wallet?.currency || tx.currency || 'EUR'
+}
+
+function getTransactionCategoryName(tx) {
+  const type = getTransactionType(tx)
+  if (type === 'transfer') return 'Transfer'
+  return tx.category?.name || tx.categoryName || tx.category?.parent?.name || 'Uncategorized'
+}
+
+function getTransactionWalletName(tx) {
+  if (tx.wallet?.name || tx.walletName) return tx.wallet?.name || tx.walletName
+  const fromWallet = tx.fromWallet?.name || tx.fromWalletName
+  const toWallet = tx.toWallet?.name || tx.toWalletName
+  if (fromWallet && toWallet) return `${fromWallet} to ${toWallet}`
+  return fromWallet || toWallet || 'No wallet'
 }
 
 export default function FinanceTransactions() {
@@ -490,6 +518,16 @@ function NativeFinanceTransactionsView({
     filters.categoryId,
   ].filter(Boolean).length
   const groupedTransactions = groupTransactionsByDate(transactions)
+  const [filtersExpanded, setFiltersExpanded] = useState(false)
+  const selectedWallet = wallets.find(wallet => wallet.id === filters.walletId)
+  const selectedCategory = categories.find(category => category.id === filters.categoryId)
+  const selectedType = typeOptions.find(option => option.id === filters.transactionType)
+  const advancedFilterSummary = [
+    selectedType?.label || 'All types',
+    selectedWallet?.name || 'All wallets',
+    filters.transactionType === 'transfer' ? 'No categories' : selectedCategory?.name || 'All categories',
+    filters.search ? `Search: ${filters.search}` : null,
+  ].filter(Boolean).join(' - ')
 
   function shiftMonth(delta) {
     const next = new Date(navYear, navMonth + delta, 1)
@@ -568,65 +606,82 @@ function NativeFinanceTransactionsView({
             </button>
           ))}
         </div>
-        <div className="native-filter-group" aria-label="Wallet filter">
-          <span>Wallet</span>
-          <div className="native-chip-row native-filter-chip-row">
-            <button
-              type="button"
-              className={!filters.walletId ? 'is-active' : ''}
-              aria-label="Filter wallet all"
-              aria-pressed={!filters.walletId ? 'true' : 'false'}
-              onClick={() => onFilterChange('walletId', '')}
-            >
-              All
-            </button>
-            {(wallets || []).map(wallet => (
-              <button
-                key={wallet.id}
-                type="button"
-                className={filters.walletId === wallet.id ? 'is-active' : ''}
-                aria-label={`Filter wallet ${wallet.name}`}
-                aria-pressed={filters.walletId === wallet.id ? 'true' : 'false'}
-                onClick={() => onFilterChange('walletId', filters.walletId === wallet.id ? '' : wallet.id)}
-              >
-                {wallet.name}
-              </button>
-            ))}
-          </div>
-        </div>
-        {filters.transactionType !== 'transfer' && (
-          <div className="native-filter-group" aria-label="Category filter">
-            <span>Category</span>
-            <div className="native-chip-row native-filter-chip-row">
-              <button
-                type="button"
-                className={!filters.categoryId ? 'is-active' : ''}
-                aria-label="Filter category all"
-                aria-pressed={!filters.categoryId ? 'true' : 'false'}
-                onClick={() => onFilterChange('categoryId', '')}
-              >
-                All
-              </button>
-              {filterCategories.slice(0, 12).map(category => (
-                <button
-                  key={category.id}
-                  type="button"
-                  className={filters.categoryId === category.id ? 'is-active' : ''}
-                  aria-label={`Filter category ${category.name}`}
-                  aria-pressed={filters.categoryId === category.id ? 'true' : 'false'}
-                  onClick={() => onFilterChange('categoryId', filters.categoryId === category.id ? '' : category.id)}
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {activeFilterCount > 0 && (
-          <button type="button" className="native-clear-filter-button" onClick={onClearFilters}>
-            <Icon name="x" size={15} />
-            Clear {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}
+        <div className="native-filter-toggle-row">
+          <button
+            type="button"
+            className="native-filter-toggle-button"
+            aria-expanded={filtersExpanded ? 'true' : 'false'}
+            aria-controls="native-finance-advanced-filters"
+            onClick={() => setFiltersExpanded(open => !open)}
+          >
+            <Icon name="sliders-horizontal" size={15} />
+            {filtersExpanded ? 'Hide filters' : 'Show filters'}
           </button>
+          <span>{advancedFilterSummary}</span>
+          {activeFilterCount > 0 && (
+            <button type="button" className="native-clear-filter-button native-clear-filter-button--inline" onClick={onClearFilters}>
+              <Icon name="x" size={15} />
+              Clear
+            </button>
+          )}
+        </div>
+        {filtersExpanded && (
+          <div id="native-finance-advanced-filters" className="native-advanced-filters">
+            <div className="native-filter-group" aria-label="Wallet filter">
+              <span>Wallet</span>
+              <div className="native-chip-row native-filter-chip-row">
+                <button
+                  type="button"
+                  className={!filters.walletId ? 'is-active' : ''}
+                  aria-label="Filter wallet all"
+                  aria-pressed={!filters.walletId ? 'true' : 'false'}
+                  onClick={() => onFilterChange('walletId', '')}
+                >
+                  All
+                </button>
+                {(wallets || []).map(wallet => (
+                  <button
+                    key={wallet.id}
+                    type="button"
+                    className={filters.walletId === wallet.id ? 'is-active' : ''}
+                    aria-label={`Filter wallet ${wallet.name}`}
+                    aria-pressed={filters.walletId === wallet.id ? 'true' : 'false'}
+                    onClick={() => onFilterChange('walletId', filters.walletId === wallet.id ? '' : wallet.id)}
+                  >
+                    {wallet.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {filters.transactionType !== 'transfer' && (
+              <div className="native-filter-group" aria-label="Category filter">
+                <span>Category</span>
+                <div className="native-chip-row native-filter-chip-row">
+                  <button
+                    type="button"
+                    className={!filters.categoryId ? 'is-active' : ''}
+                    aria-label="Filter category all"
+                    aria-pressed={!filters.categoryId ? 'true' : 'false'}
+                    onClick={() => onFilterChange('categoryId', '')}
+                  >
+                    All
+                  </button>
+                  {filterCategories.map(category => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      className={filters.categoryId === category.id ? 'is-active' : ''}
+                      aria-label={`Filter category ${category.name}`}
+                      aria-pressed={filters.categoryId === category.id ? 'true' : 'false'}
+                      onClick={() => onFilterChange('categoryId', filters.categoryId === category.id ? '' : category.id)}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </section>
 
@@ -648,7 +703,14 @@ function NativeFinanceTransactionsView({
           {loading ? (
             <div className="native-empty-state">Loading transactions...</div>
           ) : transactions.length === 0 ? (
-            <div className="native-empty-state">No transactions match this view.</div>
+            <div className="native-empty-state native-empty-state--action">
+              <strong>No transactions match this view.</strong>
+              <p>Clear filters or add a transaction for {monthLabel}.</p>
+              <button type="button" className="native-feed-add-button" onClick={() => onAddTx('expense')}>
+                <Icon name="plus" size={16} />
+                Add expense
+              </button>
+            </div>
           ) : (
             groupedTransactions.map(group => (
               <div className="native-transaction-day-group" key={group.key}>
@@ -763,6 +825,9 @@ function NativeTransactionFeedCard({ tx, onClick }) {
   const txColor = getTransactionColor(tx)
   const txIcon = getTransactionIcon(tx)
   const sign = txType === 'income' ? '+' : txType === 'expense' ? '-' : ''
+  const categoryName = getTransactionCategoryName(tx)
+  const walletName = getTransactionWalletName(tx)
+  const currency = getTransactionCurrency(tx)
 
   return (
     <button type="button" className="native-transaction-card" onClick={onClick}>
@@ -773,10 +838,13 @@ function NativeTransactionFeedCard({ tx, onClick }) {
         <strong>{tx.name || tx.description || 'Untitled'}</strong>
         <small>
           {formatDate(tx.transactionDate || tx.date)}
-          {tx.wallet?.name || tx.walletName ? ` - ${tx.wallet?.name || tx.walletName}` : ''}
+          {' - '}
+          {categoryName}
+          {' - '}
+          {walletName}
         </small>
       </span>
-      <em style={{ color: txColor }}>{sign}{formatCurrency(Math.abs(tx.amount))}</em>
+      <em style={{ color: txColor }}>{sign}{formatCurrency(Math.abs(tx.amount), currency)}</em>
     </button>
   )
 }

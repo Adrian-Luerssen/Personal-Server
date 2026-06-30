@@ -33,7 +33,11 @@ describe('native adaptive app navigation', () => {
     );
     assert.deepEqual(
       getNativeTabsForPath('/media').map((tab) => tab.label),
-      ['Library'],
+      ['Today', 'Apps', 'Library'],
+    );
+    assert.deepEqual(
+      getNativeTabsForPath('/chat').map((tab) => tab.label),
+      ['Today', 'Apps', 'Assistant'],
     );
   });
 

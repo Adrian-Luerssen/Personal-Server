@@ -1,3 +1,5 @@
+import { filterEnabledNativeApps, isNativeAppEnabled } from './modulePreferences.mjs'
+
 function normalizePath(path) {
   return String(path || '/').split('?')[0]
 }
@@ -46,7 +48,7 @@ export const NATIVE_APPS = [
     tabs: [
       destination('/home', 'Today', 'home', { exact: true }),
       destination('/menu', 'Apps', 'grid-3x3'),
-      destination('/chat', 'Assistant', 'message-square'),
+      destination('/chat', 'Assistant', 'message-square', { module: 'assistant' }),
     ],
   },
   {
@@ -144,13 +146,20 @@ export function getNativeAppForPath(path) {
   )
 }
 
-export function getNativeTabsForPath(path) {
-  return getNativeAppForPath(path).tabs || []
+function isTabEnabled(tab, prefs) {
+  if (!tab.module || prefs == null) return true
+  return isNativeAppEnabled({ id: tab.module }, prefs)
 }
 
-export function getNativeAppSwitcherOptions(path) {
+export function getNativeTabsForPath(path, prefs) {
+  const app = getNativeAppForPath(path)
+  if (!isNativeAppEnabled(app, prefs)) return []
+  return (app.tabs || []).filter((tab) => isTabEnabled(tab, prefs))
+}
+
+export function getNativeAppSwitcherOptions(path, prefs) {
   const currentApp = getNativeAppForPath(path)
-  return NATIVE_APPS.filter((app) => app.id !== currentApp.id)
+  return filterEnabledNativeApps(NATIVE_APPS, prefs).filter((app) => app.id !== currentApp.id)
 }
 
 export function isNativeDestinationActive(tab, pathname, search = '') {

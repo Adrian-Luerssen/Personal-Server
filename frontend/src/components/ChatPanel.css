@@ -306,7 +306,7 @@ body.native-mobile-app .chat-panel--inline .chat-send-btn {
   text-align: center;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-  padding: 2rem var(--density-padding-lg);
+  padding: 1rem var(--density-padding-lg);
 }
 
 /* Messages area */

@@ -46,19 +46,28 @@ import {
   pinAndroidWidget,
   refreshAndroidWidgets,
 } from '../../androidWidgets.mjs'
+import { usePreferences } from '../../contexts/PreferencesContext'
+import {
+  DEFAULT_HOME_WIDGETS,
+  DEFAULT_WIDGET_LAYOUT,
+  FEATURE_MODULES,
+  getFeatureModulePreferences,
+  isFeatureEnabled,
+} from '../../modulePreferences.mjs'
 
-const SETTINGS_TABS = new Set(['account', 'connections', 'agent-keys', 'appearance', 'preferences', 'data'])
+const SETTINGS_TABS = new Set(['account', 'connections', 'agent-keys', 'appearance', 'preferences', 'modules', 'data'])
 
 const NATIVE_SETTINGS_SECTIONS = [
   { key: 'account', label: 'Account and Security', description: 'Profile, password, and MFA', icon: 'shield-check' },
   { key: 'connections', label: 'Connections', description: 'Spotify and connected services', icon: 'link' },
   { key: 'integrations', label: 'Health and Payments', description: 'Step counts and detected payment prompts', icon: 'activity' },
+  { key: 'modules', label: 'Modules and Home', description: 'Active features and Today cards', icon: 'sliders-horizontal' },
   { key: 'notifications', label: 'Notifications', description: 'Permission, reminders, and alert types', icon: 'bell' },
   { key: 'widgets', label: 'Widgets', description: 'Home-screen widgets and lock-screen behavior', icon: 'panel-top' },
   { key: 'sync', label: 'Sync and Offline', description: 'Cache freshness, retries, and local data', icon: 'refresh-cw' },
   { key: 'updates', label: 'App Updates', description: 'Installed version, release, and APK link', icon: 'smartphone' },
   { key: 'appearance', label: 'Appearance', description: 'Theme, density, and visual preferences', icon: 'palette' },
-  { key: 'data', label: 'Settings and Data', description: 'Feature imports, module settings, export, and reset tools', icon: 'database' },
+  { key: 'data', label: 'Data and Imports', description: 'Imports, module settings, export, and reset tools', icon: 'database' },
   { key: 'agent-keys', label: 'Developer Agent Keys', description: 'API keys for external agents', icon: 'key-round' },
 ]
 
@@ -70,9 +79,8 @@ function NativeSettingsIndex({ onSelect }) {
   return (
     <div className="native-settings-page">
       <section className="native-settings-hero">
-        <span className="native-eyebrow">App control</span>
         <h1>Settings</h1>
-        <p>Manage account, notifications, sync, updates, and data from one place.</p>
+        <p>Manage account, connections, notifications, sync, updates, imports, and local app behavior.</p>
       </section>
 
       <section className="native-settings-list" aria-label="Settings sections">
@@ -106,7 +114,6 @@ function NativeSettingsShell({ title, description, icon, onBack, children }) {
         All settings
       </button>
       <section className="native-settings-hero">
-        <span className="native-eyebrow">Settings</span>
         <h1><Icon name={icon} size={22} aria-hidden="true" /> {title}</h1>
         <p>{description}</p>
       </section>
@@ -177,7 +184,149 @@ function NativeNotificationPreferenceRow({ id, label, description, preferences, 
   )
 }
 
+const MODULE_WIDGET_METRICS = {
+  habits: 'habits',
+  training: 'training',
+  finance: 'finance',
+  music: 'music',
+}
+
+function buildHomeWidgetsWithModuleVisibility(currentWidgets, moduleId, visible) {
+  const byId = new Map(DEFAULT_HOME_WIDGETS.map((widget) => [widget.id, { ...widget }]))
+  for (const widget of currentWidgets || []) {
+    if (!widget?.id || !byId.has(widget.id)) continue
+    byId.set(widget.id, { ...byId.get(widget.id), ...widget })
+  }
+  return [...byId.values()]
+    .map((widget) => widget.module === moduleId ? { ...widget, visible } : widget)
+    .sort((a, b) => a.order - b.order)
+}
+
+function buildWidgetLayoutForModules(currentLayout, modules) {
+  const metrics = DEFAULT_WIDGET_LAYOUT.today.metrics.filter((metric) => {
+    const moduleId = Object.entries(MODULE_WIDGET_METRICS).find(([, value]) => value === metric)?.[0]
+    if (!moduleId) return false
+    const module = modules[moduleId]
+    return module?.enabled !== false && module?.showOnWidgets !== false
+  })
+  return {
+    ...currentLayout,
+    today: {
+      ...(currentLayout?.today || {}),
+      metrics,
+    },
+  }
+}
+
+function ModuleSettingsSection() {
+  const { prefs, updatePrefs } = usePreferences()
+  const normalized = getFeatureModulePreferences(prefs)
+  const homeByModule = new Map(normalized.homeLayout.widgets.map((widget) => [widget.module, widget]))
+
+  function updateModule(moduleId, patch) {
+    const currentModule = normalized.featureModules[moduleId] || {}
+    const nextModules = {
+      ...normalized.featureModules,
+      [moduleId]: {
+        ...currentModule,
+        ...patch,
+      },
+    }
+    const updates = { featureModules: nextModules }
+
+    if (Object.prototype.hasOwnProperty.call(patch, 'showOnHome')) {
+      updates.homeLayout = {
+        widgets: buildHomeWidgetsWithModuleVisibility(normalized.homeLayout.widgets, moduleId, patch.showOnHome),
+      }
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(patch, 'showOnWidgets') ||
+      Object.prototype.hasOwnProperty.call(patch, 'enabled')
+    ) {
+      updates.widgetLayout = buildWidgetLayoutForModules(normalized.widgetLayout, nextModules)
+    }
+
+    updatePrefs(updates)
+  }
+
+  function resetDefaults() {
+    updatePrefs({
+      featureModules: null,
+      homeLayout: null,
+      widgetLayout: null,
+    })
+  }
+
+  return (
+    <section className="native-settings-card module-settings-card">
+      <div className="module-settings-card__header">
+        <div>
+          <h2>Modules and Home</h2>
+          <p>Choose which product areas exist in the app, then decide whether they appear on Today and Android widgets.</p>
+        </div>
+        <button type="button" className="native-secondary-button" onClick={resetDefaults}>
+          Reset
+        </button>
+      </div>
+      <div className="module-settings-list">
+        {FEATURE_MODULES.map((module) => {
+          const modulePrefs = normalized.featureModules[module.id]
+          const enabled = modulePrefs?.enabled !== false
+          const homeVisible = enabled && modulePrefs?.showOnHome !== false && homeByModule.get(module.id)?.visible !== false
+          const widgetsVisible = enabled && modulePrefs?.showOnWidgets !== false
+          const syncEnabled = enabled && modulePrefs?.syncEnabled !== false
+
+          return (
+            <article className={`module-settings-row module-settings-row--${enabled ? 'enabled' : 'disabled'}`} key={module.id}>
+              <div className="module-settings-row__title">
+                <span>{module.label}</span>
+                <strong>{enabled ? 'Active' : 'Hidden'}</strong>
+              </div>
+              <NativePreferenceToggle
+                enabled={enabled}
+                label="Feature active"
+                description={enabled ? 'Shown in navigation and available to use.' : 'Hidden from navigation, home, widgets, and sync.'}
+                onChange={(next) => updateModule(module.id, {
+                  enabled: next,
+                  showOnHome: next ? modulePrefs.showOnHome : false,
+                  showOnWidgets: next ? modulePrefs.showOnWidgets : false,
+                  syncEnabled: next ? modulePrefs.syncEnabled : false,
+                })}
+              />
+              <div className="module-settings-row__subgrid">
+                <NativePreferenceToggle
+                  enabled={homeVisible}
+                  label="Today"
+                  description="Show on the home screen."
+                  onChange={(next) => updateModule(module.id, { showOnHome: next })}
+                />
+                <NativePreferenceToggle
+                  enabled={widgetsVisible}
+                  label="Widgets"
+                  description="Allow this module on Android widgets."
+                  onChange={(next) => updateModule(module.id, { showOnWidgets: next })}
+                />
+                <NativePreferenceToggle
+                  enabled={syncEnabled}
+                  label="Background"
+                  description="Fetch and refresh this module automatically."
+                  onChange={(next) => updateModule(module.id, { syncEnabled: next })}
+                />
+              </div>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function NativeNotificationsSection() {
+  const { prefs } = usePreferences()
+  const showHabits = isFeatureEnabled(prefs, 'habits')
+  const showTraining = isFeatureEnabled(prefs, 'training')
+  const showFinance = isFeatureEnabled(prefs, 'finance')
+  const showAssistant = isFeatureEnabled(prefs, 'assistant')
   const [preferences, setPreferences] = useState(() => readNotificationPreferences())
   const [notificationStatus, setNotificationStatus] = useState({
     supported: true,
@@ -258,12 +407,12 @@ function NativeNotificationsSection() {
         <strong>{message}</strong>
       </div>
       <div className="native-toggle-list">
-        <NativeNotificationPreferenceRow id="habitReminders" label="Habit reminders" description="Daily reminders to log habits." preferences={preferences} setPreferences={setPreferences} />
-        <NativeNotificationPreferenceRow id="missedHabits" label="Missed habit nudges" description="Follow-up reminders when habits remain open." preferences={preferences} setPreferences={setPreferences} timeLabel="Nudge time" />
-        <NativeNotificationPreferenceRow id="workouts" label="Workout reminders" description="Training prompts and active workout nudges." preferences={preferences} setPreferences={setPreferences} />
-        <NativeNotificationPreferenceRow id="finance" label="Finance reminders" description="Budget, subscription, and import completion alerts." preferences={preferences} setPreferences={setPreferences} />
-        <NativeNotificationPreferenceRow id="assistant" label="Assistant replies" description="Notify when the AI assistant responds." preferences={preferences} setPreferences={setPreferences} />
-        <NativeNotificationPreferenceRow id="assistantCustom" label="AI custom alerts" description="Allow the assistant to write contextual notifications for you." preferences={preferences} setPreferences={setPreferences} />
+        {showHabits && <NativeNotificationPreferenceRow id="habitReminders" label="Habit reminders" description="Daily reminders to log habits." preferences={preferences} setPreferences={setPreferences} />}
+        {showHabits && <NativeNotificationPreferenceRow id="missedHabits" label="Missed habit nudges" description="Follow-up reminders when habits remain open." preferences={preferences} setPreferences={setPreferences} timeLabel="Nudge time" />}
+        {showTraining && <NativeNotificationPreferenceRow id="workouts" label="Workout reminders" description="Training prompts and active workout nudges." preferences={preferences} setPreferences={setPreferences} />}
+        {showFinance && <NativeNotificationPreferenceRow id="finance" label="Finance reminders" description="Budget, subscription, and import completion alerts." preferences={preferences} setPreferences={setPreferences} />}
+        {showAssistant && <NativeNotificationPreferenceRow id="assistant" label="Assistant replies" description="Notify when the AI assistant responds." preferences={preferences} setPreferences={setPreferences} />}
+        {showAssistant && <NativeNotificationPreferenceRow id="assistantCustom" label="AI custom alerts" description="Allow the assistant to write contextual notifications for you." preferences={preferences} setPreferences={setPreferences} />}
         <NativeNotificationPreferenceRow id="updates" label="App updates" description="APK release and required update notices." preferences={preferences} setPreferences={setPreferences} />
         <div className="native-quiet-hours">
           <div>
@@ -386,6 +535,9 @@ function NativeWidgetsSection() {
 }
 
 function NativeIntegrationsSection() {
+  const { prefs } = usePreferences()
+  const showTraining = isFeatureEnabled(prefs, 'training')
+  const showFinance = isFeatureEnabled(prefs, 'finance')
   const [health, setHealth] = useState({ status: 'checking', available: false, action: 'unsupported' })
   const [activity, setActivity] = useState({ today: null, week: { steps: 0, daysWithData: 0 }, recent: [] })
   const [payments, setPayments] = useState({ supported: false, enabled: false, notificationAccess: false, pendingCount: 0 })
@@ -396,20 +548,20 @@ function NativeIntegrationsSection() {
 
   async function refresh() {
     const [healthStatus, paymentStatus, activityStatus, nativeStepSync] = await Promise.all([
-      getHealthConnectStatus(),
-      getPaymentDetectionStatus(),
-      getSyncedActivityMetrics({ days: 7 }).catch(() => null),
-      getNativeStepSyncStatus().catch(() => null),
+      showTraining ? getHealthConnectStatus() : Promise.resolve(null),
+      showFinance ? getPaymentDetectionStatus() : Promise.resolve(null),
+      showTraining ? getSyncedActivityMetrics({ days: 7 }).catch(() => null) : Promise.resolve(null),
+      showTraining ? getNativeStepSyncStatus().catch(() => null) : Promise.resolve(null),
     ])
-    setHealth(healthStatus)
-    setPayments(paymentStatus)
+    if (healthStatus) setHealth(healthStatus)
+    if (paymentStatus) setPayments(paymentStatus)
     if (activityStatus) setActivity(activityStatus)
     if (nativeStepSync) setStepSync(nativeStepSync)
   }
 
   useEffect(() => {
     refresh()
-  }, [])
+  }, [showTraining, showFinance])
 
   async function requestHealth() {
     setBusy(true)
@@ -506,6 +658,7 @@ function NativeIntegrationsSection() {
       </div>
 
       <div className="native-integration-stack">
+        {showTraining && (
         <article className="native-integration-card">
           <div>
             <h2>Health Connect</h2>
@@ -565,7 +718,9 @@ function NativeIntegrationsSection() {
             {stepSync.lastError && <span>Last background issue: {stepSync.lastError}</span>}
           </div>
         </article>
+        )}
 
+        {showFinance && (
         <article className="native-integration-card">
           <div>
             <h2>Payment prompts</h2>
@@ -594,6 +749,15 @@ function NativeIntegrationsSection() {
             <span>Raw notification text stays local; only amount, merchant, app, and time are synced.</span>
           </div>
         </article>
+        )}
+        {!showTraining && !showFinance && (
+          <article className="native-integration-card">
+            <div>
+              <h2>No active integrations</h2>
+              <p>Enable Training or Money in Modules and Home to use Health Connect or payment prompts.</p>
+            </div>
+          </article>
+        )}
       </div>
     </section>
   )
@@ -743,6 +907,7 @@ function NativeSettings({ activeSection, setActiveSection, spotifyError, current
       {activeSection === 'account' && <Account />}
       {activeSection === 'connections' && <Connections initialError={spotifyError} />}
       {activeSection === 'integrations' && <NativeIntegrationsSection />}
+      {activeSection === 'modules' && <ModuleSettingsSection />}
       {activeSection === 'notifications' && <NativeNotificationsSection />}
       {activeSection === 'widgets' && <NativeWidgetsSection />}
       {activeSection === 'sync' && <NativeSyncSection />}
@@ -847,6 +1012,13 @@ export default function Settings() {
           {t('settings.preferences')}
         </button>
         <button
+          className={`tab-btn ${activeTab === 'modules' ? 'active' : ''}`}
+          onClick={() => setActiveTab('modules')}
+        >
+          <Icon name="sliders-horizontal" size={16} style={{ marginRight: '4px' }} />
+          Modules
+        </button>
+        <button
           className={`tab-btn ${activeTab === 'data' ? 'active' : ''}`}
           onClick={() => setActiveTab('data')}
         >
@@ -864,6 +1036,8 @@ export default function Settings() {
       {activeTab === 'appearance' && <Appearance />}
 
       {activeTab === 'data' && <DataManagement />}
+
+      {activeTab === 'modules' && <ModuleSettingsSection />}
 
       {activeTab === 'preferences' && (
         <div className="card section">

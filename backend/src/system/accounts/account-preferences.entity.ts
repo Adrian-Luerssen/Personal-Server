@@ -5,6 +5,22 @@ export enum ThemeMode { DARK = "dark", LIGHT = "light", AUTO = "auto" }
 export enum SidebarPosition { LEFT = "left", RIGHT = "right" }
 export enum Density { COMPACT = "compact", COMFORTABLE = "comfortable", SPACIOUS = "spacious" }
 
+export type FeatureModulePreferences = Record<string, {
+  enabled?: boolean;
+  showOnHome?: boolean;
+  showOnWidgets?: boolean;
+  syncEnabled?: boolean;
+}>;
+
+export type HomeLayoutPreferences = {
+  widgets?: { id: string; module: string; visible: boolean; order: number }[];
+};
+
+export type WidgetLayoutPreferences = {
+  today?: { metrics?: string[]; showScore?: boolean };
+  lockScreen?: { metrics?: string[]; showScore?: boolean; allowSensitive?: boolean };
+};
+
 @Entity("account_preferences")
 export class AccountPreferences {
   @PrimaryGeneratedColumn("uuid")
@@ -37,6 +53,15 @@ export class AccountPreferences {
 
   @Column({ type: "jsonb", nullable: true })
   dashboardWidgets: { id: string; visible: boolean; order: number }[] | null;
+
+  @Column({ type: "jsonb", nullable: true })
+  featureModules: FeatureModulePreferences | null;
+
+  @Column({ type: "jsonb", nullable: true })
+  homeLayout: HomeLayoutPreferences | null;
+
+  @Column({ type: "jsonb", nullable: true })
+  widgetLayout: WidgetLayoutPreferences | null;
 
   @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;

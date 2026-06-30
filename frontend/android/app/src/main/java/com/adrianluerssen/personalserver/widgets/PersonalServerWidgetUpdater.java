@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import com.adrianluerssen.personalserver.MainActivity;
@@ -16,6 +17,8 @@ import com.adrianluerssen.personalserver.R;
 
 import org.json.JSONObject;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -102,6 +105,10 @@ public final class PersonalServerWidgetUpdater {
         views.setTextViewText(R.id.widget_today_status, snapshot.status);
         views.setTextViewText(R.id.widget_today_brief_detail, snapshot.briefDetail);
         views.setTextViewText(R.id.widget_today_updated, snapshot.updatedLabel);
+        views.setViewVisibility(R.id.widget_today_habits_card, snapshot.showsMetric("habits") ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.widget_today_workouts_card, snapshot.showsMetric("training") ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.widget_today_spend_card, snapshot.showsMetric("finance") ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.widget_today_streams_card, snapshot.showsMetric("music") ? View.VISIBLE : View.GONE);
         views.setContentDescription(R.id.widget_today_brief_card, snapshot.status + ". " + snapshot.briefDetail);
         views.setContentDescription(R.id.widget_today_habits_card, "Habits " + snapshot.habitsDone + " of " + snapshot.habitsTotal);
         views.setContentDescription(R.id.widget_today_workouts_card, "Training " + snapshot.workoutsThisWeek);
@@ -218,6 +225,8 @@ public final class PersonalServerWidgetUpdater {
         final String briefDetail;
         final String lockScreenStatus;
         final String updatedLabel;
+        final boolean customMetricVisibility;
+        final Set<String> visibleMetrics;
 
         private WidgetSnapshot(
             int score,
@@ -231,7 +240,9 @@ public final class PersonalServerWidgetUpdater {
             String status,
             String briefDetail,
             String lockScreenStatus,
-            String updatedLabel
+            String updatedLabel,
+            boolean customMetricVisibility,
+            Set<String> visibleMetrics
         ) {
             this.score = score;
             this.habitsDone = habitsDone;
@@ -245,12 +256,15 @@ public final class PersonalServerWidgetUpdater {
             this.briefDetail = briefDetail;
             this.lockScreenStatus = lockScreenStatus;
             this.updatedLabel = updatedLabel;
+            this.customMetricVisibility = customMetricVisibility;
+            this.visibleMetrics = visibleMetrics;
         }
 
         static WidgetSnapshot from(JSONObject json) {
             int habitsTotal = json.optInt("habitsTotal", 0);
             int habitsDone = json.optInt("habitsDone", 0);
             int habitsRemaining = json.optInt("habitsRemaining", Math.max(0, habitsTotal - habitsDone));
+            Set<String> visibleMetrics = parseVisibleMetrics(json);
             return new WidgetSnapshot(
                 json.optInt("score", 0),
                 habitsDone,
@@ -263,12 +277,33 @@ public final class PersonalServerWidgetUpdater {
                 json.optString("status", "Open app to sync"),
                 json.optString("briefDetail", ""),
                 json.optString("lockScreenStatus", formatLockScreenStatus(habitsTotal, habitsRemaining)),
-                formatUpdated(json.optString("generatedAt", ""))
+                formatUpdated(json.optString("generatedAt", "")),
+                json.has("visibleMetrics"),
+                visibleMetrics
             );
         }
 
         static WidgetSnapshot empty() {
-            return new WidgetSnapshot(0, 0, 0, 0, 0, 0, "EUR", 0, "Open app to sync", "Open app to sync", "Open app to sync", "No local snapshot");
+            return new WidgetSnapshot(0, 0, 0, 0, 0, 0, "EUR", 0, "Open app to sync", "Open app to sync", "Open app to sync", "No local snapshot", false, new HashSet<String>());
+        }
+
+        boolean showsMetric(String metric) {
+            return !customMetricVisibility || visibleMetrics.contains(metric);
+        }
+
+        private static Set<String> parseVisibleMetrics(JSONObject json) {
+            Set<String> metrics = new HashSet<>();
+            if (!json.has("visibleMetrics")) return metrics;
+            try {
+                org.json.JSONArray values = json.getJSONArray("visibleMetrics");
+                for (int i = 0; i < values.length(); i++) {
+                    String metric = values.optString(i, "");
+                    if (!metric.isEmpty()) metrics.add(metric);
+                }
+            } catch (Exception exception) {
+                return metrics;
+            }
+            return metrics;
         }
 
         private static String normalizeCurrency(String value) {

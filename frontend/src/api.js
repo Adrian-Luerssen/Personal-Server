@@ -1,6 +1,7 @@
 import { getApiBase } from "./config";
 import { getTokens, refreshIfPossible, clearTokens } from "./auth";
 import { createApiResponseCache } from "./apiCache.mjs";
+import { getEnabledPreloadPaths } from "./modulePreferences.mjs";
 
 // ---------------------------------------------------------------------------
 // Cache configuration — tiered TTLs based on data volatility
@@ -310,18 +311,20 @@ const PRELOAD_PATHS = [
   '/workout/exercises',
 ];
 
-export function preloadDashboardData() {
+export function preloadDashboardData(prefs) {
+  const preloadPaths = getEnabledPreloadPaths(PRELOAD_PATHS, prefs);
+
   checkDataValidity()
     .then(({ changed }) => {
       if (changed) {
-        for (const path of PRELOAD_PATHS) {
+        for (const path of preloadPaths) {
           api.get(path).catch(() => {});
         }
       }
     })
     .catch(() => {});
 
-  for (const path of PRELOAD_PATHS) {
+  for (const path of preloadPaths) {
     // Only preload if not already cached
     const cached = responseCache.get(path);
     const ttl = getCacheTTL(path);

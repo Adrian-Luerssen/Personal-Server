@@ -109,10 +109,12 @@ export default function Finance() {
   const [wallets, setWallets] = useState([])
   const [categories, setCategories] = useState([])
   const [summary, setSummary] = useState(null)
+  const [budgets, setBudgets] = useState([])
   const [recentTransactions, setRecentTransactions] = useState([])
   const [period, setPeriod] = useState('month')
   const [showTxForm, setShowTxForm] = useState(false)
   const [txFormMode, setTxFormMode] = useState('expense')
+  const [txFormData, setTxFormData] = useState(null)
 
   // Fire-and-forget: generate any pending subscription transactions on mount
   useEffect(() => {
@@ -137,29 +139,34 @@ export default function Finance() {
       const categoriesPath = '/finance/categories'
       const summaryPath = `/finance/transactions/summary?${summaryParams}`
       const transactionsPath = `/finance/transactions?${txParams}`
+      const budgetsPath = '/finance/budgets/status'
 
-      const [walletsData, categoriesData, summaryData, transactionsData] = await Promise.all([
+      const [walletsData, categoriesData, summaryData, transactionsData, budgetsData] = await Promise.all([
         api.get(walletsPath),
         api.get(categoriesPath),
         api.get(summaryPath),
         api.get(transactionsPath),
+        api.get(budgetsPath).catch(() => []),
       ])
       setWallets(walletsData || [])
       setCategories(categoriesData || [])
       setSummary(summaryData || {})
       setRecentTransactions(normalizeTransactionList(transactionsData))
+      setBudgets(Array.isArray(budgetsData) ? budgetsData : budgetsData?.items || [])
 
       if (looksLikeEmptyFinanceCache(summaryData, transactionsData)) {
-        const [freshWalletsData, freshCategoriesData, freshSummaryData, freshTransactionsData] = await Promise.all([
+        const [freshWalletsData, freshCategoriesData, freshSummaryData, freshTransactionsData, freshBudgetsData] = await Promise.all([
           api.get(walletsPath, { force: true }),
           api.get(categoriesPath, { force: true }),
           api.get(summaryPath, { force: true }),
           api.get(transactionsPath, { force: true }),
+          api.get(budgetsPath, { force: true }).catch(() => []),
         ])
         setWallets(freshWalletsData || [])
         setCategories(freshCategoriesData || [])
         setSummary(freshSummaryData || {})
         setRecentTransactions(normalizeTransactionList(freshTransactionsData))
+        setBudgets(Array.isArray(freshBudgetsData) ? freshBudgetsData : freshBudgetsData?.items || [])
       }
     } catch (e) {
       console.error('Failed to load finance dashboard:', e)
@@ -207,8 +214,20 @@ export default function Finance() {
   }
 
   function openTransactionForm(mode = 'expense') {
+    setTxFormData(null)
     setTxFormMode(mode)
     setShowTxForm(true)
+  }
+
+  function openEditTransaction(transaction) {
+    setTxFormData(transaction)
+    setTxFormMode(getTransactionType(transaction))
+    setShowTxForm(true)
+  }
+
+  function closeTransactionForm() {
+    setShowTxForm(false)
+    setTxFormData(null)
   }
 
   if (isNativeMobileApp()) {
@@ -218,6 +237,7 @@ export default function Finance() {
           loading={loading}
           wallets={wallets}
           categories={categories}
+          budgets={budgets}
           recentTransactions={recentTransactions}
           categorySpending={categorySpending}
           totalBalance={totalBalance}
@@ -228,13 +248,15 @@ export default function Finance() {
           setPeriod={setPeriod}
           navigate={navigate}
           onAddTransaction={openTransactionForm}
+          onEditTransaction={openEditTransaction}
         />
         {showTxForm && (
           <TransactionForm
+            transaction={txFormData}
             wallets={wallets}
             categories={categories}
             initialMode={txFormMode}
-            onClose={() => setShowTxForm(false)}
+            onClose={closeTransactionForm}
             onSaved={loadDashboard}
           />
         )}
@@ -243,23 +265,27 @@ export default function Finance() {
   }
 
   return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-        <PageHeader icon="wallet" title="Finance" accentColor="#fbbf24" />
-        <button className="btn btn-primary" onClick={() => openTransactionForm('expense')}>
-          <Icon name="plus" size={16} /> Add Transaction
+    <div className="finance-desktop-page">
+      <div className="finance-desktop-page__header">
+        <PageHeader
+          icon="wallet"
+          eyebrow="Finance ledger"
+          title="Money"
+          subtitle={`${getPeriodLabel(period)} records, wallets, and category pressure.`}
+          accentColor="#fbbf24"
+        />
+        <button className="btn btn-primary finance-primary-action" onClick={() => openTransactionForm('expense')}>
+          <Icon name="plus" size={16} /> Add expense
         </button>
       </div>
 
-      {/* Period Selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <div className="finance-period-row">
         <PeriodSelector value={period} onChange={setPeriod} />
-        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{getPeriodLabel(period)}</span>
+        <span>{getPeriodLabel(period)}</span>
       </div>
 
-      {/* Stats Grid */}
       <ScrollReveal>
-        <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
+        <div className="stat-grid finance-ledger-metrics">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
           ) : (
@@ -279,44 +305,41 @@ export default function Finance() {
         </div>
       </ScrollReveal>
 
-      {/* Quick Actions */}
       <ScrollReveal delay={100}>
-      <div className="section">
-        <h3>{t('finance.quickActions')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+      <section className="finance-ledger-section">
+        <div className="finance-section-head">
+          <div>
+            <span>Actions</span>
+            <h3>Correct the ledger</h3>
+          </div>
+        </div>
+        <div className="finance-action-strip">
           {[
             { icon: 'receipt', label: 'Transactions', onClick: () => navigate('/finance/transactions'), accent: true },
             { icon: 'database', label: 'Settings and Data', onClick: () => navigate('/settings?section=data') },
           ].map(action => (
             <button
               key={action.label}
-              className="card interactive"
-              style={{
-                padding: '1.5rem',
-                textAlign: 'center',
-                color: 'inherit',
-                border: action.accent ? `2px solid ${FINANCE_COLOR}` : undefined,
-                background: action.accent ? FINANCE_COLOR_MUTED : undefined,
-              }}
+              className={`finance-action-tile ${action.accent ? 'finance-action-tile--accent' : ''}`}
               onClick={action.onClick}
             >
-              <Icon name={action.icon} size={40} style={{ marginBottom: '.5rem', color: FINANCE_COLOR }} />
-              <div style={{ fontWeight: 700 }}>{action.label}</div>
+              <Icon name={action.icon} size={18} />
+              <span>{action.label}</span>
             </button>
           ))}
         </div>
-      </div>
+      </section>
       </ScrollReveal>
 
-      {/* Two columns: Chart & Wallets */}
       <ScrollReveal delay={200}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
-        {/* Spending by Category */}
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <h3 style={{ marginBottom: '1rem' }}>
+      <div className="finance-ledger-grid">
+        <section className="finance-ledger-section">
+          <div className="finance-section-head">
+          <h3>
             <Icon name="pie-chart" size={20} style={{ marginRight: 8 }} />
             {t('finance.spendingByCategory')}
           </h3>
+          </div>
           {loading ? (
             <SkeletonCard lines={5} />
           ) : categorySpending.length === 0 ? (
@@ -338,11 +361,10 @@ export default function Finance() {
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Wallets Overview */}
-        <div className="card" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <section className="finance-ledger-section">
+          <div className="finance-section-head">
             <h3>
               <Icon name="landmark" size={20} style={{ marginRight: 8 }} />
               {t('finance.wallets')}
@@ -386,14 +408,13 @@ export default function Finance() {
               ))}
             </div>
           )}
-        </div>
+        </section>
       </div>
       </ScrollReveal>
 
-      {/* Recent Transactions */}
       <ScrollReveal delay={300}>
-      <div className="section" style={{ marginTop: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.75rem' }}>
+      <section className="finance-ledger-section">
+        <div className="finance-section-head">
           <h3>
             <Icon name="receipt" size={20} style={{ marginRight: 8 }} />
             {t('finance.recentTransactions')}
@@ -406,9 +427,9 @@ export default function Finance() {
         ) : recentTransactions.length === 0 ? (
           <div className="empty-state">{t('finance.noTransactionsYet')}</div>
         ) : (
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="finance-table-shell">
             <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
+            <table className="finance-ledger-table">
               <thead>
                 <tr style={{ background: 'var(--color-bg-elevated)' }}>
                   <th style={thStyle}>{t('finance.date')}</th>
@@ -459,7 +480,7 @@ export default function Finance() {
             </div>
           </div>
         )}
-      </div>
+      </section>
       </ScrollReveal>
 
       {showTxForm && (
@@ -471,13 +492,14 @@ export default function Finance() {
           onSaved={loadDashboard}
         />
       )}
-    </>
+    </div>
   )
 }
 
 function NativeFinanceDashboard({
   loading,
   wallets,
+  budgets,
   recentTransactions,
   categorySpending,
   totalBalance,
@@ -488,6 +510,7 @@ function NativeFinanceDashboard({
   setPeriod,
   navigate,
   onAddTransaction,
+  onEditTransaction,
 }) {
   const periodOptions = [
     { id: 'week', label: 'Week' },
@@ -496,6 +519,7 @@ function NativeFinanceDashboard({
     { id: 'all', label: 'All' },
   ]
   const topWallets = wallets.slice(0, 3)
+  const visibleBudgets = (budgets || []).slice(0, 3)
   const visibleTransactions = recentTransactions.slice(0, 5)
   const visibleCategories = categorySpending.slice(0, 5)
 
@@ -503,12 +527,12 @@ function NativeFinanceDashboard({
     <div className="native-finance-page native-dashboard" data-testid="native-finance-dashboard">
       <section className="native-finance-hero">
         <div>
-          <span className="native-eyebrow">Money</span>
-          <h1>{loading ? '...' : formatCurrency(netFlow)}</h1>
-          <p>{getPeriodLabel(period)} net flow</p>
+          <span className="native-eyebrow">Finance</span>
+          <h1>Money</h1>
+          <p>{getPeriodLabel(period)} overview</p>
         </div>
         <div className="native-finance-balance">
-          <span>Wallets</span>
+          <span>Total balance</span>
           <strong>{loading ? '...' : formatCurrency(totalBalance)}</strong>
         </div>
       </section>
@@ -527,15 +551,15 @@ function NativeFinanceDashboard({
       </div>
 
       <section className="native-finance-actions" aria-label="Quick transaction actions">
-        <button type="button" className="native-finance-action native-finance-action--expense" onClick={() => onAddTransaction('expense')}>
+        <button type="button" className="native-finance-action native-finance-action--expense" aria-label="Add expense" onClick={() => onAddTransaction('expense')}>
           <Icon name="arrow-up" size={18} />
-          <span>Expense</span>
+          <span>Add expense</span>
         </button>
-        <button type="button" className="native-finance-action native-finance-action--income" onClick={() => onAddTransaction('income')}>
+        <button type="button" className="native-finance-action native-finance-action--income" aria-label="Add income" onClick={() => onAddTransaction('income')}>
           <Icon name="arrow-down" size={18} />
-          <span>Income</span>
+          <span>Add income</span>
         </button>
-        <button type="button" className="native-finance-action native-finance-action--transfer" onClick={() => onAddTransaction('transfer')}>
+        <button type="button" className="native-finance-action native-finance-action--transfer" aria-label="Add transfer" onClick={() => onAddTransaction('transfer')}>
           <Icon name="arrow-left-right" size={18} />
           <span>Transfer</span>
         </button>
@@ -547,13 +571,30 @@ function NativeFinanceDashboard({
         <NativeFinanceMetric label="Net" value={formatCurrency(netFlow)} tone={netFlow >= 0 ? 'income' : 'expense'} />
       </section>
 
+      {visibleBudgets.length > 0 && (
+        <section className="native-finance-card">
+          <div className="native-section-head">
+            <div>
+              <h2>Budget pressure</h2>
+              <p>Live limits for the current period.</p>
+            </div>
+            <button type="button" onClick={() => navigate('/finance/settings')}>Manage</button>
+          </div>
+          <div className="native-budget-list">
+            {visibleBudgets.map(budget => (
+              <NativeBudgetPressureCard key={budget.id} budget={budget} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="native-finance-card">
         <div className="native-section-head">
           <div>
             <h2>Wallets</h2>
             <p>Balances that transactions will use by default.</p>
           </div>
-          <button type="button" onClick={() => navigate('/settings?section=data')}>Data</button>
+          <button type="button" onClick={() => navigate('/settings?section=data')}>Manage</button>
         </div>
         <div className="native-wallet-list">
           {loading ? (
@@ -588,7 +629,13 @@ function NativeFinanceDashboard({
           ) : visibleTransactions.length === 0 ? (
             <div className="native-empty-state">No transactions yet.</div>
           ) : (
-            visibleTransactions.map(tx => <NativeTransactionCard key={tx.id} tx={tx} />)
+            visibleTransactions.map(tx => (
+              <NativeTransactionCard
+                key={tx.id}
+                tx={tx}
+                onClick={() => onEditTransaction(tx)}
+              />
+            ))
           )}
         </div>
       </section>
@@ -599,7 +646,7 @@ function NativeFinanceDashboard({
             <h2>Spending</h2>
             <p>Largest categories in this period.</p>
           </div>
-          <button type="button" onClick={() => navigate('/settings?section=data')}>Data</button>
+          <button type="button" onClick={() => navigate('/settings?section=data')}>Manage</button>
         </div>
         <div className="native-category-spend-list">
           {loading ? (
@@ -625,6 +672,37 @@ function NativeFinanceDashboard({
         </div>
       </section>
     </div>
+  )
+}
+
+function NativeBudgetPressureCard({ budget }) {
+  const percent = Math.max(0, Math.min(100, Number(budget.percentage || 0)))
+  const isOver = budget.isOver || percent >= 100
+  const tone = isOver ? 'danger' : percent >= 80 ? 'warning' : 'ok'
+  const category = {
+    name: budget.categoryName || budget.category?.name || 'Overall budget',
+    iconName: budget.categoryIcon || budget.category?.iconName || 'piggy-bank',
+    colour: budget.categoryColour || budget.category?.colour || FINANCE_COLOR,
+  }
+
+  return (
+    <article className={`native-budget-card native-budget-card--${tone}`}>
+      <div className="native-budget-card__head">
+        <CategoryIcon category={category} size={34} />
+        <span>
+          <strong>{category.name}</strong>
+          <small>{budget.period || 'monthly'} budget</small>
+        </span>
+        <em>{percent}%</em>
+      </div>
+      <div className="native-budget-card__bar" aria-label={`${category.name} budget ${percent}% used`}>
+        <span style={{ width: `${percent}%` }} />
+      </div>
+      <div className="native-budget-card__meta">
+        <span>{formatCurrency(Math.abs(Number(budget.spent || 0)))} spent</span>
+        <span>{formatCurrency(Number(budget.remaining || 0))} left</span>
+      </div>
+    </article>
   )
 }
 

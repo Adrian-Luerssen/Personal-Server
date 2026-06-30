@@ -24,6 +24,10 @@ export class PreferencesController {
     sidebarPosition: string;
     density: string;
     customCss: string;
+    dashboardWidgets: AccountPreferences["dashboardWidgets"];
+    featureModules: AccountPreferences["featureModules"];
+    homeLayout: AccountPreferences["homeLayout"];
+    widgetLayout: AccountPreferences["widgetLayout"];
   }>) {
     return this.preferencesService.update(account.id, body as Partial<AccountPreferences>);
   }

@@ -26,6 +26,127 @@ function normalizeChangelog(changelog = {}) {
   }
 }
 
+function cleanMarkdownText(value = '') {
+  return String(value)
+    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)]\(([^)]+)\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[*_~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function normalizeHeading(value = '') {
+  return cleanMarkdownText(value)
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function sectionForHeading(heading) {
+  const normalized = normalizeHeading(heading)
+  if (/^(new|new and improved|features|improvements|added)$/.test(normalized)) return 'features'
+  if (/^(fixed|fixes|bug fixes|resolved)$/.test(normalized)) return 'fixes'
+  if (/^(technical|technical changes|verification|build|deployment)$/.test(normalized)) return 'technical'
+  if (/^(commits|commit list)$/.test(normalized)) return 'commits'
+  return ''
+}
+
+function addUniqueItem(target, value) {
+  const item = cleanMarkdownText(value)
+  if (item && !target.includes(item)) target.push(item)
+}
+
+function fallbackReleaseBodyItems(body = '') {
+  return String(body)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^#{1,6}\s+/.test(line))
+    .filter((line) => !/^\|.*\|$/.test(line))
+    .filter((line) => !/^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+    .map((line) => line.replace(/^[-*]\s+/, ''))
+    .map(cleanMarkdownText)
+    .filter(Boolean)
+    .slice(0, 6)
+}
+
+export function parseAndroidReleaseNotes(body = '', fallbackSummary = '') {
+  const changelog = {
+    summary: cleanMarkdownText(fallbackSummary),
+    features: [],
+    fixes: [],
+    technical: [],
+    commits: [],
+    compareUrl: '',
+  }
+  if (!body) return normalizeChangelog(changelog)
+
+  const compareMatch = String(body).match(/\[compare changes]\(([^)]+)\)/i)
+  if (compareMatch?.[1]) changelog.compareUrl = compareMatch[1]
+
+  let currentSection = ''
+  let insideActualChangelog = false
+
+  for (const rawLine of String(body).split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    const headingMatch = line.match(/^(#{2,6})\s+(.+?)\s*$/)
+    if (headingMatch) {
+      const heading = headingMatch[2]
+      const normalized = normalizeHeading(heading)
+      if (normalized === 'changelog') {
+        insideActualChangelog = true
+        currentSection = ''
+        continue
+      }
+      currentSection = insideActualChangelog ? sectionForHeading(heading) : ''
+      continue
+    }
+
+    if (!insideActualChangelog) continue
+
+    if (!changelog.summary && /^changes since\b/i.test(line)) {
+      changelog.summary = cleanMarkdownText(line)
+      continue
+    }
+
+    const bulletMatch = line.match(/^[-*]\s+(.+)$/)
+    if (!bulletMatch || !currentSection) continue
+
+    if (currentSection === 'commits') {
+      const commitMatch = bulletMatch[1].match(/^`?([a-f0-9]{7,40})`?\s+(.+)$/i)
+      const subject = commitMatch ? cleanMarkdownText(commitMatch[2]) : cleanMarkdownText(bulletMatch[1])
+      if (subject) changelog.commits.push(subject)
+      continue
+    }
+
+    addUniqueItem(changelog[currentSection], bulletMatch[1])
+  }
+
+  if (!changelog.summary) {
+    changelog.summary =
+      changelog.features[0] ||
+      changelog.fixes[0] ||
+      changelog.technical[0] ||
+      cleanMarkdownText(fallbackSummary)
+  }
+
+  const hasStructuredItems =
+    changelog.features.length ||
+    changelog.fixes.length ||
+    changelog.technical.length ||
+    changelog.commits.length
+
+  if (!hasStructuredItems) {
+    changelog.technical = fallbackReleaseBodyItems(body)
+  }
+
+  return normalizeChangelog(changelog)
+}
+
 export function normalizeVersionPolicy(policy) {
   if (!policy?.latest) return null
   const latest = policy.latest
@@ -132,10 +253,7 @@ export async function checkForAndroidUpdate({ force = false } = {}) {
       name: release.name || 'Android update',
       publishedAt: release.published_at,
       apkUrl: asset?.browser_download_url || ANDROID_APK_URL,
-      changelog: normalizeChangelog({
-        summary: release.name || '',
-        technical: release.body ? [release.body] : [],
-      }),
+      changelog: parseAndroidReleaseNotes(release.body || '', release.name || 'Android update'),
     }
   } catch {
     return null

@@ -19,16 +19,16 @@ function ChangelogList({ changelog }) {
 
   return (
     <div className="native-update-changelog">
-      {changelog?.summary && <p>{changelog.summary}</p>}
+      {changelog?.summary && <p className="native-update-changelog__summary">{changelog.summary}</p>}
       {sections.map(([title, items]) => (
-        <div key={title}>
+        <section key={title} className="native-update-changelog__section" aria-label={`${title} in this update`}>
           <strong>{title}</strong>
           <ul>
             {items.slice(0, 6).map((item, index) => (
               <li key={`${title}-${index}`}>{item}</li>
             ))}
           </ul>
-        </div>
+        </section>
       ))}
     </div>
   )

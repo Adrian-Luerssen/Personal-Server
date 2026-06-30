@@ -10,6 +10,7 @@ export { SetRow } from './SetRow'
 export { StepIndicator } from './StepIndicator'
 export { ProgressBar } from './ProgressBar'
 export { ImportProgressPanel } from './ImportProgressPanel'
+export { StatusPill, MetricCard, EmptyState, ReviewPanel, RecordRow } from './RecordPrimitives'
 export {
   formatNumberShort,
   formatDuration,

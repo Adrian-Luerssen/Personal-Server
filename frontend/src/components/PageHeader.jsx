@@ -21,7 +21,6 @@ export default function PageHeader({
           )}
           <div>
             <h1 className="page-header-title">{title}</h1>
-            <div className="page-header-underline" style={{ background: `linear-gradient(90deg, ${accentColor}, transparent)` }} />
           </div>
         </div>
         {subtitle && <p className="page-header-subtitle">{subtitle}</p>}

@@ -17,7 +17,7 @@ import com.adrianluerssen.personalserver.updates.PersonalServerUpdatePlugin;
 import com.adrianluerssen.personalserver.widgets.PersonalServerWidgetsPlugin;
 
 public class MainActivity extends BridgeActivity {
-    private static final int NATIVE_SHELL_COLOR = Color.rgb(3, 7, 18);
+    private static final int NATIVE_SHELL_COLOR = Color.rgb(5, 6, 7);
 
     @Override
     public void onCreate(Bundle savedInstanceState) {

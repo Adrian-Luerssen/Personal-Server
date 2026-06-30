@@ -1,3 +1,5 @@
+import { getEnabledWidgetMetrics, getFeatureModulePreferences, isFeatureShownOnWidgets } from './modulePreferences.mjs'
+
 function numberValue(value, fallback = 0) {
   const number = Number(value)
   return Number.isFinite(number) ? number : fallback
@@ -51,7 +53,14 @@ function getHabitStatus(habit) {
   return 'none'
 }
 
-export function createAndroidWidgetSnapshot(dashboard = {}) {
+export function createAndroidWidgetSnapshot(dashboard = {}, options = {}) {
+  const hasPreferenceInput = dashboard.preferences != null || options.preferences != null
+  const preferences = getFeatureModulePreferences(options.preferences || dashboard.preferences || {})
+  const visibleMetrics = getEnabledWidgetMetrics(preferences)
+  const showHabits = !hasPreferenceInput || isFeatureShownOnWidgets(preferences, 'habits')
+  const showTraining = !hasPreferenceInput || isFeatureShownOnWidgets(preferences, 'training')
+  const showFinance = !hasPreferenceInput || isFeatureShownOnWidgets(preferences, 'finance')
+  const showMusic = !hasPreferenceInput || isFeatureShownOnWidgets(preferences, 'music')
   const habits = Array.isArray(dashboard.habits?.today)
     ? dashboard.habits.today
     : Array.isArray(dashboard.habits)
@@ -100,16 +109,23 @@ export function createAndroidWidgetSnapshot(dashboard = {}) {
       : habitsRemaining === 0
         ? 'All habits logged'
         : `${pluralizeHabit(habitsRemaining)} remaining`
-  const roundedSpend = absoluteRounded(monthlySpend)
-  const roundedStreams = Math.round(numberValue(streams))
-  const roundedWorkouts = Math.round(numberValue(workoutsThisWeek))
-  const briefDetail = `${compactNumber(roundedWorkouts)} train - ${formatBriefMoney(roundedSpend, currency)} spend - ${compactNumber(roundedStreams)} streams`
+  const roundedSpend = showFinance ? absoluteRounded(monthlySpend) : 0
+  const roundedStreams = showMusic ? Math.round(numberValue(streams)) : 0
+  const roundedWorkouts = showTraining ? Math.round(numberValue(workoutsThisWeek)) : 0
+  const briefParts = []
+  if (showHabits && (!showFinance || !showMusic || visibleMetrics.length <= 2)) {
+    briefParts.push(`${habitsDone}/${habitsTotal} habits`)
+  }
+  if (showTraining) briefParts.push(`${compactNumber(roundedWorkouts)} train`)
+  if (showFinance) briefParts.push(`${formatBriefMoney(roundedSpend, currency)} spend`)
+  if (showMusic) briefParts.push(`${compactNumber(roundedStreams)} streams`)
+  const briefDetail = briefParts.length ? briefParts.join(' - ') : 'Open app to configure widgets'
 
-  return {
+  const snapshot = {
     score: Math.round(numberValue(dashboard.intelligence?.score, 0)),
-    habitsDone,
-    habitsTotal,
-    habitsRemaining,
+    habitsDone: showHabits ? habitsDone : 0,
+    habitsTotal: showHabits ? habitsTotal : 0,
+    habitsRemaining: showHabits ? habitsRemaining : 0,
     workoutsThisWeek: roundedWorkouts,
     monthlySpend: roundedSpend,
     currency,
@@ -117,9 +133,15 @@ export function createAndroidWidgetSnapshot(dashboard = {}) {
     generatedAt: dashboard.generatedAt || new Date().toISOString(),
     status: dashboard.status || lockScreenStatus,
     briefDetail,
-    lockScreenStatus,
+    lockScreenStatus: showHabits ? lockScreenStatus : 'Open app to sync',
     lockScreenSensitive: false,
   }
+
+  if (hasPreferenceInput) {
+    snapshot.visibleMetrics = visibleMetrics
+  }
+
+  return snapshot
 }
 
 function resolveWidgetPlugin(explicitPlugin) {
@@ -132,7 +154,7 @@ export async function saveAndroidWidgetSnapshot(dashboard, options = {}) {
   const plugin = resolveWidgetPlugin(options.plugin)
   if (!plugin || typeof plugin.saveSnapshot !== 'function') return false
 
-  const snapshot = createAndroidWidgetSnapshot(dashboard)
+  const snapshot = createAndroidWidgetSnapshot(dashboard, options)
   await plugin.saveSnapshot({ snapshot })
 
   if (typeof plugin.refreshWidgets === 'function') {

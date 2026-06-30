@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean } = {}) {
+async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[] } = {}) {
   const habits = [
     {
       id: 'sleep',
@@ -35,6 +35,15 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
   const financeCategories = [
     { id: 'cat-food', name: 'Food', iconName: 'utensils', colour: '#4ade80', isIncome: false },
     { id: 'cat-events', name: 'Events', iconName: 'party-popper', colour: '#f472b6', isIncome: false },
+    { id: 'cat-rent', name: 'Rent', iconName: 'home', colour: '#fb7185', isIncome: false },
+    { id: 'cat-groceries', name: 'Groceries', iconName: 'shopping-basket', colour: '#34d399', isIncome: false },
+    { id: 'cat-transport', name: 'Transport', iconName: 'car', colour: '#60a5fa', isIncome: false },
+    { id: 'cat-bills', name: 'Bills', iconName: 'receipt', colour: '#f59e0b', isIncome: false },
+    { id: 'cat-health', name: 'Health', iconName: 'heart-pulse', colour: '#f87171', isIncome: false },
+    { id: 'cat-online', name: 'Online Services', iconName: 'wifi', colour: '#a78bfa', isIncome: false },
+    { id: 'cat-clothes', name: 'Clothes', iconName: 'shirt', colour: '#f472b6', isIncome: false },
+    { id: 'cat-coffee', name: 'Coffee', iconName: 'coffee', colour: '#92400e', isIncome: false },
+    { id: 'cat-travel', name: 'Travel', iconName: 'plane', colour: '#38bdf8', isIncome: false },
     { id: 'cat-salary', name: 'Salary', iconName: 'briefcase', colour: '#22c55e', isIncome: true },
   ]
   const financeTransactions = [
@@ -381,7 +390,11 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
       })
     }
 
-    if (path === '/finance/budgets/status' || path === '/chat/conversations') {
+    if (path === '/finance/budgets/status') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(options.budgetStatus || []) })
+    }
+
+    if (path === '/chat/conversations') {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify([]) })
     }
 
@@ -483,12 +496,12 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('heading', { name: /habits logged/i })).toBeVisible()
     await expect(page.getByText(/mobility/i)).toBeVisible()
     await expect(page.locator('.native-tabbar__item', { hasText: 'Today' })).toBeVisible()
-    await expect(page.locator('.native-tabbar__item', { hasText: 'Menu' })).toBeVisible()
+    await expect(page.locator('.native-tabbar__item', { hasText: 'Apps' })).toBeVisible()
     await expect(page.locator('.native-tabbar__item', { hasText: 'Assistant' })).toBeVisible()
     await expect(page.locator('.native-app-switcher__item')).toHaveCount(0)
-    const switcher = page.getByRole('button', { name: /switch app/i })
+    const switcher = page.getByRole('button', { name: /open app menu/i })
     await expect(switcher).toContainText('Apps')
-    await expect(switcher).toHaveAccessibleName(/current app Overview/i)
+    await expect(switcher).toHaveAccessibleName(/current area Overview/i)
     await expect(page.getByRole('button', { name: /open settings/i })).toBeVisible()
     await expect(page.locator('.native-tabbar__item')).toHaveCount(3)
     await expect(page.getByRole('link', { name: /download android app/i })).toHaveCount(0)
@@ -504,9 +517,9 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/habits')
 
-    const switcher = page.getByRole('button', { name: /switch app/i })
+    const switcher = page.getByRole('button', { name: /open app menu/i })
     await expect(switcher).toContainText('Apps')
-    await expect(switcher).toHaveAccessibleName(/current app Habits/i)
+    await expect(switcher).toHaveAccessibleName(/current area Habits/i)
     await switcher.click()
     await expect(page.getByRole('dialog', { name: /switch app/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /training workout log/i })).toBeVisible()
@@ -523,7 +536,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/finance')
 
-    await expect(page.getByRole('button', { name: /switch app/i })).toHaveAccessibleName(/current app Money/i)
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Money/i)
     await expect(page.locator('.native-tabbar__item')).toHaveText([
       /Summary/,
       /Transactions/,
@@ -532,7 +545,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/workout')
 
-    await expect(page.getByRole('button', { name: /switch app/i })).toHaveAccessibleName(/current app Training/i)
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Training/i)
     await expect(page.locator('.native-tabbar__item')).toHaveText([
       /Today/,
       /Active/,
@@ -542,7 +555,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/habits')
 
-    await expect(page.getByRole('button', { name: /switch app/i })).toHaveAccessibleName(/current app Habits/i)
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Habits/i)
     await expect(page.locator('.native-tabbar__item')).toHaveText([
       /Today/,
       /Plan/,
@@ -570,6 +583,54 @@ test.describe('Native Android app shell', () => {
     await expect(page.locator('table')).toHaveCount(0)
   })
 
+  test('opens summary transactions directly in the native editor', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/finance')
+    await page.getByRole('button', { name: /dinner/i }).click()
+
+    const sheet = page.getByTestId('native-transaction-form')
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByText(/^Edit Transaction$/i)).toBeVisible()
+    await expect(sheet.locator('input[type="text"]').first()).toHaveValue('Dinner')
+  })
+
+  test('surfaces active budgets on the native finance summary', async ({ page }) => {
+    await mockNativeApi(page, {
+      budgetStatus: [
+        {
+          id: 'budget-food',
+          categoryName: 'Food',
+          categoryIcon: 'utensils',
+          categoryColour: '#4ade80',
+          period: 'monthly',
+          amount: 500,
+          spent: 220,
+          remaining: 280,
+          percentage: 44,
+          isOver: false,
+        },
+      ],
+    })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/finance')
+
+    await expect(page.getByRole('heading', { name: /budget pressure/i })).toBeVisible()
+    const budgetCard = page.locator('.native-budget-card', { hasText: 'Food' })
+    await expect(budgetCard).toBeVisible()
+    await expect(budgetCard.getByText(/44%/)).toBeVisible()
+  })
+
   test('uses a native transaction feed with quick filters', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
@@ -584,6 +645,8 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('button', { name: /^expense$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /^income$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /^transfer$/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /filter wallet revolut/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /filter category food/i })).toBeVisible()
     await expect(page.getByText('Concert')).toBeVisible()
     await expect(page.locator('table')).toHaveCount(0)
   })
@@ -632,6 +695,9 @@ test.describe('Native Android app shell', () => {
     await expect(sheet.getByText(/^Add Transaction$/i)).toBeVisible()
     await expect(sheet.getByRole('button', { name: /^7$/ })).toBeVisible()
     await expect(sheet.getByRole('button', { name: /food/i })).toBeVisible()
+    await expect(sheet.getByRole('searchbox', { name: /search categories/i })).toBeVisible()
+    await expect(sheet.getByText(/^Choose$/i)).toBeVisible()
+    await expect(sheet.getByRole('button', { name: /travel/i })).toBeVisible()
     await expect(sheet.getByRole('button', { name: /revolut/i })).toBeVisible()
     await expect(sheet.getByRole('button', { name: /^save$/i })).toBeVisible()
   })
@@ -648,8 +714,8 @@ test.describe('Native Android app shell', () => {
 
     const caffeine = page.getByTestId('native-habit-card-caffeine')
     await expect(caffeine).toBeVisible()
-    await expect(caffeine.getByRole('button', { name: /increase caffeine/i })).toBeVisible()
-    await caffeine.getByRole('button', { name: /increase caffeine/i }).click()
+    await expect(caffeine.getByRole('button', { name: /^increase caffeine$/i })).toBeVisible()
+    await caffeine.getByRole('button', { name: /^increase caffeine$/i }).click()
     await expect(caffeine.getByLabel(/caffeine value/i)).toHaveValue('1')
   })
 
@@ -716,10 +782,10 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('button', { name: /notifications/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /sync and offline/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /app updates/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /settings and data/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /data and imports/i })).toBeVisible()
     await expect(page.locator('.tab-btn')).toHaveCount(0)
 
-    await page.getByRole('button', { name: /settings and data/i }).click()
+    await page.getByRole('button', { name: /data and imports/i }).click()
     await expect(page.getByRole('link', { name: /import habits/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /finance settings/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /import workouts/i })).toBeVisible()

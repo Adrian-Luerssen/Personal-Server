@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../api'
 import { getTokens } from '../auth'
+import {
+  DEFAULT_FEATURE_MODULES,
+  DEFAULT_HOME_LAYOUT,
+  DEFAULT_WIDGET_LAYOUT,
+  getFeatureModulePreferences,
+} from '../modulePreferences.mjs'
 
 const PreferencesContext = createContext()
 
@@ -11,9 +17,20 @@ const DEFAULTS = {
   sidebarPosition: 'left',
   density: 'comfortable',
   customCss: null,
+  featureModules: DEFAULT_FEATURE_MODULES,
+  homeLayout: DEFAULT_HOME_LAYOUT,
+  widgetLayout: DEFAULT_WIDGET_LAYOUT,
 }
 
 const LS_KEY = 'user-preferences'
+
+function normalizePreferences(input = {}) {
+  const merged = { ...DEFAULTS, ...(input || {}) }
+  return {
+    ...merged,
+    ...getFeatureModulePreferences(merged),
+  }
+}
 
 function applyPreferences(prefs) {
   const root = document.documentElement
@@ -63,8 +80,8 @@ export function PreferencesProvider({ children }) {
   const [prefs, setPrefs] = useState(() => {
     try {
       const stored = localStorage.getItem(LS_KEY)
-      return stored ? { ...DEFAULTS, ...JSON.parse(stored) } : DEFAULTS
-    } catch { return DEFAULTS }
+      return stored ? normalizePreferences(JSON.parse(stored)) : normalizePreferences(DEFAULTS)
+    } catch { return normalizePreferences(DEFAULTS) }
   })
 
   // Apply on mount and whenever prefs change
@@ -87,7 +104,7 @@ export function PreferencesProvider({ children }) {
     if (!accessToken) return
     apiFetch('/accounts/preferences')
       .then(data => {
-        const merged = { ...DEFAULTS, ...data }
+        const merged = normalizePreferences(data)
         setPrefs(merged)
         localStorage.setItem(LS_KEY, JSON.stringify(merged))
       })
@@ -95,7 +112,7 @@ export function PreferencesProvider({ children }) {
   }, [])
 
   const updatePrefs = useCallback(async (updates) => {
-    const next = { ...prefs, ...updates }
+    const next = normalizePreferences({ ...prefs, ...updates })
     setPrefs(next)
     localStorage.setItem(LS_KEY, JSON.stringify(next))
     try {

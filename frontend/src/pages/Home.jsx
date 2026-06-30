@@ -2,13 +2,19 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, subscribeToApiPath } from '../api'
 import { saveAndroidWidgetSnapshot } from '../androidWidgets.mjs'
-import { AnimatedNumber, formatDuration, formatNumberShort } from '../components/shared'
+import { AnimatedNumber, MetricCard, formatDuration, formatNumberShort } from '../components/shared'
 import { formatCompactMoney, formatMoney, normalizeCurrency } from '../moneyFormat.mjs'
 import PageHeader from '../components/PageHeader'
 import ProgressRing from '../components/ProgressRing'
 import ScrollReveal from '../components/ScrollReveal'
 import Icon from '../components/icons/Icon'
 import { isNativeMobileApp } from '../mobilePlatform'
+import { usePreferences } from '../contexts/PreferencesContext'
+import {
+  getEnabledHomeWidgets,
+  isFeatureShownOnHome,
+  isFeatureSyncEnabled,
+} from '../modulePreferences.mjs'
 import { mergeLiveStepIntoActivitySummary, subscribeToLiveStepUpdates } from '../nativeHealth.mjs'
 
 function DashboardStatus({ focus }) {
@@ -27,11 +33,12 @@ function DashboardStatus({ focus }) {
 
 function SnapshotCard({ item }) {
   return (
-    <div className="journal-snapshot-card">
-      <span>{item.label}</span>
-      <strong>{item.value}</strong>
-      <p>{item.note}</p>
-    </div>
+    <MetricCard
+      label={item.label}
+      value={item.value}
+      note={item.note}
+      tone={item.id}
+    />
   )
 }
 
@@ -197,9 +204,19 @@ function NativeHomeDashboard({
   activeWorkout,
   habits,
   onHabitStatus,
+  visibleHomeWidgets,
+  prefs,
 }) {
   const firstPrompt = intelligence.aiPrompts?.[0]
   const primaryInsight = intelligence.insights?.[0]
+  const visibleWidgetIds = new Set((visibleHomeWidgets || []).map((widget) => widget.id))
+  const showHabits = visibleWidgetIds.has('habits-today') && isFeatureShownOnHome(prefs, 'habits')
+  const showTraining = visibleWidgetIds.has('training-today') && isFeatureShownOnHome(prefs, 'training')
+  const showFinance = visibleWidgetIds.has('finance-today') && isFeatureShownOnHome(prefs, 'finance')
+  const showMusic = visibleWidgetIds.has('music-ranking') && isFeatureShownOnHome(prefs, 'music')
+  const showAssistant = visibleWidgetIds.has('assistant-prompt') && isFeatureShownOnHome(prefs, 'assistant')
+  const hasQuickActions = showFinance || showMusic || showAssistant
+  const hasMetrics = showTraining || showFinance || showMusic
   const openHabits = habits.filter((habit) => !habit.todayStatus || habit.todayStatus === 'none')
   const loggedHabits = habits.filter((habit) => habit.todayStatus && habit.todayStatus !== 'none')
   const visibleHabits = [...openHabits, ...loggedHabits].slice(0, 4)
@@ -213,8 +230,9 @@ function NativeHomeDashboard({
         <strong>{formatLastSynced(snapshotMeta?.generatedAt || snapshotMeta?.checkedAt)}</strong>
       </section>
 
-      <NativePrimaryAction activeWorkout={activeWorkout} weeklySummary={weeklySummary} nav={nav} />
+      {showTraining && <NativePrimaryAction activeWorkout={activeWorkout} weeklySummary={weeklySummary} nav={nav} />}
 
+      {showHabits && (
       <section className="native-checklist-card">
         <div className="native-section-head">
           <div>
@@ -247,57 +265,58 @@ function NativeHomeDashboard({
           <Icon name="chevron-right" size={17} />
         </button>
       </section>
+      )}
 
-      <section className="native-quick-row" aria-label="Secondary actions">
-        <button type="button" onClick={() => nav('/finance/transactions')}>
+      {hasQuickActions && <section className="native-quick-row" aria-label="Secondary actions">
+        {showFinance && <button type="button" onClick={() => nav('/finance/transactions')}>
           <Icon name="receipt" size={18} />
           <span>Add expense</span>
           <small>{formatCompactMoney(todaySpent, financeCurrency)}</small>
-        </button>
-        <button type="button" onClick={() => nav('/spotify/ranking')}>
+        </button>}
+        {showMusic && <button type="button" onClick={() => nav('/spotify/ranking')}>
           <Icon name="trophy" size={18} />
           <span>Ranking</span>
           <small>{formatNumberShort(todayStreams)} today</small>
-        </button>
-        <button type="button" onClick={() => openAiPrompt(firstPrompt)}>
+        </button>}
+        {showAssistant && <button type="button" onClick={() => openAiPrompt(firstPrompt)}>
           <Icon name="sparkles" size={18} />
           <span>Ask AI</span>
           <small>{intelligence.score} score</small>
-        </button>
-      </section>
+        </button>}
+      </section>}
 
-      <section className="native-metric-strip native-metric-strip--compact" aria-label="Weekly snapshot">
-        <NativeMetricCard
+      {hasMetrics && <section className="native-metric-strip native-metric-strip--compact" aria-label="Weekly snapshot">
+        {showTraining && <NativeMetricCard
           icon="dumbbell"
           label="Training"
           value={`${workoutTotals?.totalWorkouts ?? weeklySummary?.workouts ?? 0}`}
           sub="sessions"
           accent="#4ade80"
-        />
-        <NativeMetricCard
+        />}
+        {showFinance && <NativeMetricCard
           icon="wallet"
           label="Spend"
           value={formatMoney(todaySpent, financeCurrency)}
           sub="today"
           accent="#fbbf24"
-        />
-        <NativeMetricCard
+        />}
+        {showMusic && <NativeMetricCard
           icon="music"
           label="Music"
           value={formatNumberShort(todayStreams)}
           sub="today"
           accent="#7dd3fc"
-        />
-        <NativeMetricCard
+        />}
+        {showTraining && <NativeMetricCard
           icon="activity"
           label="Steps"
           value={formatNumberShort(activitySummary?.today?.steps ?? 0)}
           sub="today"
           accent="#38bdf8"
-        />
-      </section>
+        />}
+      </section>}
 
-      {primaryInsight && (
+      {primaryInsight && showAssistant && (
         <section className={`native-insight-card native-insight-card--${primaryInsight.tone || 'neutral'}`}>
           <div>
             <span className="native-eyebrow">{(primaryInsight.domains || ['Insight']).join(' / ')}</span>
@@ -311,6 +330,7 @@ function NativeHomeDashboard({
         </section>
       )}
 
+      {showTraining && (
       <section className="native-activity-card">
         <div className="native-section-head">
           <h2>Recent</h2>
@@ -336,6 +356,7 @@ function NativeHomeDashboard({
           </div>
         )}
       </section>
+      )}
     </div>
   )
 }
@@ -343,6 +364,8 @@ function NativeHomeDashboard({
 export default function Home() {
   const nav = useNavigate()
   const nativeApp = isNativeMobileApp()
+  const { prefs } = usePreferences()
+  const visibleHomeWidgets = useMemo(() => getEnabledHomeWidgets(prefs), [prefs])
   const [spotifyStats, setSpotifyStats] = useState(null)
   const [workoutTotals, setWorkoutTotals] = useState(null)
   const [workoutStreamStats, setWorkoutStreamStats] = useState(null)
@@ -363,7 +386,7 @@ export default function Home() {
 
   const applyMobileSnapshot = useCallback((snapshot) => {
     if (!snapshot) return
-    saveAndroidWidgetSnapshot(snapshot).catch(() => {})
+    saveAndroidWidgetSnapshot(snapshot, { preferences: prefs }).catch(() => {})
     setIntelligence(snapshot.intelligence || null)
     setSpotifyStats({
       ...(snapshot.spotify?.stats || {}),
@@ -394,7 +417,7 @@ export default function Home() {
       watermarks: snapshot.sync?.watermarks || {},
     })
     setLoaded(true)
-  }, [])
+  }, [prefs])
 
   useEffect(() => {
     let ignore = false
@@ -426,24 +449,28 @@ export default function Home() {
     }
 
     async function load() {
-      const results = await Promise.allSettled([
-        api.get('/dashboard/intelligence'),
-        api.get('/streams/stats?timeframe=all'),
-        api.get('/workout/sessions?page=1&limit=1'),
-        api.get('/dashboard/streams/workout'),
-        api.get('/habits/summary'),
-        api.get('/habits/trends'),
-        api.get('/finance/transactions/summary'),
-        api.get('/workout/sessions/recent'),
-        api.get('/dashboard/insights/weekly'),
-        api.get('/dashboard/insights/workout-habits'),
-        api.get('/finance/budgets/status'),
-        api.get('/workout/sessions/prs'),
-      ])
+      const requests = [
+        ['intel', isFeatureSyncEnabled(prefs, 'assistant'), () => api.get('/dashboard/intelligence')],
+        ['sp', isFeatureSyncEnabled(prefs, 'music'), () => api.get('/streams/stats?timeframe=all')],
+        ['wk', isFeatureSyncEnabled(prefs, 'training'), () => api.get('/workout/sessions?page=1&limit=1')],
+        ['wms', isFeatureSyncEnabled(prefs, 'training') && isFeatureSyncEnabled(prefs, 'music'), () => api.get('/dashboard/streams/workout')],
+        ['hs', isFeatureSyncEnabled(prefs, 'habits'), () => api.get('/habits/summary')],
+        ['ht', isFeatureSyncEnabled(prefs, 'habits'), () => api.get('/habits/trends')],
+        ['fs', isFeatureSyncEnabled(prefs, 'finance'), () => api.get('/finance/transactions/summary')],
+        ['rs', isFeatureSyncEnabled(prefs, 'training'), () => api.get('/workout/sessions/recent')],
+        ['ws', true, () => api.get('/dashboard/insights/weekly')],
+        ['whc', isFeatureSyncEnabled(prefs, 'training') && isFeatureSyncEnabled(prefs, 'habits'), () => api.get('/dashboard/insights/workout-habits')],
+        ['bs', isFeatureSyncEnabled(prefs, 'finance'), () => api.get('/finance/budgets/status')],
+        ['prs', isFeatureSyncEnabled(prefs, 'training'), () => api.get('/workout/sessions/prs')],
+      ]
+      const entries = await Promise.all(
+        requests
+          .filter(([, enabled]) => enabled)
+          .map(async ([key, , request]) => [key, await request().catch(() => null)]),
+      )
 
       if (ignore) return
-      const values = results.map((result) => (result.status === 'fulfilled' ? result.value : null))
-      const [intel, sp, wk, wms, hs, ht, fs, rs, ws, whc, bs, prs] = values
+      const { intel, sp, wk, wms, hs, ht, fs, rs, ws, whc, bs, prs } = Object.fromEntries(entries)
 
       if (intel) setIntelligence(intel)
       if (sp) setSpotifyStats(sp)
@@ -470,10 +497,10 @@ export default function Home() {
 
     load()
     return () => { ignore = true }
-  }, [nativeApp, applyMobileSnapshot])
+  }, [nativeApp, applyMobileSnapshot, prefs])
 
   useEffect(() => {
-    if (!nativeApp) return undefined
+    if (!nativeApp || !isFeatureSyncEnabled(prefs, 'training')) return undefined
     let cancelled = false
     let unsubscribe = null
     subscribeToLiveStepUpdates((event) => {
@@ -489,7 +516,7 @@ export default function Home() {
       cancelled = true
       unsubscribe?.()
     }
-  }, [nativeApp])
+  }, [nativeApp, prefs])
 
   const habitsArray = Array.isArray(habitsSummary) ? habitsSummary : []
   const totalHabits = habitsArray.length
@@ -603,7 +630,7 @@ export default function Home() {
       finance: { summary: financeSummary },
       spotify: { stats: spotifyStats },
       weeklySummary,
-    }).catch(() => {})
+    }, { preferences: prefs }).catch(() => {})
 
     try {
       if (nextStatus === 'none') {
@@ -616,7 +643,7 @@ export default function Home() {
     } catch {
       setHabitsSummary(previous)
     }
-  }, [financeCurrency, financeSummary, habitsSummary, intelligenceFallback, spotifyStats, todaySpent, todayStreams, weeklySummary, workoutTotals])
+  }, [financeCurrency, financeSummary, habitsSummary, intelligenceFallback, prefs, spotifyStats, todaySpent, todayStreams, weeklySummary, workoutTotals])
 
   if (nativeApp) {
     return (
@@ -641,22 +668,48 @@ export default function Home() {
         activeWorkout={activeWorkout}
         habits={habitsArray}
         onHabitStatus={handleNativeHabitStatus}
+        visibleHomeWidgets={visibleHomeWidgets}
+        prefs={prefs}
       />
     )
   }
+
+  const desktopWidgetIds = new Set(visibleHomeWidgets.map((widget) => widget.id))
+  const desktopShowHabits = desktopWidgetIds.has('habits-today') && isFeatureShownOnHome(prefs, 'habits')
+  const desktopShowTraining = desktopWidgetIds.has('training-today') && isFeatureShownOnHome(prefs, 'training')
+  const desktopShowFinance = desktopWidgetIds.has('finance-today') && isFeatureShownOnHome(prefs, 'finance')
+  const desktopShowMusic = desktopWidgetIds.has('music-ranking') && isFeatureShownOnHome(prefs, 'music')
+  const desktopShowAssistant = desktopWidgetIds.has('assistant-prompt') && isFeatureShownOnHome(prefs, 'assistant')
+  const activeDomainLabels = [
+    desktopShowTraining ? 'training' : null,
+    desktopShowHabits ? 'habits' : null,
+    desktopShowFinance ? 'money' : null,
+    desktopShowMusic ? 'music' : null,
+  ].filter(Boolean)
+  const visibleSnapshot = intelligenceFallback.snapshot.filter((item) => {
+    const moduleBySnapshotId = {
+      training: 'training',
+      habits: 'habits',
+      spending: 'finance',
+      media: 'music',
+    }
+    const moduleId = moduleBySnapshotId[item.id]
+    if (!moduleId) return true
+    return isFeatureShownOnHome(prefs, moduleId)
+  })
 
   return (
     <div className="dashboard-journal">
       <PageHeader
         icon="layout-dashboard"
-        eyebrow="Weekly journal"
-        title="Dashboard"
-        subtitle="A private brief across training, habits, money, and the routines shaping the week."
+        eyebrow="Private ledger"
+        title="Today"
+        subtitle={activeDomainLabels.length ? `Cached records across ${activeDomainLabels.join(', ')}. Verified when changed.` : 'Choose active modules in Settings to build this review surface.'}
         meta={
           <div className="dashboard-header-meta">
             <DashboardStatus focus={intelligenceFallback.focus} />
             <div className="dashboard-header-score">
-              <span>Weekly score</span>
+              <span>Review score</span>
               <strong>{intelligenceFallback.score}</strong>
             </div>
           </div>
@@ -666,11 +719,11 @@ export default function Home() {
       <ScrollReveal>
         <section className="dashboard-brief-hero">
           <div className="dashboard-brief-copy">
-            <span className="dashboard-section-kicker">Weekly brief</span>
+            <span className="dashboard-section-kicker">What deserves attention</span>
             <h2>{intelligenceFallback.headline}</h2>
             <p>{intelligenceFallback.summary}</p>
             <div className="dashboard-brief-actions">
-              {(intelligenceFallback.aiPrompts || []).slice(0, 2).map((prompt) => (
+              {desktopShowAssistant && (intelligenceFallback.aiPrompts || []).slice(0, 2).map((prompt) => (
                 <button key={prompt.id} className="btn" onClick={() => openAiPrompt(prompt)}>
                   <Icon name="sparkles" size={14} />
                   {prompt.label}
@@ -700,7 +753,7 @@ export default function Home() {
               <strong>{intelligenceFallback.score}</strong>
             </div>
             <p>
-              A higher score means training, habits, and spending are reinforcing each other instead of pulling in different directions.
+              Calculated from cached records and refreshed when sync confirms changed data.
             </p>
           </div>
         </section>
@@ -708,7 +761,7 @@ export default function Home() {
 
       <ScrollReveal delay={70}>
         <section className="journal-snapshot-grid">
-          {intelligenceFallback.snapshot.map((item) => <SnapshotCard key={item.id} item={item} />)}
+          {visibleSnapshot.map((item) => <SnapshotCard key={item.id} item={item} />)}
         </section>
       </ScrollReveal>
 
@@ -718,8 +771,8 @@ export default function Home() {
             <div className="card journal-feature-panel">
               <div className="journal-feature-panel__header">
                 <div>
-                  <span className="dashboard-section-kicker">Cross-domain insight canvas</span>
-                  <h3>What the week is trying to tell you</h3>
+                  <span className="dashboard-section-kicker">Evidence</span>
+                  <h3>Signals that need review</h3>
                 </div>
               </div>
               <div className="journal-insight-grid">
@@ -733,23 +786,24 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="dashboard-story-band">
+            {(desktopShowTraining || desktopShowHabits || desktopShowFinance || desktopShowAssistant) && <div className="dashboard-story-band">
+              {(desktopShowTraining || desktopShowHabits || desktopShowFinance) && (
               <div className="card dashboard-story-card">
-                <span className="dashboard-section-kicker">Weekly cadence</span>
-                <h3>Training, habits, and spending should read like one system.</h3>
+                <span className="dashboard-section-kicker">Cadence</span>
+                <h3>Weekly cadence by active modules.</h3>
                 <div className="dashboard-story-metrics">
-                  <div>
+                  {desktopShowTraining && <div>
                     <span>This week</span>
                     <strong>{weeklySummary?.workouts ?? 0} workouts</strong>
-                  </div>
-                  <div>
+                  </div>}
+                  {desktopShowHabits && <div>
                     <span>Habits completed</span>
                     <strong>{weeklySummary ? `${weeklySummary.habitsCompleted}/${weeklySummary.habitsTotal}` : '0/0'}</strong>
-                  </div>
-                  <div>
+                  </div>}
+                  {desktopShowFinance && <div>
                     <span>Weekly spend</span>
-                    <strong>${Math.round(weeklySummary?.spending ?? 0)}</strong>
-                  </div>
+                    <strong>{formatMoney(weeklySummary?.spending ?? 0, financeCurrency)}</strong>
+                  </div>}
                 </div>
                 {workoutHabitCorrelation && (
                   <p className="dashboard-story-note">
@@ -757,12 +811,14 @@ export default function Home() {
                   </p>
                 )}
               </div>
+              )}
 
+              {desktopShowAssistant && (
               <div className="card dashboard-story-card dashboard-story-card--accent">
-                <span className="dashboard-section-kicker">AI analysis layer</span>
-                <h3>Deep analysis stays one click away.</h3>
+                <span className="dashboard-section-kicker">Assistant</span>
+                <h3>Ask against the current records.</h3>
                 <p>
-                  Use the current dashboard context to ask the connected AI agent for an explanation, a correction plan, or a deeper cross-domain interpretation.
+                  Send the current dashboard context to the connected assistant without rebuilding the query manually.
                 </p>
                 <div className="dashboard-ai-prompt-list">
                   {(intelligenceFallback.aiPrompts || []).map((prompt) => (
@@ -773,13 +829,14 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            </div>
+              )}
+            </div>}
           </div>
         </ScrollReveal>
 
         <ScrollReveal delay={180}>
           <div className="dashboard-rail">
-            <RailCard
+            {desktopShowTraining && <RailCard
               title="Recent activity"
               icon="activity"
               action={<button className="btn btn-ghost small" onClick={() => nav('/workout/history')}>Open history</button>}
@@ -803,9 +860,9 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </RailCard>
+            </RailCard>}
 
-            <RailCard title="Habits today" icon="target">
+            {desktopShowHabits && <RailCard title="Habits today" icon="target">
               <div className="journal-progress-block">
                 <div className="journal-progress-ring">
                   <ProgressRing value={habitCompletionPct} size={92} strokeWidth={8} color="#a78bfa" />
@@ -816,9 +873,9 @@ export default function Home() {
                   <span>Best streak: {bestStreak} days</span>
                 </div>
               </div>
-            </RailCard>
+            </RailCard>}
 
-            <RailCard title="Budget pressure" icon="piggy-bank">
+            {desktopShowFinance && <RailCard title="Budget pressure" icon="piggy-bank">
               {!Array.isArray(budgetStatus) || budgetStatus.length === 0 ? (
                 <p className="journal-empty">No budget data available yet.</p>
               ) : (
@@ -842,9 +899,9 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </RailCard>
+            </RailCard>}
 
-            <RailCard title="Personal records" icon="trophy">
+            {desktopShowTraining && <RailCard title="Personal records" icon="trophy">
               {!Array.isArray(workoutPRs) || workoutPRs.length === 0 ? (
                 <p className="journal-empty">No PRs recorded yet.</p>
               ) : (
@@ -860,39 +917,39 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </RailCard>
+            </RailCard>}
           </div>
         </ScrollReveal>
       </section>
 
       <ScrollReveal delay={220}>
         <section className="dashboard-domain-ribbon">
-          <div className="card dashboard-domain-card">
-            <span className="dashboard-section-kicker">Workout and music</span>
-            <h3>Performance soundtrack</h3>
+          {desktopShowTraining && desktopShowMusic && <div className="card dashboard-domain-card">
+            <span className="dashboard-section-kicker">Training and music</span>
+            <h3>Workout listening</h3>
             <p>
               <AnimatedNumber value={workoutStreamStats?.streams ?? 0} formatter={formatNumberShort} /> streams happened during workouts,
               covering <AnimatedNumber value={(workoutStreamStats?.totalTimeSeconds ?? 0) * 1000} formatter={formatDuration} /> of training time.
             </p>
-          </div>
+          </div>}
 
-          <div className="card dashboard-domain-card">
-            <span className="dashboard-section-kicker">Listening archive</span>
-            <h3>Media footprint</h3>
+          {desktopShowMusic && <div className="card dashboard-domain-card">
+            <span className="dashboard-section-kicker">Music</span>
+            <h3>Listening records</h3>
             <p>
               <AnimatedNumber value={spotifyStats?.totalStreams ?? 0} formatter={formatNumberShort} /> streams across{' '}
               <AnimatedNumber value={spotifyStats?.uniqueArtists ?? 0} formatter={formatNumberShort} /> artists.
             </p>
-          </div>
+          </div>}
 
-          <div className="card dashboard-domain-card">
-            <span className="dashboard-section-kicker">Training volume</span>
-            <h3>Physical workload</h3>
+          {desktopShowTraining && <div className="card dashboard-domain-card">
+            <span className="dashboard-section-kicker">Training</span>
+            <h3>Volume</h3>
             <p>
               <AnimatedNumber value={workoutTotals?.totalVolume ?? 0} formatter={(n) => `${formatNumberShort(n)} kg`} /> moved across{' '}
               <AnimatedNumber value={workoutTotals?.totalSets ?? 0} formatter={formatNumberShort} /> sets.
             </p>
-          </div>
+          </div>}
         </section>
       </ScrollReveal>
     </div>

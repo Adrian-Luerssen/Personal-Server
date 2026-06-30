@@ -1,14 +1,10 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { api } from '../api'
 import { refreshIfPossible } from '../auth'
 import Icon from '../components/icons/Icon'
 import { ANDROID_APK_URL } from '../mobilePlatform'
 import './Landing.css'
-
-gsap.registerPlugin(ScrollTrigger)
 
 function usePrefersReducedMotion() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
@@ -56,164 +52,67 @@ function useScrollReveal(disabled) {
   return register
 }
 
-function useHeroMotion(disabled) {
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el || disabled) return undefined
-
-    let frameId = 0
-    const applyMotion = (xRatio, yRatio) => {
-      cancelAnimationFrame(frameId)
-      frameId = requestAnimationFrame(() => {
-        el.style.setProperty('--pointer-x', `${xRatio * 100}%`)
-        el.style.setProperty('--pointer-y', `${yRatio * 100}%`)
-        el.style.setProperty('--hero-shift-x', `${(xRatio - 0.5) * 14}px`)
-        el.style.setProperty('--hero-shift-y', `${(yRatio - 0.5) * 10}px`)
-      })
-    }
-
-    const handlePointerMove = (event) => {
-      const rect = el.getBoundingClientRect()
-      const xRatio = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1)
-      const yRatio = Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 1)
-      applyMotion(xRatio, yRatio)
-    }
-
-    const resetMotion = () => applyMotion(0.5, 0.5)
-
-    resetMotion()
-    el.addEventListener('pointermove', handlePointerMove)
-    el.addEventListener('pointerleave', resetMotion)
-
-    return () => {
-      cancelAnimationFrame(frameId)
-      el.removeEventListener('pointermove', handlePointerMove)
-      el.removeEventListener('pointerleave', resetMotion)
-    }
-  }, [disabled])
-
-  return ref
-}
-
-function useLandingGsapMotion(disabled) {
-  const ref = useRef(null)
-
-  useEffect(() => {
-    if (disabled || !ref.current) return undefined
-
-    const ctx = gsap.context(() => {
-      gsap.utils.toArray('.landing-gsap-reveal').forEach((element) => {
-        gsap.fromTo(
-          element,
-          { autoAlpha: 0, y: 36, filter: 'blur(10px)' },
-          {
-            autoAlpha: 1,
-            y: 0,
-            filter: 'blur(0px)',
-            duration: 0.9,
-            ease: 'power3.out',
-            scrollTrigger: {
-              trigger: element,
-              start: 'top 86%',
-              once: true,
-            },
-          },
-        )
-      })
-
-      gsap.utils.toArray('.landing-media-frame img').forEach((image) => {
-        gsap.fromTo(
-          image,
-          { autoAlpha: 0.72, scale: 0.88 },
-          {
-            autoAlpha: 1,
-            scale: 1,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: image,
-              start: 'top 90%',
-              end: 'bottom 35%',
-              scrub: true,
-            },
-          },
-        )
-      })
-
-      gsap.utils.toArray('.landing-stack-card').forEach((card, index) => {
-        gsap.fromTo(
-          card,
-          { autoAlpha: 0, y: 72 + index * 24, scale: 0.94 },
-          {
-            autoAlpha: 1,
-            y: 0,
-            scale: 1,
-            duration: 0.85,
-            ease: 'power3.out',
-            scrollTrigger: {
-              trigger: card,
-              start: 'top 88%',
-              once: true,
-            },
-          },
-        )
-      })
-    }, ref)
-
-    return () => ctx.revert()
-  }, [disabled])
-
-  return ref
-}
-
-const PRINCIPLES = [
+const RECORD_TYPES = [
   {
-    icon: 'book-open',
-    title: 'Read your life as a journal',
-    text: 'The product should feel like a living review, not a stack of admin dashboards.',
+    icon: 'dumbbell',
+    title: 'Training',
+    text: 'Sessions, sets, personal records, bodyweight, and live step snapshots.',
+    tone: 'training',
   },
   {
-    icon: 'orbit',
-    title: 'See relationships, not just rows',
-    text: 'Training, habits, money, and media should connect into patterns you can act on.',
+    icon: 'heart-pulse',
+    title: 'Habits',
+    text: 'Done, skipped, missed, numeric values, cadence-aware streaks, and reminders.',
+    tone: 'habits',
   },
   {
-    icon: 'sparkles',
-    title: 'Use AI for interpretation',
-    text: 'The intelligence layer should explain the week and help you decide what matters next.',
+    icon: 'wallet',
+    title: 'Finance',
+    text: 'Wallets, transactions, categories, imports, budgets, and detected payments.',
+    tone: 'finance',
+  },
+  {
+    icon: 'music',
+    title: 'Music',
+    text: 'Spotify streams, profile state, rankings, workout listening, and widgets.',
+    tone: 'music',
+  },
+  {
+    icon: 'message-square',
+    title: 'Assistant',
+    text: 'Persisted chat sessions that read from the same private review ledger.',
+    tone: 'assistant',
   },
 ]
 
-const PROOF_ITEMS = [
-  'Private by default',
-  'Cross-domain weekly briefs',
-  'On-demand AI analysis',
-  'Built for reflective review',
+const LEDGER_ROWS = [
+  { source: 'Training', record: 'Upper session', value: '3 PRs', state: 'verified' },
+  { source: 'Habits', record: 'No alcohol', value: '18-day streak', state: 'cached' },
+  { source: 'Money', record: 'Revolut Ultra', value: 'EUR 55.00', state: 'changed' },
+  { source: 'Music', record: 'Today streams', value: '310', state: 'synced' },
 ]
 
-const STORY_PANELS = [
+const WORKFLOW_STEPS = [
   {
-    eyebrow: 'Body',
-    title: 'Training becomes a story, not a spreadsheet.',
-    text: 'Review cadence, recovery, personal records, and the routines that support or sabotage performance.',
-    accent: 'var(--color-success)',
-    metrics: ['4 sessions this week', '81% habit completion on training days'],
+    title: 'Open from cache',
+    text: 'The Android app renders the latest local snapshot first, so the screen is usable before the network responds.',
   },
   {
-    eyebrow: 'Money',
-    title: 'Spending gets context instead of guilt.',
-    text: 'Track drift early, read category pressure clearly, and connect spending with the rhythms of your week.',
-    accent: 'var(--color-warning)',
-    metrics: ['$182 spent this week', 'Dining out trending below baseline'],
+    title: 'Verify changed records',
+    text: 'Watermarks and focused refreshes check whether the database changed on web, import, or background sync.',
   },
   {
-    eyebrow: 'Intelligence',
-    title: 'Ask for deeper analysis only when you need it.',
-    text: 'The system can surface its own weekly brief, then hand the exact context to your AI agent for deeper analysis.',
-    accent: 'var(--color-accent)',
-    metrics: ['Proactive weekly briefs', 'On-demand AI deep dives'],
+    title: 'Review the week',
+    text: 'Daily rows become a weekly brief: what changed, what is due, and what deserves attention.',
   },
+]
+
+const DIFFERENCE_ROWS = [
+  ['Normal dashboard', 'Personal Server'],
+  ['Large tiles and synthetic summaries', 'Source records, compact totals, correction paths'],
+  ['Waits for the API before showing useful state', 'Cached locally first, then verified when changed'],
+  ['Five disconnected modules', 'One review ledger with module-specific controls'],
+  ['AI as a floating chat widget', 'Assistant messages persisted beside the records they analyze'],
 ]
 
 const LANDING_METRIC_DEFAULTS = [
@@ -221,91 +120,68 @@ const LANDING_METRIC_DEFAULTS = [
     id: 'workouts',
     value: 0,
     suffix: '+',
-    label: 'Workout sessions captured',
-    note: 'Logged lifts, runs, and training blocks preserved in one timeline.',
+    label: 'Workout records',
+    note: 'Sessions, sets, personal records, and steps.',
   },
   {
     id: 'habits',
     value: 0,
     suffix: '+',
-    label: 'Habit check-ins preserved',
-    note: 'Daily consistency records kept as part of the same reflective system.',
+    label: 'Habit decisions',
+    note: 'Done, skipped, missed, and numeric entries.',
   },
   {
     id: 'streams',
     value: 0,
     suffix: '+',
-    label: 'Listening events mapped',
-    note: 'Media history connected back to routines, workouts, and weekly review.',
+    label: 'Listening records',
+    note: 'Streams, ranking rows, and workout context.',
   },
 ]
 
-const BENTO_CARDS = [
-  {
-    title: 'Native first review',
-    text: 'The Android app opens on today, keeps cached data visible, and lets the user act before any network round trip finishes.',
-    icon: 'smartphone',
-    className: 'landing-bento-card--wide',
-    image: 'https://picsum.photos/seed/personal-data-native-review/1200/780',
-  },
-  {
-    title: 'Data validity',
-    text: 'Sync state, stale cache, and changed web records need to be visible so fast never means untrustworthy.',
-    icon: 'refresh-cw',
-    className: 'landing-bento-card--sync',
-  },
-  {
-    title: 'Assistant relay',
-    text: 'Chat persists messages, shows delivery state, and leaves reasoning to the external AI worker.',
-    icon: 'message-square',
-    className: 'landing-bento-card--dark',
-  },
-  {
-    title: 'Imports with progress',
-    text: 'Long-running imports belong in a data center with streaming progress, warnings, and retryable jobs.',
-    icon: 'database',
-    className: 'landing-bento-card--image',
-    image: 'https://picsum.photos/seed/personal-data-import-center/900/720',
-  },
-  {
-    title: 'One personal record',
-    text: 'Training, habits, finance, music, and media stay separate enough to be useful but close enough to explain the week.',
-    icon: 'layers',
-    className: 'landing-bento-card--compact',
-  },
-]
+function StatusPill({ children, tone = 'neutral' }) {
+  return <span className={`landing-status-pill landing-status-pill--${tone}`}>{children}</span>
+}
 
-const ACCORDION_PANELS = [
-  {
-    title: 'Habits',
-    text: 'Fast daily logging with cadence-aware streaks, missed-period counts, and reminder controls that live where users expect them.',
-    image: 'https://picsum.photos/seed/personal-data-habits-flow/900/1100',
-  },
-  {
-    title: 'Money',
-    text: 'Mobile transaction entry focuses on recent choices, quick review, detected payments, and a clear import/data path.',
-    image: 'https://picsum.photos/seed/personal-data-money-flow/900/1100',
-  },
-  {
-    title: 'Training',
-    text: 'Steps, workouts, bodyweight, and active sessions share the same activity layer so the app can work in the background.',
-    image: 'https://picsum.photos/seed/personal-data-training-flow/900/1100',
-  },
-  {
-    title: 'Media',
-    text: 'Shows, anime seasons, books, and listening history need hierarchy, source records, and review queues instead of flat cards.',
-    image: 'https://picsum.photos/seed/personal-data-media-flow/900/1100',
-  },
-]
+function LedgerPreview() {
+  return (
+    <article className="landing-ledger-preview" aria-label="Weekly ledger preview">
+      <div className="landing-ledger-preview__top">
+        <div>
+          <span className="landing-micro-label">Weekly brief</span>
+          <h2>The week, made reviewable.</h2>
+        </div>
+        <StatusPill tone="sync">Cached locally</StatusPill>
+      </div>
 
-const FOOTER_LINKS = [
-  { label: 'LinkedIn', href: 'https://linkedin.com/in/alueerssenmedina' },
-  { label: 'GitHub', href: 'https://github.com/Adrian-Luerssen' },
-  { label: 'Project repo', href: 'https://github.com/Adrian-Luerssen/Personal-Server' },
-]
+      <div className="landing-ledger-sync">
+        <span>Last verified</span>
+        <strong>just now</strong>
+        <span>Changed records</span>
+        <strong>4</strong>
+      </div>
+
+      <div className="landing-ledger-rows">
+        {LEDGER_ROWS.map((row) => (
+          <div className={`landing-ledger-row landing-ledger-row--${row.state}`} key={`${row.source}-${row.record}`}>
+            <span>{row.source}</span>
+            <strong>{row.record}</strong>
+            <em>{row.value}</em>
+            <StatusPill tone={row.state}>{row.state}</StatusPill>
+          </div>
+        ))}
+      </div>
+
+      <div className="landing-ledger-brief">
+        <Icon name="sparkles" size={16} />
+        <p>Spending rose, training stayed consistent, and two habits need a decision before tonight.</p>
+      </div>
+    </article>
+  )
+}
 
 function AnimatedMetric({ value, label, note, suffix, reducedMotion }) {
-  const [displayValue, setDisplayValue] = useState(0)
+  const [displayValue, setDisplayValue] = useState(reducedMotion ? value : 0)
   const [isVisible, setIsVisible] = useState(reducedMotion)
   const ref = useRef(null)
   const frameRef = useRef(0)
@@ -321,7 +197,6 @@ function AnimatedMetric({ value, label, note, suffix, reducedMotion }) {
 
     const el = ref.current
     if (!el) return undefined
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -334,7 +209,7 @@ function AnimatedMetric({ value, label, note, suffix, reducedMotion }) {
 
     observer.observe(el)
     return () => observer.disconnect()
-  }, [reducedMotion])
+  }, [reducedMotion, value])
 
   useEffect(() => {
     if (!isVisible) return undefined
@@ -353,13 +228,12 @@ function AnimatedMetric({ value, label, note, suffix, reducedMotion }) {
       return undefined
     }
 
-    const duration = 1600
+    const duration = 900
     const start = performance.now()
     const step = (now) => {
       const progress = Math.min((now - start) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3)
-      const nextValue = Math.round(startValue + (delta * eased))
-      setDisplayValue(nextValue)
+      setDisplayValue(Math.round(startValue + (delta * eased)))
       if (progress < 1) {
         frameRef.current = requestAnimationFrame(step)
       } else {
@@ -387,8 +261,6 @@ export default function Landing({ mobileGate = false }) {
   const nav = useNavigate()
   const prefersReducedMotion = usePrefersReducedMotion()
   const observe = useScrollReveal(prefersReducedMotion)
-  const heroRef = useHeroMotion(prefersReducedMotion)
-  const gsapRootRef = useLandingGsapMotion(prefersReducedMotion)
   const [landingMetrics, setLandingMetrics] = useState(LANDING_METRIC_DEFAULTS)
 
   useEffect(() => {
@@ -410,7 +282,7 @@ export default function Landing({ mobileGate = false }) {
           setLandingMetrics(data.metrics)
         }
       } catch {
-        // Keep zero-state defaults if the public stats endpoint is unavailable.
+        // Public metrics are optional. Keep static zero-state defaults if unavailable.
       }
     }
 
@@ -419,28 +291,24 @@ export default function Landing({ mobileGate = false }) {
   }, [])
 
   return (
-    <div className="landing-editorial" ref={gsapRootRef}>
+    <div className="landing-editorial">
       <main>
-        <section className="landing-editorial-hero" ref={heroRef}>
+        <section className="landing-editorial-hero">
           <div className="landing-editorial-hero__content">
             <div className="landing-editorial-hero__copy">
               <div className="landing-editorial-brandchip landing-editorial-hero__intro landing-editorial-hero__intro--1">
                 <span className="landing-editorial-wordmark__mark">PS</span>
                 <span className="landing-editorial-brandchip__copy">
                   <span className="landing-editorial-wordmark__text">Personal Server</span>
-                  <span className="landing-editorial-brandchip__meta">Private system for reflective self-review</span>
+                  <span className="landing-editorial-brandchip__meta">Private records for daily review</span>
                 </span>
               </div>
-              <div className="landing-editorial-kicker landing-editorial-hero__intro landing-editorial-hero__intro--2">
-                <Icon name="sparkles" size={14} />
-                Private quantified-self journal
-              </div>
               <h1 className="landing-editorial-hero__intro landing-editorial-hero__intro--3">
-                Understand your life without dashboard noise.
+                Your private ledger for the week.
               </h1>
               <p className="landing-editorial-hero__intro landing-editorial-hero__intro--4">
-                Personal Server turns workouts, habits, spending, and media into a reflective operating journal.
-                It is built to help you read patterns, not just collect numbers.
+                Personal Server keeps workouts, habits, spending, music, media, and assistant notes in one cache-first system
+                so you can review what changed without turning your life into a dashboard.
               </p>
               <div className="landing-editorial-hero__actions landing-editorial-hero__intro landing-editorial-hero__intro--5">
                 {mobileGate ? (
@@ -451,11 +319,11 @@ export default function Landing({ mobileGate = false }) {
                 ) : (
                   <>
                     <Link to="/register" className="landing-editorial-button landing-editorial-button--primary">
-                      Request access
+                      Create account
                       <Icon name="arrow-right" size={16} />
                     </Link>
                     <Link to="/login" className="landing-editorial-button landing-editorial-button--secondary">
-                      Sign in
+                      Open login
                     </Link>
                   </>
                 )}
@@ -467,51 +335,21 @@ export default function Landing({ mobileGate = false }) {
               ) : null}
             </div>
 
-            <div className="landing-editorial-hero__composition" ref={observe}>
-              <figure className="landing-media-frame landing-media-frame--hero" aria-label="Personal Server data workspace">
-                <img
-                  src="https://picsum.photos/seed/personal-data-command-center/1200/900"
-                  alt="A quiet personal workspace with screens, notebooks, and evening light"
-                />
-              </figure>
-              <div className="landing-editorial-sheet landing-editorial-sheet--primary">
-                <div className="landing-editorial-sheet__eyebrow">Weekly brief</div>
-                <h3>Momentum is building across the week</h3>
-                <p>
-                  Training cadence is holding, habit completion is stronger on workout days, and spending pressure is still contained.
-                </p>
-                <div className="landing-editorial-sheet__grid">
-                  <div>
-                    <span>Training</span>
-                    <strong>4 sessions</strong>
-                  </div>
-                  <div>
-                    <span>Habits</span>
-                    <strong>79%</strong>
-                  </div>
-                  <div>
-                    <span>Spending</span>
-                    <strong>$182</strong>
-                  </div>
-                  <div>
-                    <span>Focus</span>
-                    <strong>Consolidate</strong>
-                  </div>
-                </div>
+            <div className="landing-editorial-hero__composition visible">
+              <div className="landing-ledger-visual" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
               </div>
-
-              <div className="landing-editorial-sheet landing-editorial-sheet--secondary">
-                <div className="landing-editorial-sheet__eyebrow">AI analysis</div>
-                <p>Ask why spending shifted, which habits create momentum, or whether your training week is actually coherent.</p>
-                <div className="landing-editorial-mini-prompt">"Which habits are worth doubling down on?"</div>
-              </div>
+              <LedgerPreview />
             </div>
           </div>
         </section>
 
-        <section className="landing-editorial-proofbar" aria-label="Proof and product traits">
-          <div className="landing-editorial-proofbar__inner" ref={observe}>
-            {PROOF_ITEMS.map((item) => (
+        <section className="landing-editorial-proofbar" aria-label="Product traits">
+          <div className="landing-editorial-proofbar__inner visible">
+            {['Cached locally', 'Verified when changed', 'Private by default', 'Records, not noise'].map((item) => (
               <div key={item} className="landing-editorial-proofbar__item">
                 <Icon name="circle" size={10} />
                 <span>{item}</span>
@@ -520,19 +358,14 @@ export default function Landing({ mobileGate = false }) {
           </div>
         </section>
 
-        <section className="landing-editorial-section landing-editorial-section--bento" id="platform">
-          <div className="landing-editorial-section__lead landing-gsap-reveal">
-            <span className="landing-editorial-section__label">Product architecture</span>
-            <h2>A personal system should be fast, valid, and easier to navigate than the data behind it.</h2>
+        <section className="landing-editorial-section landing-editorial-section--bento" id="records">
+          <div className="landing-editorial-section__lead visible">
+            <span className="landing-micro-label">What it keeps</span>
+            <h2>One review system. Module controls stay specific.</h2>
           </div>
-          <div className="landing-bento-grid landing-gsap-reveal">
-            {BENTO_CARDS.map((card) => (
-              <article key={card.title} className={`landing-bento-card ${card.className}`}>
-                {card.image ? (
-                  <div className="landing-bento-card__media">
-                    <img src={card.image} alt="" loading="lazy" />
-                  </div>
-                ) : null}
+          <div className="landing-bento-grid visible">
+            {RECORD_TYPES.map((card) => (
+              <article key={card.title} className={`landing-bento-card landing-bento-card--${card.tone}`}>
                 <div className="landing-bento-card__copy">
                   <span className="landing-bento-card__icon">
                     <Icon name={card.icon} size={18} />
@@ -545,77 +378,62 @@ export default function Landing({ mobileGate = false }) {
           </div>
         </section>
 
-        <section className="landing-editorial-section landing-editorial-section--accordion" id="apps">
-          <div className="landing-horizontal-accordion landing-gsap-reveal" aria-label="Personal Server app areas">
-            {ACCORDION_PANELS.map((panel, index) => (
-              <article
-                key={panel.title}
-                className="landing-horizontal-accordion__panel"
-                tabIndex={0}
-                style={{ '--panel-index': index }}
-              >
-                <img src={panel.image} alt="" loading="lazy" />
-                <div>
-                  <span>{panel.title}</span>
-                  <p>{panel.text}</p>
-                </div>
+        <section className="landing-editorial-section landing-editorial-section--workflow" id="workflow">
+          <div className="landing-editorial-section__lead" ref={observe}>
+            <span className="landing-micro-label">How it works</span>
+            <h2>Local first does not mean guessing.</h2>
+          </div>
+          <div className="landing-workflow-grid" ref={observe}>
+            {WORKFLOW_STEPS.map((step, index) => (
+              <article key={step.title} className="landing-workflow-card">
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="landing-editorial-section landing-editorial-section--manifesto" id="story">
-          <div className="landing-editorial-section__lead landing-gsap-reveal" ref={observe}>
-            <span className="landing-editorial-section__label">Manifesto</span>
-            <h2>Your dashboard should feel like a review of your life, not a control panel.</h2>
-          </div>
-          <div className="landing-editorial-principles">
-            {PRINCIPLES.map((item) => (
-              <article key={item.title} className="landing-editorial-principle landing-stack-card" ref={observe}>
-                <div className="landing-editorial-principle__icon">
-                  <Icon name={item.icon} size={18} />
-                </div>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="landing-editorial-section landing-editorial-section--story">
+        <section className="landing-editorial-section landing-editorial-section--difference" id="different">
           <div className="landing-editorial-story-layout">
-            <div className="landing-editorial-story-rail" ref={observe}>
-              <span className="landing-editorial-section__label">Editorial storytelling</span>
-              <h2>A homepage that reads like a premium weekly review.</h2>
+            <div className="landing-editorial-story-rail visible">
+              <span className="landing-micro-label">Why it is different</span>
+              <h2>No dashboard theater.</h2>
               <p>
-                The system should move from life area to life area with restraint, letting one idea dominate at a time.
-                That means fewer equal-weight boxes and more narrative pacing.
+                The point is not to track more things. The point is to make the week reviewable without losing the source rows.
               </p>
             </div>
-            <div className="landing-editorial-story-grid">
-              {STORY_PANELS.map((panel, index) => (
-                <article
-                  key={panel.title}
-                  className={`landing-editorial-story-card landing-editorial-story-card--${index + 1}`}
-                  ref={observe}
-                  style={{ '--story-accent': panel.accent }}
-                >
-                  <span className="landing-editorial-story-card__eyebrow">{panel.eyebrow}</span>
-                  <h3>{panel.title}</h3>
-                  <p>{panel.text}</p>
-                  <ul>
-                    {panel.metrics.map((metric) => (
-                      <li key={metric}>{metric}</li>
-                    ))}
-                  </ul>
-                </article>
+            <div className="landing-difference-table" ref={observe}>
+              {DIFFERENCE_ROWS.map((row, index) => (
+                <div key={row.join('-')} className={index === 0 ? 'landing-difference-table__head' : ''}>
+                  <span>{row[0]}</span>
+                  <strong>{row[1]}</strong>
+                </div>
               ))}
             </div>
           </div>
         </section>
 
+        <section className="landing-editorial-section landing-editorial-section--privacy" id="privacy">
+          <div className="landing-privacy-panel" ref={observe}>
+            <div>
+              <span className="landing-micro-label">Privacy and validity</span>
+              <h2>Private data should feel inspectable, not mysterious.</h2>
+              <p>
+                Cache age, import progress, sync failures, payment detection, and assistant message state stay visible.
+                The app should tell you when a record is fresh and when it still needs verification.
+              </p>
+            </div>
+            <div className="landing-privacy-panel__checks">
+              <StatusPill tone="sync">Local data first</StatusPill>
+              <StatusPill tone="verified">Database verified</StatusPill>
+              <StatusPill tone="cached">Offline usable</StatusPill>
+            </div>
+          </div>
+        </section>
+
         <section className="landing-editorial-section landing-editorial-section--metrics">
-          <div className="landing-editorial-metrics" ref={observe}>
+          <div className="landing-editorial-metrics visible">
             {landingMetrics.map((counter) => (
               <AnimatedMetric
                 key={counter.id}
@@ -631,14 +449,12 @@ export default function Landing({ mobileGate = false }) {
 
         <section className="landing-editorial-section landing-editorial-section--closer">
           <div className="landing-editorial-quote" ref={observe}>
-            <p>"The point is not to track more. The point is to notice what the week is trying to tell you."</p>
+            <p>Records, not noise.</p>
           </div>
           <div className="landing-editorial-cta" ref={observe}>
-            <span className="landing-editorial-section__label">Trust and ownership</span>
-            <h2>Your data stays yours. The intelligence stays close to the records that matter.</h2>
+            <h2>The web app reviews the week. The Android app keeps the day moving.</h2>
             <p className="landing-editorial-cta__copy">
-              No bloated product theatre, no noisy growth loops, and no need to pretend this is an enterprise dashboard.
-              It is a personal system for noticing patterns and making better decisions.
+              Use desktop for correction and weekly review. Use mobile for fast logging, widgets, notifications, and offline-first access.
             </p>
             <div className="landing-editorial-hero__actions">
               {mobileGate ? (
@@ -649,11 +465,11 @@ export default function Landing({ mobileGate = false }) {
               ) : (
                 <>
                   <Link to="/register" className="landing-editorial-button landing-editorial-button--primary">
-                    Start with your own data
+                    Create account
                     <Icon name="arrow-right" size={16} />
                   </Link>
                   <Link to="/login" className="landing-editorial-button landing-editorial-button--secondary">
-                    Sign in
+                    Open login
                   </Link>
                 </>
               )}
@@ -669,18 +485,17 @@ export default function Landing({ mobileGate = false }) {
               <span className="landing-editorial-wordmark__mark">PS</span>
               <span className="landing-editorial-wordmark__text">Personal Server</span>
             </div>
-            <p>Private quantified-self journal for people who want clarity, not dashboard clutter.</p>
-            <span className="landing-editorial-footer__legal">(c) 2026 Adrian Luerssen Medina. Personal Server TM. All rights reserved.</span>
+            <p>Private records for daily review. Cached locally. Verified when changed.</p>
           </div>
           <div className="landing-editorial-footer__meta">
             <div className="landing-editorial-footer__links">
-              {FOOTER_LINKS.map((link) => (
-                <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="landing-editorial-footer__link">
-                  {link.label}
-                </a>
-              ))}
+              <a href="https://github.com/Adrian-Luerssen/Personal-Server" target="_blank" rel="noreferrer" className="landing-editorial-footer__link">
+                Project repo
+              </a>
+              <Link to="/login" className="landing-editorial-footer__link">Login</Link>
+              <Link to="/register" className="landing-editorial-footer__link">Create account</Link>
             </div>
-            <span className="landing-editorial-footer__credit">Built for reflective review, private data ownership, and AI-assisted interpretation.</span>
+            <span className="landing-editorial-footer__credit">The week, made reviewable.</span>
           </div>
         </div>
       </footer>

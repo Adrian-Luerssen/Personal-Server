@@ -9,6 +9,8 @@ import RouteErrorBoundary from './RouteErrorBoundary'
 import { api, checkDataValidity, preloadDashboardData } from '../api'
 import PWAInstallPrompt from './PWAInstallPrompt'
 import { isNativeMobileApp } from '../mobilePlatform'
+import { usePreferences } from '../contexts/PreferencesContext'
+import { FEATURE_MODULES, getModuleIdForPath, isFeatureEnabled, isFeatureSyncEnabled } from '../modulePreferences.mjs'
 import Icon from './icons/Icon'
 import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
 import { pollPendingAiNotifications } from '../aiNotifications.mjs'
@@ -47,9 +49,10 @@ const NATIVE_ROUTE_TITLES = [
 function NativeAppHeader() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { prefs } = usePreferences()
   const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
   const currentApp = getNativeAppForPath(location.pathname)
-  const appSwitcherOptions = getNativeAppSwitcherOptions(location.pathname)
+  const appSwitcherOptions = getNativeAppSwitcherOptions(location.pathname, prefs)
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const current = NATIVE_ROUTE_TITLES.find((item) => item.match.test(location.pathname)) || {
     title: 'Personal Server',
@@ -86,7 +89,7 @@ function NativeAppHeader() {
           aria-label={`Open app menu, current area ${currentApp.label}`}
         >
           <Icon name="grid-3x3" size={16} />
-          <span className="native-app-header__selector-label">Menu</span>
+          <span className="native-app-header__selector-label">Apps</span>
           <Icon name={appSwitcherOpen ? 'chevron-up' : 'chevron-down'} size={15} aria-hidden="true" />
         </button>
         {!isSettingsRoute && (
@@ -185,16 +188,52 @@ function NativeUpdatePrompt() {
   )
 }
 
+function DisabledFeatureState({ moduleId, onEnable }) {
+  const module = FEATURE_MODULES.find((item) => item.id === moduleId)
+  const label = module?.label || 'Feature'
+
+  return (
+    <section className="disabled-feature-state">
+      <Icon name={module?.icon || 'sliders-horizontal'} size={24} />
+      <div>
+        <span>Hidden module</span>
+        <h1>{label} is turned off</h1>
+        <p>This area is hidden from navigation, home, widgets, notifications, and background sync until you enable it again.</p>
+      </div>
+      <button type="button" className="btn" onClick={onEnable}>
+        Enable {label}
+      </button>
+    </section>
+  )
+}
+
 export default function Layout() {
   const nativeApp = isNativeMobileApp()
   const location = useLocation()
   const navigate = useNavigate()
+  const { prefs, updatePrefs } = usePreferences()
   const [collapsed, setCollapsed] = useState(false)
-  const hasNativeTabbar = !nativeApp || getNativeTabsForPath(location.pathname).length > 0
+  const hasNativeTabbar = !nativeApp || getNativeTabsForPath(location.pathname, prefs).length > 0
+  const disabledRouteModule = getModuleIdForPath(location.pathname)
+  const routeDisabled = disabledRouteModule && !isFeatureEnabled(prefs, disabledRouteModule)
+
+  function enableCurrentModule() {
+    if (!disabledRouteModule) return
+    updatePrefs({
+      featureModules: {
+        ...prefs.featureModules,
+        [disabledRouteModule]: {
+          ...(prefs.featureModules?.[disabledRouteModule] || {}),
+          enabled: true,
+          syncEnabled: true,
+        },
+      },
+    })
+  }
 
   // Preload dashboard data on app mount so pages load instantly
   useEffect(() => {
-    preloadDashboardData()
+    preloadDashboardData(prefs)
 
     const refreshIfChanged = () => {
       checkDataValidity()
@@ -219,10 +258,11 @@ export default function Layout() {
       document.removeEventListener('visibilitychange', onVisibilityChange)
       if (interval) window.clearInterval(interval)
     }
-  }, [nativeApp])
+  }, [nativeApp, prefs])
 
   useEffect(() => {
     if (!nativeApp) return undefined
+    if (!isFeatureSyncEnabled(prefs, 'assistant')) return undefined
     let cancelled = false
 
     const deliver = () => {
@@ -244,10 +284,14 @@ export default function Layout() {
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.clearInterval(interval)
     }
-  }, [nativeApp])
+  }, [nativeApp, prefs])
 
   useEffect(() => {
     if (!nativeApp) return undefined
+    if (!isFeatureSyncEnabled(prefs, 'training')) {
+      stopLiveStepUpdates().catch(() => {})
+      return undefined
+    }
     let cancelled = false
     let unsubscribeLiveSteps = null
     let lastLivePersistAt = 0
@@ -314,7 +358,7 @@ export default function Layout() {
       window.removeEventListener(STEP_SYNC_PREFERENCES_EVENT, startSteps)
       window.clearInterval(interval)
     }
-  }, [nativeApp])
+  }, [nativeApp, prefs])
 
   useEffect(() => {
     if (!nativeApp) return undefined
@@ -341,7 +385,11 @@ export default function Layout() {
           <div className="content-shell__frame">
             <PageTransition>
               <RouteErrorBoundary key={location.pathname}>
-                <Outlet />
+                {routeDisabled ? (
+                  <DisabledFeatureState moduleId={disabledRouteModule} onEnable={enableCurrentModule} />
+                ) : (
+                  <Outlet />
+                )}
               </RouteErrorBoundary>
             </PageTransition>
           </div>

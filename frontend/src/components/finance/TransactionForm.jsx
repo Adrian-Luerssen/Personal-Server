@@ -136,12 +136,6 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
     }
   }, [form.amount, sameCurrency, mode])
 
-  useEffect(() => {
-    if (!transaction && mode !== 'transfer' && visibleCategories.length && !visibleCategories.some(c => c.id === form.categoryId)) {
-      setForm(f => ({ ...f, categoryId: visibleCategories[0]?.id || '' }))
-    }
-  }, [visibleCategories, form.categoryId, mode, transaction])
-
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
@@ -477,6 +471,7 @@ function NativeTransactionForm({
   onModeChange,
   setField,
 }) {
+  const [categoryQuery, setCategoryQuery] = useState('')
   const amountLabel = form.amount ? Number(form.amount).toLocaleString('en', { maximumFractionDigits: 2 }) : '0'
   const selectedWallet = wallets.find(w => w.id === form.walletId)
   const keypad = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace']
@@ -485,6 +480,17 @@ function NativeTransactionForm({
     { id: 'income', label: 'Income', icon: 'arrow-down' },
     { id: 'transfer', label: 'Transfer', icon: 'arrow-left-right' },
   ]
+  const filteredCategories = useMemo(() => {
+    const query = categoryQuery.trim().toLowerCase()
+    if (!query) return categories
+    return categories.filter(category => {
+      return [
+        category.name,
+        category.parent?.name,
+        category.parentName,
+      ].filter(Boolean).some(value => String(value).toLowerCase().includes(query))
+    })
+  }, [categories, categoryQuery])
 
   function appendAmount(token) {
     const current = form.amount || ''
@@ -543,18 +549,32 @@ function NativeTransactionForm({
               <h3>Category</h3>
               <span>{selectedCategory?.name || 'Choose'}</span>
             </div>
+            <label className="native-category-search">
+              <Icon name="search" size={16} />
+              <input
+                type="search"
+                aria-label="Search categories"
+                value={categoryQuery}
+                placeholder="Search categories"
+                onChange={event => setCategoryQuery(event.target.value)}
+              />
+            </label>
             <div className="native-category-grid">
-              {categories.slice(0, 10).map(category => (
+              {filteredCategories.map(category => (
                 <button
                   key={category.id}
                   type="button"
                   className={form.categoryId === category.id ? 'is-active' : ''}
+                  aria-pressed={form.categoryId === category.id ? 'true' : 'false'}
                   onClick={() => setField('categoryId', category.id)}
                 >
                   <CategoryIcon category={category} size={40} />
                   <span>{category.name}</span>
                 </button>
               ))}
+              {filteredCategories.length === 0 && (
+                <div className="native-empty-state native-empty-state--compact">No categories match.</div>
+              )}
             </div>
           </section>
         )}
@@ -574,6 +594,7 @@ function NativeTransactionForm({
                       key={wallet.id}
                       type="button"
                       className={form.fromWalletId === wallet.id ? 'is-active' : ''}
+                      aria-pressed={form.fromWalletId === wallet.id ? 'true' : 'false'}
                       disabled={form.toWalletId === wallet.id}
                       onClick={() => setField('fromWalletId', wallet.id)}
                     >
@@ -590,6 +611,7 @@ function NativeTransactionForm({
                       key={wallet.id}
                       type="button"
                       className={form.toWalletId === wallet.id ? 'is-active' : ''}
+                      aria-pressed={form.toWalletId === wallet.id ? 'true' : 'false'}
                       disabled={form.fromWalletId === wallet.id}
                       onClick={() => setField('toWalletId', wallet.id)}
                     >
@@ -620,6 +642,7 @@ function NativeTransactionForm({
                   key={wallet.id}
                   type="button"
                   className={form.walletId === wallet.id ? 'is-active' : ''}
+                  aria-pressed={form.walletId === wallet.id ? 'true' : 'false'}
                   onClick={() => setField('walletId', wallet.id)}
                 >
                   {wallet.name}

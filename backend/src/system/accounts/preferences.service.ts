@@ -3,6 +3,19 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { AccountPreferences } from "./account-preferences.entity";
 
+const UPDATE_FIELDS: (keyof AccountPreferences)[] = [
+  "accentColor",
+  "themeMode",
+  "background",
+  "sidebarPosition",
+  "density",
+  "customCss",
+  "dashboardWidgets",
+  "featureModules",
+  "homeLayout",
+  "widgetLayout",
+];
+
 @Injectable()
 export class PreferencesService {
   constructor(
@@ -21,7 +34,11 @@ export class PreferencesService {
 
   async update(accountId: string, data: Partial<AccountPreferences>): Promise<AccountPreferences> {
     const prefs = await this.getOrCreate(accountId);
-    Object.assign(prefs, data);
+    for (const field of UPDATE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(data, field)) {
+        (prefs as any)[field] = data[field];
+      }
+    }
     return this.repo.save(prefs);
   }
 }

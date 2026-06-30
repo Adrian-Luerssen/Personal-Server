@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api, clearApiCache } from '../api'
-import { useTheme } from '../contexts/PreferencesContext'
+import { usePreferences, useTheme } from '../contexts/PreferencesContext'
+import { isFeatureEnabled, isFeatureSyncEnabled } from '../modulePreferences.mjs'
 import Icon from './icons/Icon'
 import { isNativeMobileApp } from '../mobilePlatform'
 import {
@@ -27,6 +28,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const nav = useNavigate()
   const location = useLocation()
   const { theme, toggleTheme } = useTheme()
+  const { prefs } = usePreferences()
   const nativeApp = isNativeMobileApp()
   const isMobile = useIsMobile()
   const [spotifyLinked, setSpotifyLinked] = useState(null)
@@ -40,26 +42,38 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   useEffect(() => {
     let ignore = false
-    api.get('/habits/summary')
-      .then(data => {
-        if (!ignore && Array.isArray(data)) {
-          setIncompleteHabits(data.filter(h => h.todayStatus !== 'success').length)
-        }
-      })
-      .catch(() => {})
-    api.get('/workout/sessions/active')
-      .then(session => { if (!ignore) setHasActiveWorkout(!!session) })
-      .catch(() => { if (!ignore) setHasActiveWorkout(false) })
+    if (isFeatureSyncEnabled(prefs, 'habits')) {
+      api.get('/habits/summary')
+        .then(data => {
+          if (!ignore && Array.isArray(data)) {
+            setIncompleteHabits(data.filter(h => h.todayStatus !== 'success').length)
+          }
+        })
+        .catch(() => {})
+    } else {
+      setIncompleteHabits(0)
+    }
+    if (isFeatureSyncEnabled(prefs, 'training')) {
+      api.get('/workout/sessions/active')
+        .then(session => { if (!ignore) setHasActiveWorkout(!!session) })
+        .catch(() => { if (!ignore) setHasActiveWorkout(false) })
+    } else {
+      setHasActiveWorkout(false)
+    }
     return () => { ignore = true }
-  }, [location.pathname])
+  }, [location.pathname, prefs])
 
   useEffect(() => {
     let ignore = false
+    if (!isFeatureSyncEnabled(prefs, 'music')) {
+      setSpotifyLinked(false)
+      return () => { ignore = true }
+    }
     api.get('/spotify/linked')
       .then(r => { if (!ignore) setSpotifyLinked(!!r?.linked) })
       .catch(() => { if (!ignore) setSpotifyLinked(false) })
     return () => { ignore = true }
-  }, [location.pathname])
+  }, [location.pathname, prefs])
 
   useEffect(() => {
     const onSpotifyRoute = location.pathname.startsWith('/spotify')
@@ -103,6 +117,11 @@ export default function Sidebar({ collapsed, onToggle }) {
   const isFinanceActive = location.pathname.startsWith('/finance')
   const isMediaActive = location.pathname.startsWith('/media')
   const isHabitsActive = location.pathname.startsWith('/habits')
+  const showTraining = isFeatureEnabled(prefs, 'training')
+  const showHabits = isFeatureEnabled(prefs, 'habits')
+  const showFinance = isFeatureEnabled(prefs, 'finance')
+  const showMusic = isFeatureEnabled(prefs, 'music')
+  const showMedia = isFeatureEnabled(prefs, 'media')
 
   const handleSpotifyClick = () => {
     if (isMobile) {
@@ -138,7 +157,7 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   if (nativeApp) {
     const currentApp = getNativeAppForPath(location.pathname)
-    const nativeTabs = getNativeTabsForPath(location.pathname)
+    const nativeTabs = getNativeTabsForPath(location.pathname, prefs)
 
     if (nativeTabs.length === 0) return null
 
@@ -175,7 +194,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         {!collapsed && (
           <div className="sidebar-brand-copy">
             <div className="brand">{t('common.appName')}</div>
-            <div className="sidebar-brand-note">Private quantified-self journal</div>
+            <div className="sidebar-brand-note">Private review ledger</div>
           </div>
         )}
         <button className="sidebar-toggle-btn" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
@@ -190,6 +209,8 @@ export default function Sidebar({ collapsed, onToggle }) {
         </NavLink>
 
         {!collapsed && <div className="sidebar-section-label">Domains</div>}
+        {showMusic && (
+          <>
         <div
           className={'nav-link' + (isSpotifyActive ? ' active' : '')}
           onClick={handleSpotifyClick}
@@ -199,7 +220,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           aria-expanded={spotifyLinked ? spotifyMenuOpen : undefined}
         >
           <Icon name="music" size={20} />
-          {!collapsed && <span>{t('nav.spotify')} {spotifyLinked ? (spotifyMenuOpen ? '▾' : '▸') : ''}</span>}
+          {!collapsed && <span>{t('nav.spotify')}</span>}
           {collapsed && spotifyLinked === false && <Icon name="alert-triangle" size={14} style={{ color: 'var(--color-warning)' }} />}
         </div>
         {spotifyLinked && spotifyMenuOpen && (
@@ -218,7 +239,11 @@ export default function Sidebar({ collapsed, onToggle }) {
             </NavLink>
           </div>
         )}
+          </>
+        )}
 
+        {showTraining && (
+          <>
         <div
           className={'nav-link' + (isWorkoutActive ? ' active' : '')}
           onClick={handleWorkoutClick}
@@ -228,7 +253,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           aria-expanded={workoutMenuOpen}
         >
           <Icon name="dumbbell" size={20} />
-          {!collapsed && <span>{t('nav.workout')} {workoutMenuOpen ? '▾' : '▸'}</span>}
+          {!collapsed && <span>{t('nav.workout')}</span>}
           {hasActiveWorkout && <span className="nav-badge-dot" />}
         </div>
         {workoutMenuOpen && (
@@ -255,7 +280,11 @@ export default function Sidebar({ collapsed, onToggle }) {
             </NavLink>
           </div>
         )}
+          </>
+        )}
 
+        {showFinance && (
+          <>
         <div
           className={'nav-link' + (isFinanceActive ? ' active' : '')}
           onClick={handleFinanceClick}
@@ -266,7 +295,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           style={{ color: isFinanceActive ? '#fbbf24' : undefined }}
         >
           <Icon name="wallet" size={20} style={{ color: isFinanceActive ? '#fbbf24' : undefined }} />
-          {!collapsed && <span>{t('nav.finance')} {financeMenuOpen ? '▾' : '▸'}</span>}
+          {!collapsed && <span>{t('nav.finance')}</span>}
         </div>
         {financeMenuOpen && (
           <div className="subnav" role="menu">
@@ -280,7 +309,11 @@ export default function Sidebar({ collapsed, onToggle }) {
             </NavLink>
           </div>
         )}
+          </>
+        )}
 
+        {showMedia && (
+          <>
         <div
           className={'nav-link' + (isMediaActive ? ' active' : '')}
           onClick={handleMediaClick}
@@ -291,7 +324,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           style={{ color: isMediaActive ? '#f472b6' : undefined }}
         >
           <Icon name="clapperboard" size={20} style={{ color: isMediaActive ? '#f472b6' : undefined }} />
-          {!collapsed && <span>Media {mediaMenuOpen ? '▾' : '▸'}</span>}
+          {!collapsed && <span>Media</span>}
         </div>
         {mediaMenuOpen && (
           <div className="subnav" role="menu">
@@ -301,7 +334,11 @@ export default function Sidebar({ collapsed, onToggle }) {
             </NavLink>
           </div>
         )}
+          </>
+        )}
 
+        {showHabits && (
+          <>
         <div
           className={'nav-link' + (isHabitsActive ? ' active' : '')}
           onClick={handleHabitsClick}
@@ -312,7 +349,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           style={{ color: isHabitsActive ? '#a78bfa' : undefined }}
         >
           <Icon name="heart-pulse" size={20} style={{ color: isHabitsActive ? '#a78bfa' : undefined }} />
-          {!collapsed && <span>{t('nav.habits')} {habitsMenuOpen ? '▾' : '▸'}</span>}
+          {!collapsed && <span>{t('nav.habits')}</span>}
           {incompleteHabits > 0 && <span className="nav-badge">{incompleteHabits}</span>}
         </div>
         {habitsMenuOpen && (
@@ -322,6 +359,8 @@ export default function Sidebar({ collapsed, onToggle }) {
               {!collapsed && <span>{t('nav.habitsDashboard')}</span>}
             </NavLink>
           </div>
+        )}
+          </>
         )}
       </nav>
 

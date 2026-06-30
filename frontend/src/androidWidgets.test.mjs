@@ -102,4 +102,32 @@ describe('Android widget snapshot bridge', () => {
     assert.equal(calls[0][1].snapshot.lockScreenSensitive, false)
     assert.deepEqual(calls[1], ['refresh'])
   })
+
+  it('omits disabled modules from widget metric visibility and brief copy', () => {
+    const snapshot = createAndroidWidgetSnapshot({
+      generatedAt: '2026-06-25T16:30:00.000Z',
+      intelligence: { score: 41 },
+      habits: {
+        today: [
+          { habitName: 'Gym', todayStatus: 'success' },
+          { habitName: 'Read', todayStatus: 'none' },
+        ],
+      },
+      workout: { totals: { totalWorkouts: 3 } },
+      finance: { summary: { totalExpense: -1205, currency: 'EUR' } },
+      spotify: { stats: { totalStreams: 6100 } },
+    }, {
+      preferences: {
+        featureModules: {
+          finance: { enabled: false },
+          music: { enabled: false },
+        },
+      },
+    })
+
+    assert.deepEqual(snapshot.visibleMetrics, ['habits', 'training'])
+    assert.equal(snapshot.monthlySpend, 0)
+    assert.equal(snapshot.streams, 0)
+    assert.equal(snapshot.briefDetail, '1/2 habits - 3 train')
+  })
 })

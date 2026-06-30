@@ -195,10 +195,14 @@ export default function FinanceTransactions() {
           monthIncome={monthIncome}
           monthExpense={monthExpense}
           monthNet={monthNet}
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
           suggestions={suggestions}
           onFilterChange={handleFilterChange}
           onClearFilters={clearFilters}
           onMonthChange={handleMonthChange}
+          onPageChange={setPage}
           onAddTx={openAddTx}
           onEditTx={openEditTx}
           onAcceptSuggestion={acceptSuggestion}
@@ -445,16 +449,22 @@ export default function FinanceTransactions() {
 function NativeFinanceTransactionsView({
   loading,
   transactions,
+  wallets,
+  categories,
   filters,
   navYear,
   navMonth,
   monthIncome,
   monthExpense,
   monthNet,
+  page,
+  totalPages,
+  totalCount,
   suggestions,
   onFilterChange,
   onClearFilters,
   onMonthChange,
+  onPageChange,
   onAddTx,
   onEditTx,
   onAcceptSuggestion,
@@ -467,6 +477,19 @@ function NativeFinanceTransactionsView({
     { id: 'income', label: 'Income', icon: 'arrow-down' },
     { id: 'transfer', label: 'Transfer', icon: 'arrow-left-right' },
   ]
+  const filterCategories = (categories || []).filter(category => {
+    if (filters.transactionType === 'transfer') return false
+    if (filters.transactionType === 'income') return category.isIncome === true
+    if (filters.transactionType === 'expense') return category.isIncome !== true
+    return true
+  })
+  const activeFilterCount = [
+    filters.search,
+    filters.transactionType,
+    filters.walletId,
+    filters.categoryId,
+  ].filter(Boolean).length
+  const groupedTransactions = groupTransactionsByDate(transactions)
 
   function shiftMonth(delta) {
     const next = new Date(navYear, navMonth + delta, 1)
@@ -481,7 +504,7 @@ function NativeFinanceTransactionsView({
           <h1>Transactions</h1>
           <p>{monthLabel}</p>
         </div>
-        <button type="button" className="native-finance-fab-inline" onClick={() => onAddTx('expense')}>
+        <button type="button" className="native-finance-fab-inline" aria-label="Add expense" onClick={() => onAddTx('expense')}>
           <Icon name="plus" size={20} />
         </button>
       </section>
@@ -527,7 +550,7 @@ function NativeFinanceTransactionsView({
             placeholder="Search transactions"
             onChange={event => onFilterChange('search', event.target.value)}
           />
-          {(filters.search || filters.transactionType) && (
+          {activeFilterCount > 0 && (
             <button type="button" onClick={onClearFilters}>Clear</button>
           )}
         </div>
@@ -537,6 +560,7 @@ function NativeFinanceTransactionsView({
               key={option.id}
               type="button"
               className={filters.transactionType === option.id ? 'is-active' : ''}
+              aria-pressed={filters.transactionType === option.id ? 'true' : 'false'}
               onClick={() => onFilterChange('transactionType', filters.transactionType === option.id ? '' : option.id)}
             >
               <Icon name={option.icon} size={15} />
@@ -544,6 +568,66 @@ function NativeFinanceTransactionsView({
             </button>
           ))}
         </div>
+        <div className="native-filter-group" aria-label="Wallet filter">
+          <span>Wallet</span>
+          <div className="native-chip-row native-filter-chip-row">
+            <button
+              type="button"
+              className={!filters.walletId ? 'is-active' : ''}
+              aria-label="Filter wallet all"
+              aria-pressed={!filters.walletId ? 'true' : 'false'}
+              onClick={() => onFilterChange('walletId', '')}
+            >
+              All
+            </button>
+            {(wallets || []).map(wallet => (
+              <button
+                key={wallet.id}
+                type="button"
+                className={filters.walletId === wallet.id ? 'is-active' : ''}
+                aria-label={`Filter wallet ${wallet.name}`}
+                aria-pressed={filters.walletId === wallet.id ? 'true' : 'false'}
+                onClick={() => onFilterChange('walletId', filters.walletId === wallet.id ? '' : wallet.id)}
+              >
+                {wallet.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        {filters.transactionType !== 'transfer' && (
+          <div className="native-filter-group" aria-label="Category filter">
+            <span>Category</span>
+            <div className="native-chip-row native-filter-chip-row">
+              <button
+                type="button"
+                className={!filters.categoryId ? 'is-active' : ''}
+                aria-label="Filter category all"
+                aria-pressed={!filters.categoryId ? 'true' : 'false'}
+                onClick={() => onFilterChange('categoryId', '')}
+              >
+                All
+              </button>
+              {filterCategories.slice(0, 12).map(category => (
+                <button
+                  key={category.id}
+                  type="button"
+                  className={filters.categoryId === category.id ? 'is-active' : ''}
+                  aria-label={`Filter category ${category.name}`}
+                  aria-pressed={filters.categoryId === category.id ? 'true' : 'false'}
+                  onClick={() => onFilterChange('categoryId', filters.categoryId === category.id ? '' : category.id)}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {activeFilterCount > 0 && (
+          <button type="button" className="native-clear-filter-button" onClick={onClearFilters}>
+            <Icon name="x" size={15} />
+            Clear {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}
+          </button>
+        )}
       </section>
 
       <section className="native-finance-card">
@@ -557,7 +641,7 @@ function NativeFinanceTransactionsView({
               <Icon name="plus" size={16} />
               Add
             </button>
-            <button type="button" onClick={() => navigate('/settings?section=data')}>Data</button>
+            <button type="button" onClick={() => navigate('/settings?section=data')}>Manage</button>
           </div>
         </div>
         <div className="native-transaction-list">
@@ -566,14 +650,65 @@ function NativeFinanceTransactionsView({
           ) : transactions.length === 0 ? (
             <div className="native-empty-state">No transactions match this view.</div>
           ) : (
-            transactions.map(tx => (
-              <NativeTransactionFeedCard key={tx.id} tx={tx} onClick={() => onEditTx(tx)} />
+            groupedTransactions.map(group => (
+              <div className="native-transaction-day-group" key={group.key}>
+                <div className="native-transaction-day-group__head">
+                  <span>{group.label}</span>
+                  <em>{formatCurrency(group.total)}</em>
+                </div>
+                {group.items.map(tx => (
+                  <NativeTransactionFeedCard key={tx.id} tx={tx} onClick={() => onEditTx(tx)} />
+                ))}
+              </div>
             ))
           )}
         </div>
+        {totalPages > 1 && (
+          <div className="native-pagination-row" aria-label="Transaction pages">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => onPageChange(Math.max(1, page - 1))}
+            >
+              <Icon name="chevron-left" size={16} />
+              Previous
+            </button>
+            <span>{page} / {totalPages}</span>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+            >
+              Next
+              <Icon name="chevron-right" size={16} />
+            </button>
+          </div>
+        )}
+        {totalCount > transactions.length && (
+          <p className="native-feed-count-note">{transactions.length} of {totalCount} loaded for this filter.</p>
+        )}
       </section>
     </div>
   )
+}
+
+function groupTransactionsByDate(transactions) {
+  const groups = new Map()
+  for (const tx of transactions || []) {
+    const rawDate = tx.transactionDate || tx.date
+    const key = rawDate ? new Date(rawDate).toISOString().slice(0, 10) : 'unknown'
+    const existing = groups.get(key) || {
+      key,
+      label: rawDate ? formatDate(rawDate) : 'No date',
+      total: 0,
+      items: [],
+    }
+    const amount = Number(tx.amount || 0)
+    existing.total += getTransactionType(tx) === 'income' ? Math.abs(amount) : -Math.abs(amount)
+    existing.items.push(tx)
+    groups.set(key, existing)
+  }
+  return [...groups.values()]
 }
 
 function NativePaymentSuggestionsPanel({ suggestions, onAccept, onReject }) {

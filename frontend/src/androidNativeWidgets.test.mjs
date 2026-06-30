@@ -57,6 +57,15 @@ describe('Android native widgets', () => {
     }
   })
 
+  it('lets customized widget snapshots hide disabled metric cards natively', () => {
+    const updater = readAndroidFile('java/com/adrianluerssen/personalserver/widgets/PersonalServerWidgetUpdater.java')
+
+    assert.match(updater, /visibleMetrics/)
+    assert.match(updater, /setViewVisibility\(R\.id\.widget_today_spend_card/)
+    assert.match(updater, /showsMetric\("finance"\)/)
+    assert.match(updater, /showsMetric\("music"\)/)
+  })
+
   it('exposes native widget status and home-screen pinning through the Capacitor plugin', () => {
     const plugin = readAndroidFile('java/com/adrianluerssen/personalserver/widgets/PersonalServerWidgetsPlugin.java')
 

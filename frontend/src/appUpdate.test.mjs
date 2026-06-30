@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   buildInstalledVersionAnnouncement,
   normalizeVersionPolicy,
+  parseAndroidReleaseNotes,
   readSeenAppVersion,
   writeSeenAppVersion,
 } from './appUpdate.js'
@@ -78,4 +79,58 @@ test('installed version announcement is shown once per installed version with ch
     }),
     null,
   )
+})
+
+test('parseAndroidReleaseNotes extracts readable changelog sections from generated release notes', () => {
+  const releaseBody = `## Personal Server Android APK
+
+### Deployment
+| Field | Value |
+| --- | --- |
+| Channel | Versioned Android APK release |
+| App version | \`0.0.1.20\` |
+| Workflow run | [#20](https://github.com/Adrian-Luerssen/Personal-Server/actions/runs/20) |
+
+### APK Asset
+| Field | Value |
+| --- | --- |
+| File | \`personal-server.apk\` |
+| SHA-256 | \`abc123\` |
+
+### Verification
+- Vite production build completed.
+
+### Changelog
+Changes since android-v0.0.1.19: [compare changes](https://github.com/Adrian-Luerssen/Personal-Server/compare/android-v0.0.1.19...d5dbaca)
+
+#### New and improved
+- Install APK updates in-app.
+- Show the changelog after update.
+
+#### Fixed
+- Keep required updates locked.
+
+#### Technical
+- API cache and app version tests passed.
+- Gradle assembleRelease completed.
+
+#### Commits
+- \`d5dbaca\` feat: improve Android update flow
+
+### Install
+Download \`personal-server.apk\` from the release assets.
+`
+
+  const changelog = parseAndroidReleaseNotes(releaseBody, 'Personal Server Android v0.0.1.20')
+
+  assert.equal(changelog.summary, 'Personal Server Android v0.0.1.20')
+  assert.deepEqual(changelog.features, ['Install APK updates in-app.', 'Show the changelog after update.'])
+  assert.deepEqual(changelog.fixes, ['Keep required updates locked.'])
+  assert.deepEqual(changelog.technical, ['API cache and app version tests passed.', 'Gradle assembleRelease completed.'])
+  assert.deepEqual(changelog.commits, ['feat: improve Android update flow'])
+  assert.equal(
+    changelog.compareUrl,
+    'https://github.com/Adrian-Luerssen/Personal-Server/compare/android-v0.0.1.19...d5dbaca',
+  )
+  assert.equal(changelog.technical.some((item) => item.includes('| Field | Value |')), false)
 })

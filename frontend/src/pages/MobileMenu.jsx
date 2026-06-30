@@ -2,37 +2,39 @@ import React, { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Icon from '../components/icons/Icon'
 import { NATIVE_APPS } from '../nativeNavigation.mjs'
+import { usePreferences } from '../contexts/PreferencesContext'
+import { filterEnabledNativeApps, isFeatureEnabled } from '../modulePreferences.mjs'
 
 const MENU_SECTIONS = [
   {
     title: 'Daily actions',
     items: [
-      { label: 'Habits', description: 'Log today, manage routines, reminders', to: '/habits', icon: 'heart-pulse', tone: 'habits' },
-      { label: 'Workout', description: 'Start or resume training', to: '/workout', icon: 'dumbbell', tone: 'success' },
-      { label: 'Add transaction', description: 'Record spending or income', to: '/finance/transactions?action=new', icon: 'receipt', tone: 'money' },
-      { label: 'Assistant', description: 'Ask the AI copilot', to: '/chat', icon: 'message-square', tone: 'ai' },
+      { label: 'Habits', description: 'Log today, manage routines, reminders', to: '/habits', icon: 'heart-pulse', tone: 'habits', module: 'habits' },
+      { label: 'Workout', description: 'Start or resume training', to: '/workout', icon: 'dumbbell', tone: 'success', module: 'training' },
+      { label: 'Add transaction', description: 'Record spending or income', to: '/finance/transactions?action=new', icon: 'receipt', tone: 'money', module: 'finance' },
+      { label: 'Assistant', description: 'Ask the AI copilot', to: '/chat', icon: 'message-square', tone: 'ai', module: 'assistant' },
     ],
   },
   {
     title: 'Library and insights',
     items: [
-      { label: 'Finance', description: 'Transactions, wallets, budgets', to: '/finance', icon: 'wallet', tone: 'money' },
-      { label: 'Spotify Ranking', description: 'Streams by day, week, month, year', to: '/spotify/ranking', icon: 'trophy', tone: 'music' },
-      { label: 'Media Library', description: 'Anime, shows, movies, books, manga', to: '/media', icon: 'clapperboard', tone: 'media' },
-      { label: 'Spotify Personal', description: 'Personal listening stats', to: '/spotify/personal', icon: 'music', tone: 'music' },
+      { label: 'Finance', description: 'Transactions, wallets, budgets', to: '/finance', icon: 'wallet', tone: 'money', module: 'finance' },
+      { label: 'Spotify Ranking', description: 'Streams by day, week, month, year', to: '/spotify/ranking', icon: 'trophy', tone: 'music', module: 'music' },
+      { label: 'Media Library', description: 'Anime, shows, movies, books, manga', to: '/media', icon: 'clapperboard', tone: 'media', module: 'media' },
+      { label: 'Spotify Personal', description: 'Personal listening stats', to: '/spotify/personal', icon: 'music', tone: 'music', module: 'music' },
     ],
   },
   {
     title: 'Settings and Data',
     items: [
       { label: 'Data center', description: 'Imports, module settings, export, and reset tools', to: '/settings?section=data', icon: 'database', tone: 'info' },
-      { label: 'Import habits', description: 'HabitShare CSV with live progress', to: '/habits/settings?tab=import', icon: 'calendar-check', tone: 'habits' },
-      { label: 'Habit settings', description: 'Manage routines, reminders, and cadence', to: '/habits/settings', icon: 'heart-pulse', tone: 'habits' },
-      { label: 'Finance settings', description: 'Wallets, categories, budgets, and subscriptions', to: '/finance/settings', icon: 'sliders-horizontal', tone: 'money' },
-      { label: 'Import finance', description: 'Cashew backup import', to: '/finance/import', icon: 'landmark', tone: 'money' },
-      { label: 'Media settings', description: 'Library matching, categories, and source cleanup', to: '/media/settings', icon: 'settings', tone: 'media' },
-      { label: 'Import media', description: 'MAL, TVTime, Goodreads', to: '/media/import', icon: 'library', tone: 'media' },
-      { label: 'Import workouts', description: 'Training data import', to: '/workout/import', icon: 'upload', tone: 'success' },
+      { label: 'Import habits', description: 'HabitShare CSV with live progress', to: '/habits/settings?tab=import', icon: 'calendar-check', tone: 'habits', module: 'habits' },
+      { label: 'Habit settings', description: 'Manage routines, reminders, and cadence', to: '/habits/settings', icon: 'heart-pulse', tone: 'habits', module: 'habits' },
+      { label: 'Finance settings', description: 'Wallets, categories, budgets, and subscriptions', to: '/finance/settings', icon: 'sliders-horizontal', tone: 'money', module: 'finance' },
+      { label: 'Import finance', description: 'Cashew backup import', to: '/finance/import', icon: 'landmark', tone: 'money', module: 'finance' },
+      { label: 'Media settings', description: 'Library matching, categories, and source cleanup', to: '/media/settings', icon: 'settings', tone: 'media', module: 'media' },
+      { label: 'Import media', description: 'MAL, TVTime, Goodreads', to: '/media/import', icon: 'library', tone: 'media', module: 'media' },
+      { label: 'Import workouts', description: 'Training data import', to: '/workout/import', icon: 'upload', tone: 'success', module: 'training' },
     ],
   },
   {
@@ -61,22 +63,31 @@ function MenuRow({ item }) {
 }
 
 export default function MobileMenu() {
+  const { prefs } = usePreferences()
   const [query, setQuery] = useState('')
   const [searchParams] = useSearchParams()
   const section = searchParams.get('section')
+  const enabledApps = useMemo(() => filterEnabledNativeApps(NATIVE_APPS, prefs), [prefs])
 
   const sections = useMemo(() => {
+    const visibleMenuSections = MENU_SECTIONS
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.module || isFeatureEnabled(prefs, item.module)),
+      }))
+      .filter((group) => group.items.length > 0)
+
     if (section === 'imports') {
-      return MENU_SECTIONS.filter((group) => group.title === 'Settings and Data')
+      return visibleMenuSections.filter((group) => group.title === 'Settings and Data')
     }
     if (section === 'data') {
-      return MENU_SECTIONS.filter((group) => group.title === 'Settings and Data')
+      return visibleMenuSections.filter((group) => group.title === 'Settings and Data')
     }
 
     const normalized = query.trim().toLowerCase()
-    if (!normalized) return MENU_SECTIONS
+    if (!normalized) return visibleMenuSections
 
-    return MENU_SECTIONS
+    return visibleMenuSections
       .map((group) => ({
         ...group,
         items: group.items.filter((item) => (
@@ -85,7 +96,7 @@ export default function MobileMenu() {
         )),
       }))
       .filter((group) => group.items.length > 0)
-  }, [query, section])
+  }, [query, section, prefs])
 
   return (
     <main className="native-menu-page">
@@ -94,7 +105,7 @@ export default function MobileMenu() {
         <h1>Menu</h1>
         <p>Jump directly to any app area, import flow, or system control.</p>
         <div className="native-app-grid" aria-label="App areas">
-          {NATIVE_APPS.map((app) => (
+          {enabledApps.map((app) => (
             <Link key={app.id} className={`native-app-card native-app-card--${app.tone}`} to={app.root}>
               <span aria-hidden="true"><Icon name={app.icon} size={19} /></span>
               <strong>{app.label}</strong>

@@ -79,6 +79,29 @@ describe('native adaptive app navigation', () => {
     assert.equal(overviewOptions.some((app) => app.id === 'training'), true);
   });
 
+  it('filters disabled feature apps from switchers and contextual tabs', () => {
+    const prefs = {
+      featureModules: {
+        finance: { enabled: false },
+        habits: { enabled: false },
+        assistant: { enabled: false },
+      },
+    };
+
+    assert.deepEqual(
+      getNativeAppSwitcherOptions('/home', prefs).map((app) => app.id),
+      ['training', 'music', 'media'],
+    );
+    assert.deepEqual(
+      getNativeTabsForPath('/home', prefs).map((tab) => tab.label),
+      ['Today', 'Apps'],
+    );
+    assert.deepEqual(
+      getNativeAppSwitcherOptions('/settings', prefs).map((app) => app.id),
+      ['overview', 'training', 'music', 'media'],
+    );
+  });
+
   it('maps Android back gestures to an in-app destination before the OS exits', () => {
     assert.equal(getNativeBackDestination('/home'), null);
     assert.equal(getNativeBackDestination('/menu'), '/home');

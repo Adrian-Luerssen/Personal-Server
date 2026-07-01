@@ -92,6 +92,8 @@ export const NATIVE_APPS = [
     tabs: [
       destination('/finance', 'Summary', 'layout-dashboard', { exact: true }),
       destination('/finance/transactions', 'Transactions', 'receipt'),
+      destination('/finance/budgets', 'Budgets', 'gauge'),
+      destination('/finance/trends', 'Trends', 'chart-no-axes-combined'),
     ],
   },
   {

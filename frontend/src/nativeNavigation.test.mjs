@@ -21,7 +21,7 @@ describe('native adaptive app navigation', () => {
   it('shows contextual tabs for the selected app instead of one global tabbar', () => {
     assert.deepEqual(
       getNativeTabsForPath('/finance').map((tab) => tab.label),
-      ['Summary', 'Transactions'],
+      ['Summary', 'Transactions', 'Budgets', 'Trends'],
     );
     assert.deepEqual(
       getNativeTabsForPath('/workout').map((tab) => tab.label),

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import Icon from '../icons/Icon'
+import { normalizeFinanceColor, transparentFinanceColor } from './financeVisuals.mjs'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -9,6 +10,7 @@ export default function WalletPicker({ wallets, value, onChange, placeholder = '
 
   const items = (wallets || []).filter(w => !exclude || w.id !== exclude)
   const selected = items.find(w => w.id === value)
+  const selectedColour = normalizeFinanceColor(selected?.colour, FINANCE_COLOR)
 
   useEffect(() => {
     function handleClick(e) {
@@ -50,9 +52,9 @@ export default function WalletPicker({ wallets, value, onChange, placeholder = '
               justifyContent: 'center',
               width: 24, height: 24, minWidth: 24,
               borderRadius: 6,
-              background: `${selected.colour || FINANCE_COLOR}22`,
+              background: transparentFinanceColor(selectedColour, '22', FINANCE_COLOR),
             }}>
-              <Icon name={selected.iconName || 'wallet'} size={14} style={{ color: selected.colour || FINANCE_COLOR }} />
+              <Icon name={selected.iconName || 'wallet'} size={14} style={{ color: selectedColour }} />
             </span>
             <span style={{ flex: 1 }}>{selected.name}</span>
             {selected.currency && (
@@ -102,31 +104,34 @@ export default function WalletPicker({ wallets, value, onChange, placeholder = '
             </div>
           )}
 
-          {items.map(wallet => (
-            <div
-              key={wallet.id}
-              onClick={() => select(wallet)}
-              style={{
-                ...optionStyle,
-                background: wallet.id === value ? `${wallet.colour || FINANCE_COLOR}15` : undefined,
-              }}
-            >
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 30, height: 30, minWidth: 30,
-                borderRadius: 8,
-                background: `${wallet.colour || FINANCE_COLOR}22`,
-              }}>
-                <Icon name={wallet.iconName || 'wallet'} size={16} style={{ color: wallet.colour || FINANCE_COLOR }} />
-              </span>
-              <span style={{ flex: 1, fontWeight: 500 }}>{wallet.name}</span>
-              {wallet.currency && (
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{wallet.currency}</span>
-              )}
-            </div>
-          ))}
+          {items.map(wallet => {
+            const walletColour = normalizeFinanceColor(wallet.colour, FINANCE_COLOR)
+            return (
+              <div
+                key={wallet.id}
+                onClick={() => select(wallet)}
+                style={{
+                  ...optionStyle,
+                  background: wallet.id === value ? transparentFinanceColor(walletColour, '15', FINANCE_COLOR) : undefined,
+                }}
+              >
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 30, height: 30, minWidth: 30,
+                  borderRadius: 8,
+                  background: transparentFinanceColor(walletColour, '22', FINANCE_COLOR),
+                }}>
+                  <Icon name={wallet.iconName || 'wallet'} size={16} style={{ color: walletColour }} />
+                </span>
+                <span style={{ flex: 1, fontWeight: 500 }}>{wallet.name}</span>
+                {wallet.currency && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{wallet.currency}</span>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

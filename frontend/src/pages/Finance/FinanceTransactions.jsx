@@ -11,6 +11,7 @@ import CategoryLabel from '../../components/finance/CategoryLabel'
 import CategoryPicker from '../../components/finance/CategoryPicker'
 import WalletPicker from '../../components/finance/WalletPicker'
 import TransactionForm from '../../components/finance/TransactionForm'
+import { normalizeFinanceColor } from '../../components/finance/financeVisuals.mjs'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { syncNativePaymentSuggestions } from '../../nativePayments.mjs'
 
@@ -401,7 +402,7 @@ export default function FinanceTransactions() {
                       </td>
                       <td style={tdStyle}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <Icon name={tx.wallet?.iconName || 'wallet'} size={16} style={{ color: tx.wallet?.colour || FINANCE_COLOR }} />
+                          <Icon name={tx.wallet?.iconName || 'wallet'} size={16} style={{ color: normalizeFinanceColor(tx.wallet?.colour, FINANCE_COLOR) }} />
                           {tx.wallet?.name || tx.walletName || '—'}
                         </span>
                       </td>

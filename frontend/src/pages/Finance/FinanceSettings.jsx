@@ -10,6 +10,7 @@ import WalletPicker from '../../components/finance/WalletPicker'
 import IconPicker from '../../components/finance/IconPicker'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
+import { normalizeFinanceColor, transparentFinanceColor } from '../../components/finance/financeVisuals.mjs'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -44,7 +45,7 @@ function WalletForm({ wallet, onClose, onSaved }) {
       setForm({
         name: wallet.name || '',
         iconName: wallet.iconName || 'wallet',
-        colour: wallet.colour || FINANCE_COLOR,
+        colour: normalizeFinanceColor(wallet.colour, FINANCE_COLOR),
         currency: wallet.currency || 'EUR',
       })
     }
@@ -150,7 +151,7 @@ function CategoryForm({ category, parents, onClose, onSaved }) {
       setForm({
         name: category.name || '',
         iconName: category.iconName || 'circle',
-        colour: category.colour || '#6b7280',
+        colour: normalizeFinanceColor(category.colour, '#6b7280'),
         isIncome: category.isIncome || false,
         parentCategoryId: category.parentCategoryId || '',
       })
@@ -522,42 +523,45 @@ function WalletsTab() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-          {wallets.map(wallet => (
-            <div
-              key={wallet.id}
-              className="card"
-              style={{ padding: '1.25rem', cursor: 'pointer' }}
-              onClick={() => openEdit(wallet)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+          {wallets.map(wallet => {
+            const walletColour = normalizeFinanceColor(wallet.colour, FINANCE_COLOR)
+            return (
+              <div
+                key={wallet.id}
+                className="card"
+                style={{ padding: '1.25rem', cursor: 'pointer' }}
+                onClick={() => openEdit(wallet)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                  <div style={{
+                    width: 48, height: 48,
+                    borderRadius: 'var(--radius-md)',
+                    background: transparentFinanceColor(walletColour, '22', FINANCE_COLOR),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Icon name={wallet.iconName || 'wallet'} size={24} style={{ color: walletColour }} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{wallet.name}</div>
+                    {wallet.currency && (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{wallet.currency}</div>
+                    )}
+                  </div>
+                </div>
                 <div style={{
-                  width: 48, height: 48,
-                  borderRadius: 'var(--radius-md)',
-                  background: `${wallet.colour || FINANCE_COLOR}22`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '1.5rem', fontWeight: 800,
+                  color: wallet.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)',
                 }}>
-                  <Icon name={wallet.iconName || 'wallet'} size={24} style={{ color: wallet.colour || FINANCE_COLOR }} />
+                  {formatCurrency(wallet.balance || 0)}
                 </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{wallet.name}</div>
-                  {wallet.currency && (
-                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{wallet.currency}</div>
-                  )}
-                </div>
+                {wallet.transactionCount > 0 && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+                    {wallet.transactionCount} {wallet.transactionCount !== 1 ? t('finance.transactionsCountPlural') : t('finance.transactionsCount')}
+                  </div>
+                )}
               </div>
-              <div style={{
-                fontSize: '1.5rem', fontWeight: 800,
-                color: wallet.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)',
-              }}>
-                {formatCurrency(wallet.balance || 0)}
-              </div>
-              {wallet.transactionCount > 0 && (
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-                  {wallet.transactionCount} {wallet.transactionCount !== 1 ? t('finance.transactionsCountPlural') : t('finance.transactionsCount')}
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

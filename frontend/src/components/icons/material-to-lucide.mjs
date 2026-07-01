@@ -61,4 +61,4 @@ export const ICON_MAP = {
   format_paint: 'paintbrush',
   image: 'image',
   code: 'code',
-}
+};

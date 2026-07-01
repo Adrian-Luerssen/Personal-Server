@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import CategoryIcon from './CategoryIcon'
 import Icon from '../icons/Icon'
+import { normalizeFinanceColor, transparentFinanceColor } from './financeVisuals.mjs'
 
 export default function CategoryPicker({ categories, value, onChange, placeholder = 'Select category...' }) {
   const [open, setOpen] = useState(false)
@@ -134,6 +135,7 @@ export default function CategoryPicker({ categories, value, onChange, placeholde
               const children = childrenOf(parent.id).filter(c =>
                 !lowerSearch || c.name.toLowerCase().includes(lowerSearch) || parent.name.toLowerCase().includes(lowerSearch)
               )
+              const parentColour = normalizeFinanceColor(parent.colour, '#6b7280')
 
               return (
                 <div key={parent.id}>
@@ -142,29 +144,32 @@ export default function CategoryPicker({ categories, value, onChange, placeholde
                     style={{
                       ...optionStyle,
                       fontWeight: 600,
-                      background: parent.id === value ? `${parent.colour || '#6b7280'}15` : undefined,
+                      background: parent.id === value ? transparentFinanceColor(parentColour, '15') : undefined,
                     }}
                   >
                     <CategoryIcon category={parent} size={26} />
                     <span>{parent.name}</span>
                   </div>
-                  {children.map(child => (
-                    <div
-                      key={child.id}
-                      onClick={(e) => { e.stopPropagation(); select(child) }}
-                      style={{
-                        ...optionStyle,
-                        paddingLeft: '2rem',
-                        background: child.id === value ? `${(child.colour || parent.colour || '#6b7280')}15` : undefined,
-                      }}
-                    >
-                      <CategoryIcon
-                        category={{ ...child, colour: child.colour || parent.colour, iconName: child.iconName || parent.iconName }}
-                        size={22}
-                      />
-                      <span>{child.name}</span>
-                    </div>
-                  ))}
+                  {children.map(child => {
+                    const childColour = normalizeFinanceColor(child.colour || parent.colour, '#6b7280')
+                    return (
+                      <div
+                        key={child.id}
+                        onClick={(e) => { e.stopPropagation(); select(child) }}
+                        style={{
+                          ...optionStyle,
+                          paddingLeft: '2rem',
+                          background: child.id === value ? transparentFinanceColor(childColour, '15') : undefined,
+                        }}
+                      >
+                        <CategoryIcon
+                          category={{ ...child, colour: child.colour || parent.colour, iconName: child.iconName || parent.iconName }}
+                          size={22}
+                        />
+                        <span>{child.name}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })}

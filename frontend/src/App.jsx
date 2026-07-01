@@ -20,6 +20,8 @@ import WorkoutBodyweight from './pages/Workout/WorkoutBodyweight'
 import WorkoutImport from './pages/Workout/WorkoutImport'
 import Finance from './pages/Finance/Finance'
 import FinanceTransactions from './pages/Finance/FinanceTransactions'
+import FinanceBudgets from './pages/Finance/FinanceBudgets'
+import FinanceTrends from './pages/Finance/FinanceTrends'
 import FinanceImport from './pages/Finance/FinanceImport'
 import FinanceSettings from './pages/Finance/FinanceSettings'
 import Habits from './pages/Habits/Habits'
@@ -60,6 +62,8 @@ const GuardedWorkoutBodyweight = withRefreshGuard(WorkoutBodyweight)
 const GuardedWorkoutImport = withRefreshGuard(WorkoutImport)
 const GuardedFinance = withRefreshGuard(Finance)
 const GuardedFinanceTransactions = withRefreshGuard(FinanceTransactions)
+const GuardedFinanceBudgets = withRefreshGuard(FinanceBudgets)
+const GuardedFinanceTrends = withRefreshGuard(FinanceTrends)
 const GuardedFinanceImport = withRefreshGuard(FinanceImport)
 const GuardedFinanceSettings = withRefreshGuard(FinanceSettings)
 const GuardedHabits = withRefreshGuard(Habits)
@@ -167,6 +171,8 @@ export default function AppRouter() {
               <Route path="/workout/import" element={<GuardedWorkoutImport />} />
               <Route path="/finance" element={<GuardedFinance />} />
               <Route path="/finance/transactions" element={<GuardedFinanceTransactions />} />
+              <Route path="/finance/budgets" element={<GuardedFinanceBudgets />} />
+              <Route path="/finance/trends" element={<GuardedFinanceTrends />} />
               <Route path="/finance/import" element={<GuardedFinanceImport />} />
               <Route path="/finance/settings" element={<GuardedFinanceSettings />} />
               <Route path="/finance/wallets" element={<Navigate to="/finance/settings?tab=wallets" replace />} />

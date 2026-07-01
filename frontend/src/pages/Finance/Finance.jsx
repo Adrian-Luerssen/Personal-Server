@@ -26,7 +26,16 @@ import PeriodSelector, { getDateRange, getPeriodLabel } from '../../components/f
 import CategoryIcon from '../../components/finance/CategoryIcon'
 import CategoryLabel from '../../components/finance/CategoryLabel'
 import TransactionForm from '../../components/finance/TransactionForm'
+import { normalizeFinanceColor } from '../../components/finance/financeVisuals.mjs'
 import { isNativeMobileApp } from '../../mobilePlatform'
+import {
+  NativeBudgetLedgerCard,
+  NativeCashflowChart,
+  NativeCategoryMixPanel,
+  NativeTransactionTimeline,
+  NativeWalletStack,
+  getCategorySpending as getNativeCategorySpending,
+} from './nativeFinanceComponents'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -140,7 +149,7 @@ export default function Finance() {
       if (from) summaryParams.set('from', from)
       if (to) summaryParams.set('to', to)
 
-      const txParams = new URLSearchParams({ limit: '5' })
+      const txParams = new URLSearchParams({ limit: isNativeMobileApp() ? '50' : '5' })
       if (from) txParams.set('from', from)
       if (to) txParams.set('to', to)
 
@@ -195,7 +204,7 @@ export default function Finance() {
     labels: categorySpending.map(c => c.categoryName || c.name || t('finance.uncategorized')),
     datasets: [{
       data: categorySpending.map(c => Math.abs(c.total || c.amount || 0)),
-      backgroundColor: categorySpending.map((c, i) => c.categoryColour || CATEGORY_COLORS[i % CATEGORY_COLORS.length]),
+      backgroundColor: categorySpending.map((c, i) => normalizeFinanceColor(c.categoryColour, CATEGORY_COLORS[i % CATEGORY_COLORS.length])),
       borderWidth: 0,
     }]
   }
@@ -399,7 +408,7 @@ export default function Finance() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Icon name={wallet.iconName || 'wallet'} size={20} style={{ color: wallet.colour || FINANCE_COLOR }} />
+                    <Icon name={wallet.iconName || 'wallet'} size={20} style={{ color: normalizeFinanceColor(wallet.colour, FINANCE_COLOR) }} />
                     <span style={{ fontWeight: 600 }}>{wallet.name}</span>
                   </div>
                   <span style={{
@@ -465,7 +474,7 @@ export default function Finance() {
                       </td>
                       <td style={tdStyle}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <Icon name={tx.wallet?.iconName || 'wallet'} size={16} style={{ color: tx.wallet?.colour || FINANCE_COLOR }} />
+                          <Icon name={tx.wallet?.iconName || 'wallet'} size={16} style={{ color: normalizeFinanceColor(tx.wallet?.colour, FINANCE_COLOR) }} />
                           {tx.wallet?.name || '—'}
                         </span>
                       </td>
@@ -527,18 +536,17 @@ function NativeFinanceDashboard({
     { id: 'year', label: 'Year' },
     { id: 'all', label: 'All' },
   ]
-  const topWallets = wallets.slice(0, 3)
-  const visibleBudgets = (budgets || []).slice(0, 3)
-  const visibleTransactions = recentTransactions.slice(0, 5)
-  const visibleCategories = categorySpending.slice(0, 5)
+  const visibleBudgets = (budgets || []).slice(0, 4)
+  const visibleCategories = getNativeCategorySpending({ topExpenseCategories: categorySpending }, recentTransactions)
+  const periodLabel = getPeriodLabel(period)
 
   return (
     <div className="native-finance-page native-dashboard" data-testid="native-finance-dashboard">
-      <section className="native-finance-hero">
+      <section className="native-finance-hero native-finance-hero--ledger">
         <div>
-          <span className="native-eyebrow">Finance</span>
+          <span className="native-eyebrow">Finance ledger</span>
           <h1>Money</h1>
-          <p>{getPeriodLabel(period)} overview</p>
+          <p>{periodLabel} review</p>
         </div>
         <div className="native-finance-balance">
           <span>Total balance</span>
@@ -562,11 +570,11 @@ function NativeFinanceDashboard({
       <section className="native-finance-actions" aria-label="Quick transaction actions">
         <button type="button" className="native-finance-action native-finance-action--expense" aria-label="Add expense" onClick={() => onAddTransaction('expense')}>
           <Icon name="arrow-up" size={18} />
-          <span>Add expense</span>
+          <span>Expense</span>
         </button>
         <button type="button" className="native-finance-action native-finance-action--income" aria-label="Add income" onClick={() => onAddTransaction('income')}>
           <Icon name="arrow-down" size={18} />
-          <span>Add income</span>
+          <span>Income</span>
         </button>
         <button type="button" className="native-finance-action native-finance-action--transfer" aria-label="Add transfer" onClick={() => onAddTransaction('transfer')}>
           <Icon name="arrow-left-right" size={18} />
@@ -580,103 +588,48 @@ function NativeFinanceDashboard({
         <NativeFinanceMetric label="Net" value={formatCurrency(netFlow)} tone={netFlow >= 0 ? 'income' : 'expense'} />
       </section>
 
-      {visibleBudgets.length > 0 && (
-        <section className="native-finance-card">
-          <div className="native-section-head">
-            <div>
-              <h2>Budget pressure</h2>
-              <p>Live limits for the current period.</p>
-            </div>
-            <button type="button" onClick={() => navigate('/finance/settings')}>Manage</button>
-          </div>
-          <div className="native-budget-list">
-            {visibleBudgets.map(budget => (
-              <NativeBudgetPressureCard key={budget.id} budget={budget} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="native-finance-card">
+      <section className="native-finance-card native-finance-card--budget-focus">
         <div className="native-section-head">
           <div>
-            <h2>Wallets</h2>
-            <p>Balances that transactions will use by default.</p>
+            <h2>Spending limit</h2>
+            <p>Current pressure before the month closes.</p>
           </div>
-          <button type="button" onClick={() => navigate('/settings?section=data')}>Manage</button>
+          <button type="button" onClick={() => navigate('/finance/budgets')}>Budgets</button>
         </div>
-        <div className="native-wallet-list">
+        <div className="native-budget-list">
           {loading ? (
-            <div className="native-empty-state">Loading wallets...</div>
-          ) : topWallets.length === 0 ? (
-            <div className="native-empty-state">No wallets yet.</div>
+            <div className="native-empty-state native-empty-state--compact">Loading budgets...</div>
+          ) : visibleBudgets.length === 0 ? (
+            <div className="native-empty-state native-empty-state--compact">No budgets yet.</div>
           ) : (
-            topWallets.map(wallet => (
-              <div key={wallet.id} className="native-wallet-row">
-                <span style={{ color: wallet.colour || FINANCE_COLOR }}>
-                  <Icon name={wallet.iconName || 'wallet'} size={17} />
-                </span>
-                <strong>{wallet.name}</strong>
-                <em>{formatCurrency(wallet.balance || 0, wallet.currency || 'EUR')}</em>
-              </div>
-            ))
+            visibleBudgets.map(budget => <NativeBudgetLedgerCard key={budget.id} budget={budget} />)
           )}
         </div>
       </section>
 
+      <NativeCashflowChart
+        transactions={recentTransactions}
+        title="Cashflow"
+        subtitle={`${periodLabel} movement from real transactions`}
+      />
+
+      <NativeCategoryMixPanel categories={visibleCategories} title="Category mix" />
+
+      <NativeWalletStack wallets={(wallets || []).slice(0, 4)} />
+
       <section className="native-finance-card">
         <div className="native-section-head">
           <div>
-            <h2>Recent transactions</h2>
+            <h2>Recent activity</h2>
             <p>Tap a row to edit it.</p>
           </div>
           <button type="button" onClick={() => navigate('/finance/transactions')}>All</button>
         </div>
         <div className="native-transaction-list">
           {loading ? (
-            <div className="native-empty-state">Loading transactions...</div>
-          ) : visibleTransactions.length === 0 ? (
-            <div className="native-empty-state">No transactions yet.</div>
+            <div className="native-empty-state native-empty-state--compact">Loading transactions...</div>
           ) : (
-            visibleTransactions.map(tx => (
-              <NativeTransactionCard
-                key={tx.id}
-                tx={tx}
-                onClick={() => onEditTransaction(tx)}
-              />
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="native-finance-card">
-        <div className="native-section-head">
-          <div>
-            <h2>Spending</h2>
-            <p>Largest categories in this period.</p>
-          </div>
-          <button type="button" onClick={() => navigate('/settings?section=data')}>Manage</button>
-        </div>
-        <div className="native-category-spend-list">
-          {loading ? (
-            <div className="native-empty-state">Loading categories...</div>
-          ) : visibleCategories.length === 0 ? (
-            <div className="native-empty-state">No spending data.</div>
-          ) : (
-            visibleCategories.map((category, index) => (
-              <div key={category.categoryId || category.name || index} className="native-category-spend-row">
-                <CategoryIcon
-                  category={{
-                    name: category.categoryName || category.name,
-                    iconName: category.categoryIcon,
-                    colour: category.categoryColour || CATEGORY_COLORS[index % CATEGORY_COLORS.length],
-                  }}
-                  size={34}
-                />
-                <strong>{category.categoryName || category.name || 'Uncategorized'}</strong>
-                <em>{formatCurrency(Math.abs(category.total || category.amount || 0))}</em>
-              </div>
-            ))
+            <NativeTransactionTimeline transactions={recentTransactions} onClick={onEditTransaction} limit={6} />
           )}
         </div>
       </section>
@@ -691,7 +644,7 @@ function NativeBudgetPressureCard({ budget }) {
   const category = {
     name: budget.categoryName || budget.category?.name || 'Overall budget',
     iconName: budget.categoryIcon || budget.category?.iconName || 'piggy-bank',
-    colour: budget.categoryColour || budget.category?.colour || FINANCE_COLOR,
+    colour: normalizeFinanceColor(budget.categoryColour || budget.category?.colour, FINANCE_COLOR),
   }
 
   return (

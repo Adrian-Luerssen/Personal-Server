@@ -534,24 +534,28 @@ test.describe('Native Android app shell', () => {
       localStorage.setItem('refreshToken', 'native-refresh')
     })
 
-    await page.goto('/finance')
+    await page.goto('/finance', { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Money/i)
     await expect(page.locator('.native-tabbar__item')).toHaveText([
       /Summary/,
       /Transactions/,
+      /Budgets/,
+      /Trends/,
     ])
     await expect(page.locator('.native-tabbar__item', { hasText: /setup|import/i })).toHaveCount(0)
     await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Summary/])
 
-    await page.goto('/finance/transactions')
+    await page.goto('/finance/transactions', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('.native-tabbar__item')).toHaveText([
       /Summary/,
       /Transactions/,
+      /Budgets/,
+      /Trends/,
     ])
     await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Transactions/])
 
-    await page.goto('/workout')
+    await page.goto('/workout', { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Training/i)
     await expect(page.locator('.native-tabbar__item')).toHaveText([
@@ -711,10 +715,122 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/finance')
 
-    await expect(page.getByRole('heading', { name: /budget pressure/i })).toBeVisible()
-    const budgetCard = page.locator('.native-budget-card', { hasText: 'Food' })
+    await expect(page.getByRole('heading', { name: /spending limit/i })).toBeVisible()
+    const budgetCard = page.locator('.native-budget-ledger-card', { hasText: 'Food' })
     await expect(budgetCard).toBeVisible()
     await expect(budgetCard.getByText(/44%/)).toBeVisible()
+  })
+
+  test('uses a four-tab native money app with real summary charts', async ({ page }) => {
+    await mockNativeApi(page, {
+      budgetStatus: [
+        {
+          id: 'budget-food',
+          categoryName: 'Food',
+          categoryIcon: 'utensils',
+          categoryColour: '#4ade80',
+          period: 'monthly',
+          amount: 500,
+          spent: 220,
+          remaining: 280,
+          percentage: 44,
+          isOver: false,
+        },
+      ],
+    })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/finance')
+
+    await expect(page.getByTestId('native-finance-dashboard')).toBeVisible()
+    await expect(page.getByTestId('native-finance-cashflow-chart')).toBeVisible()
+    await expect(page.getByTestId('native-finance-category-mix')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /wallets/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /spending limit/i })).toBeVisible()
+
+    const tabs = page.locator('.native-tabbar__item')
+    await expect(tabs).toHaveText(['Summary', 'Transactions', 'Budgets', 'Trends'])
+
+    const activeTabs = await page.evaluate(() =>
+      [...document.querySelectorAll('.native-tabbar__item.is-active')].map((item) => item.textContent?.trim()),
+    )
+    expect(activeTabs).toEqual(['Summary'])
+  })
+
+  test('shows native finance budgets as a first-class tab', async ({ page }) => {
+    await mockNativeApi(page, {
+      budgetStatus: [
+        {
+          id: 'budget-food',
+          categoryName: 'Food',
+          categoryIcon: 'utensils',
+          categoryColour: '#4ade80',
+          period: 'monthly',
+          amount: 500,
+          spent: 220,
+          remaining: 280,
+          percentage: 44,
+          isOver: false,
+        },
+        {
+          id: 'budget-events',
+          categoryName: 'Events',
+          categoryIcon: 'party-popper',
+          categoryColour: '#f472b6',
+          period: 'monthly',
+          amount: 300,
+          spent: 330,
+          remaining: -30,
+          percentage: 110,
+          isOver: true,
+        },
+      ],
+    })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/finance/budgets')
+
+    await expect(page.getByTestId('native-finance-budgets')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Budgets$/i })).toBeVisible()
+    await expect(page.getByText('Food')).toBeVisible()
+    await expect(page.getByText(/280\.00 left/i)).toBeVisible()
+    await expect(page.locator('.native-budget-ledger-card').first().getByText(/daily allowance/i)).toBeVisible()
+    await expect(page.getByText('Events')).toBeVisible()
+
+    const activeTabs = await page.evaluate(() =>
+      [...document.querySelectorAll('.native-tabbar__item.is-active')].map((item) => item.textContent?.trim()),
+    )
+    expect(activeTabs).toEqual(['Budgets'])
+  })
+
+  test('shows native finance trends from real transactions', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/finance/trends')
+
+    await expect(page.getByTestId('native-finance-trends')).toBeVisible()
+    await expect(page.getByTestId('native-finance-cashflow-chart')).toBeVisible()
+    await expect(page.getByTestId('native-finance-category-mix')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /largest expense/i })).toBeVisible()
+    await expect(page.locator('.native-largest-expense').getByText('Concert')).toBeVisible()
+
+    const activeTabs = await page.evaluate(() =>
+      [...document.querySelectorAll('.native-tabbar__item.is-active')].map((item) => item.textContent?.trim()),
+    )
+    expect(activeTabs).toEqual(['Trends'])
   })
 
   test('uses a native transaction feed with quick filters', async ({ page }) => {
@@ -1098,6 +1214,8 @@ test.describe('Native Android app shell', () => {
       '/workout',
       '/finance',
       '/finance/transactions',
+      '/finance/budgets',
+      '/finance/trends',
       '/spotify/ranking',
       '/media',
       '/chat',

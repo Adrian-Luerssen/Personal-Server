@@ -139,7 +139,7 @@ function HabitForm({ habit, onClose, onSaved }) {
         {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
         <label className="form-label">Name</label>
-        <input className="input" type="text" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Meditate" required style={{ marginBottom: '0.75rem' }} />
+        <input className="input" type="text" aria-label="Habit name" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Meditate" required style={{ marginBottom: '0.75rem' }} />
 
         {/* Icon & Color row */}
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
@@ -150,13 +150,13 @@ function HabitForm({ habit, onClose, onSaved }) {
           <div>
             <label className="form-label">Color</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input type="color" value={form.color} onChange={e => setField('color', e.target.value)} style={{ width: 40, height: 40, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
+              <input type="color" aria-label="Habit color" value={form.color} onChange={e => setField('color', e.target.value)} style={{ width: 44, height: 44, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
             </div>
           </div>
         </div>
 
         <label className="form-label">Description</label>
-        <textarea className="input" value={form.description} onChange={e => setField('description', e.target.value)} placeholder="Optional description..." rows={2} style={{ marginBottom: '0.75rem', resize: 'vertical' }} />
+        <textarea className="input" aria-label="Habit description" value={form.description} onChange={e => setField('description', e.target.value)} placeholder="Optional description..." rows={2} style={{ marginBottom: '0.75rem', resize: 'vertical' }} />
 
         {/* Tracking Type */}
         <label className="form-label">Tracking Type</label>
@@ -181,16 +181,16 @@ function HabitForm({ habit, onClose, onSaved }) {
         {isNumeric && (
           <div style={{ padding: '0.75rem', background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', marginBottom: '0.75rem' }}>
             <label className="form-label">Unit</label>
-            <input className="input" type="text" value={form.numericUnit} onChange={e => setField('numericUnit', e.target.value)} placeholder="e.g. cigarettes, drinks" style={{ marginBottom: '0.5rem' }} />
+            <input className="input" type="text" aria-label="Numeric habit unit" value={form.numericUnit} onChange={e => setField('numericUnit', e.target.value)} placeholder="e.g. cigarettes, drinks" style={{ marginBottom: '0.5rem' }} />
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <div style={{ flex: 1 }}>
                 <label className="form-label">Pass if &le;</label>
-                <input className="input" type="number" step="0.01" value={form.numericPassThreshold} onChange={e => setField('numericPassThreshold', e.target.value)} placeholder="0" />
+                <input className="input" type="number" aria-label="Numeric pass threshold" step="0.01" value={form.numericPassThreshold} onChange={e => setField('numericPassThreshold', e.target.value)} placeholder="0" />
               </div>
               <div style={{ flex: 1 }}>
                 <label className="form-label">Skip if &le;</label>
-                <input className="input" type="number" step="0.01" value={form.numericSkipThreshold} onChange={e => setField('numericSkipThreshold', e.target.value)} placeholder="1" />
+                <input className="input" type="number" aria-label="Numeric skip threshold" step="0.01" value={form.numericSkipThreshold} onChange={e => setField('numericSkipThreshold', e.target.value)} placeholder="1" />
               </div>
             </div>
 
@@ -231,12 +231,12 @@ function HabitForm({ habit, onClose, onSaved }) {
         {form.frequencyType !== 'daily' && (
           <div style={{ marginBottom: '0.75rem' }}>
             <label className="form-label">Times per {form.frequencyType === 'weekly' ? 'week' : form.frequencyType === 'monthly' ? 'month' : 'year'}</label>
-            <input className="input" type="number" min="1" value={form.frequencyTarget} onChange={e => setField('frequencyTarget', e.target.value)} style={{ width: 100 }} />
+            <input className="input" type="number" aria-label={`Times per ${form.frequencyType === 'weekly' ? 'week' : form.frequencyType === 'monthly' ? 'month' : 'year'}`} min="1" value={form.frequencyTarget} onChange={e => setField('frequencyTarget', e.target.value)} style={{ width: 100 }} />
           </div>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <input type="checkbox" id="habit-active" checked={form.isActive} onChange={e => setField('isActive', e.target.checked)} />
+          <input type="checkbox" id="habit-active" aria-label="Habit active" checked={form.isActive} onChange={e => setField('isActive', e.target.checked)} style={{ width: 44, height: 44 }} />
           <label htmlFor="habit-active" style={{ fontSize: '0.9rem' }}>Active</label>
         </div>
 
@@ -309,7 +309,7 @@ function HabitsTab() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div className="habit-settings-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} lines={2} />)}
         </div>
       ) : habits.length === 0 ? (
@@ -325,7 +325,7 @@ function HabitsTab() {
             return (
               <div
                 key={habit.id}
-                className="card"
+                className="card habit-settings-card"
                 style={{
                   padding: '1rem 1.25rem',
                   cursor: 'pointer',
@@ -1065,9 +1065,10 @@ function RemindersTab() {
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
             <input
               type="checkbox"
+              aria-label="Enable daily habit reminder"
               checked={enabled}
               onChange={e => toggleEnabled(e.target.checked)}
-              style={{ accentColor: HABITS_COLOR }}
+              style={{ width: 44, height: 44, accentColor: HABITS_COLOR }}
             />
             Enable daily reminder
           </label>
@@ -1080,6 +1081,7 @@ function RemindersTab() {
               <input
                 type="time"
                 className="input"
+                aria-label="Habit reminder time"
                 value={reminderTime}
                 onChange={e => updateTime(e.target.value)}
                 style={{ width: 140 }}

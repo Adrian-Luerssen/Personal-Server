@@ -83,7 +83,7 @@ export default function FinanceTrends() {
           <h1>Trends</h1>
           <p>Patterns from the current transaction set.</p>
         </div>
-        <button type="button" className="native-finance-fab-inline" onClick={() => navigate('/finance/transactions')}>
+        <button type="button" className="native-finance-fab-inline" aria-label="Open transactions" onClick={() => navigate('/finance/transactions')}>
           <Icon name="receipt" size={18} />
         </button>
       </section>

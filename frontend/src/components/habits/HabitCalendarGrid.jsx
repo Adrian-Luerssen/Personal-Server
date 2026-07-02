@@ -154,17 +154,18 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
       )}
 
       {/* Calendar Grid */}
-      <div style={{ overflowX: compact ? 'visible' : 'auto', WebkitOverflowScrolling: compact ? undefined : 'touch', maxWidth: '100%' }}>
+      <div style={{ overflowX: 'clip', maxWidth: '100%', width: '100%' }}>
         <div style={{
           display: 'grid',
           gridTemplateColumns: compact
             ? `22px repeat(7, minmax(0, 1fr))`
             : showWeeklyGoalsColumn
-            ? `28px repeat(7, 1fr) minmax(110px, auto)`
-            : `28px repeat(7, 1fr)`,
+            ? `24px repeat(7, minmax(0, 1fr)) minmax(82px, 0.9fr)`
+            : `24px repeat(7, minmax(0, 1fr))`,
           gap: '2px',
-          minWidth: compact ? 0 : showWeeklyGoalsColumn ? 600 : 350,
-          width: compact ? '100%' : undefined,
+          minWidth: 0,
+          width: '100%',
+          maxWidth: '100%',
         }}>
           {/* Header row */}
           <div /> {/* week label column */}
@@ -314,6 +315,7 @@ export default function HabitCalendarGrid({ month, habitsMap, entries, progress,
                     gap: 2,
                     paddingLeft: 4,
                     justifyContent: 'center',
+                    minWidth: 0,
                   }}>
                     {weekProgress.map(h => (
                       <ProgressChip key={h.habitId} habit={h} compact />
@@ -395,9 +397,12 @@ function ProgressChip({ habit, compact }) {
       background: 'var(--color-bg)',
       borderRadius: 6,
       fontSize: '0.8rem',
+      minWidth: 0,
+      maxWidth: '100%',
+      overflow: 'hidden',
     }}>
       <Icon name={habit.habitIconName || 'circle-check'} size={14} style={{ color: habit.habitColor || HABITS_COLOR }} />
-      <span style={{ color: 'var(--color-text-secondary)' }}>{habit.habitName}</span>
+      <span style={{ color: 'var(--color-text-secondary)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{habit.habitName}</span>
       <span style={{ color, fontWeight: 700, fontSize: '0.75rem' }}>
         {habit.completed}/{habit.target}
         {met && ' \u2713'}

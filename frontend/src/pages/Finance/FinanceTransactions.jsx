@@ -294,6 +294,7 @@ export default function FinanceTransactions() {
             <label style={labelStyle}>{t('common.search')}</label>
             <input
               type="text"
+              aria-label={t('finance.searchTransactions')}
               placeholder={t('finance.searchTransactions')}
               value={filters.search}
               onChange={e => handleFilterChange('search', e.target.value)}
@@ -304,7 +305,7 @@ export default function FinanceTransactions() {
           {/* Transaction Type */}
           <div style={{ flex: '0 1 150px' }}>
             <label style={labelStyle}>{t('finance.type')}</label>
-            <select value={filters.transactionType} onChange={e => handleFilterChange('transactionType', e.target.value)} style={inputStyle}>
+            <select aria-label={t('finance.type')} value={filters.transactionType} onChange={e => handleFilterChange('transactionType', e.target.value)} style={inputStyle}>
               <option value="">{t('finance.allTypes')}</option>
               <option value="income">{t('finance.income')}</option>
               <option value="expense">{t('finance.expense')}</option>
@@ -320,6 +321,7 @@ export default function FinanceTransactions() {
               value={filters.walletId}
               onChange={val => handleFilterChange('walletId', val || '')}
               placeholder={t('finance.allWallets')}
+              ariaLabel={t('finance.wallet')}
             />
           </div>
 
@@ -331,6 +333,7 @@ export default function FinanceTransactions() {
               value={filters.categoryId}
               onChange={val => handleFilterChange('categoryId', val || '')}
               placeholder={t('finance.allCategories')}
+              ariaLabel={t('finance.category')}
             />
           </div>
 

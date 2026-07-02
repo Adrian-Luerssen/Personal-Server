@@ -143,6 +143,13 @@ export default function ChatPanel({ inline = false }) {
   const socketRef = useRef(null)
   const pageContext = usePageContext()
   const panelOpen = inline || open
+  const connectionLabel = connectionState === 'connected'
+    ? 'Socket connected'
+    : connectionState === 'connecting'
+      ? 'Socket connecting'
+      : connectionState === 'idle'
+        ? 'Socket idle'
+        : 'Socket offline'
 
   useEffect(() => {
     if (view === 'detail' && messagesEndRef.current) {
@@ -434,6 +441,23 @@ export default function ChatPanel({ inline = false }) {
             </button>
           )}
         </div>
+
+        {panelOpen && (
+          <div className="chat-state-row" aria-label="Assistant transport state">
+            <span className={`chat-state-pill chat-state-pill--${connectionState}`}>
+              <Icon name={connectionState === 'connected' ? 'wifi' : 'wifi-off'} size={12} />
+              {connectionLabel}
+            </span>
+            <span className="chat-state-pill">
+              <Icon name="database" size={12} />
+              Saved
+            </span>
+            <span className={`chat-state-pill ${sendContext ? 'is-on' : ''}`}>
+              <Icon name="compass" size={12} />
+              Context {sendContext ? 'on' : 'off'}
+            </span>
+          </div>
+        )}
 
         {panelOpen && connectionState !== 'connected' && (
           <div className={`chat-connection-banner chat-connection-banner--${connectionState}`}>

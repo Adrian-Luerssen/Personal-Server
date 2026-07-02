@@ -194,7 +194,7 @@ function AddModal({ open, onClose, onSave }) {
       <div className="media-modal" onClick={e => e.stopPropagation()}>
         <div className="media-modal-header">
           <h3>Add Media</h3>
-          <button className="media-modal-close" onClick={onClose}>
+          <button className="media-modal-close" aria-label="Close add media" onClick={onClose}>
             <Icon name="x" size={20} />
           </button>
         </div>
@@ -215,13 +215,14 @@ function AddModal({ open, onClose, onSave }) {
                 <Icon name="search" size={16} className="media-search-icon" />
                 <input
                   type="text"
+                  aria-label="Search external media"
                   placeholder="Search anime, movies, books..."
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   autoFocus
                 />
               </div>
-              <select value={type} onChange={e => setType(e.target.value)}>
+              <select aria-label="Media search type" value={type} onChange={e => setType(e.target.value)}>
                 <option value="">All types</option>
                 {Object.entries(TYPE_META).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
@@ -275,24 +276,24 @@ function AddModal({ open, onClose, onSave }) {
           <div className="media-manual-form">
             <label>
               Title
-              <input type="text" value={manual.title} onChange={e => setManual(m => ({ ...m, title: e.target.value }))} placeholder="Enter title..." />
+              <input type="text" aria-label="Manual media title" value={manual.title} onChange={e => setManual(m => ({ ...m, title: e.target.value }))} placeholder="Enter title..." />
             </label>
             <div className="media-manual-row">
               <label>
                 Type
-                <select value={manual.type} onChange={e => setManual(m => ({ ...m, type: e.target.value }))}>
+                <select aria-label="Manual media type" value={manual.type} onChange={e => setManual(m => ({ ...m, type: e.target.value }))}>
                   {Object.entries(TYPE_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </label>
               <label>
                 Status
-                <select value={manual.status} onChange={e => setManual(m => ({ ...m, status: e.target.value }))}>
+                <select aria-label="Manual media status" value={manual.status} onChange={e => setManual(m => ({ ...m, status: e.target.value }))}>
                   {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </label>
               <label>
                 Rating
-                <input type="number" min="0" max="10" step="0.5" value={manual.rating} onChange={e => setManual(m => ({ ...m, rating: e.target.value }))} placeholder="0-10" />
+                <input type="number" aria-label="Manual media rating" min="0" max="10" step="0.5" value={manual.rating} onChange={e => setManual(m => ({ ...m, rating: e.target.value }))} placeholder="0-10" />
               </label>
             </div>
             <button className="btn" onClick={addManual} disabled={!manual.title.trim() || adding === 'manual'} style={{ background: MEDIA_COLOR, color: '#000', marginTop: '1rem' }}>
@@ -426,7 +427,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
             <Icon name={typeMeta.icon || 'film'} size={20} style={{ color: typeMeta.color }} />
             {item.title}
           </h3>
-          <button className="media-modal-close" onClick={onClose}>
+          <button className="media-modal-close" aria-label={`Close ${item.title}`} onClick={onClose}>
             <Icon name="x" size={20} />
           </button>
         </div>
@@ -450,37 +451,37 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                 </div>
               )}
               <div className="media-edit-fields">
-                <label>Title <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></label>
+                <label>Title <input type="text" aria-label="Media title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></label>
                 <div className="media-manual-row">
                   <label>Status
-                    <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                    <select aria-label="Media status" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
                       {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </select>
                   </label>
                   <label>Rating
-                    <input type="number" min="0" max="10" step="0.5" value={form.rating} onChange={e => setForm(f => ({ ...f, rating: e.target.value }))} placeholder="0-10" />
+                    <input type="number" aria-label="Media rating" min="0" max="10" step="0.5" value={form.rating} onChange={e => setForm(f => ({ ...f, rating: e.target.value }))} placeholder="0-10" />
                   </label>
                 </div>
                 <div className="media-manual-row">
-                  <label>Start Date <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} /></label>
-                  <label>End Date <input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} /></label>
+                  <label>Start Date <input type="date" aria-label="Media start date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} /></label>
+                  <label>End Date <input type="date" aria-label="Media end date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} /></label>
                 </div>
                 {showEpisodes && (
                   <label>
                     Episodes Watched {item.metadata?.episodes ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.episodes} total</span> : ''}
-                    <input type="number" min="0" max={item.metadata?.episodes || undefined} value={form.episodesWatched} onChange={e => setForm(f => ({ ...f, episodesWatched: e.target.value }))} />
+                    <input type="number" aria-label="Episodes watched" min="0" max={item.metadata?.episodes || undefined} value={form.episodesWatched} onChange={e => setForm(f => ({ ...f, episodesWatched: e.target.value }))} />
                   </label>
                 )}
                 {showChapters && (
                   <label>
                     Chapters Read {item.metadata?.chapters ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.chapters} total</span> : ''}
-                    <input type="number" min="0" max={item.metadata?.chapters || undefined} value={form.chaptersRead} onChange={e => setForm(f => ({ ...f, chaptersRead: e.target.value }))} />
+                    <input type="number" aria-label="Chapters read" min="0" max={item.metadata?.chapters || undefined} value={form.chaptersRead} onChange={e => setForm(f => ({ ...f, chaptersRead: e.target.value }))} />
                   </label>
                 )}
                 {showPages && (
                   <label>
                     Pages Read {item.metadata?.pages ? <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--color-text-secondary)' }}>/ {item.metadata.pages} total</span> : ''}
-                    <input type="number" min="0" max={item.metadata?.pages || undefined} value={form.pagesRead} onChange={e => setForm(f => ({ ...f, pagesRead: e.target.value }))} />
+                    <input type="number" aria-label="Pages read" min="0" max={item.metadata?.pages || undefined} value={form.pagesRead} onChange={e => setForm(f => ({ ...f, pagesRead: e.target.value }))} />
                   </label>
                 )}
                 {synopsis && (
@@ -495,7 +496,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                     ))}
                   </div>
                 )}
-                <label>Notes <textarea rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Personal notes..." /></label>
+                <label>Notes <textarea rows={3} aria-label="Media notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Personal notes..." /></label>
               </div>
             </div>
 
@@ -520,13 +521,14 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                   <Icon name="search" size={16} className="media-search-icon" />
                   <input
                     type="text"
+                    aria-label="Search media matches"
                     placeholder="Search..."
                     value={matchQuery}
                     onChange={e => setMatchQuery(e.target.value)}
                     autoFocus
                   />
                 </div>
-                <select value={matchType} onChange={e => setMatchType(e.target.value)} style={{ padding: '0.45rem 0.6rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--glass-border)', background: 'var(--color-bg, #0f0f14)', color: 'var(--color-text)', fontSize: '0.82rem' }}>
+                <select aria-label="Media match type" value={matchType} onChange={e => setMatchType(e.target.value)} style={{ padding: '0.45rem 0.6rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--glass-border)', background: 'var(--color-bg, #0f0f14)', color: 'var(--color-text)', fontSize: '0.82rem' }}>
                   <option value="">All</option>
                   {Object.entries(TYPE_META).map(([k, v]) => (
                     <option key={k} value={k}>{v.label}</option>
@@ -643,6 +645,7 @@ export default function Media() {
         <button
           className={`media-chip ${!filterType ? 'active' : ''}`}
           onClick={() => setFilterType('')}
+          aria-pressed={!filterType}
           style={!filterType ? { background: MEDIA_COLOR, color: '#000' } : {}}
         >
           All
@@ -652,6 +655,7 @@ export default function Media() {
             key={key}
             className={`media-chip ${filterType === key ? 'active' : ''}`}
             onClick={() => setFilterType(filterType === key ? '' : key)}
+            aria-pressed={filterType === key}
             style={filterType === key ? { background: meta.color, color: '#000' } : {}}
           >
             <Icon name={meta.icon} size={14} />
@@ -669,12 +673,13 @@ export default function Media() {
           <Icon name="search" size={16} className="media-search-icon" />
           <input
             type="text"
+            aria-label="Search media library"
             placeholder="Search library..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="media-filter-select">
+        <select aria-label="Filter media status" value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="media-filter-select">
           <option value="">All statuses</option>
           {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>

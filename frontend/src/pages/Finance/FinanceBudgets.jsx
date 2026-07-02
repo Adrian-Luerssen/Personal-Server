@@ -48,7 +48,7 @@ export default function FinanceBudgets() {
           <h1>Budgets</h1>
           <p>Limits that keep the month readable.</p>
         </div>
-        <button type="button" className="native-finance-fab-inline" onClick={() => navigate('/finance/settings?tab=budgets')}>
+        <button type="button" className="native-finance-fab-inline" aria-label="Manage budgets" onClick={() => navigate('/finance/settings?tab=budgets')}>
           <Icon name="settings" size={18} />
         </button>
       </section>

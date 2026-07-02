@@ -400,10 +400,10 @@ export default function SpotifyPersonal() {
               )}
             </div>
 
-            <div style={{ marginTop: '2rem', width: '100%', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'stretch' }}>
+            <div className="spotify-clock-row" style={{ marginTop: '2rem', width: '100%', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'stretch' }}>
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                 <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--color-accent)', marginBottom: 8, textAlign: 'center' }}>Listening Clock</div>
-                <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', maxWidth: 340, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, boxSizing: 'border-box' }}>
+                <div className="spotify-clock-chart" style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', maxWidth: 340, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, boxSizing: 'border-box' }}>
                   {!hasLoadedOnce ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                       <LoadingDot />
@@ -427,9 +427,29 @@ export default function SpotifyPersonal() {
                   )}
                 </div>
               </div>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: '100%', aspectRatio: '1 / 1', maxWidth: 340, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', fontSize: 22, border: '2px dashed var(--glass-border)', borderRadius: 'var(--radius-lg)' }}>
-                  Chart placeholder
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'stretch', justifyContent: 'center' }}>
+                <div className="spotify-mood-summary">
+                  <div>
+                    <span>Sound profile</span>
+                    <strong>{moodData?.averages?.bpm ? `${moodData.averages.bpm} BPM` : 'No mood data'}</strong>
+                  </div>
+                  {[
+                    { key: 'energy', label: 'Energy', color: '#f97316' },
+                    { key: 'danceability', label: 'Dance', color: '#a78bfa' },
+                    { key: 'valence', label: 'Mood', color: '#fbbf24' },
+                    { key: 'acousticness', label: 'Acoustic', color: '#4ade80' },
+                  ].map(item => {
+                    const value = Math.round((moodData?.averages?.[item.key] || 0) * 100)
+                    return (
+                      <div className="spotify-mood-summary__row" key={item.key}>
+                        <span>{item.label}</span>
+                        <div>
+                          <i style={{ width: `${value}%`, background: item.color }} />
+                        </div>
+                        <em>{value}%</em>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>

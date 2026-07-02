@@ -115,9 +115,12 @@ export default function WorkoutBodyweight() {
         </div>
       ) : (
         <div>
-          <div className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+          <div className="card bodyweight-chart-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
             <h3 style={{ marginBottom: '1rem' }}>Weight Over Time</h3>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 120, borderBottom: '1px solid var(--glass-border)', paddingBottom: 4 }}>
+            <p className="bodyweight-chart-note">
+              Latest record is {latestEntry.weightKg} kg from {formatDate(latestEntry.date)}. The chart shows the most recent {Math.min(entries.length, 60)} entries so changes are readable without opening a separate report.
+            </p>
+            <div className="bodyweight-chart-bars" style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 120, borderBottom: '1px solid var(--glass-border)', paddingBottom: 4 }}>
               {entries.slice(0, 60).reverse().map((entry, idx) => {
                 const min = Math.min(...entries.map(e => e.weightKg))
                 const max = Math.max(...entries.map(e => e.weightKg))
@@ -131,10 +134,10 @@ export default function WorkoutBodyweight() {
             <div style={{ fontSize: '.85rem', color: 'var(--color-text-muted)', marginTop: '.5rem' }}>Showing last {Math.min(entries.length, 60)} entries</div>
           </div>
 
-          <h3 style={{ marginBottom: '.75rem' }}>Recent Entries</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+          <h3 className="bodyweight-recent-title" style={{ marginBottom: '.75rem' }}>Recent Entries</h3>
+          <div className="bodyweight-recent-list" style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
             {entries.slice(0, 30).map(entry => (
-              <div key={entry.id} className="card" style={{ padding: '.75rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div key={entry.id} className="card bodyweight-recent-row" style={{ padding: '.75rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{entry.weightKg} kg</div>
@@ -143,8 +146,8 @@ export default function WorkoutBodyweight() {
                   {entry.note && <div style={{ fontSize: '.85rem', color: 'var(--color-text-muted)', marginTop: 4, fontStyle: 'italic' }}>{entry.note}</div>}
                 </div>
                 <div style={{ display: 'flex', gap: '.5rem' }}>
-                  <button className="btn small" onClick={() => openModal(entry)}><Icon name="pencil" size={18} /></button>
-                  <button className="btn small btn-danger" onClick={() => deleteEntry(entry)}><Icon name="trash-2" size={18} /></button>
+                  <button className="btn small" onClick={() => openModal(entry)} aria-label={`Edit bodyweight entry ${formatDate(entry.date)}`}><Icon name="pencil" size={18} /></button>
+                  <button className="btn small btn-danger" onClick={() => deleteEntry(entry)} aria-label={`Delete bodyweight entry ${formatDate(entry.date)}`}><Icon name="trash-2" size={18} /></button>
                 </div>
               </div>
             ))}
@@ -158,15 +161,15 @@ export default function WorkoutBodyweight() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Date <span style={{ color: 'var(--color-error)' }}>*</span></label>
-              <input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} autoFocus />
+              <input type="date" className="input" aria-label="Bodyweight entry date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} autoFocus />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Weight (kg) <span style={{ color: 'var(--color-error)' }}>*</span></label>
-              <input type="number" step="0.1" className="input" placeholder="e.g. 75.5" value={form.weightKg} onChange={(e) => setForm({ ...form, weightKg: e.target.value })} />
+              <input type="number" step="0.1" className="input" aria-label="Bodyweight in kilograms" placeholder="e.g. 75.5" value={form.weightKg} onChange={(e) => setForm({ ...form, weightKg: e.target.value })} />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Note</label>
-              <textarea className="input" rows={3} placeholder="Optional note..." value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+              <textarea className="input" rows={3} aria-label="Bodyweight note" placeholder="Optional note..." value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
               <button className="btn" onClick={saveEntry}>{form.id ? 'Save Changes' : 'Log Weight'}</button>

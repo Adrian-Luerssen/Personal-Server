@@ -23,11 +23,11 @@ export default function MonthNavigator({ year, month, onChange }) {
 
   return (
     <div className="month-navigator">
-      <button className="btn small btn-ghost" onClick={prev}>
+      <button className="btn small btn-ghost" onClick={prev} aria-label="Previous month">
         <Icon name="chevron-left" size={18} />
       </button>
       <span className="month-navigator-label">{label}</span>
-      <button className="btn small btn-ghost" onClick={next}>
+      <button className="btn small btn-ghost" onClick={next} aria-label="Next month">
         <Icon name="chevron-right" size={18} />
       </button>
     </div>

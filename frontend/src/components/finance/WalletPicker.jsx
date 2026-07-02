@@ -4,7 +4,7 @@ import { normalizeFinanceColor, transparentFinanceColor } from './financeVisuals
 
 const FINANCE_COLOR = '#fbbf24'
 
-export default function WalletPicker({ wallets, value, onChange, placeholder = 'Select wallet...', exclude, required }) {
+export default function WalletPicker({ wallets, value, onChange, placeholder = 'Select wallet...', exclude, required, ariaLabel }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -33,6 +33,9 @@ export default function WalletPicker({ wallets, value, onChange, placeholder = '
       <button
         type="button"
         className="input"
+        aria-label={ariaLabel || placeholder}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         style={{
           width: '100%',

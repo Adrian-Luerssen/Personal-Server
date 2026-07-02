@@ -92,6 +92,7 @@ export default function Register() {
             <input
               className="input auth-input"
               name="name"
+              aria-label={t('auth.name')}
               value={name}
               autoComplete="name"
               onChange={e => setName(e.target.value)}
@@ -103,6 +104,7 @@ export default function Register() {
             <input
               className="input auth-input"
               name="email"
+              aria-label={t('auth.email')}
               type="email"
               inputMode="email"
               autoComplete="email"
@@ -116,6 +118,7 @@ export default function Register() {
             <input
               className="input auth-input"
               name="password"
+              aria-label={t('auth.password')}
               type="password"
               autoComplete="new-password"
               value={password}

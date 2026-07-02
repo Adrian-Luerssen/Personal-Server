@@ -43,12 +43,12 @@ export function SetRow({ set, exercise, onEdit, onDelete, showOrder = true }) {
       {(onEdit || onDelete) && (
         <div style={{ display: 'flex', gap: '.5rem' }}>
           {onEdit && (
-            <button className="btn small" onClick={() => onEdit(set)}>
+            <button className="btn small" onClick={() => onEdit(set)} aria-label={`Edit set ${set.order || ''}`.trim()}>
               <Icon name="pencil" size={18} />
             </button>
           )}
           {onDelete && (
-            <button className="btn small btn-danger" onClick={() => onDelete(set)}>
+            <button className="btn small btn-danger" onClick={() => onDelete(set)} aria-label={`Delete set ${set.order || ''}`.trim()}>
               <Icon name="trash-2" size={18} />
             </button>
           )}

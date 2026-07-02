@@ -175,6 +175,7 @@ function NativeNotificationPreferenceRow({ id, label, description, preferences, 
           <span>{timeLabel}</span>
           <input
             type="time"
+            aria-label={timeLabel}
             value={preference.time}
             onChange={(event) => update({ time: event.target.value })}
           />
@@ -423,6 +424,7 @@ function NativeNotificationsSection() {
             <span>Start</span>
             <input
               type="time"
+              aria-label="Quiet hours start"
               value={preferences.quietHours.start}
               onChange={(event) => setPreferences(updateNotificationQuietHours(localStorage, { start: event.target.value }))}
             />
@@ -431,6 +433,7 @@ function NativeNotificationsSection() {
             <span>End</span>
             <input
               type="time"
+              aria-label="Quiet hours end"
               value={preferences.quietHours.end}
               onChange={(event) => setPreferences(updateNotificationQuietHours(localStorage, { end: event.target.value }))}
             />

@@ -11,6 +11,8 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0.35rem 0.75rem;
   border-radius: var(--radius-full, 999px);
   border: 1px solid var(--glass-border);
@@ -62,6 +64,7 @@
 
 .media-search-input-wrap input {
   width: 100%;
+  min-height: 44px;
   padding: 0.5rem 0.75rem 0.5rem 2.25rem;
   border-radius: var(--radius-md, 8px);
   border: 1px solid var(--glass-border);
@@ -77,6 +80,7 @@
 }
 
 .media-filter-select {
+  min-height: 44px;
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-md, 8px);
   border: 1px solid var(--glass-border);
@@ -268,6 +272,12 @@
 }
 
 .media-modal-close {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-grid;
+  place-items: center;
   background: none;
   border: none;
   color: var(--color-text-muted);

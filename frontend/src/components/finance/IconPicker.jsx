@@ -31,14 +31,14 @@ const CURATED_ICONS = [
 
 const CURATED_SET = new Set(CURATED_ICONS)
 
-export default function IconPicker({ value, onChange, colour = '#6b7280' }) {
+export default function IconPicker({ value, onChange, colour = '#6b7280', color }) {
   const [search, setSearch] = useState('')
   const gridRef = useRef(null)
-  const [visibleCount, setVisibleCount] = useState(120)
+  const [visibleCount, setVisibleCount] = useState(72)
 
   // Reset visible count when search changes
   useEffect(() => {
-    setVisibleCount(120)
+    setVisibleCount(72)
     if (gridRef.current) gridRef.current.scrollTop = 0
   }, [search])
 
@@ -63,7 +63,7 @@ export default function IconPicker({ value, onChange, colour = '#6b7280' }) {
   function handleScroll(e) {
     const el = e.target
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && hasMore) {
-      setVisibleCount(prev => prev + 120)
+      setVisibleCount(prev => prev + 72)
     }
   }
 
@@ -73,6 +73,7 @@ export default function IconPicker({ value, onChange, colour = '#6b7280' }) {
         <input
           className="input"
           type="text"
+          aria-label="Search icons"
           placeholder={`Search ${ALL_ICONS.length} icons...`}
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -91,7 +92,7 @@ export default function IconPicker({ value, onChange, colour = '#6b7280' }) {
         ref={gridRef}
         className="icon-picker-grid"
         onScroll={handleScroll}
-        style={{ maxHeight: '240px', overflowY: 'auto' }}
+        style={{ maxHeight: '160px', overflowY: 'auto' }}
       >
         {displayed.map(icon => (
           <button
@@ -99,15 +100,17 @@ export default function IconPicker({ value, onChange, colour = '#6b7280' }) {
             type="button"
             className={`icon-picker-item${value === icon.name ? ' selected' : ''}`}
             onClick={() => onChange(icon.name)}
+            aria-label={`Select ${icon.label} icon`}
+            aria-pressed={value === icon.name}
             title={icon.label}
           >
-            <Icon name={icon.name} size={20} style={{ color: value === icon.name ? '#fff' : colour }} />
+            <Icon name={icon.name} size={20} style={{ color: value === icon.name ? '#fff' : (color || colour) }} />
           </button>
         ))}
       </div>
       {!search && (
-        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '0.5rem', textAlign: 'center' }}>
-          Type to search all {ALL_ICONS.length} icons
+        <div className="icon-picker-hint">
+          Search all {ALL_ICONS.length} icons
         </div>
       )}
     </div>

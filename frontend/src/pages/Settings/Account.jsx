@@ -201,11 +201,11 @@ export default function Account() {
           <div style={{ display: 'grid', gap: '.75rem', maxWidth: 520 }}>
             <div className="field">
               <label>{t('profile.username')}</label>
-              <input className="input" type="text" value={accountForm.name} onChange={e => setAccountForm({ ...accountForm, name: e.target.value })} />
+              <input className="input" type="text" aria-label={t('profile.username')} value={accountForm.name} onChange={e => setAccountForm({ ...accountForm, name: e.target.value })} />
             </div>
             <div className="field">
               <label>{t('profile.emailAddress')}</label>
-              <input className="input" type="email" value={accountForm.email} onChange={e => setAccountForm({ ...accountForm, email: e.target.value })} />
+              <input className="input" type="email" aria-label={t('profile.emailAddress')} value={accountForm.email} onChange={e => setAccountForm({ ...accountForm, email: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: '.5rem' }}>
               <button className="btn small" onClick={saveAccountInfo} disabled={savingAccount}>{savingAccount ? t('common.loading') : t('common.save')}</button>
@@ -216,20 +216,23 @@ export default function Account() {
       </div>
 
       {/* Change Password */}
-      <div className="card section">
+      <div className="card section settings-password-card">
         <h2>{t('profile.changePassword')}</h2>
-        <form onSubmit={changePassword} style={{ display: 'grid', gap: '.75rem', maxWidth: 520 }}>
+        <p className="settings-password-help">
+          Update your login password here. Use a unique password; changing it keeps existing sessions valid until they refresh.
+        </p>
+        <form onSubmit={changePassword} className="settings-password-form">
           <div className="field">
             <label>{t('profile.currentPassword')}</label>
-            <input className="input" type="password" value={passwordForm.oldPassword} onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })} />
+            <input className="input" type="password" aria-label={t('profile.currentPassword')} value={passwordForm.oldPassword} onChange={e => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })} />
           </div>
           <div className="field">
             <label>{t('profile.newPassword')}</label>
-            <input className="input" type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} />
+            <input className="input" type="password" aria-label={t('profile.newPassword')} value={passwordForm.newPassword} onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} />
           </div>
           <div className="field">
             <label>{t('profile.confirmNewPassword')}</label>
-            <input className="input" type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} />
+            <input className="input" type="password" aria-label={t('profile.confirmNewPassword')} value={passwordForm.confirmPassword} onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} />
           </div>
           <button className="btn small" type="submit" disabled={changingPassword}>{changingPassword ? t('common.loading') : t('profile.updatePassword')}</button>
         </form>
@@ -260,7 +263,7 @@ export default function Account() {
             <div style={{ maxWidth: 520 }}>
               <div className="field">
                 <label>{t('auth.mfaCode')}</label>
-                <input className="input" type="text" value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder={t('auth.enterMfaCode')} maxLength={6} />
+                <input className="input" type="text" aria-label={t('auth.mfaCode')} value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder={t('auth.enterMfaCode')} maxLength={6} />
               </div>
               <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
                 <button className="btn small" onClick={enableMFA} disabled={mfaLoading || mfaCode.length !== 6}>{mfaLoading ? t('common.loading') : t('auth.verifyCode')}</button>
@@ -273,7 +276,7 @@ export default function Account() {
             <p style={{ marginBottom: '1rem', color: 'var(--color-text-secondary)' }}>{t('auth.enterMfaCode')}:</p>
             <div className="field">
               <label>{t('auth.mfaCode')}</label>
-              <input className="input" type="text" value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder={t('auth.enterMfaCode')} maxLength={6} />
+              <input className="input" type="text" aria-label={t('auth.mfaCode')} value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder={t('auth.enterMfaCode')} maxLength={6} />
             </div>
             <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
               <button className="btn small btn-danger" onClick={disableMFA} disabled={mfaLoading || mfaCode.length !== 6}>{mfaLoading ? t('common.loading') : t('profile.disableMfa')}</button>

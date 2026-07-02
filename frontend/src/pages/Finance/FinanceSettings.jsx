@@ -92,7 +92,7 @@ function WalletForm({ wallet, onClose, onSaved }) {
         {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
         <label className="form-label">Name</label>
-        <input className="input" type="text" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Main Account" required style={{ marginBottom: '0.75rem' }} />
+        <input className="input" type="text" aria-label="Wallet name" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Main Account" required style={{ marginBottom: '0.75rem' }} />
 
         <label className="form-label">Icon</label>
         <div style={{ marginBottom: '0.75rem' }}>
@@ -101,12 +101,12 @@ function WalletForm({ wallet, onClose, onSaved }) {
 
         <label className="form-label">Color</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-          <input type="color" value={form.colour} onChange={e => setField('colour', e.target.value)} style={{ width: 40, height: 40, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
+          <input type="color" aria-label="Wallet color" value={form.colour} onChange={e => setField('colour', e.target.value)} style={{ width: 44, height: 44, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
           <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{form.colour}</span>
         </div>
 
         <label className="form-label">Currency</label>
-        <input className="input" type="text" value={form.currency} onChange={e => setField('currency', e.target.value)} placeholder="EUR" style={{ marginBottom: '1rem' }} />
+        <input className="input" type="text" aria-label="Wallet currency" value={form.currency} onChange={e => setField('currency', e.target.value)} placeholder="EUR" style={{ marginBottom: '1rem' }} />
 
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
           {isEdit && !showDelete && (
@@ -214,11 +214,11 @@ function CategoryForm({ category, parents, onClose, onSaved }) {
         </div>
 
         <label className="form-label">Name</label>
-        <input className="input" type="text" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Groceries" required style={{ marginBottom: '0.75rem' }} />
+        <input className="input" type="text" aria-label="Category name" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Groceries" required style={{ marginBottom: '0.75rem' }} />
 
         <label className="form-label">Colour</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-          <input type="color" value={form.colour} onChange={e => setField('colour', e.target.value)} style={{ width: 40, height: 40, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
+          <input type="color" aria-label="Category color" value={form.colour} onChange={e => setField('colour', e.target.value)} style={{ width: 44, height: 44, border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: 'transparent' }} />
           <CategoryIcon category={{ colour: form.colour, iconName: form.iconName }} size={40} />
           <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{form.colour}</span>
         </div>
@@ -231,7 +231,7 @@ function CategoryForm({ category, parents, onClose, onSaved }) {
         {!isEdit || !category?.subcategories?.length ? (
           <>
             <label className="form-label">Parent Category (optional)</label>
-            <select className="input" value={form.parentCategoryId} onChange={e => setField('parentCategoryId', e.target.value)} style={{ marginBottom: '1rem' }}>
+            <select className="input" aria-label="Parent category" value={form.parentCategoryId} onChange={e => setField('parentCategoryId', e.target.value)} style={{ marginBottom: '1rem' }}>
               <option value="">None (top-level)</option>
               {parents.filter(p => p.id !== category?.id).map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -376,23 +376,23 @@ function SubscriptionForm({ subscription, wallets, categories, onClose, onSaved 
         </div>
 
         <label className="form-label">Name</label>
-        <input className="input" type="text" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Netflix" required style={{ marginBottom: '0.75rem' }} />
+        <input className="input" type="text" aria-label="Subscription name" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Netflix" required style={{ marginBottom: '0.75rem' }} />
 
         <label className="form-label">Amount</label>
-        <input className="input" type="number" step="0.01" min="0" value={form.amount} onChange={e => setField('amount', e.target.value)} placeholder="0.00" required style={{ marginBottom: '0.75rem' }} />
+        <input className="input" type="number" aria-label="Subscription amount" step="0.01" min="0" value={form.amount} onChange={e => setField('amount', e.target.value)} placeholder="0.00" required style={{ marginBottom: '0.75rem' }} />
 
         <label className="form-label">Frequency</label>
-        <select className="input" value={form.frequency} onChange={e => setField('frequency', e.target.value)} style={{ marginBottom: '0.75rem' }}>
+        <select className="input" aria-label="Subscription frequency" value={form.frequency} onChange={e => setField('frequency', e.target.value)} style={{ marginBottom: '0.75rem' }}>
           {FREQUENCY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
 
         <label className="form-label">{billingDayLabel}</label>
-        <input className="input" type="number" min="1" max={form.frequency === 'weekly' ? 7 : 31} value={form.billingDay} onChange={e => setField('billingDay', e.target.value)} style={{ marginBottom: '0.75rem' }} />
+        <input className="input" type="number" aria-label={billingDayLabel} min="1" max={form.frequency === 'weekly' ? 7 : 31} value={form.billingDay} onChange={e => setField('billingDay', e.target.value)} style={{ marginBottom: '0.75rem' }} />
 
         {form.frequency === 'yearly' && (
           <>
             <label className="form-label">Billing Month</label>
-            <select className="input" value={form.billingMonth} onChange={e => setField('billingMonth', e.target.value)} style={{ marginBottom: '0.75rem' }}>
+            <select className="input" aria-label="Billing month" value={form.billingMonth} onChange={e => setField('billingMonth', e.target.value)} style={{ marginBottom: '0.75rem' }}>
               {MONTH_NAMES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
             </select>
           </>
@@ -400,24 +400,25 @@ function SubscriptionForm({ subscription, wallets, categories, onClose, onSaved 
 
         <label className="form-label">Wallet</label>
         <div style={{ marginBottom: '0.75rem' }}>
-          <WalletPicker
-            wallets={wallets}
-            value={form.walletId}
-            onChange={val => setField('walletId', val)}
-            placeholder="Select wallet..."
-          />
+            <WalletPicker
+              wallets={wallets}
+              value={form.walletId}
+              onChange={val => setField('walletId', val)}
+              placeholder="Select wallet..."
+              ariaLabel="Subscription wallet"
+            />
         </div>
 
         <label className="form-label">Category</label>
         <div style={{ marginBottom: '0.75rem' }}>
-          <CategoryPicker categories={filteredCategories} value={form.categoryId} onChange={val => setField('categoryId', val)} />
+          <CategoryPicker categories={filteredCategories} value={form.categoryId} onChange={val => setField('categoryId', val)} ariaLabel="Subscription category" />
         </div>
 
         <label className="form-label">Note (optional)</label>
-        <textarea className="input" value={form.note} onChange={e => setField('note', e.target.value)} placeholder="Optional note..." rows={2} style={{ marginBottom: '0.75rem', resize: 'vertical' }} />
+        <textarea className="input" aria-label="Subscription note" value={form.note} onChange={e => setField('note', e.target.value)} placeholder="Optional note..." rows={2} style={{ marginBottom: '0.75rem', resize: 'vertical' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <input type="checkbox" id="sub-active" checked={form.isActive} onChange={e => setField('isActive', e.target.checked)} />
+          <input type="checkbox" id="sub-active" aria-label="Subscription active" checked={form.isActive} onChange={e => setField('isActive', e.target.checked)} style={{ width: 44, height: 44 }} />
           <label htmlFor="sub-active" style={{ fontSize: '0.9rem' }}>Active</label>
         </div>
 
@@ -508,7 +509,7 @@ function WalletsTab() {
 
       {/* Wallets Grid */}
       {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div className="finance-wallet-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
           {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} lines={3} />)}
         </div>
       ) : wallets.length === 0 ? (
@@ -528,7 +529,7 @@ function WalletsTab() {
             return (
               <div
                 key={wallet.id}
-                className="card"
+                className="card finance-wallet-card"
                 style={{ padding: '1.25rem', cursor: 'pointer' }}
                 onClick={() => openEdit(wallet)}
               >
@@ -548,7 +549,7 @@ function WalletsTab() {
                     )}
                   </div>
                 </div>
-                <div style={{
+                <div className="finance-wallet-balance" style={{
                   fontSize: '1.5rem', fontWeight: 800,
                   color: wallet.balance >= 0 ? 'var(--color-success)' : 'var(--color-error)',
                 }}>
@@ -959,16 +960,16 @@ function BudgetForm({ categories, onClose, onSaved }) {
         {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
         <label className="form-label">Amount</label>
-        <input className="input" type="number" step="0.01" min="0" value={form.amount} onChange={e => setField('amount', e.target.value)} placeholder="0.00" required style={{ marginBottom: '0.75rem' }} />
+        <input className="input" type="number" aria-label="Budget amount" step="0.01" min="0" value={form.amount} onChange={e => setField('amount', e.target.value)} placeholder="0.00" required style={{ marginBottom: '0.75rem' }} />
 
         <label className="form-label">Period</label>
-        <select className="input" value={form.period} onChange={e => setField('period', e.target.value)} style={{ marginBottom: '0.75rem' }}>
+        <select className="input" aria-label="Budget period" value={form.period} onChange={e => setField('period', e.target.value)} style={{ marginBottom: '0.75rem' }}>
           {PERIOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
 
         <label className="form-label">Category (optional)</label>
         <div style={{ marginBottom: '1rem' }}>
-          <CategoryPicker categories={categories} value={form.categoryId} onChange={val => setField('categoryId', val)} placeholder="All categories (overall budget)" />
+          <CategoryPicker categories={categories} value={form.categoryId} onChange={val => setField('categoryId', val)} placeholder="All categories (overall budget)" ariaLabel="Budget category" />
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>

@@ -136,11 +136,11 @@ export default function WorkoutHistory() {
         <div className="filter-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Search</label>
-            <input type="text" className="input" placeholder="Search title, notes, date..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" className="input" aria-label="Search workout history" placeholder="Search title, notes, date..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Filter by Date</label>
-            <input type="date" className="input" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
+            <input type="date" className="input" aria-label="Filter workout history by date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
           </div>
         </div>
         {(searchTerm || dateFilter) && (

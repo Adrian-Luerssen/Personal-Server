@@ -480,6 +480,13 @@ function NativeTransactionForm({
     { id: 'income', label: 'Income', icon: 'arrow-down' },
     { id: 'transfer', label: 'Transfer', icon: 'arrow-left-right' },
   ]
+  useEffect(() => {
+    document.body.classList.add('native-transaction-open')
+    return () => {
+      document.body.classList.remove('native-transaction-open')
+    }
+  }, [])
+
   const filteredCategories = useMemo(() => {
     const query = categoryQuery.trim().toLowerCase()
     if (!query) return categories
@@ -525,6 +532,7 @@ function NativeTransactionForm({
               key={option.id}
               type="button"
               className={mode === option.id ? 'is-active' : ''}
+              aria-pressed={mode === option.id}
               onClick={() => onModeChange(option.id)}
             >
               <Icon name={option.icon} size={15} />
@@ -542,42 +550,6 @@ function NativeTransactionForm({
             <strong>{amountLabel}</strong>
           </div>
         </section>
-
-        {!isTransfer && (
-          <section className="native-transaction-section">
-            <div className="native-section-head">
-              <h3>Category</h3>
-              <span>{selectedCategory?.name || 'Choose'}</span>
-            </div>
-            <label className="native-category-search">
-              <Icon name="search" size={16} />
-              <input
-                type="search"
-                aria-label="Search categories"
-                value={categoryQuery}
-                placeholder="Search categories"
-                onChange={event => setCategoryQuery(event.target.value)}
-              />
-            </label>
-            <div className="native-category-grid">
-              {filteredCategories.map(category => (
-                <button
-                  key={category.id}
-                  type="button"
-                  className={form.categoryId === category.id ? 'is-active' : ''}
-                  aria-pressed={form.categoryId === category.id ? 'true' : 'false'}
-                  onClick={() => setField('categoryId', category.id)}
-                >
-                  <CategoryIcon category={category} size={40} />
-                  <span>{category.name}</span>
-                </button>
-              ))}
-              {filteredCategories.length === 0 && (
-                <div className="native-empty-state native-empty-state--compact">No categories match.</div>
-              )}
-            </div>
-          </section>
-        )}
 
         <section className="native-transaction-section">
           <div className="native-section-head">
@@ -625,6 +597,7 @@ function NativeTransactionForm({
                   <span>Amount received</span>
                   <input
                     type="number"
+                    aria-label="Amount received"
                     min="0.01"
                     step="0.01"
                     value={form.amountReceived}
@@ -657,6 +630,7 @@ function NativeTransactionForm({
             <span>Title</span>
             <input
               type="text"
+              aria-label="Transaction title"
               value={form.name}
               onChange={event => setField('name', event.target.value)}
               placeholder={selectedCategory?.name || 'Optional title'}
@@ -666,6 +640,7 @@ function NativeTransactionForm({
             <span>Date</span>
             <input
               type="date"
+              aria-label="Transaction date"
               value={form.transactionDate}
               onChange={event => setField('transactionDate', event.target.value)}
               required
@@ -675,12 +650,49 @@ function NativeTransactionForm({
             <span>Note</span>
             <input
               type="text"
+              aria-label="Transaction note"
               value={form.note}
               onChange={event => setField('note', event.target.value)}
               placeholder="Optional note"
             />
           </label>
         </section>
+
+        {!isTransfer && (
+          <section className="native-transaction-section">
+            <div className="native-section-head">
+              <h3>Category</h3>
+              <span>{selectedCategory?.name || 'Choose'}</span>
+            </div>
+            <label className="native-category-search">
+              <Icon name="search" size={16} />
+              <input
+                type="search"
+                aria-label="Search categories"
+                value={categoryQuery}
+                placeholder="Search categories"
+                onChange={event => setCategoryQuery(event.target.value)}
+              />
+            </label>
+            <div className="native-category-grid">
+              {filteredCategories.map(category => (
+                <button
+                  key={category.id}
+                  type="button"
+                  className={form.categoryId === category.id ? 'is-active' : ''}
+                  aria-pressed={form.categoryId === category.id ? 'true' : 'false'}
+                  onClick={() => setField('categoryId', category.id)}
+                >
+                  <CategoryIcon category={category} size={40} />
+                  <span>{category.name}</span>
+                </button>
+              ))}
+              {filteredCategories.length === 0 && (
+                <div className="native-empty-state native-empty-state--compact">No categories match.</div>
+              )}
+            </div>
+          </section>
+        )}
 
         <div className="native-keypad" aria-label="Amount keypad">
           {keypad.map(key => (

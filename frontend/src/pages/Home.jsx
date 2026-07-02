@@ -219,7 +219,7 @@ function NativeHomeDashboard({
   const hasMetrics = showTraining || showFinance || showMusic
   const openHabits = habits.filter((habit) => !habit.todayStatus || habit.todayStatus === 'none')
   const loggedHabits = habits.filter((habit) => habit.todayStatus && habit.todayStatus !== 'none')
-  const visibleHabits = [...openHabits, ...loggedHabits].slice(0, 4)
+  const visibleHabits = [...openHabits, ...loggedHabits].slice(0, 3)
   const loggedCount = loggedHabits.length
   const incompleteCount = Math.max(totalHabits - loggedCount, 0)
 
@@ -342,7 +342,7 @@ function NativeHomeDashboard({
           <p className="journal-empty">No recent activity yet.</p>
         ) : (
           <div className="journal-activity-list">
-            {activityItems.slice(0, 4).map((item, index) => (
+            {activityItems.slice(0, 3).map((item, index) => (
               <div key={`${item.text}-${index}`} className="journal-activity-item">
                 <div className="journal-activity-item__icon" style={{ color: item.color, background: `${item.color}15` }}>
                   <Icon name={item.icon} size={14} />

@@ -25,7 +25,7 @@ export function Modal({ title, onClose, children, size = 'medium' }) {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0 }}>{title}</h3>
-            <button className="btn small btn-ghost" onClick={onClose}>
+            <button className="btn small btn-ghost modal-close-button" onClick={onClose} aria-label={`Close ${title}`}>
               <Icon name="x" size={18} />
             </button>
           </div>
@@ -108,7 +108,7 @@ export function HistoryModal({ onClose }) {
         <div className="modal-content medium" onClick={(e) => e.stopPropagation()}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0 }}>All Recent Streams</h3>
-            <button className="btn small btn-ghost" onClick={onClose}>
+            <button className="btn small btn-ghost modal-close-button" onClick={onClose} aria-label="Close stream history">
               <Icon name="x" size={18} />
             </button>
           </div>

@@ -163,84 +163,102 @@ export default function HabitHeatmap({ compact = false }) {
           </div>
         </div>
       ) : (
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }}>
-        {/* Month labels */}
-        <div style={{ display: 'flex', marginLeft: 20, marginBottom: 2 }}>
-          {monthPositions.map((mp, i) => (
-            <div
-              key={i}
-              style={{
-                position: 'absolute',
-                left: 20 + mp.weekIndex * (CELL_SIZE + CELL_GAP),
-                fontSize: '0.6rem',
-                color: 'var(--color-text-muted)',
-              }}
-            >
-              {MONTH_LABELS[mp.month]}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: 0, marginTop: 14 }}>
-          {/* Day labels */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: CELL_GAP, marginRight: 4, minWidth: 14 }}>
-            {dayLabels.map((label, i) => (
-              <div key={i} style={{ height: CELL_SIZE, fontSize: '0.55rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center' }}>
-                {label}
-              </div>
-            ))}
-          </div>
-
-          {/* Grid */}
-          <div style={{ display: 'flex', gap: CELL_GAP }}>
-            {weeks.map((week, wi) => (
-              <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: CELL_GAP }}>
-                {week.map((day, di) => (
+        <div style={{ overflowX: 'clip', position: 'relative', width: '100%', maxWidth: '100%', minWidth: 0 }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '14px minmax(0, 1fr)',
+            gap: '0.35rem',
+            alignItems: 'start',
+            maxWidth: '100%',
+            minWidth: 0,
+          }}>
+            <div />
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${WEEKS}, minmax(0, 1fr))`,
+              gap: 1,
+              minWidth: 0,
+              marginBottom: 2,
+            }}>
+              {weeks.map((week, wi) => {
+                const monthPosition = monthPositions.find(mp => mp.weekIndex === wi)
+                return (
                   <div
-                    key={di}
+                    key={wi}
                     style={{
-                      width: CELL_SIZE,
-                      height: CELL_SIZE,
-                      borderRadius: 2,
-                      background: day.isFuture ? 'transparent' : getIntensityColor(day.count, maxCount),
-                      cursor: day.isFuture ? 'default' : 'pointer',
-                      transition: 'outline 0.1s',
+                      minWidth: 0,
+                      height: 12,
+                      overflow: 'visible',
+                      fontSize: '0.55rem',
+                      color: 'var(--color-text-muted)',
+                      lineHeight: 1,
                     }}
-                    title={day.isFuture ? '' : `${day.date}: ${day.count}/${day.total} completed`}
-                    onMouseEnter={() => !day.isFuture && setTooltip(day)}
-                    onMouseLeave={() => setTooltip(null)}
-                  />
-                ))}
-              </div>
+                  >
+                    {monthPosition ? MONTH_LABELS[week[0].month] : ''}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, minmax(0, 1fr))', gap: 1 }}>
+              {dayLabels.map((label, i) => (
+                <div key={i} style={{ minHeight: 6, fontSize: '0.55rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${WEEKS}, minmax(0, 1fr))`, gap: 1, minWidth: 0 }}>
+              {weeks.map((week, wi) => (
+                <div key={wi} style={{ display: 'grid', gridTemplateRows: 'repeat(7, minmax(0, 1fr))', gap: 1, minWidth: 0 }}>
+                  {week.map((day, di) => (
+                    <div
+                      key={di}
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        minHeight: 5,
+                        borderRadius: 2,
+                        background: day.isFuture ? 'transparent' : getIntensityColor(day.count, maxCount),
+                        cursor: day.isFuture ? 'default' : 'pointer',
+                        transition: 'outline 0.1s',
+                      }}
+                      title={day.isFuture ? '' : `${day.date}: ${day.count}/${day.total} completed`}
+                      onMouseEnter={() => !day.isFuture && setTooltip(day)}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            marginTop: '0.5rem',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
+            fontSize: '0.6rem',
+            color: 'var(--color-text-muted)',
+          }}>
+            <span>Less</span>
+            {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
+              <div
+                key={i}
+                style={{
+                  width: CELL_SIZE,
+                  height: CELL_SIZE,
+                  borderRadius: 2,
+                  background: getIntensityColor(ratio * maxCount || (i === 0 ? 0 : 1), maxCount || 1),
+                }}
+              />
             ))}
+            <span>More</span>
           </div>
         </div>
-
-        {/* Legend */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          marginTop: '0.5rem',
-          justifyContent: 'flex-end',
-          fontSize: '0.6rem',
-          color: 'var(--color-text-muted)',
-        }}>
-          <span>Less</span>
-          {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
-            <div
-              key={i}
-              style={{
-                width: CELL_SIZE,
-                height: CELL_SIZE,
-                borderRadius: 2,
-                background: getIntensityColor(ratio * maxCount || (i === 0 ? 0 : 1), maxCount || 1),
-              }}
-            />
-          ))}
-          <span>More</span>
-        </div>
-      </div>
       )}
     </div>
   )

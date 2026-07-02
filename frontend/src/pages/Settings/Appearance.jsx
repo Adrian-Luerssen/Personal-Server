@@ -37,17 +37,8 @@ const DEFAULTS = {
 
 function SectionCard({ title, icon, children }) {
   return (
-    <div
-      style={{
-        padding: '1.25rem',
-        background: 'var(--glass-bg)',
-        border: '1px solid var(--glass-border)',
-        borderRadius: 'var(--radius-lg, 12px)',
-        backdropFilter: 'blur(12px)',
-        marginBottom: '1rem',
-      }}
-    >
-      <h3 style={{ fontSize: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+    <div className="settings-subsection-card">
+      <h3 className="settings-subsection-card__title">
         <Icon name={icon} size={20} style={{ color: 'var(--color-accent)' }} />
         {title}
       </h3>
@@ -61,8 +52,8 @@ function ColorSwatch({ color, selected, onClick }) {
     <button
       onClick={onClick}
       style={{
-        width: '36px',
-        height: '36px',
+        width: '44px',
+        height: '44px',
         borderRadius: '50%',
         background: color,
         border: selected ? '3px solid var(--color-text-primary)' : '2px solid transparent',
@@ -312,6 +303,7 @@ export default function Appearance() {
             <input
               className="input"
               type="text"
+              aria-label="Custom accent color hex"
               value={hexInput}
               onChange={e => handleHexChange(e.target.value)}
               placeholder="#7dd3fc"
@@ -356,13 +348,15 @@ export default function Appearance() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <input
               type="color"
+              aria-label="Solid background color"
               value={bgSolidColor}
               onChange={e => handleBgSolid(e.target.value)}
-              style={{ width: '48px', height: '36px', border: 'none', cursor: 'pointer', borderRadius: '4px', background: 'transparent' }}
+              style={{ width: '48px', height: '44px', border: 'none', cursor: 'pointer', borderRadius: '4px', background: 'transparent' }}
             />
             <input
               className="input"
               type="text"
+              aria-label="Solid background color hex"
               value={bgSolidColor}
               onChange={e => {
                 setBgSolidColor(e.target.value)
@@ -383,18 +377,20 @@ export default function Appearance() {
                 <label style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>From</label>
                 <input
                   type="color"
+                  aria-label="Gradient start color"
                   value={bgGradColor1}
                   onChange={e => handleBgGradient(e.target.value, bgGradColor2, bgGradDirection)}
-                  style={{ width: '40px', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '4px', background: 'transparent' }}
+                  style={{ width: '44px', height: '44px', border: 'none', cursor: 'pointer', borderRadius: '4px', background: 'transparent' }}
                 />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>To</label>
                 <input
                   type="color"
+                  aria-label="Gradient end color"
                   value={bgGradColor2}
                   onChange={e => handleBgGradient(bgGradColor1, e.target.value, bgGradDirection)}
-                  style={{ width: '40px', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '4px', background: 'transparent' }}
+                  style={{ width: '44px', height: '44px', border: 'none', cursor: 'pointer', borderRadius: '4px', background: 'transparent' }}
                 />
               </div>
             </div>
@@ -402,6 +398,7 @@ export default function Appearance() {
               <label style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '0.25rem', display: 'block' }}>Direction</label>
               <select
                 className="input"
+                aria-label="Gradient direction"
                 value={bgGradDirection}
                 onChange={e => handleBgGradient(bgGradColor1, bgGradColor2, e.target.value)}
                 style={{ maxWidth: '200px', fontSize: '0.9rem' }}
@@ -429,6 +426,7 @@ export default function Appearance() {
             <input
               className="input"
               type="url"
+              aria-label="Background image URL"
               value={bgImageUrl}
               onChange={e => handleBgImage(e.target.value)}
               placeholder="https://example.com/background.jpg"
@@ -552,6 +550,7 @@ export default function Appearance() {
               Custom CSS may break the interface. Use at your own risk.
             </div>
             <textarea
+              aria-label="Custom CSS"
               value={customCssLocal}
               onChange={e => debouncedCssUpdate(e.target.value)}
               placeholder={`/* Example */\n.card { border-radius: 20px; }`}

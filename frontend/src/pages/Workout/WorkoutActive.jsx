@@ -267,15 +267,15 @@ export default function WorkoutActive() {
                 {addSetTab === 'add' && (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Reps</label><input type="number" className="input" placeholder="e.g. 10" value={addSetForm.reps} onChange={e => setAddSetForm(f => ({ ...f, reps: e.target.value }))} /></div>
-                      <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Weight (kg)</label><input type="number" step="0.5" className="input" placeholder="e.g. 60" value={addSetForm.weight} onChange={e => setAddSetForm(f => ({ ...f, weight: e.target.value }))} /></div>
+                      <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Reps</label><input type="number" className="input" aria-label="Set reps" placeholder="e.g. 10" value={addSetForm.reps} onChange={e => setAddSetForm(f => ({ ...f, reps: e.target.value }))} /></div>
+                      <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Weight (kg)</label><input type="number" step="0.5" className="input" aria-label="Set weight kilograms" placeholder="e.g. 60" value={addSetForm.weight} onChange={e => setAddSetForm(f => ({ ...f, weight: e.target.value }))} /></div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Distance (m)</label><input type="number" className="input" placeholder="e.g. 5000" value={addSetForm.distance} onChange={e => setAddSetForm(f => ({ ...f, distance: e.target.value }))} /></div>
-                      <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Duration (sec)</label><input type="number" className="input" placeholder="e.g. 60" value={addSetForm.durationSec} onChange={e => setAddSetForm(f => ({ ...f, durationSec: e.target.value }))} /></div>
+                      <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Distance (m)</label><input type="number" className="input" aria-label="Set distance meters" placeholder="e.g. 5000" value={addSetForm.distance} onChange={e => setAddSetForm(f => ({ ...f, distance: e.target.value }))} /></div>
+                      <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Duration (sec)</label><input type="number" className="input" aria-label="Set duration seconds" placeholder="e.g. 60" value={addSetForm.durationSec} onChange={e => setAddSetForm(f => ({ ...f, durationSec: e.target.value }))} /></div>
                     </div>
-                    <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>RPE (1-10)</label><input type="number" min="1" max="10" className="input" placeholder="e.g. 8" value={addSetForm.rpe} onChange={e => setAddSetForm(f => ({ ...f, rpe: e.target.value }))} /></div>
-                    <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Notes</label><textarea className="input" rows={3} placeholder="Any notes about this set..." value={addSetForm.notes} onChange={e => setAddSetForm(f => ({ ...f, notes: e.target.value }))} /></div>
+                    <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>RPE (1-10)</label><input type="number" min="1" max="10" className="input" aria-label="Set RPE" placeholder="e.g. 8" value={addSetForm.rpe} onChange={e => setAddSetForm(f => ({ ...f, rpe: e.target.value }))} /></div>
+                    <div><label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Notes</label><textarea className="input" rows={3} aria-label="Set notes" placeholder="Any notes about this set..." value={addSetForm.notes} onChange={e => setAddSetForm(f => ({ ...f, notes: e.target.value }))} /></div>
                     {lastSet && (
                       <div className="card" style={{ background: 'var(--color-accent-muted)', marginTop: '1rem', padding: '1rem' }}>
                         <div style={{ fontWeight: 700, marginBottom: 4 }}>Last Set</div>
@@ -373,11 +373,11 @@ export default function WorkoutActive() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Title (optional)</label>
-              <input type="text" className="input" placeholder="e.g. Leg Day" value={endForm.title} onChange={(e) => setEndForm({ ...endForm, title: e.target.value })} />
+              <input type="text" className="input" aria-label="Workout title" placeholder="e.g. Leg Day" value={endForm.title} onChange={(e) => setEndForm({ ...endForm, title: e.target.value })} />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Notes (optional)</label>
-              <textarea className="input" rows={4} placeholder="How did the workout go..." value={endForm.notes} onChange={(e) => setEndForm({ ...endForm, notes: e.target.value })} />
+              <textarea className="input" rows={4} aria-label="Workout notes" placeholder="How did the workout go..." value={endForm.notes} onChange={(e) => setEndForm({ ...endForm, notes: e.target.value })} />
             </div>
             <div className="card" style={{ background: 'var(--color-accent-muted)', padding: '1rem' }}>
               <div style={{ fontSize: '.9rem', color: 'var(--color-text-secondary)', marginBottom: '.5rem' }}>Summary</div>

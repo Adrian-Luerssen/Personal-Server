@@ -832,7 +832,11 @@ function NativeHabitLogCard({ habit, saving, onToggle, onNumericSubmit }) {
           <strong>{habit.name}</strong>
           <small>{getFrequencyLabel(habit)} - {getStreakLabel(habit)}</small>
         </span>
-        {statusMeta && <em style={{ color: statusMeta.color }}>{statusMeta.shortLabel}</em>}
+        {statusMeta ? (
+          <em style={{ color: statusMeta.color }}>{statusMeta.shortLabel}</em>
+        ) : (
+          <em className="native-habit-log-card__status-open">Ready</em>
+        )}
       </div>
 
       {isNumeric ? (
@@ -843,7 +847,10 @@ function NativeHabitLogCard({ habit, saving, onToggle, onNumericSubmit }) {
             <button
               key={nextStatus}
               type="button"
-              className={status === nextStatus ? 'is-active' : ''}
+              className={[
+                nextStatus === 'success' ? 'native-habit-actions__primary' : 'native-habit-actions__secondary',
+                status === nextStatus ? 'is-active' : '',
+              ].filter(Boolean).join(' ')}
               style={{ '--status-color': meta.color }}
               aria-pressed={status === nextStatus}
               disabled={saving}

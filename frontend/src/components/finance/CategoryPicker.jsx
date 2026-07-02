@@ -3,7 +3,7 @@ import CategoryIcon from './CategoryIcon'
 import Icon from '../icons/Icon'
 import { normalizeFinanceColor, transparentFinanceColor } from './financeVisuals.mjs'
 
-export default function CategoryPicker({ categories, value, onChange, placeholder = 'Select category...' }) {
+export default function CategoryPicker({ categories, value, onChange, placeholder = 'Select category...', ariaLabel }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef(null)
@@ -48,6 +48,9 @@ export default function CategoryPicker({ categories, value, onChange, placeholde
       <button
         type="button"
         className="input"
+        aria-label={ariaLabel || placeholder}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         style={{
           width: '100%',
@@ -92,6 +95,7 @@ export default function CategoryPicker({ categories, value, onChange, placeholde
             <input
               ref={inputRef}
               type="text"
+              aria-label="Search categories"
               placeholder="Search categories..."
               value={search}
               onChange={e => setSearch(e.target.value)}

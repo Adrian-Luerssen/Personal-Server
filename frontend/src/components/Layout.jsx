@@ -3,7 +3,6 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import ChatPanel from './ChatPanel'
 import ApiStatus from './ApiStatus'
-import GradientMesh from './GradientMesh'
 import PageTransition from './PageTransition'
 import RouteErrorBoundary from './RouteErrorBoundary'
 import { api, checkDataValidity, preloadDashboardData } from '../api'
@@ -54,6 +53,7 @@ function NativeAppHeader() {
   const currentApp = getNativeAppForPath(location.pathname)
   const appSwitcherOptions = getNativeAppSwitcherOptions(location.pathname, prefs)
   const isSettingsRoute = location.pathname.startsWith('/settings')
+  const showAppSwitcher = !isSettingsRoute && appSwitcherOptions.length > 0
   const current = NATIVE_ROUTE_TITLES.find((item) => item.match.test(location.pathname)) || {
     title: 'Personal Server',
     subtitle: 'Private dashboard',
@@ -80,18 +80,20 @@ function NativeAppHeader() {
           <span>{current.subtitle}</span>
           <strong>{current.title}</strong>
         </div>
-        <button
-          type="button"
-          className={`native-app-header__selector native-app-header__selector--${currentApp.tone}`}
-          onClick={() => setAppSwitcherOpen((open) => !open)}
-          aria-expanded={appSwitcherOpen}
-          aria-controls="native-app-switcher-sheet"
-          aria-label={`Open app menu, current area ${currentApp.label}`}
-        >
-          <Icon name="grid-3x3" size={16} />
-          <span className="native-app-header__selector-label">Apps</span>
-          <Icon name={appSwitcherOpen ? 'chevron-up' : 'chevron-down'} size={15} aria-hidden="true" />
-        </button>
+        {showAppSwitcher && (
+          <button
+            type="button"
+            className={`native-app-header__selector native-app-header__selector--${currentApp.tone}`}
+            onClick={() => setAppSwitcherOpen((open) => !open)}
+            aria-expanded={appSwitcherOpen}
+            aria-controls="native-app-switcher-sheet"
+            aria-label={`Open app menu, current area ${currentApp.label}`}
+          >
+            <Icon name="grid-3x3" size={16} />
+            <span className="native-app-header__selector-label">Apps</span>
+            <Icon name={appSwitcherOpen ? 'chevron-up' : 'chevron-down'} size={15} aria-hidden="true" />
+          </button>
+        )}
         {!isSettingsRoute && (
           <button
             type="button"
@@ -103,7 +105,7 @@ function NativeAppHeader() {
           </button>
         )}
       </div>
-      {appSwitcherOpen && (
+      {showAppSwitcher && appSwitcherOpen && (
         <>
           <button
             type="button"
@@ -377,7 +379,6 @@ export default function Layout() {
 
   return (
     <div className={"layout" + (collapsed ? ' sidebar-collapsed' : '') + (nativeApp && !hasNativeTabbar ? ' native-no-tabbar' : '')}>
-      <GradientMesh />
       {nativeApp && <NativeAppHeader />}
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <main className="content">

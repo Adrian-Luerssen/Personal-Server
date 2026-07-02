@@ -150,6 +150,7 @@ function DeleteConfirmModal({ module, onClose, onDeleted }) {
         <input
           className="input"
           type="text"
+          aria-label={`Confirm delete ${module.label.toLowerCase()} data`}
           value={confirmText}
           onChange={e => setConfirmText(e.target.value)}
           placeholder={expected}

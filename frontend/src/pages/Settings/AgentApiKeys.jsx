@@ -74,10 +74,11 @@ function ScopeSelector({ selected, onChange }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <input
                 type="checkbox"
+                aria-label={`${allSelected ? 'Deselect' : 'Select'} all ${group} permissions`}
                 checked={allSelected}
                 ref={el => { if (el) el.indeterminate = someSelected }}
                 onChange={() => toggleGroup(scopes)}
-                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                style={{ width: 44, height: 44, cursor: 'pointer' }}
               />
               <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{group}</span>
             </div>
@@ -86,9 +87,10 @@ function ScopeSelector({ selected, onChange }) {
                 <label key={scope} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
+                    aria-label={`Toggle ${scope} permission`}
                     checked={selected.includes(scope)}
                     onChange={() => toggleScope(scope)}
-                    style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                    style={{ width: 44, height: 44, cursor: 'pointer' }}
                   />
                   <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>{scope}</span>
                 </label>
@@ -249,6 +251,7 @@ The complete agent skill document is available at:
             <input
               className="input"
               type="text"
+              aria-label="Created API key"
               value={createdKey.key}
               readOnly
               style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
@@ -281,6 +284,7 @@ The complete agent skill document is available at:
             Copy and paste this to your agent so it knows how to interact with your server.
           </p>
           <textarea
+            aria-label="Agent setup instructions"
             readOnly
             value={agentSnippet}
             style={{
@@ -315,6 +319,7 @@ The complete agent skill document is available at:
         <input
           className="input"
           type="text"
+          aria-label="API key name"
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="e.g., Claudia, Home Assistant"
@@ -326,6 +331,7 @@ The complete agent skill document is available at:
         <input
           className="input"
           type="number"
+          aria-label="API key expiration days"
           value={expiresIn}
           onChange={e => setExpiresIn(e.target.value)}
           placeholder="Leave empty for no expiration"
@@ -395,6 +401,7 @@ function EditKeyModal({ apiKey, onClose, onUpdated }) {
         <input
           className="input"
           type="text"
+          aria-label="API key name"
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="e.g., Claudia, Home Assistant"

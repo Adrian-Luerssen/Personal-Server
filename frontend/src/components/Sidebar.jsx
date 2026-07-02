@@ -173,12 +173,12 @@ export default function Sidebar({ collapsed, onToggle }) {
               <Link
                 key={tab.to}
                 to={tab.to}
-                className={'nav-link native-tabbar__item' + (active ? ' active is-active' : '')}
+                className={'nav-link native-tabbar__item' + (active ? ' active' : '')}
                 aria-current={active ? 'page' : undefined}
               >
                 <Icon name={tab.icon} size={21} />
                 <span>{tab.label}</span>
-                {dot && <span className="nav-badge-dot" />}
+                {dot && !active && <span className="nav-badge-dot" aria-hidden="true" />}
               </Link>
             )
           })}

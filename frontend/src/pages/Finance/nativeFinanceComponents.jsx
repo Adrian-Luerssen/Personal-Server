@@ -229,7 +229,7 @@ export function NativeCashflowChart({ transactions, title = 'Cashflow', subtitle
 }
 
 export function NativeCategoryMixPanel({ categories, title = 'Category mix' }) {
-  const visible = (categories || []).slice(0, 6)
+  const visible = (categories || []).slice(0, 4)
   const total = visible.reduce((sum, category) => sum + Math.abs(numberValue(category.total)), 0)
   let cursor = 0
   const gradient = visible.length

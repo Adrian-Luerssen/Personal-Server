@@ -108,7 +108,7 @@ export default function WorkoutExercises() {
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Search</label>
-            <input type="text" className="input" placeholder={tab === 'exercises' ? 'Search exercises...' : 'Search categories...'} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" className="input" aria-label={tab === 'exercises' ? 'Search exercises' : 'Search exercise categories'} placeholder={tab === 'exercises' ? 'Search exercises...' : 'Search categories...'} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <button className="btn" onClick={() => tab === 'exercises' ? openExerciseModal() : openCategoryModal()}>
             <Icon name="plus" size={18} style={{ verticalAlign: 'middle', marginRight: 4 }} />Add {tab === 'exercises' ? 'Exercise' : 'Category'}
@@ -194,8 +194,8 @@ export default function WorkoutExercises() {
                                     {exercise.notes && <div style={{ fontSize: '.85rem', color: 'var(--color-text-muted)', marginTop: 6, fontStyle: 'italic' }}>{exercise.notes}</div>}
                                   </div>
                                   <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
-                                    <button className="btn small" onClick={() => openExerciseModal(exercise)}><Icon name="pencil" size={18} /></button>
-                                    <button className="btn small btn-danger" onClick={() => deleteExercise(exercise)}><Icon name="trash-2" size={18} /></button>
+                                    <button className="btn small" aria-label={`Edit exercise ${exercise.name}`} onClick={() => openExerciseModal(exercise)}><Icon name="pencil" size={18} /></button>
+                                    <button className="btn small btn-danger" aria-label={`Delete exercise ${exercise.name}`} onClick={() => deleteExercise(exercise)}><Icon name="trash-2" size={18} /></button>
                                   </div>
                                 </div>
                               </div>
@@ -230,8 +230,8 @@ export default function WorkoutExercises() {
                           {category.description && <div style={{ fontSize: '.85rem', color: 'var(--color-text-muted)', marginTop: 6 }}>{category.description}</div>}
                         </div>
                         <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
-                          <button className="btn small" onClick={() => openCategoryModal(category)}><Icon name="pencil" size={18} /></button>
-                          <button className="btn small btn-danger" onClick={() => deleteCategory(category)}><Icon name="trash-2" size={18} /></button>
+                          <button className="btn small" aria-label={`Edit category ${category.name}`} onClick={() => openCategoryModal(category)}><Icon name="pencil" size={18} /></button>
+                          <button className="btn small btn-danger" aria-label={`Delete category ${category.name}`} onClick={() => deleteCategory(category)}><Icon name="trash-2" size={18} /></button>
                         </div>
                       </div>
                     </div>
@@ -248,22 +248,22 @@ export default function WorkoutExercises() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Name <span style={{ color: 'var(--color-error)' }}>*</span></label>
-              <input type="text" className="input" placeholder="e.g. Bench Press" value={exerciseForm.name} onChange={(e) => setExerciseForm({ ...exerciseForm, name: e.target.value })} autoFocus />
+              <input type="text" className="input" aria-label="Exercise name" placeholder="e.g. Bench Press" value={exerciseForm.name} onChange={(e) => setExerciseForm({ ...exerciseForm, name: e.target.value })} autoFocus />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Muscle Group</label>
-              <input type="text" className="input" placeholder="e.g. Chest, Legs, Back..." value={exerciseForm.muscleGroup} onChange={(e) => setExerciseForm({ ...exerciseForm, muscleGroup: e.target.value })} />
+              <input type="text" className="input" aria-label="Exercise muscle group" placeholder="e.g. Chest, Legs, Back..." value={exerciseForm.muscleGroup} onChange={(e) => setExerciseForm({ ...exerciseForm, muscleGroup: e.target.value })} />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Category</label>
-              <select className="input" value={exerciseForm.categoryId} onChange={(e) => setExerciseForm({ ...exerciseForm, categoryId: e.target.value })}>
+              <select className="input" aria-label="Exercise category" value={exerciseForm.categoryId} onChange={(e) => setExerciseForm({ ...exerciseForm, categoryId: e.target.value })}>
                 <option value="">— None —</option>
                 {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
               </select>
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Notes</label>
-              <textarea className="input" rows={3} placeholder="Any notes about this exercise..." value={exerciseForm.notes} onChange={(e) => setExerciseForm({ ...exerciseForm, notes: e.target.value })} />
+              <textarea className="input" rows={3} aria-label="Exercise notes" placeholder="Any notes about this exercise..." value={exerciseForm.notes} onChange={(e) => setExerciseForm({ ...exerciseForm, notes: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
               <button className="btn" onClick={saveExercise}>{exerciseForm.id ? 'Save Changes' : 'Add Exercise'}</button>
@@ -278,15 +278,15 @@ export default function WorkoutExercises() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Name <span style={{ color: 'var(--color-error)' }}>*</span></label>
-              <input type="text" className="input" placeholder="e.g. Strength, Cardio..." value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} autoFocus />
+              <input type="text" className="input" aria-label="Workout category name" placeholder="e.g. Strength, Cardio..." value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} autoFocus />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Color</label>
-              <input type="color" value={categoryForm.color} onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })} style={{ width: 60, height: 40, padding: 0, border: 'none', background: 'transparent' }} title={categoryForm.color} />
+              <input type="color" aria-label="Workout category color" value={categoryForm.color} onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })} style={{ width: 60, height: 44, padding: 0, border: 'none', background: 'transparent' }} title={categoryForm.color} />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Description</label>
-              <textarea className="input" rows={3} placeholder="Optional description..." value={categoryForm.description} onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })} />
+              <textarea className="input" rows={3} aria-label="Workout category description" placeholder="Optional description..." value={categoryForm.description} onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
               <button className="btn" onClick={saveCategory}>{categoryForm.id ? 'Save Changes' : 'Add Category'}</button>

@@ -20,11 +20,12 @@ test.describe('Landing Page', () => {
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test('should display bento product cards', async ({ page }) => {
+  test('should display the product system and service choices', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('.landing-bento-card')).toHaveCount(6)
     await expect(page.locator('.landing-instrument-row')).toHaveCount(5)
     await expect(page.getByText(/managed for convenience\. self-hosted for control/i)).toBeVisible()
-    await expect(page.locator('.landing-editorial-metric')).toHaveCount(0)
+    await expect(page.locator('.landing-product-stage')).toBeVisible()
+    await expect(page.getByText(/everything you are/i).first()).toBeVisible()
   })
 })

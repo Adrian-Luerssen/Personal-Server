@@ -1,6 +1,9 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import AppRouter from './App'
+import '@fontsource-variable/sora'
+import '@fontsource-variable/jetbrains-mono'
+import './styles.css'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/shell.css'
@@ -9,7 +12,7 @@ import './styles/domains/today.css'
 import './styles/domains/gym.css'
 import './styles/domains/cash.css'
 import './styles/domains/spotify.css'
-import './styles.css'
+import './styles/premium-overrides.css'
 import './i18n' // Initialize i18n
 
 createRoot(document.getElementById('root')).render(

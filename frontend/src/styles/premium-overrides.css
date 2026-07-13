@@ -1,0 +1,78 @@
+/* Final product register: shared precision treatment across legacy route markup. */
+.content { background: transparent; }
+.content-shell__frame > * { min-width: 0; }
+.card, .section, .native-finance-card, .native-settings-card, .native-integration-card, .native-habit-card, .media-card, .workout-card {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  box-shadow: none;
+}
+.card:hover { border-color: var(--border-strong); }
+.btn { border-radius: var(--radius-md); background: var(--domain-today); color: #fff; box-shadow: none; }
+.btn-ghost { border: 1px solid var(--border-subtle); background: var(--surface-raised); color: var(--text-primary); }
+.input, input, select, textarea { border-color: var(--border-subtle); border-radius: var(--radius-md); background-color: var(--surface-canvas); color: var(--text-primary); }
+.input:focus, input:focus, select:focus, textarea:focus { border-color: var(--domain-today); box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
+.tab-group { padding: .25rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-canvas); }
+.tab-btn { border-radius: 6px; color: var(--text-muted); }
+.tab-btn.active { background: var(--surface-raised); color: var(--text-primary); box-shadow: inset 0 -2px var(--domain-today); }
+
+/* Cash */
+:where(.finance-desktop-page, .native-finance-page, [class*='finance-']) { --page-signal: var(--domain-cash); }
+.finance-desktop-page .btn:not(.btn-danger), .native-finance-fab-inline, .payment-capture-sheet .btn { background: var(--domain-cash); color: #06150b; }
+.finance-desktop-page h1, .finance-desktop-page .stat-value, .native-finance-hero strong { letter-spacing: -.045em; }
+.finance-ledger-table, .native-transaction-timeline, .native-wallet-stack { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
+.finance-ledger-table tr, .native-transaction-timeline__row, .native-wallet-stack__row { border-color: var(--border-subtle); background: var(--surface-panel); }
+.native-finance-hero--ledger { border-left: 2px solid var(--domain-cash); background: linear-gradient(135deg,rgba(34,197,94,.1),transparent 48%),var(--surface-panel); }
+.native-cashflow-chart { background: linear-gradient(rgba(154,168,186,.04) 1px,transparent 1px), var(--surface-canvas); background-size: 100% 33%; }
+
+/* Habits */
+.habits-page, .native-habits-page { --page-signal: var(--domain-habits); }
+.habits-page .btn:not(.btn-danger), .native-habits-page .native-primary-button { background: var(--domain-habits); color: #041817; }
+.habit-card, .native-habit-log-card, .habit-heatmap, .habit-calendar-grid { border-color: var(--border-subtle) !important; background: var(--surface-panel) !important; }
+.native-habit-log-card--success { border-left: 2px solid var(--domain-habits) !important; }
+.habit-streak, .habits-streak { color: var(--domain-habits) !important; }
+
+/* Gym */
+:where(.workout-dashboard, .workout-page, .native-workout-page, [class*='workout-']) { --page-signal: var(--domain-gym); }
+.workout-dashboard .btn:not(.btn-danger), .workout-page .btn:not(.btn-danger), .native-workout-page .native-primary-button { background: var(--domain-gym); color: #1b0b03; }
+.workout-session-card, .exercise-block, .set-editor-row, .session-card { border-color: var(--border-subtle) !important; background: var(--surface-panel) !important; }
+.set-editor-row.is-complete, .active-workout-card { border-left: 2px solid var(--domain-gym) !important; }
+.workout-dashboard .stat-value, .rest-timer, .set-editor-row input { font-family: var(--font-data); }
+
+/* Music */
+:where(.spotify-page, .native-spotify-page, .native-spotify-ranking, [class*='spotify-']) { --page-signal: var(--domain-music); }
+.spotify-page .btn, .native-spotify-page .native-primary-button { background: var(--domain-music); color: #1d0713; }
+.spotify-profile-hero, .listening-ranking-header, .native-ranking-card { border-color: rgba(236,72,153,.24) !important; background: linear-gradient(145deg,rgba(236,72,153,.09),transparent 45%),var(--surface-panel) !important; }
+.native-ranking-row, .spotify-ranking-row { border-color: var(--border-subtle) !important; background: var(--surface-panel) !important; }
+.native-ranking-row__rank, .spotify-rank, .spotify-stat-value { color: var(--domain-music) !important; font-family: var(--font-data); }
+
+/* Series */
+:where(.media-page, .native-media-page, [class*='media-'], [class*='series-']) { --page-signal: var(--domain-series); }
+.media-page .btn:not(.btn-danger), .native-media-page .native-primary-button { background: var(--domain-series); color: #1b1002; }
+.media-card, .series-card, .series-detail-hero, .anime-continuity { border-color: var(--border-subtle) !important; background-color: var(--surface-panel) !important; }
+.series-season, .series-episode-row, .anime-continuity__item { border-color: var(--border-subtle) !important; }
+.series-progress, .media-progress { color: var(--domain-series) !important; font-family: var(--font-data); }
+
+/* Assistant */
+.chat-panel, .chat-panel--inline { border-color: rgba(139,92,246,.24); background: var(--surface-panel); }
+.chat-panel-header { border-color: var(--border-subtle); background: linear-gradient(135deg,rgba(139,92,246,.11),transparent),var(--surface-panel); }
+.chat-toggle-btn, .chat-send-btn, .chat-new-conv-btn { background: var(--domain-assistant) !important; color: #fff !important; }
+.chat-msg.agent { border: 1px solid var(--border-subtle); background: var(--surface-raised); }
+.chat-msg.user { background: rgba(139,92,246,.16); }
+.chat-msg-context-badge, .chat-context-chip.active { border-color: rgba(139,92,246,.25); background: rgba(139,92,246,.1); color: #c4b5fd; }
+
+/* Account, auth, import, and system surfaces */
+.native-settings-page, .settings-page { --page-signal: var(--domain-assistant); }
+.native-settings-hero { border: 1px solid var(--border-subtle); border-left: 2px solid var(--domain-assistant); border-radius: var(--radius-lg); background: linear-gradient(135deg,rgba(139,92,246,.08),transparent),var(--surface-panel); }
+.native-settings-row, .module-settings-row, .native-toggle-row, .native-status-strip { border-color: var(--border-subtle) !important; background: var(--surface-panel) !important; }
+.auth-screen { background: radial-gradient(circle at 50% 15%,rgba(59,130,246,.1),transparent 24rem),var(--surface-canvas); }
+.auth-panel { border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--surface-panel); box-shadow: 0 28px 70px rgba(0,0,0,.32); }
+.auth-brand__mark { border: 0; background: transparent; }
+.auth-submit { background: var(--domain-today); }
+.import-progress-panel, .disabled-feature-state, .route-error-boundary, .empty-state { border-color: var(--border-subtle) !important; border-radius: var(--radius-lg); background: var(--surface-panel) !important; }
+
+body.native-mobile-app .content { padding-inline: .72rem; background: var(--surface-canvas); }
+body.native-mobile-app .native-app-header { border-color: var(--border-subtle); background: rgba(8,15,24,.96); }
+body.native-mobile-app .native-tabbar { border-color: var(--border-subtle); background: rgba(8,15,24,.97); }
+body.native-mobile-app .card, body.native-mobile-app [class*='native-'][class*='card'] { border-radius: 10px; }
+@media (max-width: 700px) { .app-command-bar { display: none; } .content { padding: .75rem; margin-left: 0; } }

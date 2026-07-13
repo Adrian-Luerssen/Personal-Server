@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../config'
 import { isNativeMobileApp } from '../../mobilePlatform'
+import BrandMark from '../../components/product/BrandMark'
+import { PRODUCT } from '../../product/brand.mjs'
 
 export default function Register() {
   const { t } = useTranslation()
@@ -65,11 +67,11 @@ export default function Register() {
     <div className={`auth-screen${nativeApp ? ' auth-screen--native' : ''}`}>
       <div className="auth-panel">
         <div className="auth-brand">
-          <div className="auth-brand__mark">PS</div>
+          <div className="auth-brand__mark"><BrandMark size={32} /></div>
           <div>
-            <div className="auth-brand__title">Personal Server</div>
+            <div className="auth-brand__title">{PRODUCT.displayName}</div>
             <div className="auth-brand__subtitle">
-              {nativeApp ? 'Android app' : 'Private data platform'}
+              {PRODUCT.promise}
             </div>
           </div>
         </div>
@@ -83,7 +85,7 @@ export default function Register() {
 
         <div className="auth-copy">
           <h1>{t('auth.signUp')}</h1>
-          <p>{nativeApp ? 'Create your mobile account for synced personal data.' : 'Create an account for this private server.'}</p>
+          <p>Choose managed hosting for the easiest setup, or connect this app to your own self-hosted service.</p>
         </div>
 
         <form ref={formRef} onSubmit={submit} className="auth-form" noValidate>
@@ -128,9 +130,8 @@ export default function Register() {
           </div>
           <button
             className="btn auth-submit"
-            type="button"
+            type="submit"
             disabled={submitting || !name.trim() || !email.trim() || !password}
-            onClick={submit}
           >
             {submitting ? t('common.loading') : t('auth.register')}
           </button>

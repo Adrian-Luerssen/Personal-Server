@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="frontend/public/logo.svg" width="80" alt="Personal Server Logo" />
+  <img src="frontend/public/logo.svg" width="80" alt="Personal Record mark" />
 </p>
 
-<h1 align="center">Personal Server</h1>
+<h1 align="center">Personal Record</h1>
 
 <p align="center">
-  A self-hosted personal data platform that consolidates fitness, music, habits, and financial data into a unified dashboard.
+  Your records, kept useful. Managed for convenience or self-hosted for control.
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@
 
 ## Features
 
-### Workout Tracking
+### Gym
 - Import data from **FitNotes** (SQLite)
 - Track workout sessions, exercises, sets, and reps
 - Monitor bodyweight over time
@@ -37,13 +37,18 @@
 - Track daily habits with success/fail/skip status
 - Streak calculations and calendar view
 
-### Finance Tracking
+### Cash
 - Import data from **Cashew** (JSON export)
 - Track transactions across multiple wallets
 - Category management with icons and subcategories
 - Period-based dashboard (week/month/year/all time)
 - Add, edit, and delete transactions
 - Month-by-month navigation with summary
+
+### Series
+- Import and match anime, television, film, manga, and book records
+- Status-first library with inline episode, chapter, and page progress
+- MyAnimeList-compatible migration path
 
 ### AI Copilot
 - Chat interface with cross-domain context
@@ -161,13 +166,19 @@ Copy `backend/.env.example` to `backend/.env` and fill in:
 - [Architecture](docs/ARCHITECTURE.md)
 - [API Reference](docs/API.md)
 - [Development Guide](docs/DEVELOPMENT.md)
+- [Brand profile](docs/product/BRAND_PROFILE.md)
+- [Commercial model](docs/product/COMMERCIAL_MODEL.md)
+- [Integration roadmap](docs/product/INTEGRATION_ROADMAP.md)
+- [Legal launch checklist](docs/product/LEGAL_LAUNCH_CHECKLIST.md)
 
 ---
 
 ## License
 
-MIT
+No project license is currently granted. Do not assume the code is MIT-licensed or available for commercial reuse.
+
+The intended launch model is source-available personal self-hosting under a counsel-approved noncommercial license, with a separate commercial license for paid hosting, resale, and other commercial use. See the [legal launch checklist](docs/product/LEGAL_LAUNCH_CHECKLIST.md). A final license file must be reviewed before release.
 
 ---
 
-Built with care for personal data ownership.
+`Personal Server` remains the repository and self-host deployment name. `Personal Record` is the provisional customer brand and still requires trademark clearance.

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../config'
 import { refreshIfPossible, setTokens } from '../../auth'
 import { isNativeMobileApp } from '../../mobilePlatform'
+import BrandMark from '../../components/product/BrandMark'
+import { PRODUCT } from '../../product/brand.mjs'
 
 export default function Login() {
   const { t } = useTranslation()
@@ -93,11 +95,11 @@ export default function Login() {
     <div className={`auth-screen${nativeApp ? ' auth-screen--native' : ''}`}>
       <div className="auth-panel">
         <div className="auth-brand">
-          <div className="auth-brand__mark">PS</div>
+          <div className="auth-brand__mark"><BrandMark size={32} /></div>
           <div>
-            <div className="auth-brand__title">Personal Server</div>
+            <div className="auth-brand__title">{PRODUCT.displayName}</div>
             <div className="auth-brand__subtitle">
-              {nativeApp ? 'Android app' : 'Private data platform'}
+              {PRODUCT.promise}
             </div>
           </div>
         </div>
@@ -111,7 +113,7 @@ export default function Login() {
 
         <div className="auth-copy">
           <h1>{mfaRequired ? t('auth.verifyCode') : t('auth.signIn')}</h1>
-          <p>{mfaRequired ? t('auth.enterMfaCode') : (nativeApp ? 'Open your dashboard and synced personal data.' : 'Access your private dashboard.')}</p>
+          <p>{mfaRequired ? t('auth.enterMfaCode') : 'Open your latest records, then verify what changed.'}</p>
         </div>
 
         <form ref={formRef} onSubmit={submit} className="auth-form" noValidate>
@@ -170,9 +172,8 @@ export default function Login() {
           )}
           <button
             className="btn auth-submit"
-            type="button"
+            type="submit"
             disabled={!canSubmit || submitting}
-            onClick={submit}
           >
             {submitting ? t('common.loading') : (mfaRequired ? t('auth.verifyCode') : t('auth.login'))}
           </button>

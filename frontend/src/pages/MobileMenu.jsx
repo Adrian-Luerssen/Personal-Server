@@ -10,7 +10,7 @@ const MENU_SECTIONS = [
     title: 'Daily actions',
     items: [
       { label: 'Habits', description: 'Log today, manage routines, reminders', to: '/habits', icon: 'heart-pulse', tone: 'habits', module: 'habits' },
-      { label: 'Workout', description: 'Start or resume training', to: '/workout', icon: 'dumbbell', tone: 'success', module: 'training' },
+      { label: 'Gym', description: 'Start or resume a workout', to: '/workout', icon: 'dumbbell', tone: 'success', module: 'training' },
       { label: 'Add transaction', description: 'Record spending or income', to: '/finance/transactions?action=new', icon: 'receipt', tone: 'money', module: 'finance' },
       { label: 'Assistant', description: 'Ask the AI copilot', to: '/chat', icon: 'message-square', tone: 'ai', module: 'assistant' },
     ],
@@ -18,10 +18,10 @@ const MENU_SECTIONS = [
   {
     title: 'Library and insights',
     items: [
-      { label: 'Finance', description: 'Transactions, wallets, budgets', to: '/finance', icon: 'wallet', tone: 'money', module: 'finance' },
-      { label: 'Spotify Ranking', description: 'Streams by day, week, month, year', to: '/spotify/ranking', icon: 'trophy', tone: 'music', module: 'music' },
-      { label: 'Media Library', description: 'Anime, shows, movies, books, manga', to: '/media', icon: 'clapperboard', tone: 'media', module: 'media' },
-      { label: 'Spotify Personal', description: 'Personal listening stats', to: '/spotify/personal', icon: 'music', tone: 'music', module: 'music' },
+      { label: 'Cash', description: 'Month ledger, wallets, and budgets', to: '/finance/transactions', icon: 'wallet', tone: 'money', module: 'finance' },
+      { label: 'Spotify ranking', description: 'Listening rank by selected period', to: '/spotify/ranking', icon: 'trophy', tone: 'music', module: 'music' },
+      { label: 'Series', description: 'Anime, shows, movies, books, and manga', to: '/media', icon: 'clapperboard', tone: 'media', module: 'media' },
+      { label: 'Spotify personal', description: 'Your listening history and top records', to: '/spotify/personal', icon: 'music', tone: 'music', module: 'music' },
     ],
   },
   {
@@ -30,11 +30,11 @@ const MENU_SECTIONS = [
       { label: 'Data center', description: 'Imports, module settings, export, and reset tools', to: '/settings?section=data', icon: 'database', tone: 'info' },
       { label: 'Import habits', description: 'HabitShare CSV with live progress', to: '/habits/settings?tab=import', icon: 'calendar-check', tone: 'habits', module: 'habits' },
       { label: 'Habit settings', description: 'Manage routines, reminders, and cadence', to: '/habits/settings', icon: 'heart-pulse', tone: 'habits', module: 'habits' },
-      { label: 'Finance settings', description: 'Wallets, categories, budgets, and subscriptions', to: '/finance/settings', icon: 'sliders-horizontal', tone: 'money', module: 'finance' },
-      { label: 'Import finance', description: 'Cashew backup import', to: '/finance/import', icon: 'landmark', tone: 'money', module: 'finance' },
-      { label: 'Media settings', description: 'Library matching, categories, and source cleanup', to: '/media/settings', icon: 'settings', tone: 'media', module: 'media' },
-      { label: 'Import media', description: 'MAL, TVTime, Goodreads', to: '/media/import', icon: 'library', tone: 'media', module: 'media' },
-      { label: 'Import workouts', description: 'Training data import', to: '/workout/import', icon: 'upload', tone: 'success', module: 'training' },
+      { label: 'Cash settings', description: 'Wallets, categories, budgets, and subscriptions', to: '/finance/settings', icon: 'sliders-horizontal', tone: 'money', module: 'finance' },
+      { label: 'Import cash', description: 'Cashew backup import', to: '/finance/import', icon: 'landmark', tone: 'money', module: 'finance' },
+      { label: 'Series settings', description: 'Library matching, categories, and source cleanup', to: '/media/settings', icon: 'settings', tone: 'media', module: 'media' },
+      { label: 'Import series', description: 'MAL, TVTime, and Goodreads', to: '/media/import', icon: 'library', tone: 'media', module: 'media' },
+      { label: 'Import gym records', description: 'Training data import', to: '/workout/import', icon: 'upload', tone: 'success', module: 'training' },
     ],
   },
   {
@@ -42,7 +42,7 @@ const MENU_SECTIONS = [
     items: [
       { label: 'Notifications', description: 'Permission and reminder categories', to: '/settings?section=notifications', icon: 'bell', tone: 'info' },
       { label: 'Sync and Offline', description: 'Freshness, cache, and retries', to: '/settings?section=sync', icon: 'refresh-cw', tone: 'info' },
-      { label: 'App Updates', description: 'Installed version and APK updates', to: '/settings?section=updates', icon: 'smartphone', tone: 'info' },
+      { label: 'Updates', description: 'Installed version and Android package', to: '/settings?section=updates', icon: 'smartphone', tone: 'info' },
     ],
   },
 ]

@@ -1007,15 +1007,15 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('heading', { name: /^menu$/i })).toBeVisible()
     await expect(page.getByRole('searchbox', { name: /search app sections/i })).toBeVisible()
     await expect(dailyActions.getByRole('link', { name: /^habits\b/i })).toBeVisible()
-    await expect(dailyActions.getByRole('link', { name: /^workout\b/i })).toBeVisible()
-    await expect(libraryAndInsights.getByRole('link', { name: /^finance\b/i })).toBeVisible()
+    await expect(dailyActions.getByRole('link', { name: /^gym\b/i })).toBeVisible()
+    await expect(libraryAndInsights.getByRole('link', { name: /^cash\b/i })).toBeVisible()
     await expect(libraryAndInsights.getByRole('link', { name: /^spotify ranking\b/i })).toBeVisible()
-    await expect(libraryAndInsights.getByRole('link', { name: /^media library\b/i })).toBeVisible()
+    await expect(libraryAndInsights.getByRole('link', { name: /^series\b/i })).toBeVisible()
     await expect(imports.getByRole('link', { name: /^import habits\b/i })).toBeVisible()
-    await expect(imports.getByRole('link', { name: /^finance settings\b/i })).toBeVisible()
-    await expect(imports.getByRole('link', { name: /^import media\b/i })).toBeVisible()
+    await expect(imports.getByRole('link', { name: /^cash settings\b/i })).toBeVisible()
+    await expect(imports.getByRole('link', { name: /^import series\b/i })).toBeVisible()
     await expect(appControl.getByRole('link', { name: /^sync and offline\b/i })).toBeVisible()
-    await expect(appControl.getByRole('link', { name: /^app updates\b/i })).toBeVisible()
+    await expect(appControl.getByRole('link', { name: /^updates\b/i })).toBeVisible()
   })
 
   test('shows listening rank movement on a shared Spotify timeframe', async ({ page }) => {
@@ -1045,17 +1045,19 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/settings')
 
-    await expect(page.getByRole('heading', { name: /^settings$/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^you$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /notifications/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /sync and offline/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /app updates/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /data and imports/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^updates/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^privacy/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^developer access/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^data/i })).toBeVisible()
     await expect(page.locator('.tab-btn')).toHaveCount(0)
 
-    await page.getByRole('button', { name: /data and imports/i }).click()
+    await page.getByRole('button', { name: /^data/i }).click()
     await expect(page.getByRole('link', { name: /import habits/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /finance settings/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /import workouts/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /cash settings/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /import gym records/i })).toBeVisible()
   })
 
   test('keeps native notification switches inside their settings rows', async ({ page }) => {
@@ -1110,9 +1112,10 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/settings')
 
-    await expect(page.getByRole('button', { name: /widgets/i })).toBeVisible()
-    await page.getByRole('button', { name: /widgets/i }).click()
-    await expect(page.getByRole('heading', { name: 'Widgets', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: /appearance/i })).toBeVisible()
+    await page.getByRole('button', { name: /appearance/i }).click()
+    await expect(page.getByRole('heading', { name: 'Appearance', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /home-screen widgets/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Home-screen widgets' })).toBeVisible()
     await expect(page.getByText(/Use Samsung Lock screen settings first/i)).toBeVisible()
     await expect(page.getByRole('button', { name: /refresh widgets/i })).toBeVisible()

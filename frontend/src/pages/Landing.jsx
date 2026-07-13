@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from '../api'
 import { refreshIfPossible } from '../auth'
 import Icon from '../components/icons/Icon'
+import BrandMark from '../components/product/BrandMark'
+import { PRODUCT } from '../product/brand.mjs'
 import { ANDROID_APK_URL } from '../mobilePlatform'
 import './Landing.css'
 
@@ -55,7 +56,7 @@ function useScrollReveal(disabled) {
 const RECORD_TYPES = [
   {
     icon: 'dumbbell',
-    title: 'Training',
+    title: 'Gym',
     text: 'Sessions, sets, personal records, bodyweight, and live step snapshots.',
     tone: 'training',
   },
@@ -67,9 +68,15 @@ const RECORD_TYPES = [
   },
   {
     icon: 'wallet',
-    title: 'Finance',
+    title: 'Cash',
     text: 'Wallets, transactions, categories, imports, budgets, and detected payments.',
     tone: 'finance',
+  },
+  {
+    icon: 'clapperboard',
+    title: 'Series',
+    text: 'Anime, shows, films, manga, and books with status-first progress controls.',
+    tone: 'media',
   },
   {
     icon: 'music',
@@ -108,35 +115,19 @@ const WORKFLOW_STEPS = [
 ]
 
 const DIFFERENCE_ROWS = [
-  ['Normal dashboard', 'Personal Server'],
+  ['Normal dashboard', PRODUCT.displayName],
   ['Large tiles and synthetic summaries', 'Source records, compact totals, correction paths'],
   ['Waits for the API before showing useful state', 'Cached locally first, then verified when changed'],
   ['Five disconnected modules', 'One review ledger with module-specific controls'],
   ['AI as a floating chat widget', 'Assistant messages persisted beside the records they analyze'],
 ]
 
-const LANDING_METRIC_DEFAULTS = [
-  {
-    id: 'workouts',
-    value: 0,
-    suffix: '+',
-    label: 'Workout records',
-    note: 'Sessions, sets, personal records, and steps.',
-  },
-  {
-    id: 'habits',
-    value: 0,
-    suffix: '+',
-    label: 'Habit decisions',
-    note: 'Done, skipped, missed, and numeric entries.',
-  },
-  {
-    id: 'streams',
-    value: 0,
-    suffix: '+',
-    label: 'Listening records',
-    note: 'Streams, ranking rows, and workout context.',
-  },
+const INSTRUMENT_PREVIEWS = [
+  { label: 'Gym', title: 'Upper A', detail: 'Bench press · 80 kg × 8', value: 'Set 3' },
+  { label: 'Habits', title: 'Sleep', detail: 'Daily target · source: manual', value: 'Done' },
+  { label: 'Cash', title: 'Mercadona', detail: 'Groceries · Revolut', value: '−€42.30' },
+  { label: 'Series', title: 'Blue Exorcist', detail: 'Watching · episode progress', value: '38 / 73' },
+  { label: 'Spotify', title: 'Top track', detail: 'This week · rank unchanged', value: '310 plays' },
 ]
 
 function StatusPill({ children, tone = 'neutral' }) {
@@ -180,88 +171,10 @@ function LedgerPreview() {
   )
 }
 
-function AnimatedMetric({ value, label, note, suffix, reducedMotion }) {
-  const [displayValue, setDisplayValue] = useState(reducedMotion ? value : 0)
-  const [isVisible, setIsVisible] = useState(reducedMotion)
-  const ref = useRef(null)
-  const frameRef = useRef(0)
-  const lastValueRef = useRef(0)
-
-  useEffect(() => {
-    if (reducedMotion) {
-      setIsVisible(true)
-      setDisplayValue(value)
-      lastValueRef.current = value
-      return undefined
-    }
-
-    const el = ref.current
-    if (!el) return undefined
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true)
-          observer.unobserve(entry.target)
-        }
-      },
-      { threshold: 0.45 },
-    )
-
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [reducedMotion, value])
-
-  useEffect(() => {
-    if (!isVisible) return undefined
-    if (reducedMotion) {
-      setDisplayValue(value)
-      lastValueRef.current = value
-      return undefined
-    }
-
-    cancelAnimationFrame(frameRef.current)
-    const startValue = lastValueRef.current
-    const delta = value - startValue
-
-    if (delta === 0) {
-      setDisplayValue(value)
-      return undefined
-    }
-
-    const duration = 900
-    const start = performance.now()
-    const step = (now) => {
-      const progress = Math.min((now - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setDisplayValue(Math.round(startValue + (delta * eased)))
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(step)
-      } else {
-        lastValueRef.current = value
-      }
-    }
-
-    frameRef.current = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(frameRef.current)
-  }, [value, isVisible, reducedMotion])
-
-  return (
-    <div className="landing-editorial-metric" ref={ref}>
-      <strong>
-        <span>{displayValue.toLocaleString()}</span>
-        {suffix ? <span className="landing-editorial-metric__suffix">{suffix}</span> : null}
-      </strong>
-      <span>{label}</span>
-      <p>{note}</p>
-    </div>
-  )
-}
-
 export default function Landing({ mobileGate = false }) {
   const nav = useNavigate()
   const prefersReducedMotion = usePrefersReducedMotion()
   const observe = useScrollReveal(prefersReducedMotion)
-  const [landingMetrics, setLandingMetrics] = useState(LANDING_METRIC_DEFAULTS)
 
   useEffect(() => {
     if (mobileGate) return undefined
@@ -272,24 +185,6 @@ export default function Landing({ mobileGate = false }) {
     return undefined
   }, [nav, mobileGate])
 
-  useEffect(() => {
-    let ignore = false
-
-    async function loadLandingMetrics() {
-      try {
-        const data = await api.get('/dashboard/landing-stats')
-        if (!ignore && Array.isArray(data?.metrics) && data.metrics.length > 0) {
-          setLandingMetrics(data.metrics)
-        }
-      } catch {
-        // Public metrics are optional. Keep static zero-state defaults if unavailable.
-      }
-    }
-
-    loadLandingMetrics()
-    return () => { ignore = true }
-  }, [])
-
   return (
     <div className="landing-editorial">
       <main>
@@ -297,18 +192,18 @@ export default function Landing({ mobileGate = false }) {
           <div className="landing-editorial-hero__content">
             <div className="landing-editorial-hero__copy">
               <div className="landing-editorial-brandchip landing-editorial-hero__intro landing-editorial-hero__intro--1">
-                <span className="landing-editorial-wordmark__mark">PS</span>
+                <span className="landing-editorial-wordmark__mark"><BrandMark size={30} /></span>
                 <span className="landing-editorial-brandchip__copy">
-                  <span className="landing-editorial-wordmark__text">Personal Server</span>
-                  <span className="landing-editorial-brandchip__meta">Private records for daily review</span>
+                  <span className="landing-editorial-wordmark__text">{PRODUCT.displayName}</span>
+                  <span className="landing-editorial-brandchip__meta">{PRODUCT.promise}</span>
                 </span>
               </div>
               <h1 className="landing-editorial-hero__intro landing-editorial-hero__intro--3">
                 Your private ledger for the week.
               </h1>
               <p className="landing-editorial-hero__intro landing-editorial-hero__intro--4">
-                Personal Server keeps workouts, habits, spending, music, media, and assistant notes in one cache-first system
-                so you can review what changed without turning your life into a dashboard.
+                Record keeps gym sessions, habits, cash, listening, series, and assistant notes in one cache-first system,
+                with the source rows close enough to correct.
               </p>
               <div className="landing-editorial-hero__actions landing-editorial-hero__intro landing-editorial-hero__intro--5">
                 {mobileGate ? (
@@ -344,6 +239,22 @@ export default function Landing({ mobileGate = false }) {
               </div>
               <LedgerPreview />
             </div>
+          </div>
+        </section>
+
+        <section className="landing-editorial-section landing-instruments" id="instruments">
+          <div className="landing-editorial-section__lead" ref={observe}>
+            <span className="landing-micro-label">The actual product</span>
+            <h2>Five instruments. One record.</h2>
+          </div>
+          <div className="landing-instrument-register" ref={observe}>
+            {INSTRUMENT_PREVIEWS.map((item, index) => (
+              <article className="landing-instrument-row" key={item.label}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <div><em>{item.label}</em><strong>{item.title}</strong><small>{item.detail}</small></div>
+                <b>{item.value}</b>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -432,18 +343,24 @@ export default function Landing({ mobileGate = false }) {
           </div>
         </section>
 
-        <section className="landing-editorial-section landing-editorial-section--metrics">
-          <div className="landing-editorial-metrics visible">
-            {landingMetrics.map((counter) => (
-              <AnimatedMetric
-                key={counter.id}
-                value={counter.value}
-                label={counter.label}
-                note={counter.note}
-                suffix={counter.suffix}
-                reducedMotion={prefersReducedMotion}
-              />
-            ))}
+        <section className="landing-editorial-section landing-service-model" id="service">
+          <div className="landing-editorial-section__lead" ref={observe}>
+            <span className="landing-micro-label">Choose who operates it</span>
+            <h2>Managed for convenience. Self-hosted for control.</h2>
+          </div>
+          <div className="landing-service-grid" ref={observe}>
+            <article>
+              <span>Managed service</span>
+              <h3>Record, ready to use</h3>
+              <p>Account setup, updates, backups, and the mobile service are operated for you. This is the paid customer product.</p>
+              <strong>Individual and annual plans at launch</strong>
+            </article>
+            <article>
+              <span>Self-hosted</span>
+              <h3>Your infrastructure</h3>
+              <p>Run the source yourself, keep operational responsibility, and connect the same apps. Commercial resale requires a separate license.</p>
+              <strong>No managed-hosting fee</strong>
+            </article>
           </div>
         </section>
 
@@ -482,10 +399,10 @@ export default function Landing({ mobileGate = false }) {
         <div className="landing-editorial-footer__inner">
           <div className="landing-editorial-footer__brand">
             <div className="landing-editorial-wordmark">
-              <span className="landing-editorial-wordmark__mark">PS</span>
-              <span className="landing-editorial-wordmark__text">Personal Server</span>
+              <span className="landing-editorial-wordmark__mark"><BrandMark size={28} /></span>
+              <span className="landing-editorial-wordmark__text">{PRODUCT.displayName}</span>
             </div>
-            <p>Private records for daily review. Cached locally. Verified when changed.</p>
+            <p>{PRODUCT.promise} Cached locally. Verified when changed.</p>
           </div>
           <div className="landing-editorial-footer__meta">
             <div className="landing-editorial-footer__links">

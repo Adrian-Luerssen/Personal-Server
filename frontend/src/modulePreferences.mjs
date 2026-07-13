@@ -1,9 +1,9 @@
 export const FEATURE_MODULES = [
-  { id: 'training', appId: 'training', label: 'Training', icon: 'dumbbell', defaultHome: true, defaultWidgets: true, paths: ['/workout'] },
+  { id: 'training', appId: 'training', label: 'Gym', icon: 'dumbbell', defaultHome: true, defaultWidgets: true, paths: ['/workout'] },
   { id: 'habits', appId: 'habits', label: 'Habits', icon: 'heart-pulse', defaultHome: true, defaultWidgets: true, paths: ['/habits'] },
-  { id: 'finance', appId: 'money', label: 'Money', icon: 'wallet', defaultHome: true, defaultWidgets: true, paths: ['/finance'] },
+  { id: 'finance', appId: 'money', label: 'Cash', icon: 'wallet', defaultHome: true, defaultWidgets: true, paths: ['/finance'] },
   { id: 'music', appId: 'music', label: 'Music', icon: 'music', defaultHome: true, defaultWidgets: true, paths: ['/spotify', '/streams', '/albums', '/artists', '/playlists'] },
-  { id: 'media', appId: 'media', label: 'Media', icon: 'clapperboard', defaultHome: false, defaultWidgets: false, paths: ['/media'] },
+  { id: 'media', appId: 'media', label: 'Series', icon: 'clapperboard', defaultHome: false, defaultWidgets: false, paths: ['/media'] },
   { id: 'assistant', appId: 'assistant', label: 'Assistant', icon: 'message-square', defaultHome: true, defaultWidgets: false, paths: ['/chat'] },
 ]
 

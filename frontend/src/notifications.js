@@ -136,8 +136,8 @@ async function ensureReminderNotificationChannel(LocalNotifications) {
   try {
     await LocalNotifications.createChannel({
       id: REMINDER_NOTIFICATION_CHANNEL_ID,
-      name: 'Personal Server reminders',
-      description: 'Habit and workout reminders from Personal Server.',
+      name: 'Personal Record reminders',
+      description: 'Habit and gym reminders from Personal Record.',
       importance: 4,
       visibility: 1,
       lights: true,
@@ -154,8 +154,8 @@ async function ensureAiNotificationChannel(LocalNotifications) {
   try {
     await LocalNotifications.createChannel({
       id: AI_NOTIFICATION_CHANNEL_ID,
-      name: 'Personal Server assistant',
-      description: 'Custom alerts written by the Personal Server AI assistant.',
+      name: 'Personal Record assistant',
+      description: 'Custom alerts written by the Personal Record assistant.',
       importance: 4,
       visibility: 1,
       lights: true,
@@ -177,7 +177,7 @@ export async function deliverCustomNotification({ id, nativeId, title, body, act
       notifications: [
         {
           id: Number(nativeId) || 520001,
-          title: title || 'Personal Server',
+          title: title || 'Personal Record',
           body: body || '',
           channelId: AI_NOTIFICATION_CHANNEL_ID,
           autoCancel: true,
@@ -192,7 +192,7 @@ export async function deliverCustomNotification({ id, nativeId, title, body, act
   }
 
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-    new Notification(title || 'Personal Server', {
+    new Notification(title || 'Personal Record', {
       body: body || '',
       data: { notificationId: id, actionUrl: actionUrl || null },
     })

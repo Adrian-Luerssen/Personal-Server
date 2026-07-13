@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Personal Server",
+    "appName": "Personal Record",
     "loading": "Cargando...",
     "error": "Error",
     "success": "Éxito",
@@ -72,7 +72,7 @@
     "registeredSuccess": "Cuenta creada con éxito"
   },
   "landing": {
-    "title": "Personal Server",
+    "title": "Personal Record",
     "subtitle": "Tu centro de datos personal",
     "getStarted": "Empezar",
     "learnMore": "Saber Más"

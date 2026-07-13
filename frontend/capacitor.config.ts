@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.adrianluerssen.personalserver',
-  appName: 'Personal Server',
+  appName: 'Personal Record',
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {
@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
   plugins: {
     LocalNotifications: {
       smallIcon: 'ic_stat_personal_server',
-      iconColor: '#7DD3FC',
+      iconColor: '#A44A37',
     },
   },
 };

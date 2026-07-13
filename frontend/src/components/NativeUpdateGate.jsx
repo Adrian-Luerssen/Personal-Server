@@ -76,7 +76,7 @@ export default function NativeUpdateGate({ nativeApp }) {
       message: error.message || 'Could not start installer.',
     }))
     if (result?.needsPermission) {
-      setStatus('Allow Personal Server to install unknown apps, then try again.')
+      setStatus('Allow Personal Record to install unknown apps, then try again.')
       return
     }
     setStatus(result?.started === false ? (result?.message || 'Installer could not start.') : 'Android installer opened. Complete the update prompt.')

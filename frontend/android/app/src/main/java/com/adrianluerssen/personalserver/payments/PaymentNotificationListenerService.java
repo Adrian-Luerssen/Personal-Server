@@ -127,7 +127,7 @@ public class PaymentNotificationListenerService extends NotificationListenerServ
             "Detected payments",
             NotificationManager.IMPORTANCE_HIGH
         );
-        channel.setDescription("Prompts to register card payments in Personal Server.");
+        channel.setDescription("Prompts to register card payments in Personal Record.");
         manager.createNotificationChannel(channel);
     }
 }

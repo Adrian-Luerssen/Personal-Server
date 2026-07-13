@@ -22,6 +22,9 @@ test.describe('Landing Page', () => {
 
   test('should display bento product cards', async ({ page }) => {
     await page.goto('/')
-    await expect(page.locator('.landing-bento-card')).toHaveCount(5)
+    await expect(page.locator('.landing-bento-card')).toHaveCount(6)
+    await expect(page.locator('.landing-instrument-row')).toHaveCount(5)
+    await expect(page.getByText(/managed for convenience\. self-hosted for control/i)).toBeVisible()
+    await expect(page.locator('.landing-editorial-metric')).toHaveCount(0)
   })
 })

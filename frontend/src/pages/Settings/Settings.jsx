@@ -58,18 +58,29 @@ import {
 const SETTINGS_TABS = new Set(['account', 'connections', 'agent-keys', 'appearance', 'preferences', 'modules', 'data'])
 
 const NATIVE_SETTINGS_SECTIONS = [
-  { key: 'account', label: 'Account and Security', description: 'Profile, password, and MFA', icon: 'shield-check' },
-  { key: 'connections', label: 'Connections', description: 'Spotify and connected services', icon: 'link' },
-  { key: 'integrations', label: 'Health and Payments', description: 'Step counts and detected payment prompts', icon: 'activity' },
-  { key: 'modules', label: 'Modules and Home', description: 'Active features and Today cards', icon: 'sliders-horizontal' },
+  { key: 'account', label: 'Account', description: 'Profile, password, MFA, and service mode', icon: 'shield-check' },
+  { key: 'connections', label: 'Connections', description: 'Spotify, Health Connect, and payment permissions', icon: 'link' },
   { key: 'notifications', label: 'Notifications', description: 'Permission, reminders, and alert types', icon: 'bell' },
-  { key: 'widgets', label: 'Widgets', description: 'Home-screen widgets and lock-screen behavior', icon: 'panel-top' },
-  { key: 'sync', label: 'Sync and Offline', description: 'Cache freshness, retries, and local data', icon: 'refresh-cw' },
-  { key: 'updates', label: 'App Updates', description: 'Installed version, release, and APK link', icon: 'smartphone' },
-  { key: 'appearance', label: 'Appearance', description: 'Theme, density, and visual preferences', icon: 'palette' },
-  { key: 'data', label: 'Data and Imports', description: 'Imports, module settings, export, and reset tools', icon: 'database' },
-  { key: 'agent-keys', label: 'Developer Agent Keys', description: 'API keys for external agents', icon: 'key-round' },
+  { key: 'sync', label: 'Sync and offline', description: 'Cache freshness, retries, and local records', icon: 'refresh-cw' },
+  { key: 'privacy', label: 'Privacy', description: 'Data ownership, permissions, export, and deletion', icon: 'lock-keyhole' },
+  { key: 'appearance', label: 'Appearance', description: 'Theme, density, modules, and widgets', icon: 'palette' },
+  { key: 'data', label: 'Data', description: 'Imports, export, and reset tools', icon: 'database' },
+  { key: 'updates', label: 'Updates', description: 'Installed version, release, and Android package', icon: 'smartphone' },
+  { key: 'developer', label: 'Developer access', description: 'Scoped keys for your own agents and tools', icon: 'key-round' },
 ]
+
+const NATIVE_SECTION_ALIASES = {
+  integrations: 'connections',
+  modules: 'appearance',
+  widgets: 'appearance',
+  preferences: 'appearance',
+  'agent-keys': 'developer',
+}
+
+function normalizeNativeSection(section) {
+  const normalized = NATIVE_SECTION_ALIASES[section] || section || ''
+  return NATIVE_SETTINGS_SECTIONS.some((item) => item.key === normalized) ? normalized : ''
+}
 
 function normalizeTab(tab) {
   return SETTINGS_TABS.has(tab) ? tab : 'account'
@@ -79,8 +90,9 @@ function NativeSettingsIndex({ onSelect }) {
   return (
     <div className="native-settings-page">
       <section className="native-settings-hero">
-        <h1>Settings</h1>
-        <p>Manage account, connections, notifications, sync, updates, imports, and local app behavior.</p>
+        <span className="native-eyebrow">Your account and service</span>
+        <h1>You</h1>
+        <p>Manage ownership, connections, privacy, sync, and how Record works on this device.</p>
       </section>
 
       <section className="native-settings-list" aria-label="Settings sections">
@@ -103,6 +115,20 @@ function NativeSettingsIndex({ onSelect }) {
         ))}
       </section>
     </div>
+  )
+}
+
+function NativePrivacySection() {
+  return (
+    <section className="native-settings-card">
+      <h2>Your records remain yours</h2>
+      <p>Managed hosting operates the service for you. Self-hosting runs the same product against infrastructure you control.</p>
+      <div className="native-info-list">
+        <span><strong>Permissions are optional.</strong> Connections can be removed without deleting unrelated records.</span>
+        <span><strong>Captured sources stay visible.</strong> Imported, detected, and manually entered records keep their provenance.</span>
+        <span><strong>Export before deletion.</strong> Use Data to export records; account deletion is available from Account.</span>
+      </div>
+    </section>
   )
 }
 
@@ -365,7 +391,7 @@ function NativeNotificationsSection() {
     const delivered = await deliverCustomNotification({
       id: `settings-test-${Date.now()}`,
       nativeId: 520099,
-      title: 'Personal Server',
+      title: 'Personal Record',
       body: 'Notifications are working on this phone.',
       actionUrl: '/settings?section=notifications',
     }).catch(() => false)
@@ -509,7 +535,7 @@ function NativeWidgetsSection() {
         <article className="native-integration-card">
           <div>
             <h2>Lock-screen widgets</h2>
-            <p>Personal Server includes a compact, privacy-safe keyguard widget. Samsung One UI on the S24 Ultra may still only expose Samsung-approved lock-screen widgets until Samsung enables broader third-party support.</p>
+            <p>Personal Record includes a compact, privacy-safe keyguard widget. Samsung One UI on the S24 Ultra may still only expose Samsung-approved lock-screen widgets until Samsung enables broader third-party support.</p>
           </div>
           <div className="native-status-strip">
             <span>Eligibility</span>
@@ -518,7 +544,7 @@ function NativeWidgetsSection() {
           <div className="native-info-list">
             <span>{status.lockScreenAvailability}</span>
             <span>The lock-screen widget does not show spending, streams, raw messages, or other sensitive data.</span>
-            <span>Use Samsung Lock screen settings first; if Personal Server is not listed, this is an OS/OEM restriction rather than an app bug.</span>
+            <span>Use Samsung Lock screen settings first; if Personal Record is not listed, this is an OS/OEM restriction rather than an app bug.</span>
           </div>
         </article>
       </div>
@@ -705,7 +731,7 @@ function NativeIntegrationsSection() {
             <NativePreferenceToggle
               enabled={stepPreferences.liveEnabled}
               label="Live in-app steps"
-              description="Stream step changes while Personal Server is open."
+              description="Stream step changes while Personal Record is open."
               onChange={(liveEnabled) => updateStepSync({ liveEnabled })}
             />
             <NativePreferenceToggle
@@ -831,7 +857,7 @@ function NativeUpdatesSection() {
       message: error.message,
     }))
     if (result?.needsPermission) {
-      setStatus('Allow Personal Server to install unknown apps, then try again.')
+      setStatus('Allow Personal Record to install unknown apps, then try again.')
       return
     }
     setStatus(result?.started === false ? (result?.message || 'Installer could not start.') : 'Android installer opened.')
@@ -908,19 +934,14 @@ function NativeSettings({ activeSection, setActiveSection, spotifyError, current
   return (
     <NativeSettingsShell title={meta.label} description={meta.description} icon={meta.icon} onBack={back}>
       {activeSection === 'account' && <Account />}
-      {activeSection === 'connections' && <Connections initialError={spotifyError} />}
-      {activeSection === 'integrations' && <NativeIntegrationsSection />}
-      {activeSection === 'modules' && <ModuleSettingsSection />}
+      {activeSection === 'connections' && <><Connections initialError={spotifyError} /><NativeIntegrationsSection /></>}
       {activeSection === 'notifications' && <NativeNotificationsSection />}
-      {activeSection === 'widgets' && <NativeWidgetsSection />}
       {activeSection === 'sync' && <NativeSyncSection />}
+      {activeSection === 'privacy' && <NativePrivacySection />}
       {activeSection === 'updates' && <NativeUpdatesSection />}
-      {activeSection === 'appearance' && <Appearance />}
+      {activeSection === 'appearance' && <><Appearance /><ModuleSettingsSection /><NativeWidgetsSection /><NativePreferencesSection currentLanguage={currentLanguage} changeLanguage={changeLanguage} t={t} /></>}
       {activeSection === 'data' && <DataManagement />}
-      {activeSection === 'agent-keys' && <AgentApiKeys />}
-      {activeSection === 'preferences' && (
-        <NativePreferencesSection currentLanguage={currentLanguage} changeLanguage={changeLanguage} t={t} />
-      )}
+      {activeSection === 'developer' && <AgentApiKeys />}
     </NativeSettingsShell>
   )
 }
@@ -936,7 +957,7 @@ export default function Settings() {
     spotifyError ? 'connections' : normalizeTab(requestedTab)
   )
   const [activeNativeSection, setActiveNativeSection] = useState(
-    spotifyError ? 'connections' : (requestedSection || '')
+    spotifyError ? 'connections' : normalizeNativeSection(requestedSection)
   )
 
   useEffect(() => {
@@ -946,7 +967,7 @@ export default function Settings() {
       return
     }
     if (requestedTab) setActiveTab(normalizeTab(requestedTab))
-    setActiveNativeSection(requestedSection || '')
+    setActiveNativeSection(normalizeNativeSection(requestedSection))
   }, [requestedTab, requestedSection, spotifyError])
 
   const changeLanguage = (lng) => {
@@ -956,8 +977,9 @@ export default function Settings() {
   const currentLanguage = i18n.language
 
   function setNativeSection(section) {
-    setActiveNativeSection(section)
-    if (section) setSearchParams({ section })
+    const normalized = normalizeNativeSection(section)
+    setActiveNativeSection(normalized)
+    if (normalized) setSearchParams({ section: normalized })
     else setSearchParams({})
   }
 
@@ -976,7 +998,7 @@ export default function Settings() {
 
   return (
     <>
-      <PageHeader icon="settings" title="Settings" />
+      <PageHeader icon="user" title="You" />
 
       <div className="tab-group" style={{ marginBottom: '1.5rem' }}>
         <button

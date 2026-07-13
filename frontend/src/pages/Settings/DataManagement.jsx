@@ -8,7 +8,7 @@ import Icon from '../../components/icons/Icon'
 const DATA_MODULES = [
   {
     key: 'workout',
-    label: 'Workout',
+    label: 'Gym',
     icon: 'dumbbell',
     color: '#4ade80',
     description: 'Sessions, sets, exercises, categories, bodyweight entries, and routines',
@@ -16,7 +16,7 @@ const DATA_MODULES = [
   },
   {
     key: 'finance',
-    label: 'Finance',
+    label: 'Cash',
     icon: 'wallet',
     color: '#fbbf24',
     description: 'Transactions, wallets, categories, and subscriptions',
@@ -64,35 +64,35 @@ const FEATURE_CONTROL_LINKS = [
     color: '#a78bfa',
   },
   {
-    label: 'Import finance',
+    label: 'Import cash',
     description: 'Cashew backup import',
     to: '/finance/import',
     icon: 'landmark',
     color: '#fbbf24',
   },
   {
-    label: 'Finance settings',
+    label: 'Cash settings',
     description: 'Wallets, categories, budgets, and subscriptions',
     to: '/finance/settings',
     icon: 'sliders-horizontal',
     color: '#fbbf24',
   },
   {
-    label: 'Import media',
+    label: 'Import series',
     description: 'MAL, TVTime, Goodreads, and library sources',
     to: '/media/import',
     icon: 'library',
     color: '#f472b6',
   },
   {
-    label: 'Media settings',
+    label: 'Series settings',
     description: 'Matching, source cleanup, and library metadata',
     to: '/media/settings',
     icon: 'settings',
     color: '#f472b6',
   },
   {
-    label: 'Import workouts',
+    label: 'Import gym records',
     description: 'Training data import',
     to: '/workout/import',
     icon: 'upload',

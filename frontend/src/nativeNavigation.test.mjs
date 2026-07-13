@@ -92,7 +92,8 @@ describe('native adaptive app navigation', () => {
     assert.equal(getNativeBackDestination('/chat'), '/home');
     assert.equal(getNativeBackDestination('/settings?section=notifications'), '/settings');
     assert.equal(getNativeBackDestination('/settings'), '/home');
-    assert.equal(getNativeBackDestination('/finance/transactions'), '/finance');
+    assert.equal(getNativeBackDestination('/finance/transactions'), '/home');
+    assert.equal(getNativeBackDestination('/finance/budgets'), '/finance/transactions');
     assert.equal(getNativeBackDestination('/workout/history'), '/workout');
     assert.equal(getNativeBackDestination('/habits', '?view=history'), '/habits');
   });

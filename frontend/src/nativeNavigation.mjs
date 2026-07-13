@@ -68,7 +68,7 @@ export const NATIVE_APPS = [
     label: 'Cash',
     subtitle: 'Ledger and budgets',
     icon: 'wallet',
-    root: '/finance',
+    root: '/finance/transactions',
     tone: 'money',
     matches: ['/finance'],
     tabs: [],
@@ -157,8 +157,11 @@ export function getNativeBackDestination(path, search = '') {
     return '/home'
   }
 
-  if (pathname.startsWith('/finance/') && pathname !== '/finance') {
-    return '/finance'
+  if (pathname === '/finance/transactions' || pathname === '/finance') {
+    return '/home'
+  }
+  if (pathname.startsWith('/finance/')) {
+    return '/finance/transactions'
   }
   if (pathname.startsWith('/workout/') && pathname !== '/workout') {
     return '/workout'

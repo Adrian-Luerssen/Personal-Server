@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import { Pie } from 'react-chartjs-2'
@@ -249,37 +249,7 @@ export default function Finance() {
   }
 
   if (isNativeMobileApp()) {
-    return (
-      <>
-        <NativeFinanceDashboard
-          loading={loading}
-          wallets={wallets}
-          categories={categories}
-          budgets={budgets}
-          recentTransactions={recentTransactions}
-          categorySpending={categorySpending}
-          totalBalance={totalBalance}
-          totalIncome={totalIncome}
-          totalExpenses={totalExpenses}
-          netFlow={netFlow}
-          period={period}
-          setPeriod={setPeriod}
-          navigate={navigate}
-          onAddTransaction={openTransactionForm}
-          onEditTransaction={openEditTransaction}
-        />
-        {showTxForm && (
-          <TransactionForm
-            transaction={txFormData}
-            wallets={wallets}
-            categories={categories}
-            initialMode={txFormMode}
-            onClose={closeTransactionForm}
-            onSaved={loadDashboard}
-          />
-        )}
-      </>
-    )
+    return <Navigate to="/finance/transactions" replace />
   }
 
   return (

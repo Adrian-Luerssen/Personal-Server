@@ -14,6 +14,7 @@ import TransactionForm from '../../components/finance/TransactionForm'
 import { normalizeFinanceColor } from '../../components/finance/financeVisuals.mjs'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { syncNativePaymentSuggestions } from '../../nativePayments.mjs'
+import { groupTransactionsByDate } from './financeViewModel.mjs'
 
 const FINANCE_COLOR = '#fbbf24'
 
@@ -521,7 +522,15 @@ function NativeFinanceTransactionsView({
     filters.walletId,
     filters.categoryId,
   ].filter(Boolean).length
-  const groupedTransactions = groupTransactionsByDate(transactions)
+  const groupedTransactions = groupTransactionsByDate(transactions).map((group) => ({
+    ...group,
+    key: group.date,
+    label: group.date === 'undated' ? 'No date' : formatDate(group.date),
+    total: group.items.reduce((sum, tx) => {
+      const amount = Math.abs(Number(tx.amount || 0))
+      return sum + (getTransactionType(tx) === 'income' ? amount : -amount)
+    }, 0),
+  }))
   const [filtersExpanded, setFiltersExpanded] = useState(false)
   const selectedWallet = wallets.find(wallet => wallet.id === filters.walletId)
   const selectedCategory = categories.find(category => category.id === filters.categoryId)
@@ -542,19 +551,13 @@ function NativeFinanceTransactionsView({
     <div className="native-finance-page native-dashboard" data-testid="native-finance-transactions">
       <section className="native-finance-hero native-finance-hero--compact">
         <div>
-          <span className="native-eyebrow">Finance</span>
-          <h1>Transactions</h1>
-          <p>{monthLabel}</p>
+          <span className="native-eyebrow">Month ledger</span>
+          <h1>Cash</h1>
+          <p>{totalCount} source records</p>
         </div>
         <button type="button" className="native-finance-fab-inline" aria-label="Add expense" onClick={() => onAddTx('expense')}>
           <Icon name="plus" size={20} />
         </button>
-      </section>
-
-      <section className="native-finance-metrics">
-        <NativeTransactionMetric label="Income" value={`+${formatCurrency(monthIncome)}`} tone="income" />
-        <NativeTransactionMetric label="Expense" value={`-${formatCurrency(Math.abs(monthExpense))}`} tone="expense" />
-        <NativeTransactionMetric label="Net" value={`${monthNet >= 0 ? '+' : ''}${formatCurrency(monthNet)}`} tone={monthNet >= 0 ? 'income' : 'expense'} />
       </section>
 
       <div className="native-month-row" aria-label="Month navigation">
@@ -567,7 +570,13 @@ function NativeFinanceTransactionsView({
         </button>
       </div>
 
-      <section className="native-finance-card">
+      <section className="native-finance-metrics">
+        <NativeTransactionMetric label="Income" value={`+${formatCurrency(monthIncome)}`} tone="income" />
+        <NativeTransactionMetric label="Expense" value={`-${formatCurrency(Math.abs(monthExpense))}`} tone="expense" />
+        <NativeTransactionMetric label="Net" value={`${monthNet >= 0 ? '+' : ''}${formatCurrency(monthNet)}`} tone={monthNet >= 0 ? 'income' : 'expense'} />
+      </section>
+
+      {suggestions.length > 0 && <section className="native-finance-card native-finance-card--payment-review">
         <div className="native-section-head">
           <div>
             <h2>Detected payments</h2>
@@ -580,7 +589,7 @@ function NativeFinanceTransactionsView({
           onAccept={onAcceptSuggestion}
           onReject={onRejectSuggestion}
         />
-      </section>
+      </section>}
 
       <section className="native-finance-card">
         <div className="native-filter-search">
@@ -756,25 +765,6 @@ function NativeFinanceTransactionsView({
       </section>
     </div>
   )
-}
-
-function groupTransactionsByDate(transactions) {
-  const groups = new Map()
-  for (const tx of transactions || []) {
-    const rawDate = tx.transactionDate || tx.date
-    const key = rawDate ? new Date(rawDate).toISOString().slice(0, 10) : 'unknown'
-    const existing = groups.get(key) || {
-      key,
-      label: rawDate ? formatDate(rawDate) : 'No date',
-      total: 0,
-      items: [],
-    }
-    const amount = Number(tx.amount || 0)
-    existing.total += getTransactionType(tx) === 'income' ? Math.abs(amount) : -Math.abs(amount)
-    existing.items.push(tx)
-    groups.set(key, existing)
-  }
-  return [...groups.values()]
 }
 
 function NativePaymentSuggestionsPanel({ suggestions, onAccept, onReject }) {

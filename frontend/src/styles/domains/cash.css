@@ -1,0 +1,90 @@
+body.native-mobile-app .native-finance-page {
+  gap: 0;
+}
+
+body.native-mobile-app .native-finance-hero {
+  padding: 0 0 1.25rem;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.native-mobile-app .native-finance-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(3.2rem, 15vw, 5.25rem);
+  font-weight: 500;
+  line-height: 0.9;
+}
+
+body.native-mobile-app .native-finance-fab-inline {
+  border-radius: 50%;
+  color: #fffaf3;
+  background: var(--tone-ochre);
+}
+
+body.native-mobile-app .native-month-row {
+  margin: 0;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+}
+
+body.native-mobile-app .native-finance-metrics {
+  margin: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  border-radius: 0;
+  background: transparent;
+  gap: 0;
+}
+
+body.native-mobile-app .native-finance-metric {
+  border: 0;
+  border-right: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+}
+
+body.native-mobile-app .native-finance-metric:last-child { border-right: 0; }
+
+body.native-mobile-app .native-finance-card {
+  margin: 0;
+  padding: 1rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.native-mobile-app .native-finance-card--payment-review {
+  border-left: 3px solid var(--brand-accent);
+  padding-left: 0.75rem;
+}
+
+body.native-mobile-app .native-transaction-list {
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+}
+
+body.native-mobile-app .native-transaction-day-group { border-bottom: 1px solid var(--rule-strong); }
+body.native-mobile-app .native-transaction-day-group:last-child { border-bottom: 0; }
+
+body.native-mobile-app .native-transaction-card {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.native-mobile-app .native-transaction-day-group .native-transaction-card:last-child { border-bottom: 0; }
+
+body.native-mobile-app .native-filter-search,
+body.native-mobile-app .native-transaction-type-row button,
+body.native-mobile-app .native-filter-toggle-button {
+  border-radius: var(--radius-sm);
+}

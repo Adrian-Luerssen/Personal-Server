@@ -615,7 +615,6 @@ test.describe('Native Android app shell', () => {
     ])
     await expect(sectionNavigation.getByRole('link')).toHaveText([
       /Ledger/,
-      /Transactions/,
       /Budgets/,
       /Analysis/,
     ])
@@ -623,7 +622,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/finance/transactions', { waitUntil: 'domcontentloaded' })
     await expect(globalNavigation.locator('.native-tabbar__item')).toHaveCount(5)
-    await expect(sectionNavigation.getByRole('link', { name: 'Transactions' })).toHaveAttribute('aria-current', 'page')
+    await expect(sectionNavigation.getByRole('link', { name: 'Ledger' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto('/workout', { waitUntil: 'domcontentloaded' })
 
@@ -711,7 +710,7 @@ test.describe('Native Android app shell', () => {
     expect(mediaMetrics.bottomTabs).toEqual(['Today', 'Apps', 'Library'])
   })
 
-  test('uses a transaction-card native finance dashboard instead of desktop tables', async ({ page }) => {
+  test('redirects the native cash root to the month ledger', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
       ;(window as any).Capacitor = { isNativePlatform: () => true }
@@ -721,15 +720,15 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/finance')
 
-    await expect(page.getByTestId('native-finance-dashboard')).toBeVisible()
-    await expect(page.getByRole('heading', { name: /^Money$/i })).toBeVisible()
+    await expect(page).toHaveURL(/\/finance\/transactions/)
+    await expect(page.getByTestId('native-finance-transactions')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Cash$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /add expense/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /add income/i })).toBeVisible()
     await expect(page.getByText('Dinner')).toBeVisible()
     await expect(page.locator('table')).toHaveCount(0)
   })
 
-  test('opens summary transactions directly in the native editor', async ({ page }) => {
+  test('opens ledger transactions directly in the native editor', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
       ;(window as any).Capacitor = { isNativePlatform: () => true }
@@ -746,7 +745,7 @@ test.describe('Native Android app shell', () => {
     await expect(sheet.locator('input[type="text"]').first()).toHaveValue('Dinner')
   })
 
-  test('surfaces active budgets on the native finance summary', async ({ page }) => {
+  test('keeps active budgets in their dedicated cash register', async ({ page }) => {
     await mockNativeApi(page, {
       budgetStatus: [
         {
@@ -769,15 +768,15 @@ test.describe('Native Android app shell', () => {
       localStorage.setItem('refreshToken', 'native-refresh')
     })
 
-    await page.goto('/finance')
+    await page.goto('/finance/budgets')
 
-    await expect(page.getByRole('heading', { name: /spending limit/i })).toBeVisible()
+    await expect(page.getByTestId('native-finance-budgets')).toBeVisible()
     const budgetCard = page.locator('.native-budget-ledger-card', { hasText: 'Food' })
     await expect(budgetCard).toBeVisible()
     await expect(budgetCard.getByText(/44%/)).toBeVisible()
   })
 
-  test('uses a four-tab native money app with real summary charts', async ({ page }) => {
+  test('uses a concise three-part cash section navigation', async ({ page }) => {
     await mockNativeApi(page, {
       budgetStatus: [
         {
@@ -802,19 +801,10 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/finance')
 
-    await expect(page.getByTestId('native-finance-dashboard')).toBeVisible()
-    await expect(page.getByTestId('native-finance-cashflow-chart')).toBeVisible()
-    await expect(page.getByTestId('native-finance-category-mix')).toBeVisible()
-    await expect(page.getByRole('heading', { name: /wallets/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /spending limit/i })).toBeVisible()
-
-    const tabs = page.locator('.native-tabbar__item')
-    await expect(tabs).toHaveText(['Summary', 'Transactions', 'Budgets', 'Trends'])
-
-    const activeTabs = await page.evaluate(() =>
-      [...document.querySelectorAll('.native-tabbar__item.is-active')].map((item) => item.textContent?.trim()),
-    )
-    expect(activeTabs).toEqual(['Summary'])
+    await expect(page.getByTestId('native-finance-transactions')).toBeVisible()
+    const links = page.getByRole('navigation', { name: 'Section navigation' }).getByRole('link')
+    await expect(links).toHaveText(['Ledger', 'Budgets', 'Analysis'])
+    await expect(links.filter({ hasText: 'Ledger' })).toHaveAttribute('aria-current', 'page')
   })
 
   test('shows native finance budgets as a first-class tab', async ({ page }) => {
@@ -861,10 +851,9 @@ test.describe('Native Android app shell', () => {
     await expect(page.locator('.native-budget-ledger-card').first().getByText(/daily allowance/i)).toBeVisible()
     await expect(page.getByText('Events')).toBeVisible()
 
-    const activeTabs = await page.evaluate(() =>
-      [...document.querySelectorAll('.native-tabbar__item.is-active')].map((item) => item.textContent?.trim()),
-    )
-    expect(activeTabs).toEqual(['Budgets'])
+    await expect(
+      page.getByRole('navigation', { name: 'Section navigation' }).getByRole('link', { name: 'Budgets' }),
+    ).toHaveAttribute('aria-current', 'page')
   })
 
   test('shows native finance trends from real transactions', async ({ page }) => {
@@ -883,10 +872,9 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('heading', { name: /largest expense/i })).toBeVisible()
     await expect(page.locator('.native-largest-expense').getByText('Concert')).toBeVisible()
 
-    const activeTabs = await page.evaluate(() =>
-      [...document.querySelectorAll('.native-tabbar__item.is-active')].map((item) => item.textContent?.trim()),
-    )
-    expect(activeTabs).toEqual(['Trends'])
+    await expect(
+      page.getByRole('navigation', { name: 'Section navigation' }).getByRole('link', { name: 'Analysis' }),
+    ).toHaveAttribute('aria-current', 'page')
   })
 
   test('uses a native transaction feed with quick filters', async ({ page }) => {

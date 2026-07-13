@@ -21,8 +21,7 @@ const DOMAIN_NAVIGATION = Object.freeze({
     { label: 'Insights', to: '/habits?view=insights', activeIncludes: 'view=insights' },
   ]),
   cash: Object.freeze([
-    { label: 'Ledger', to: '/finance', exact: true },
-    { label: 'Transactions', to: '/finance/transactions' },
+    { label: 'Ledger', to: '/finance/transactions', exact: true },
     { label: 'Budgets', to: '/finance/budgets' },
     { label: 'Analysis', to: '/finance/trends' },
   ]),

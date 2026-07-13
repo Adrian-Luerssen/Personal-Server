@@ -22,3 +22,10 @@ test('gym local navigation does not replace global navigation', () => {
     'Progress',
   ])
 })
+
+test('cash uses one ledger destination without duplicate active links', () => {
+  assert.deepEqual(
+    getDomainNavigation('/finance/transactions').map(({ label }) => label),
+    ['Ledger', 'Budgets', 'Analysis'],
+  )
+})

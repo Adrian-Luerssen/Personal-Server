@@ -226,6 +226,10 @@ export default function Layout() {
   const captureActions = getCaptureActions({ enabled: enabledCaptureModules })
   const disabledRouteModule = getModuleIdForPath(location.pathname)
   const routeDisabled = disabledRouteModule && !isFeatureEnabled(prefs, disabledRouteModule)
+  const routeMeta = NATIVE_ROUTE_TITLES.find((item) => item.match.test(location.pathname)) || {
+    title: 'Personal Record',
+    subtitle: 'Everything you are, in context.',
+  }
 
   function enableCurrentModule() {
     if (!disabledRouteModule) return
@@ -390,6 +394,23 @@ export default function Layout() {
       {nativeApp && <NativeAppHeader />}
       {!nativeApp && <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />}
       <main className="content">
+        {!nativeApp && (
+          <header className="app-command-bar">
+            <div className="app-command-bar__route">
+              <span>{routeMeta.subtitle}</span>
+              <strong>{routeMeta.title}</strong>
+            </div>
+            <button type="button" className="app-command-bar__search" onClick={() => navigate('/chat')}>
+              <Icon name="search" size={16} />
+              <span>Search records and actions</span>
+              <kbd>⌘ K</kbd>
+            </button>
+            <div className="app-command-bar__status" title="Personal Record is ready">
+              <span aria-hidden="true" />
+              Ready
+            </div>
+          </header>
+        )}
         <div className="content-shell">
           {nativeApp && <DomainNav />}
           <div className="content-shell__frame">

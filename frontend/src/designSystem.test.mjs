@@ -11,6 +11,11 @@ const shellCss = read('src/styles/shell.css')
 const globalCss = read('src/styles.css')
 const mainSource = read('src/main.jsx')
 const brandMarkSource = read('src/components/product/BrandMark.jsx')
+const layoutSource = read('src/components/Layout.jsx')
+const sidebarSource = read('src/components/Sidebar.jsx')
+const dailyBriefSource = read('src/pages/Home/components/DailyBrief.jsx')
+const landingSource = read('src/pages/Landing.jsx')
+const landingCss = read('src/pages/Landing.css')
 const designSystemDoc = read('../DESIGN.md')
 
 test('visual foundation uses the approved graphite instrument palette', () => {
@@ -74,4 +79,31 @@ test('design documentation names the premium identity and compositional rules', 
   assert.match(designSystemDoc, /asymmetric/i)
   assert.match(designSystemDoc, /320px/)
   assert.match(designSystemDoc, /prefers-reduced-motion/)
+})
+
+test('desktop shell presents product identity and a compact command bar', () => {
+  assert.match(sidebarSource, /<BrandMark/)
+  assert.match(sidebarSource, /PRODUCT\.displayName/)
+  assert.match(layoutSource, /app-command-bar/)
+  assert.match(layoutSource, /Search records and actions/)
+  assert.match(shellCss, /\.app-command-bar\s*{/)
+  assert.match(shellCss, /\.sidebar\s*{[^}]*width:\s*var\(--sidebar-width\)/s)
+})
+
+test('Today is composed as an asymmetric command center with real domain instruments', () => {
+  assert.match(dailyBriefSource, /today-command/)
+  assert.match(dailyBriefSource, /daily-signal/)
+  assert.match(dailyBriefSource, /MetricValue/)
+  assert.match(dailyBriefSource, /SignalRing/)
+  assert.match(read('src/styles/domains/today.css'), /grid-template-areas:/)
+})
+
+test('landing is a faithful product showcase instead of an editorial ledger', () => {
+  assert.match(landingSource, /Everything you are,<br \/>in context\./)
+  assert.match(landingSource, /landing-product-stage/)
+  assert.match(landingSource, /Managed cloud/)
+  assert.match(landingSource, /Self-hosted/)
+  assert.doesNotMatch(landingSource, /private ledger for the week|Records, not noise/)
+  assert.match(landingCss, /--landing-signal:/)
+  assert.match(landingCss, /\.landing-product-stage\s*{/)
 })

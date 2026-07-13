@@ -5,6 +5,8 @@ import { api, clearApiCache } from '../api'
 import { usePreferences, useTheme } from '../contexts/PreferencesContext'
 import { isFeatureEnabled, isFeatureSyncEnabled } from '../modulePreferences.mjs'
 import Icon from './icons/Icon'
+import BrandMark from './product/BrandMark'
+import { PRODUCT } from '../product/brand.mjs'
 import { isNativeMobileApp } from '../mobilePlatform'
 import {
   getNativeAppForPath,
@@ -190,11 +192,11 @@ export default function Sidebar({ collapsed, onToggle }) {
   return (
     <aside className={'sidebar' + (collapsed ? ' collapsed' : '')}>
       <div className="sidebar-brand-shell">
-        <div className="sidebar-brand-mark">PS</div>
+        <div className="sidebar-brand-mark"><BrandMark size={32} /></div>
         {!collapsed && (
           <div className="sidebar-brand-copy">
-            <div className="brand">{t('common.appName')}</div>
-            <div className="sidebar-brand-note">Private review ledger</div>
+            <div className="brand">{PRODUCT.displayName}</div>
+            <div className="sidebar-brand-note">Everything, in context.</div>
           </div>
         )}
         <button className="sidebar-toggle-btn" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
@@ -292,9 +294,9 @@ export default function Sidebar({ collapsed, onToggle }) {
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFinanceClick() } }}
           aria-expanded={financeMenuOpen}
-          style={{ color: isFinanceActive ? '#fbbf24' : undefined }}
+          style={{ '--nav-signal': 'var(--domain-cash)', color: isFinanceActive ? 'var(--domain-cash)' : undefined }}
         >
-          <Icon name="wallet" size={20} style={{ color: isFinanceActive ? '#fbbf24' : undefined }} />
+          <Icon name="wallet" size={20} />
           {!collapsed && <span>{t('nav.finance')}</span>}
         </div>
         {financeMenuOpen && (
@@ -321,10 +323,10 @@ export default function Sidebar({ collapsed, onToggle }) {
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMediaClick() } }}
           aria-expanded={mediaMenuOpen}
-          style={{ color: isMediaActive ? '#f472b6' : undefined }}
+          style={{ '--nav-signal': 'var(--domain-series)', color: isMediaActive ? 'var(--domain-series)' : undefined }}
         >
-          <Icon name="clapperboard" size={20} style={{ color: isMediaActive ? '#f472b6' : undefined }} />
-          {!collapsed && <span>Media</span>}
+          <Icon name="clapperboard" size={20} />
+          {!collapsed && <span>Series</span>}
         </div>
         {mediaMenuOpen && (
           <div className="subnav" role="menu">
@@ -346,9 +348,9 @@ export default function Sidebar({ collapsed, onToggle }) {
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleHabitsClick() } }}
           aria-expanded={habitsMenuOpen}
-          style={{ color: isHabitsActive ? '#a78bfa' : undefined }}
+          style={{ '--nav-signal': 'var(--domain-habits)', color: isHabitsActive ? 'var(--domain-habits)' : undefined }}
         >
-          <Icon name="heart-pulse" size={20} style={{ color: isHabitsActive ? '#a78bfa' : undefined }} />
+          <Icon name="heart-pulse" size={20} />
           {!collapsed && <span>{t('nav.habits')}</span>}
           {incompleteHabits > 0 && <span className="nav-badge">{incompleteHabits}</span>}
         </div>

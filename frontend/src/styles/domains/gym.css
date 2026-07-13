@@ -1,0 +1,103 @@
+.gym-active-page {
+  width: min(100%, 64rem);
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2.25rem);
+}
+
+.gym-active-header {
+  display: flex;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule-strong);
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.gym-active-header span,
+.gym-exercise-block header span {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.gym-active-header h1 { margin: 0.25rem 0 0; font-size: clamp(2rem, 5vw, 3.8rem); }
+.gym-session-actions { display: flex; align-items: center; gap: 0.5rem; }
+.gym-session-actions button,
+.gym-add-exercise button,
+.gym-empty button { padding: 0.65rem 1rem; border: 1px solid var(--rule-strong); border-radius: var(--radius-sm); color: var(--color-text-primary); background: transparent; }
+.gym-session-actions button:last-child { color: #fffaf3; border-color: var(--tone-moss); background: var(--tone-moss); }
+.gym-rest-timer { display: flex; margin: 1rem 0; padding: 0.7rem 0; border-bottom: 1px solid var(--rule); align-items: center; justify-content: space-between; }
+.gym-rest-timer strong { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+
+.gym-exercise-list { display: grid; gap: 1rem; }
+.gym-exercise-block { overflow: hidden; border: 1px solid var(--rule-strong); border-radius: var(--radius-md); background: var(--color-bg-surface); }
+.gym-exercise-block header { display: flex; padding: 1rem; border-bottom: 1px solid var(--rule); align-items: center; justify-content: space-between; }
+.gym-exercise-block h2 { margin: 0; font-family: var(--font-body); font-size: 1rem; font-weight: 700; letter-spacing: 0; }
+.gym-exercise-block header strong { color: var(--color-text-muted); font-size: 0.72rem; }
+.gym-set-head,
+.gym-set-row { display: grid; grid-template-columns: minmax(5.5rem, 1.2fr) minmax(4.5rem, 1fr) minmax(4rem, 0.8fr) 3.5rem; align-items: center; gap: 0.5rem; }
+.gym-set-head { min-height: 2rem; padding: 0 0.75rem; border-bottom: 1px solid var(--rule); color: var(--color-text-muted); font-size: 0.65rem; }
+.gym-set-row { min-height: 3.25rem; padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--rule); }
+.gym-set-row:last-child { border-bottom: 0; }
+.gym-set-row--complete { color: var(--color-text-secondary); }
+.gym-set-row--complete span:last-child { color: var(--tone-moss); text-align: center; }
+.gym-set-row input { width: 100%; min-width: 0; min-height: 2.6rem; padding: 0.35rem 0.45rem; border: 1px solid var(--rule-strong); border-radius: var(--radius-sm); color: var(--color-text-primary); background: transparent; font-variant-numeric: tabular-nums; }
+.gym-set-row button { display: grid; width: 2.75rem; min-height: 2.75rem; padding: 0; border: 1px solid var(--tone-moss); border-radius: 50%; color: #fff; background: var(--tone-moss); place-items: center; }
+.gym-set-row button:disabled { opacity: 0.35; }
+
+.gym-add-exercise { display: grid; margin-top: 1rem; padding: 1rem; border: 1px dashed var(--rule-strong); grid-template-columns: 1fr auto; gap: 0.75rem; }
+.gym-add-exercise select { width: 100%; padding: 0.5rem; border: 1px solid var(--rule); color: var(--color-text-primary); background: var(--color-bg-surface); }
+.gym-undo { position: fixed; z-index: 180; right: 1rem; bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem); display: flex; padding: 0.65rem 0.8rem; border: 1px solid var(--rule-strong); background: var(--color-bg-surface); box-shadow: var(--shadow-depth-elevated); align-items: center; gap: 0.75rem; }
+.gym-undo button { min-height: 2rem; border: 0; color: var(--tone-moss); background: transparent; font-weight: 700; }
+.gym-empty { display: grid; min-height: 20rem; border: 1px solid var(--rule); place-items: center; text-align: center; }
+.gym-empty h1 { margin-bottom: 0.4rem; }
+.gym-empty p { max-width: 28rem; color: var(--color-text-secondary); }
+
+.native-workout-page {
+  width: min(100%, 64rem);
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2.25rem);
+}
+
+.native-workout-hero,
+.native-workout-card,
+.native-workout-list,
+.native-workout-stats {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.native-workout-hero {
+  padding: 0 0 1.5rem !important;
+  border-bottom: 1px solid var(--rule-strong) !important;
+}
+
+.native-workout-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 8vw, 5rem);
+  font-weight: 500;
+}
+
+.native-workout-card,
+.native-workout-list {
+  border: 1px solid var(--rule) !important;
+}
+
+.native-workout-card + .native-workout-card,
+.native-workout-list + .native-workout-card {
+  margin-top: -1px !important;
+}
+
+@media (max-width: 700px) {
+  .native-workout-page { padding: 0.75rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 5.4rem); }
+  .gym-active-page { padding: 0.75rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 5.4rem); }
+  .gym-active-header { align-items: start; }
+  .gym-active-header h1 { font-size: 2rem; }
+  .gym-session-actions { align-items: end; flex-direction: column-reverse; }
+  .gym-session-actions button { min-height: 2.55rem; padding: 0.35rem 0.7rem; }
+  .gym-set-head,
+  .gym-set-row { grid-template-columns: minmax(4.5rem, 1.1fr) minmax(4rem, 0.9fr) minmax(3.5rem, 0.8fr) 2.8rem; gap: 0.3rem; }
+  .gym-set-head,
+  .gym-set-row { padding-right: 0.45rem; padding-left: 0.45rem; }
+  .gym-add-exercise { grid-template-columns: 1fr; }
+}

@@ -6,6 +6,7 @@ import './styles/base.css'
 import './styles/shell.css'
 import './styles/primitives.css'
 import './styles/domains/today.css'
+import './styles/domains/gym.css'
 import './styles.css'
 import './i18n' // Initialize i18n
 

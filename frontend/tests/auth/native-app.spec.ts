@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[] } = {}) {
+async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean } = {}) {
   const habits = [
     {
       id: 'sleep',
@@ -351,7 +351,34 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
     }
 
     if (path === '/workout/sessions/active') {
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(null) })
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(options.activeWorkout ? {
+          id: 'session-active',
+          title: 'Upper body',
+          startAt: new Date(Date.now() - 12 * 60_000).toISOString(),
+          sets: [{ id: 'set-existing', exerciseId: 'bench', weight: 80, reps: 8, order: 0 }],
+        } : null),
+      })
+    }
+
+    if (path === '/workout/exercises') {
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { id: 'bench', name: 'Bench press', muscleGroup: 'Chest' },
+          { id: 'row', name: 'Cable row', muscleGroup: 'Back' },
+        ]),
+      })
+    }
+
+    if (path === '/workout/sets/session/session-active/add' && method === 'POST') {
+      const body = route.request().postDataJSON()
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'set-new', order: 1, ...body }) })
+    }
+
+    if (path === '/workout/sets/set-new' && method === 'DELETE') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true }) })
     }
 
     if (path === '/workout/sessions/recent') {
@@ -536,6 +563,34 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('dialog', { name: /switch app/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /gym training record/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /cash ledger and budgets/i })).toBeVisible()
+  })
+
+  test('logs and undoes a Gym set without leaving the active session', async ({ page }) => {
+    await mockNativeApi(page, { activeWorkout: true })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/workout/active')
+    await expect(page.getByRole('heading', { name: 'Upper body' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Bench press' })).toBeVisible()
+
+    const weight = page.getByRole('spinbutton', { name: 'Weight kilograms' })
+    const reps = page.getByRole('spinbutton', { name: 'Repetitions' })
+    await expect(weight).toHaveValue('80')
+    await expect(reps).toHaveValue('8')
+    await weight.fill('82.5')
+    await reps.fill('9')
+    await page.getByRole('button', { name: 'Complete set' }).click()
+
+    await expect(page.getByRole('status').filter({ hasText: 'Set saved' })).toBeVisible()
+    await expect(page.locator('.gym-set-row--complete')).toHaveCount(2)
+    await page.getByRole('button', { name: 'Undo' }).click()
+    await expect(page.locator('.gym-set-row--complete')).toHaveCount(1)
+    await expect(weight).toHaveValue('82.5')
+    await expect(reps).toHaveValue('9')
   })
 
   test('keeps global navigation stable while section navigation adapts', async ({ page }) => {

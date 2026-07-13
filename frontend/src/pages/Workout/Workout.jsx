@@ -82,8 +82,8 @@ function NativeWorkoutView({
   return (
     <main className="native-workout-page">
       <section className="native-workout-hero" aria-labelledby="native-workout-title">
-        <span className="native-eyebrow">Training</span>
-        <h1 id="native-workout-title">Workout</h1>
+        <span className="native-eyebrow">Today</span>
+        <h1 id="native-workout-title">Gym</h1>
         <p>{activeSession ? 'A session is already running.' : 'Start fast, then log sets from the active session.'}</p>
         <button
           type="button"

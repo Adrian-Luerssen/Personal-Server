@@ -9,6 +9,12 @@ import {
   groupSeriesByStatus,
   normalizeSeriesCollection,
 } from './seriesViewModel.mjs'
+import {
+  getCatalogProgressLabel,
+  getNextEpisodeAction,
+  summarizeSeriesMetadata,
+} from './seriesCatalogModel.mjs'
+import SeriesDetail from './SeriesDetail'
 import './Media.css'
 
 const MEDIA_COLOR = '#f472b6'
@@ -30,14 +36,18 @@ const STATUS_META = {
   dropped:   { label: 'Dropped',    color: '#f87171' },
 }
 
-function SeriesRow({ item, onEdit, onIncrement, busy }) {
+function SeriesRow({ item, catalog, onOpen, onIncrement, onWatchEpisode, busy }) {
   const typeMeta = TYPE_META[item.type] || {}
   const statusMeta = STATUS_META[item.status] || {}
   const progress = getSeriesProgress(item)
   const nextProgress = getNextProgressUpdate(item)
-  const progressLabel = progress
-    ? `${progress.value} / ${progress.total ?? 'unknown'} ${progress.unit}${progress.value === 1 ? '' : 's'}`
-    : null
+  const metadata = summarizeSeriesMetadata(item)
+  const nextAction = getNextEpisodeAction(catalog)
+  const progressLabel = item.type === 'anime' || item.type === 'tv'
+    ? getCatalogProgressLabel(catalog, item)
+    : progress
+      ? `${progress.value} / ${progress.total ?? 'unknown'} ${progress.unit}${progress.value === 1 ? '' : 's'}`
+      : null
 
   return (
     <article className="series-row" data-status={item.status || 'planning'}>
@@ -50,22 +60,36 @@ function SeriesRow({ item, onEdit, onIncrement, busy }) {
           </div>
         )}
       </div>
-      <button type="button" className="series-row__open" onClick={() => onEdit(item)} aria-label={`Edit ${item.title}`}>
-        <span className="series-row__title">{item.title}</span>
+      <div className="series-row__open">
+        <button type="button" className="series-row__title series-row__title-button" onClick={() => onOpen(item)} aria-label={`Open ${item.title} details`}>
+          {item.title}
+        </button>
         <span className="series-row__meta">
           <span>{typeMeta.label || item.type}</span>
+          {metadata.year && <span>{metadata.year}</span>}
+          {metadata.studio && <span>{metadata.studio}</span>}
           {item.rating != null && <span>{Number(item.rating).toFixed(1)} / 10</span>}
           <span style={{ color: statusMeta.color }}>{statusMeta.label || item.status}</span>
         </span>
-        {progress && (
+        {progressLabel && (
           <span className="series-row__progress">
-            <progress value={progress.value} max={progress.total || Math.max(progress.value, 1)} aria-label={`${item.title}: ${progressLabel}`} />
+            <progress value={catalog?.progress?.watched ?? progress?.value ?? 0} max={catalog?.progress?.total || progress?.total || Math.max(progress?.value || 0, 1)} aria-label={`${item.title}: ${progressLabel}`} />
             <span>{progressLabel}</span>
           </span>
         )}
-      </button>
+      </div>
       <div className="series-row__actions">
-        {progress && (
+        {nextAction && !nextAction.upcoming ? (
+          <button
+            type="button"
+            className="series-row__increment series-row__episode-action"
+            aria-label={`${nextAction.label}: ${item.title}`}
+            disabled={busy}
+            onClick={() => onWatchEpisode(item, nextAction.episodeId)}
+          >
+            {busy ? <Icon name="loader" size={15} /> : nextAction.label.replace('Watch ', '')}
+          </button>
+        ) : progress && (
           <button
             type="button"
             className="series-row__increment"
@@ -77,7 +101,7 @@ function SeriesRow({ item, onEdit, onIncrement, busy }) {
             <span>{progress.unit === 'episode' ? 'ep' : progress.unit === 'chapter' ? 'ch' : 'pg'}</span>
           </button>
         )}
-        <button type="button" className="series-row__edit" aria-label={`Open details for ${item.title}`} onClick={() => onEdit(item)}>
+        <button type="button" className="series-row__edit" aria-label={`Open details for ${item.title}`} onClick={() => onOpen(item)}>
           <Icon name="chevron-right" size={18} />
         </button>
       </div>
@@ -116,7 +140,7 @@ function AddModal({ open, onClose, onSave }) {
   const addFromSearch = async (item) => {
     setAdding(item.title)
     try {
-      await apiFetch('/media', {
+      const created = await apiFetch('/media', {
         method: 'POST',
         body: JSON.stringify({
           title: item.title,
@@ -127,6 +151,9 @@ function AddModal({ open, onClose, onSave }) {
           externalIds: item.externalIds || {},
         }),
       })
+      if (created?.id && ['anime', 'tv'].includes(created.type) && (created.externalIds?.malId || created.externalIds?.tmdbId)) {
+        try { await apiFetch(`/media/${created.id}/catalog/sync`, { method: 'POST' }) } catch { /* Manual tracking remains available. */ }
+      }
       onSave()
       onClose()
     } catch (e) {
@@ -556,12 +583,18 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
 export default function Media() {
   const [items, setItems] = useState([])
   const [stats, setStats] = useState(null)
+  const [catalogs, setCatalogs] = useState({})
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [search, setSearch] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [editItem, setEditItem] = useState(null)
+  const [detailItem, setDetailItem] = useState(null)
+  const [detailCatalog, setDetailCatalog] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
+  const [busyEpisodeId, setBusyEpisodeId] = useState(null)
   const [busyItemId, setBusyItemId] = useState(null)
   const [completionPrompt, setCompletionPrompt] = useState(null)
 
@@ -569,15 +602,17 @@ export default function Media() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (filterType) params.set('tag', filterType)
+      if (filterType) params.set('type', filterType)
       if (filterStatus) params.set('status', filterStatus)
       if (search) params.set('search', search)
-      const [data, s] = await Promise.all([
+      const [dataResult, statsResult, catalogsResult] = await Promise.allSettled([
         apiFetch(`/media?${params}`),
         apiFetch('/media/stats'),
+        apiFetch('/media/catalog/summaries'),
       ])
-      setItems(normalizeSeriesCollection(data))
-      setStats(s)
+      if (dataResult.status === 'fulfilled') setItems(normalizeSeriesCollection(dataResult.value))
+      if (statsResult.status === 'fulfilled') setStats(statsResult.value)
+      if (catalogsResult.status === 'fulfilled') setCatalogs(catalogsResult.value || {})
     } catch { }
     finally { setLoading(false) }
   }, [filterType, filterStatus, search])
@@ -588,6 +623,65 @@ export default function Media() {
   const completedCount = stats?.completed ?? 0
   const avgRating = stats?.averageRating
   const groups = groupSeriesByStatus(items)
+
+  const applyCatalogView = (view) => {
+    if (!view?.item?.id) return
+    setCatalogs(current => ({ ...current, [view.item.id]: view }))
+    setItems(current => current.map(entry => entry.id === view.item.id ? { ...entry, ...view.item } : entry))
+    if (detailItem?.id === view.item.id) {
+      setDetailItem(current => ({ ...current, ...view.item }))
+      setDetailCatalog(view)
+    }
+  }
+
+  const openDetail = async (item) => {
+    setDetailItem(item)
+    setDetailCatalog(catalogs[item.id] || null)
+    setDetailError('')
+    setDetailLoading(true)
+    try {
+      const view = await apiFetch(`/media/${item.id}/catalog`)
+      applyCatalogView(view)
+      setDetailCatalog(view)
+    } catch (error) {
+      setDetailError(error.message || 'Catalog details could not be loaded.')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const refreshCatalog = async () => {
+    if (!detailItem || detailLoading) return
+    setDetailLoading(true)
+    setDetailError('')
+    try {
+      const view = await apiFetch(`/media/${detailItem.id}/catalog/sync`, { method: 'POST' })
+      applyCatalogView(view)
+    } catch (error) {
+      setDetailError(error.message || 'Catalog synchronization failed. Existing progress is still available.')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const toggleEpisode = async (item, episode, watched) => {
+    if (!item || !episode?.id || busyEpisodeId) return
+    const previous = catalogs[item.id]
+    setBusyEpisodeId(episode.id)
+    setDetailError('')
+    try {
+      const view = await apiFetch(`/media/${item.id}/episodes/${episode.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ watched }),
+      })
+      applyCatalogView(view)
+    } catch (error) {
+      if (previous) setCatalogs(current => ({ ...current, [item.id]: previous }))
+      setDetailError(error.message || 'Episode progress could not be saved.')
+    } finally {
+      setBusyEpisodeId(null)
+    }
+  }
 
   const incrementProgress = async (item) => {
     const update = getNextProgressUpdate(item)
@@ -687,8 +781,8 @@ export default function Media() {
           >
             <Icon name={meta.icon} size={14} />
             {meta.label}
-            {(stats?.byTag?.[key] ?? stats?.byType?.[key]) != null && (
-              <span className="media-chip-count">{stats.byTag[key] ?? stats.byType[key]}</span>
+            {stats?.byType?.[key] != null && (
+              <span className="media-chip-count">{stats.byType[key]}</span>
             )}
           </button>
         ))}
@@ -735,9 +829,11 @@ export default function Media() {
                   <SeriesRow
                     key={item.id}
                     item={item}
-                    onEdit={setEditItem}
+                    catalog={catalogs[item.id]}
+                    onOpen={openDetail}
                     onIncrement={incrementProgress}
-                    busy={busyItemId === item.id}
+                    onWatchEpisode={(entry, episodeId) => toggleEpisode(entry, { id: episodeId }, true)}
+                    busy={busyItemId === item.id || busyEpisodeId === catalogs[item.id]?.nextEpisode?.id}
                   />
                 ))}
               </div>
@@ -747,6 +843,17 @@ export default function Media() {
       )}
 
       <AddModal open={addOpen} onClose={() => setAddOpen(false)} onSave={load} />
+      <SeriesDetail
+        item={detailItem}
+        catalog={detailCatalog}
+        loading={detailLoading}
+        error={detailError}
+        onClose={() => { setDetailItem(null); setDetailCatalog(null); setDetailError('') }}
+        onRefresh={refreshCatalog}
+        onToggleEpisode={(episode, watched) => toggleEpisode(detailItem, episode, watched)}
+        onEdit={(item) => { setDetailItem(null); setEditItem(item) }}
+        busyEpisodeId={busyEpisodeId}
+      />
       <EditModal key={editItem?.id || 'none'} item={editItem} open={!!editItem} onClose={() => setEditItem(null)} onSave={load} onDelete={load} />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>

@@ -92,46 +92,28 @@ export class MediaCatalogService {
       this.relationRepo.find({ where: { accountId: account.id, sourceMediaItemId: item.id } }),
     ]);
 
-    seasons.sort((left, right) => left.number - right.number);
-    episodes.sort((left, right) =>
-      left.seasonNumber - right.seasonNumber || left.number - right.number,
-    );
-    relations.sort((left, right) =>
-      left.sortOrder - right.sortOrder || left.targetTitle.localeCompare(right.targetTitle),
-    );
+    return this.buildCatalogView(item, seasons, episodes, relations);
+  }
 
-    const regularEpisodes = episodes.filter((episode) => episode.seasonNumber > 0);
-    const watchedEpisodes = regularEpisodes.filter((episode) => episode.watched);
-    const lastWatched = watchedEpisodes[watchedEpisodes.length - 1] || null;
-    const today = new Date().toISOString().slice(0, 10);
-    const nextEpisode = regularEpisodes.find((episode) =>
-      !episode.watched && (!episode.airDate || episode.airDate <= today),
-    ) || null;
-    const upcomingEpisode = regularEpisodes.find((episode) =>
-      !episode.watched && !!episode.airDate && episode.airDate > today,
-    ) || null;
-
-    const nestedSeasons = seasons.map((season) => Object.assign(season, {
-      episodes: episodes.filter((episode) => episode.seasonId === season.id),
+  async getCatalogSummaries(
+    account: Account,
+    items: MediaItem[],
+  ): Promise<Record<string, MediaCatalogView>> {
+    if (!items.length) return {};
+    const [allSeasons, allEpisodes, allRelations] = await Promise.all([
+      this.seasonRepo.find({ where: { accountId: account.id } }),
+      this.episodeRepo.find({ where: { accountId: account.id } }),
+      this.relationRepo.find({ where: { accountId: account.id } }),
+    ]);
+    return Object.fromEntries(items.map((item) => {
+      const catalog = this.buildCatalogView(
+        item,
+        allSeasons.filter((season) => season.mediaItemId === item.id),
+        allEpisodes.filter((episode) => episode.mediaItemId === item.id),
+        allRelations.filter((relation) => relation.sourceMediaItemId === item.id),
+      );
+      return [item.id, { ...catalog, seasons: [], relations: [] }];
     }));
-
-    return {
-      item,
-      seasons: nestedSeasons,
-      relations,
-      progress: {
-        watched: regularEpisodes.length
-          ? watchedEpisodes.length
-          : Math.max(0, Number(item.metadata?.episodesWatched) || 0),
-        total: regularEpisodes.length
-          ? regularEpisodes.length
-          : this.positiveNumber(item.metadata?.episodes),
-        seasonNumber: lastWatched?.seasonNumber ?? null,
-        episodeNumber: lastWatched?.number ?? null,
-      },
-      nextEpisode,
-      upcomingEpisode,
-    };
   }
 
   async setEpisodeWatched(
@@ -352,6 +334,51 @@ export class MediaCatalogService {
     return supported.has(normalized as MediaRelationType)
       ? normalized as MediaRelationType
       : MediaRelationType.OTHER;
+  }
+
+  private buildCatalogView(
+    item: MediaItem,
+    seasons: MediaSeason[],
+    episodes: MediaEpisode[],
+    relations: MediaRelation[],
+  ): MediaCatalogView {
+    seasons.sort((left, right) => left.number - right.number);
+    episodes.sort((left, right) =>
+      left.seasonNumber - right.seasonNumber || left.number - right.number,
+    );
+    relations.sort((left, right) =>
+      left.sortOrder - right.sortOrder || left.targetTitle.localeCompare(right.targetTitle),
+    );
+    const regularEpisodes = episodes.filter((episode) => episode.seasonNumber > 0);
+    const watchedEpisodes = regularEpisodes.filter((episode) => episode.watched);
+    const lastWatched = watchedEpisodes[watchedEpisodes.length - 1] || null;
+    const today = new Date().toISOString().slice(0, 10);
+    const nextEpisode = regularEpisodes.find((episode) =>
+      !episode.watched && (!episode.airDate || episode.airDate <= today),
+    ) || null;
+    const upcomingEpisode = regularEpisodes.find((episode) =>
+      !episode.watched && !!episode.airDate && episode.airDate > today,
+    ) || null;
+    const nestedSeasons = seasons.map((season) => Object.assign(season, {
+      episodes: episodes.filter((episode) => episode.seasonId === season.id),
+    }));
+    return {
+      item,
+      seasons: nestedSeasons,
+      relations,
+      progress: {
+        watched: regularEpisodes.length
+          ? watchedEpisodes.length
+          : Math.max(0, Number(item.metadata?.episodesWatched) || 0),
+        total: regularEpisodes.length
+          ? regularEpisodes.length
+          : this.positiveNumber(item.metadata?.episodes),
+        seasonNumber: lastWatched?.seasonNumber ?? null,
+        episodeNumber: lastWatched?.number ?? null,
+      },
+      nextEpisode,
+      upcomingEpisode,
+    };
   }
 
   private positiveNumber(value: unknown): number | null {

@@ -76,6 +76,13 @@ export class MediaController {
     return this.mediaService.getStats(account, type);
   }
 
+  @Get("catalog/summaries")
+  @ApiOperation({ summary: "Get structured progress summaries for the library" })
+  async getCatalogSummaries(@ReqUser() account: Account) {
+    const items = await this.mediaService.findAll(account);
+    return this.mediaCatalogService.getCatalogSummaries(account, items);
+  }
+
   // ========== SINGLE ITEM ==========
 
   @Get(":id")

@@ -27,6 +27,42 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
     },
   ]
   const today = new Date().toISOString().slice(0, 10)
+  let secondEpisodeWatched = false
+  const tvItem = {
+    id: 'media-tv', title: 'The Bear', type: 'tv', status: 'watching', rating: 8.5,
+    coverUrl: '', externalIds: { tmdbId: 136315 },
+    metadata: { episodesWatched: 1, episodes: 2, seasons: 1, year: 2022, studios: ['FX'], airingStatus: 'Returning Series' },
+  }
+  const animeItem = {
+    id: 'media-anime', title: 'Blue Exorcist: Kyoto Saga', type: 'anime', status: 'watching', rating: 7.5,
+    coverUrl: '', externalIds: { malId: 33506 },
+    metadata: { episodesWatched: 6, episodes: 12, year: 2017, studios: ['A-1 Pictures'], mediaFormat: 'TV' },
+  }
+  const tvCatalog = () => ({
+    item: { ...tvItem, metadata: { ...tvItem.metadata, episodesWatched: secondEpisodeWatched ? 2 : 1 } },
+    progress: { watched: secondEpisodeWatched ? 2 : 1, total: 2, seasonNumber: 1, episodeNumber: secondEpisodeWatched ? 2 : 1 },
+    nextEpisode: secondEpisodeWatched ? null : { id: 'episode-2', seasonNumber: 1, number: 2, title: 'Hands', airDate: '2022-06-23' },
+    upcomingEpisode: null,
+    relations: [],
+    seasons: [{
+      id: 'season-1', number: 1, name: 'Season 1', episodeCount: 2,
+      episodes: [
+        { id: 'episode-1', seasonNumber: 1, number: 1, title: 'System', airDate: '2022-06-23', runtime: 27, watched: true },
+        { id: 'episode-2', seasonNumber: 1, number: 2, title: 'Hands', airDate: '2022-06-23', runtime: 30, watched: secondEpisodeWatched },
+      ],
+    }],
+  })
+  const animeCatalog = {
+    item: animeItem,
+    progress: { watched: 6, total: 12, seasonNumber: null, episodeNumber: null },
+    nextEpisode: null,
+    upcomingEpisode: null,
+    seasons: [],
+    relations: [
+      { id: 'rel-1', relationType: 'prequel', targetMalId: 11757, targetTitle: 'Blue Exorcist' },
+      { id: 'rel-2', relationType: 'sequel', targetMalId: 53889, targetTitle: 'Blue Exorcist: Shimane Illuminati Saga' },
+    ],
+  }
   const monthKey = today.slice(0, 7)
   const financeWallets = [
     { id: 'wallet-revolut', name: 'Revolut', balance: 878.76, currency: 'EUR', iconName: 'wallet', colour: '#60a5fa' },
@@ -443,23 +479,34 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
       return route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify({
-          items: [
-            {
-              id: 'media-1',
-              title: 'Blue Exorcist',
-              type: 'anime',
-              status: 'paused',
-              rating: 7,
-              metadata: { episodesWatched: 37, episodes: 73, tags: ['anime'] },
-            },
-          ],
-          total: 1,
+          items: [tvItem, animeItem],
+          total: 2,
         }),
       })
     }
 
     if (path === '/media/stats') {
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ total: 1, byStatus: {}, byType: {} }) })
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ total: 2, byStatus: { watching: 2 }, byType: { tv: 1, anime: 1 } }) })
+    }
+
+    if (path === '/media/catalog/summaries') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+        [tvItem.id]: { ...tvCatalog(), seasons: [] },
+        [animeItem.id]: { ...animeCatalog, relations: [], seasons: [] },
+      }) })
+    }
+
+    if (path === '/media/media-tv/catalog') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(tvCatalog()) })
+    }
+
+    if (path === '/media/media-anime/catalog') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(animeCatalog) })
+    }
+
+    if (path === '/media/media-tv/episodes/episode-2' && route.request().method() === 'PATCH') {
+      secondEpisodeWatched = JSON.parse(route.request().postData() || '{}').watched === true
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(tvCatalog()) })
     }
 
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify({}) })
@@ -695,7 +742,7 @@ test.describe('Native Android app shell', () => {
     }
   })
 
-  test('renders Series as an action-first register with inline episode progress', async ({ page }) => {
+  test('renders season-aware TV progress and anime continuity', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
       ;(window as any).Capacitor = { isNativePlatform: () => true }
@@ -708,12 +755,29 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByTestId('series-register')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible()
     await expect(page.locator('.stat-card')).toHaveCount(0)
-    await expect(page.getByText('37 / 73 episodes')).toBeVisible()
+    await expect(page.getByText('S01E01 · 1 of 2 watched')).toBeVisible()
+    await expect(page.getByText('6 of 12 watched')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Log next episode for Blue Exorcist' }).click()
-    await expect(page.getByText('38 / 73 episodes')).toBeVisible()
+    await page.getByRole('button', { name: 'Open The Bear details' }).click()
+    const televisionDetail = page.getByRole('dialog', { name: 'The Bear' })
+    await expect(televisionDetail).toBeVisible()
+    await expect(televisionDetail.getByRole('tab', { name: 'Season 1' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByText('S01E01 · System')).toBeVisible()
+    await televisionDetail.getByRole('button', { name: 'Mark watched: S01E02 Hands' }).click()
+    await expect(televisionDetail.getByText('S01E02 · 2 of 2 watched')).toBeVisible()
+    await page.getByRole('button', { name: 'Close The Bear' }).click()
+
+    await page.getByRole('button', { name: 'Open Blue Exorcist: Kyoto Saga details' }).click()
+    await expect(page.getByRole('heading', { name: 'Series continuity' })).toBeVisible()
+    await expect(page.getByText('Blue Exorcist', { exact: true })).toBeVisible()
+    await expect(page.getByText('Blue Exorcist: Shimane Illuminati Saga')).toBeVisible()
     await expect(page.locator('.media-card')).toHaveCount(0)
     await expect(page.locator('.native-tabbar__item')).toHaveText(['Today', 'Apps', 'Capture', 'Assistant', 'You'])
+
+    await page.setViewportSize({ width: 320, height: 568 })
+    const overflow = await getHorizontalOverflowReport(page)
+    expect(overflow.documentScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
+    expect(overflow.bodyScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
   })
 
   test('redirects the native cash root to the month ledger', async ({ page }) => {

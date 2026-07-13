@@ -194,4 +194,26 @@ describe("MediaCatalogService", () => {
     await expect(service.setEpisodeWatched(account, item, "foreign", true))
       .rejects.toMatchObject({ status: 404 });
   });
+
+  it("builds all library summaries with three account-scoped catalog reads", async () => {
+    const first = { id: "tv-1", accountId: account.id, type: MediaType.TV, metadata: {} } as any;
+    const second = { id: "tv-2", accountId: account.id, type: MediaType.TV, metadata: {} } as any;
+    const firstSeason = { id: "season-1", accountId: account.id, mediaItemId: first.id, number: 1, name: "Season 1" };
+    const secondSeason = { id: "season-2", accountId: account.id, mediaItemId: second.id, number: 1, name: "Season 1" };
+    seasonRepo.rows.push(firstSeason, secondSeason);
+    episodeRepo.rows.push(
+      { id: "ep-1", accountId: account.id, mediaItemId: first.id, seasonId: firstSeason.id, seasonNumber: 1, number: 1, title: "One", watched: true },
+      { id: "ep-2", accountId: account.id, mediaItemId: second.id, seasonId: secondSeason.id, seasonNumber: 1, number: 1, title: "One", watched: false },
+    );
+
+    const summaries = await service.getCatalogSummaries(account, [first, second]);
+
+    expect(summaries[first.id].progress.watched).toBe(1);
+    expect(summaries[second.id].nextEpisode).toMatchObject({ id: "ep-2" });
+    expect(summaries[first.id].seasons).toEqual([]);
+    expect(summaries[first.id].relations).toEqual([]);
+    expect(seasonRepo.find).toHaveBeenCalledTimes(1);
+    expect(episodeRepo.find).toHaveBeenCalledTimes(1);
+    expect(relationRepo.find).toHaveBeenCalledTimes(1);
+  });
 });

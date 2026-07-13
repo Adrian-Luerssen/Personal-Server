@@ -30,10 +30,10 @@ special handling for TypeORM errors and the current structured error response.
 
 ## Testing
 
-Add an HTTP-level regression test that builds a small Nest application using
-the media controllers in the order declared by `MediaModule`. Assert that a
-request to `/api/media/search?q=obsession&type=movie` calls the search service
-and returns its result instead of entering UUID validation.
+Add a focused regression test for the controller order declared by
+`MediaModule`. Assert that `MediaSearchController` is registered before
+`MediaController`, which prevents `/media/search` from entering the later
+`/media/:id` UUID route.
 
 Add focused exception-filter tests proving that `BadRequestException` produces
 400 and an unknown error still produces 500. Run the focused tests, the backend

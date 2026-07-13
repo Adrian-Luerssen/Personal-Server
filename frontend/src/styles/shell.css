@@ -182,3 +182,8 @@
     display: none;
   }
 }
+
+@media (max-width: 360px) {
+  .domain-nav { gap: 0; }
+  .domain-nav__item { padding-inline: 0.42rem; font-size: 0.71rem; }
+}

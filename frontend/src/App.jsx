@@ -1,40 +1,11 @@
-import React, { useEffect, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './pages/Auth/Login'
-import Register from './pages/Auth/Register'
-import Home from './pages/Home'
 // Profile merged into Settings > Account tab
-import SpotifyPersonal from './pages/Spotify/SpotifyPersonal'
-import SpotifyGlobal from './pages/Spotify/SpotifyGlobal'
-import SpotifyRanking from './pages/Spotify/SpotifyRanking'
 import withRefreshGuard from './withRefreshGuard'
 import Layout from './components/Layout'
 import AuthGuard from './components/AuthGuard'
 import NativeUpdateGate from './components/NativeUpdateGate'
-import Landing from './pages/Landing'
-import Workout from './pages/Workout/Workout'
-import WorkoutActive from './pages/Workout/WorkoutActive'
-import WorkoutHistory from './pages/Workout/WorkoutHistory'
-import WorkoutExercises from './pages/Workout/WorkoutExercises'
-import WorkoutBodyweight from './pages/Workout/WorkoutBodyweight'
-import WorkoutImport from './pages/Workout/WorkoutImport'
-import Finance from './pages/Finance/Finance'
-import FinanceTransactions from './pages/Finance/FinanceTransactions'
-import FinanceBudgets from './pages/Finance/FinanceBudgets'
-import FinanceTrends from './pages/Finance/FinanceTrends'
-import FinanceImport from './pages/Finance/FinanceImport'
-import FinanceSettings from './pages/Finance/FinanceSettings'
-import Habits from './pages/Habits/Habits'
-import HabitsSettings from './pages/Habits/HabitsSettings'
-import Media from './pages/Media/Media'
-import MediaImport from './pages/Media/MediaImport'
-import MediaSettings from './pages/Media/MediaSettings'
-import ChatPage from './pages/Chat/ChatPage'
-import Settings from './pages/Settings/Settings'
-import MobileMenu from './pages/MobileMenu'
-import SpotifyCallback from './pages/Spotify/SpotifyCallback'
 import { PreferencesProvider } from './contexts/PreferencesContext'
-import { applyChartTheme } from './chartTheme'
 import { isMobileBrowser, isNativeMobileApp } from './mobilePlatform'
 import { getTokens } from './auth'
 import {
@@ -46,7 +17,34 @@ import {
   shouldAutoRequestNativeNotificationPermission,
 } from './notificationPermission.mjs'
 
-applyChartTheme()
+const Login = lazy(() => import('./pages/Auth/Login'))
+const Register = lazy(() => import('./pages/Auth/Register'))
+const Landing = lazy(() => import('./pages/Landing'))
+const Home = lazy(() => import('./pages/Home'))
+const MobileMenu = lazy(() => import('./pages/MobileMenu'))
+const SpotifyPersonal = lazy(() => import('./pages/Spotify/SpotifyPersonal'))
+const SpotifyGlobal = lazy(() => import('./pages/Spotify/SpotifyGlobal'))
+const SpotifyRanking = lazy(() => import('./pages/Spotify/SpotifyRanking'))
+const SpotifyCallback = lazy(() => import('./pages/Spotify/SpotifyCallback'))
+const Workout = lazy(() => import('./pages/Workout/Workout'))
+const WorkoutActive = lazy(() => import('./pages/Workout/WorkoutActive'))
+const WorkoutHistory = lazy(() => import('./pages/Workout/WorkoutHistory'))
+const WorkoutExercises = lazy(() => import('./pages/Workout/WorkoutExercises'))
+const WorkoutBodyweight = lazy(() => import('./pages/Workout/WorkoutBodyweight'))
+const WorkoutImport = lazy(() => import('./pages/Workout/WorkoutImport'))
+const Finance = lazy(() => import('./pages/Finance/Finance'))
+const FinanceTransactions = lazy(() => import('./pages/Finance/FinanceTransactions'))
+const FinanceBudgets = lazy(() => import('./pages/Finance/FinanceBudgets'))
+const FinanceTrends = lazy(() => import('./pages/Finance/FinanceTrends'))
+const FinanceImport = lazy(() => import('./pages/Finance/FinanceImport'))
+const FinanceSettings = lazy(() => import('./pages/Finance/FinanceSettings'))
+const Habits = lazy(() => import('./pages/Habits/Habits'))
+const HabitsSettings = lazy(() => import('./pages/Habits/HabitsSettings'))
+const Media = lazy(() => import('./pages/Media/Media'))
+const MediaImport = lazy(() => import('./pages/Media/MediaImport'))
+const MediaSettings = lazy(() => import('./pages/Media/MediaSettings'))
+const ChatPage = lazy(() => import('./pages/Chat/ChatPage'))
+const Settings = lazy(() => import('./pages/Settings/Settings'))
 
 // BUG FIX B1: Move HOC calls to module scope to prevent unmount/remount on every render
 const GuardedHome = withRefreshGuard(Home)
@@ -143,6 +141,7 @@ export default function AppRouter() {
         <div className="app">
           <NativeNotificationPermissionBoot nativeApp={nativeApp} />
           <NativeUpdateGate nativeApp={nativeApp} />
+          <Suspense fallback={<div className="route-loading" role="status">Opening your records…</div>}>
           {mobileBlocked ? (
             <Routes>
               <Route path="/" element={<Landing mobileGate />} />
@@ -190,6 +189,7 @@ export default function AppRouter() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           )}
+          </Suspense>
         </div>
       </BrowserRouter>
     </PreferencesProvider>

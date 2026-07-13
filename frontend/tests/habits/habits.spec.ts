@@ -142,8 +142,7 @@ test.describe('Habits Page', () => {
 
     await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
     await expect(page.getByRole('button', { name: /Add Habit/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Import/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Settings/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Settings and Data/i })).toBeVisible()
     await expect(page.getByText('Needs log')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Logged' })).toBeVisible()
     await expect(page.getByTestId('habit-row-habit-1')).toContainText('Morning walk')
@@ -205,10 +204,10 @@ test.describe('Habits Page', () => {
       })
   })
 
-  test('keeps import and settings one click away', async ({ page }) => {
+  test('keeps settings and data one click away', async ({ page }) => {
     await setupHabitsPage(page)
 
-    await page.getByRole('button', { name: /Import/i }).click()
-    await expect(page).toHaveURL(/\/habits\/settings\?tab=import/)
+    await page.getByRole('button', { name: /Settings and Data/i }).click()
+    await expect(page).toHaveURL(/\/settings\?section=data/)
   })
 })

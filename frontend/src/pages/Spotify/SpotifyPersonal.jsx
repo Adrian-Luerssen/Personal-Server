@@ -17,6 +17,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
+import { applyChartTheme } from '../../chartTheme'
 import { api } from '../../api'
 import Icon from '../../components/icons/Icon'
 import ScrollReveal from '../../components/ScrollReveal'
@@ -45,6 +46,7 @@ ChartJS.register(
   Legend,
   Filler
 )
+applyChartTheme()
 
 const TIMEFRAMES = [
   { label: 'Today', value: 'today' },

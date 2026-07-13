@@ -667,6 +667,20 @@
   color: var(--color-text) !important;
 }
 
+@media (max-width: 600px) {
+  .series-status-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow-x: visible;
+  }
+
+  .series-status-tabs button {
+    min-width: 0;
+    padding-inline: 0.35rem;
+    white-space: normal;
+  }
+}
+
 .series-register .media-type-chips { margin-top: 0; margin-bottom: 0; }
 .series-register .media-toolbar { margin: 0; padding: 0.85rem 0; border-bottom: 1px solid var(--series-rule); }
 .series-register .media-search-input-wrap input { border: 0; border-bottom: 1px solid var(--series-rule); border-radius: 0; background: transparent; }

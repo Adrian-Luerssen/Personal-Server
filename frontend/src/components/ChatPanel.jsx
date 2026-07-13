@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { io } from 'socket.io-client'
 import { Icon } from './icons'
 import { api } from '../api'
@@ -95,20 +93,9 @@ function MarkdownMessage({ text }) {
         code({ inline, className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || '')
           return !inline && match ? (
-            <SyntaxHighlighter
-              style={oneDark}
-              language={match[1]}
-              PreTag="div"
-              customStyle={{
-                margin: '0.5rem 0',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                padding: '0.75rem',
-              }}
-              {...props}
-            >
-              {String(children).replace(/\n$/, '')}
-            </SyntaxHighlighter>
+            <pre className="chat-code-block" data-language={match[1]}>
+              <code {...props}>{String(children).replace(/\n$/, '')}</code>
+            </pre>
           ) : (
             <code className="chat-inline-code" {...props}>
               {children}

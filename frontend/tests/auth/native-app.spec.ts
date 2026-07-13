@@ -1146,9 +1146,8 @@ test.describe('Native Android app shell', () => {
 
     await expect(page.getByRole('button', { name: /appearance/i })).toBeVisible()
     await page.getByRole('button', { name: /appearance/i }).click()
-    await expect(page.getByRole('heading', { name: 'Appearance', exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /home-screen widgets/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Home-screen widgets' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Appearance', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Home-screen widgets', exact: true })).toBeVisible()
     await expect(page.getByText(/Use Samsung Lock screen settings first/i)).toBeVisible()
     await expect(page.getByRole('button', { name: /refresh widgets/i })).toBeVisible()
   })
@@ -1163,7 +1162,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/workout')
 
-    await expect(page.getByRole('heading', { name: /^workout$/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^gym$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /start workout/i })).toBeVisible()
     await expect(page.getByText(/no personal records yet/i)).toBeVisible()
   })

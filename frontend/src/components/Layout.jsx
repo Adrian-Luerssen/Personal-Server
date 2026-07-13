@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { lazy, Suspense, useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
-import ChatPanel from './ChatPanel'
 import ApiStatus from './ApiStatus'
 import PageTransition from './PageTransition'
 import RouteErrorBoundary from './RouteErrorBoundary'
@@ -36,6 +35,8 @@ import {
   getNativeAppSwitcherOptions,
   getNativeBackDestination,
 } from '../nativeNavigation.mjs'
+
+const ChatPanel = lazy(() => import('./ChatPanel'))
 
 const NATIVE_ROUTE_TITLES = [
   { match: /^\/home$/, title: 'Today', subtitle: 'Daily record' },
@@ -418,7 +419,7 @@ export default function Layout() {
           }}
         />
       )}
-      {!nativeApp && <ChatPanel />}
+      {!nativeApp && <Suspense fallback={null}><ChatPanel /></Suspense>}
       {!nativeApp && <PWAInstallPrompt />}
     </div>
   )

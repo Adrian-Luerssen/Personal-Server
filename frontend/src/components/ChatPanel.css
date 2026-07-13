@@ -714,6 +714,29 @@ body.native-mobile-app .chat-panel--inline .chat-send-btn {
   gap: 0.3rem;
 }
 
+.chat-code-block {
+  max-width: 100%;
+  margin: 0.6rem 0;
+  padding: 0.8rem;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  background: var(--color-bg-base);
+  font: 0.78rem/1.55 var(--font-mono);
+  tab-size: 2;
+}
+
+.chat-code-block::before {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--color-text-muted);
+  content: attr(data-language);
+  font: 0.65rem var(--font-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .chat-msg-context-badge ul {
   margin: 0.35rem 0 0;
   padding-left: 1rem;

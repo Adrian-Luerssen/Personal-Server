@@ -523,6 +523,7 @@ describe('DashboardService', () => {
 
   describe('getMobileSnapshot', () => {
     it('should assemble the native app first-screen data in one account-scoped snapshot', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-06-29T15:00:00.000Z'));
       jest.spyOn(service, 'getDashboardIntelligence').mockResolvedValue({
         generatedAt: '2026-06-24T08:00:00.000Z',
         focus: 'steady',
@@ -764,6 +765,7 @@ describe('DashboardService', () => {
       expect(spotifyTodayQuery[1]).toEqual([accountId, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
       const activityQuery = mockDataSource.query.mock.calls[10][0];
       expect(activityQuery).toMatch(/FROM\s+app_activity_daily_metrics/);
+      jest.useRealTimers();
     });
   });
 

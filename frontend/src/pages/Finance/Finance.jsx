@@ -12,6 +12,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js'
+import { applyChartTheme } from '../../chartTheme'
 import {
   StatCard,
   SkeletonStatCard,
@@ -38,6 +39,7 @@ import {
 } from './nativeFinanceComponents'
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+applyChartTheme()
 
 // Finance accent color
 const FINANCE_COLOR = '#fbbf24'

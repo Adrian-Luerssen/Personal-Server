@@ -22,7 +22,8 @@ test.describe('Landing Page', () => {
 
   test('should display the product system and service choices', async ({ page }) => {
     await page.goto('/')
-    await expect(page.locator('.landing-bento-card')).toHaveCount(6)
+    await expect(page.locator('.landing-domain-row')).toHaveCount(6)
+    await expect(page.locator('.landing-stage-next')).toContainText('Review a detected payment')
     await expect(page.locator('.landing-instrument-row')).toHaveCount(5)
     await expect(page.getByText(/managed for convenience\. self-hosted for control/i)).toBeVisible()
     await expect(page.locator('.landing-product-stage')).toBeVisible()

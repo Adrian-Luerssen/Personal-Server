@@ -36,7 +36,7 @@ import { SyncModule } from "../sync/sync.module";
     MediaEnrichmentService,
     MediaCatalogService,
   ],
-  controllers: [MediaController, MediaSearchController, MediaImportController],
+  controllers: [MediaSearchController, MediaController, MediaImportController],
   exports: [MediaService],
 })
 export class MediaModule {}

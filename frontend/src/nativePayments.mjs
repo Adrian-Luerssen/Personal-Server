@@ -1,4 +1,5 @@
 import { isNativeMobileApp } from './mobilePlatform.js'
+import { normalizePaymentEvent } from './paymentCapture.mjs'
 
 function getPlugin() {
   if (!isNativeMobileApp()) return null
@@ -7,22 +8,9 @@ function getPlugin() {
 
 export function normalizePaymentSuggestion(nativeSuggestion) {
   if (!nativeSuggestion) return null
-  const amount = Number(nativeSuggestion.amount)
-  if (!Number.isFinite(amount) || amount <= 0) return null
-  const eventHash = String(nativeSuggestion.eventHash || nativeSuggestion.id || '').trim()
-  if (!eventHash) return null
-
-  return {
-    id: nativeSuggestion.id || eventHash,
-    eventHash,
-    sourcePackage: nativeSuggestion.sourcePackage || null,
-    sourceAppLabel: nativeSuggestion.sourceAppLabel || null,
-    merchantRaw: nativeSuggestion.merchantRaw || 'Detected payment',
-    amount,
-    currency: String(nativeSuggestion.currency || 'EUR').toUpperCase(),
-    occurredAt: nativeSuggestion.occurredAt || new Date().toISOString(),
-    confidence: clampConfidence(nativeSuggestion.confidence),
-  }
+  const normalized = normalizePaymentEvent(nativeSuggestion)
+  if (normalized.amountMinor <= 0 || !normalized.eventHash) return null
+  return { ...normalized, merchantRaw: normalized.merchant }
 }
 
 export function buildPaymentSuggestionPayload(nativeSuggestion) {
@@ -97,10 +85,4 @@ export async function syncNativePaymentSuggestions() {
   }
 
   return synced
-}
-
-function clampConfidence(value) {
-  const parsed = Number(value ?? 0.7)
-  if (!Number.isFinite(parsed)) return 0.7
-  return Math.max(0, Math.min(1, parsed))
 }

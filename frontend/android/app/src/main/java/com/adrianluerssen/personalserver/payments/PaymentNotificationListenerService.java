@@ -83,14 +83,15 @@ public class PaymentNotificationListenerService extends NotificationListenerServ
 
     private void showDetectedPaymentNotification(JSONObject suggestion) {
         ensureChannel();
+        String suggestionId = suggestion.optString("id");
         Intent intent = new Intent(this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.putExtra("route", "/finance/transactions");
-        intent.putExtra("paymentSuggestionId", suggestion.optString("id"));
+        intent.putExtra(PaymentSuggestionActionReceiver.EXTRA_SUGGESTION_ID, suggestionId);
+        intent.putExtra("captureAction", "edit");
 
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this,
-            suggestion.optString("id").hashCode(),
+            suggestionId.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -106,12 +107,27 @@ public class PaymentNotificationListenerService extends NotificationListenerServ
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setAutoCancel(true)
-            .setContentIntent(pendingIntent);
+            .setContentIntent(pendingIntent)
+            .addAction(0, "Confirm", actionIntent(PaymentSuggestionActionReceiver.ACTION_CONFIRM, suggestionId, 1))
+            .addAction(0, "Edit", actionIntent(PaymentSuggestionActionReceiver.ACTION_EDIT, suggestionId, 2))
+            .addAction(0, "Ignore", actionIntent(PaymentSuggestionActionReceiver.ACTION_IGNORE, suggestionId, 3));
 
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager != null) {
             manager.notify(notificationIdForSuggestionId(suggestion.optString("id")), builder.build());
         }
+    }
+
+    private PendingIntent actionIntent(String action, String suggestionId, int actionCode) {
+        Intent intent = new Intent(this, PaymentSuggestionActionReceiver.class);
+        intent.setAction(action);
+        intent.putExtra(PaymentSuggestionActionReceiver.EXTRA_SUGGESTION_ID, suggestionId);
+        return PendingIntent.getBroadcast(
+            this,
+            suggestionId.hashCode() * 10 + actionCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
     }
 
     public static int notificationIdForSuggestionId(String id) {

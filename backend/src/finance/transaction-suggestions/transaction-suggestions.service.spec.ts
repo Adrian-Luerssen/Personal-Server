@@ -19,7 +19,7 @@ describe('TransactionSuggestionsService', () => {
     save: jest.Mock;
     find: jest.Mock;
   };
-  let transactionsService: { create: jest.Mock };
+  let transactionsService: { create: jest.Mock; findOne: jest.Mock };
   let cacheManager: { reset: jest.Mock };
   let syncService: { recordEvent: jest.Mock };
 
@@ -37,6 +37,7 @@ describe('TransactionSuggestionsService', () => {
         id: 'transaction-1',
         ...payload,
       })),
+      findOne: jest.fn(async () => ({ id: 'transaction-1' })),
     };
     cacheManager = { reset: jest.fn() };
     syncService = { recordEvent: jest.fn() };
@@ -148,6 +149,53 @@ describe('TransactionSuggestionsService', () => {
     expect(result.transaction.id).toBe('transaction-1');
   });
 
+  it('returns the linked transaction when an accepted suggestion is confirmed again', async () => {
+    const accepted = {
+      id: 'suggestion-1',
+      accountId: account.id,
+      status: TransactionSuggestionStatus.ACCEPTED,
+      matchedTransactionId: 'transaction-1',
+    };
+    repo.findOne.mockResolvedValueOnce(accepted);
+
+    const result = await service.accept(account, 'suggestion-1');
+
+    expect(transactionsService.create).not.toHaveBeenCalled();
+    expect(transactionsService.findOne).toHaveBeenCalledWith(account, 'transaction-1');
+    expect(result).toEqual({ suggestion: accepted, transaction: { id: 'transaction-1' }, duplicate: true });
+  });
+
+  it('applies reviewed amount, date, merchant, wallet, and category corrections before confirming', async () => {
+    repo.findOne.mockResolvedValueOnce({
+      id: 'suggestion-1',
+      accountId: account.id,
+      merchantRaw: 'ROUGH BANK LABEL',
+      amount: 4.6,
+      occurredAt: new Date('2026-06-29T10:15:00.000Z'),
+      status: TransactionSuggestionStatus.PENDING,
+    });
+
+    await service.accept(account, 'suggestion-1', {
+      name: 'Coffee with Ana',
+      amount: 5.2,
+      occurredAt: '2026-06-29T10:20:00.000Z',
+      walletId: 'wallet-1',
+      categoryId: 'category-1',
+      note: 'Reviewed from Bank notification.',
+    });
+
+    expect(transactionsService.create).toHaveBeenCalledWith(account, {
+      name: 'Coffee with Ana',
+      amount: 5.2,
+      isIncome: false,
+      isPaid: true,
+      transactionDate: new Date('2026-06-29T10:20:00.000Z'),
+      walletId: 'wallet-1',
+      categoryId: 'category-1',
+      note: 'Reviewed from Bank notification.',
+    });
+  });
+
   it('rejects suggestions without creating a transaction', async () => {
     repo.findOne.mockResolvedValueOnce({
       id: 'suggestion-1',
@@ -164,5 +212,17 @@ describe('TransactionSuggestionsService', () => {
         status: TransactionSuggestionStatus.REJECTED,
       }),
     );
+  });
+
+  it('treats repeated rejection as an idempotent decision', async () => {
+    const rejected = {
+      id: 'suggestion-1',
+      accountId: account.id,
+      status: TransactionSuggestionStatus.REJECTED,
+    };
+    repo.findOne.mockResolvedValueOnce(rejected);
+
+    await expect(service.reject(account, 'suggestion-1')).resolves.toBe(rejected);
+    expect(repo.save).not.toHaveBeenCalled();
   });
 });

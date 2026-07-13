@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean } = {}) {
+async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean; paymentSuggestions?: any[] } = {}) {
   const habits = [
     {
       id: 'sleep',
@@ -334,6 +334,14 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
 
     if (path === '/finance/categories') {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(financeCategories) })
+    }
+
+    if (path === '/finance/transaction-suggestions' && method === 'GET') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(options.paymentSuggestions || []) })
+    }
+
+    if (/^\/finance\/transaction-suggestions\/[^/]+\/(accept|reject)$/.test(path) && method === 'POST') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true }) })
     }
 
     if (path === '/finance/transactions' && method === 'POST') {
@@ -899,6 +907,30 @@ test.describe('Native Android app shell', () => {
     await expect(concertRow).toContainText('Events - Santander')
     await expect(concertRow).toContainText(/\u20ac55\.00/)
     await expect(page.locator('table')).toHaveCount(0)
+  })
+
+  test('reviews a detected payment before creating a ledger record', async ({ page }) => {
+    await mockNativeApi(page, { paymentSuggestions: [{
+      id: 'suggestion-1', eventHash: 'capture-hash', merchantRaw: 'MERCADONA', amount: 12.4,
+      currency: 'EUR', occurredAt: '2026-07-13T10:00:00.000Z', confidence: 0.78,
+      sourceAppLabel: 'Bank',
+    }] })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/finance/transactions?paymentSuggestionId=capture-hash')
+    await expect(page.getByRole('dialog', { name: /make this record accurate/i })).toBeVisible()
+    await expect(page.getByText(/notification text is not uploaded/i)).toBeVisible()
+    await page.getByLabel('Wallet').selectOption('wallet-revolut')
+    await page.getByLabel('Category').selectOption('cat-groceries')
+    const requestPromise = page.waitForRequest(request => request.url().includes('/transaction-suggestions/suggestion-1/accept'))
+    await page.getByRole('button', { name: /confirm payment/i }).click()
+    const request = await requestPromise
+    expect(request.postDataJSON()).toMatchObject({ name: 'MERCADONA', amount: 12.4, walletId: 'wallet-revolut', categoryId: 'cat-groceries' })
+    await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 
   test('keeps the transaction add action aligned with the feed header when the feed is empty', async ({ page }) => {

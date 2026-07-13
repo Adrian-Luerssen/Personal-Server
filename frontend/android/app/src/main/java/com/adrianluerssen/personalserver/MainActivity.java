@@ -1,6 +1,8 @@
 package com.adrianluerssen.personalserver;
 
 import android.graphics.Color;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -28,6 +30,29 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         configureSystemBars();
         configureBackNavigation();
+        openPaymentReview(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        openPaymentReview(intent);
+    }
+
+    private void openPaymentReview(Intent intent) {
+        if (intent == null) return;
+        String suggestionId = intent.getStringExtra("paymentSuggestionId");
+        if (suggestionId == null || suggestionId.trim().length() == 0) return;
+        String action = intent.getStringExtra("captureAction");
+        String route = "/finance/transactions?paymentSuggestionId=" + Uri.encode(suggestionId)
+            + "&captureAction=" + Uri.encode(action == null ? "edit" : action);
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView == null) return;
+        webView.postDelayed(() -> webView.evaluateJavascript(
+            "window.history.pushState({},''," + org.json.JSONObject.quote(route) + ");window.dispatchEvent(new PopStateEvent('popstate'));",
+            null
+        ), 700);
     }
 
     private void configureSystemBars() {

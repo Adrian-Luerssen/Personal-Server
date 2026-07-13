@@ -34,6 +34,8 @@ interface AcceptSuggestionInput {
   categoryId?: string | null;
   name?: string;
   note?: string | null;
+  amount?: number | string;
+  occurredAt?: string | Date;
 }
 
 @Injectable()
@@ -82,16 +84,31 @@ export class TransactionSuggestionsService {
 
   async accept(account: Account, id: string, input: AcceptSuggestionInput = {}) {
     const suggestion = await this.findOne(account, id);
+    if (suggestion.status === TransactionSuggestionStatus.ACCEPTED && suggestion.matchedTransactionId) {
+      const transaction = await this.transactionsService.findOne(account, suggestion.matchedTransactionId);
+      return { suggestion, transaction, duplicate: true };
+    }
     if (suggestion.status !== TransactionSuggestionStatus.PENDING) {
       throw new BadRequestException('Only pending suggestions can be accepted');
     }
 
+    const amount = input.amount === undefined ? Number(suggestion.amount) : Number(input.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('amount must be a positive number');
+    }
+    const transactionDate = new Date(input.occurredAt ?? suggestion.occurredAt);
+    if (Number.isNaN(transactionDate.getTime())) {
+      throw new BadRequestException('occurredAt must be a valid date');
+    }
+    const reviewedName = String(input.name || this.titleFromMerchant(suggestion.merchantRaw)).trim();
+    if (!reviewedName) throw new BadRequestException('name is required');
+
     const transaction = await this.transactionsService.create(account, {
-      name: input.name || this.titleFromMerchant(suggestion.merchantRaw),
-      amount: Number(suggestion.amount),
+      name: reviewedName,
+      amount,
       isIncome: false,
       isPaid: true,
-      transactionDate: new Date(suggestion.occurredAt),
+      transactionDate,
       walletId: input.walletId || null,
       categoryId: input.categoryId || null,
       note: input.note === undefined ? 'Detected from payment notification.' : input.note,
@@ -109,6 +126,10 @@ export class TransactionSuggestionsService {
 
   async reject(account: Account, id: string) {
     const suggestion = await this.findOne(account, id);
+    if (suggestion.status === TransactionSuggestionStatus.REJECTED) return suggestion;
+    if (suggestion.status !== TransactionSuggestionStatus.PENDING) {
+      throw new BadRequestException('Only pending suggestions can be rejected');
+    }
     suggestion.status = TransactionSuggestionStatus.REJECTED;
     suggestion.decidedAt = new Date();
     const saved = await this.repo.save(suggestion);

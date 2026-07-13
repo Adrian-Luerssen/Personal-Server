@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
 import { formatDate, SkeletonCard } from '../../components/shared'
@@ -11,6 +11,7 @@ import CategoryLabel from '../../components/finance/CategoryLabel'
 import CategoryPicker from '../../components/finance/CategoryPicker'
 import WalletPicker from '../../components/finance/WalletPicker'
 import TransactionForm from '../../components/finance/TransactionForm'
+import PaymentCaptureSheet from '../../components/finance/PaymentCaptureSheet'
 import { normalizeFinanceColor } from '../../components/finance/financeVisuals.mjs'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { syncNativePaymentSuggestions } from '../../nativePayments.mjs'
@@ -79,6 +80,7 @@ function getTransactionWalletName(tx) {
 export default function FinanceTransactions() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const now = new Date()
   const [navYear, setNavYear] = useState(now.getFullYear())
@@ -91,6 +93,8 @@ export default function FinanceTransactions() {
   const [totalCount, setTotalCount] = useState(0)
   const [monthSummary, setMonthSummary] = useState(null)
   const [suggestions, setSuggestions] = useState([])
+  const [selectedSuggestion, setSelectedSuggestion] = useState(null)
+  const [captureBusy, setCaptureBusy] = useState(false)
   const [page, setPage] = useState(1)
   const limit = 20
 
@@ -168,6 +172,17 @@ export default function FinanceTransactions() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  useEffect(() => {
+    const requestedId = searchParams.get('paymentSuggestionId')
+    if (!requestedId || selectedSuggestion) return
+    const requested = suggestions.find(suggestion => (
+      suggestion.id === requestedId ||
+      suggestion.eventHash === requestedId ||
+      suggestion.eventHash?.startsWith(requestedId)
+    ))
+    if (requested) setSelectedSuggestion(requested)
+  }, [searchParams, selectedSuggestion, suggestions])
+
   const handleFilterChange = (key, value) => {
     setFilters(f => ({ ...f, [key]: value }))
     setPage(1)
@@ -196,15 +211,37 @@ export default function FinanceTransactions() {
     setShowTxForm(true)
   }
 
-  async function acceptSuggestion(suggestion) {
-    await api.post(`/finance/transaction-suggestions/${suggestion.id}/accept`, {})
-    await loadData()
+  async function acceptSuggestion(suggestion, corrections = {}) {
+    setCaptureBusy(true)
+    try {
+      await api.post(`/finance/transaction-suggestions/${suggestion.id}/accept`, corrections)
+      setSelectedSuggestion(null)
+      setSearchParams(current => {
+        const next = new URLSearchParams(current)
+        next.delete('paymentSuggestionId')
+        next.delete('captureAction')
+        return next
+      }, { replace: true })
+      await loadData()
+    } finally {
+      setCaptureBusy(false)
+    }
   }
 
   async function rejectSuggestion(suggestion) {
-    await api.post(`/finance/transaction-suggestions/${suggestion.id}/reject`, {})
-    await loadData()
+    setCaptureBusy(true)
+    try {
+      await api.post(`/finance/transaction-suggestions/${suggestion.id}/reject`, {})
+      setSelectedSuggestion(null)
+      await loadData()
+    } finally {
+      setCaptureBusy(false)
+    }
   }
+
+  const paymentCaptureSheet = selectedSuggestion ? (
+    <PaymentCaptureSheet suggestion={selectedSuggestion} wallets={wallets} categories={categories} busy={captureBusy} onClose={() => setSelectedSuggestion(null)} onConfirm={acceptSuggestion} onIgnore={rejectSuggestion} />
+  ) : null
 
   const totalPages = Math.ceil(totalCount / limit)
   const monthIncome = monthSummary?.totalIncome || 0
@@ -235,7 +272,7 @@ export default function FinanceTransactions() {
           onPageChange={setPage}
           onAddTx={openAddTx}
           onEditTx={openEditTx}
-          onAcceptSuggestion={acceptSuggestion}
+          onReviewSuggestion={setSelectedSuggestion}
           onRejectSuggestion={rejectSuggestion}
           navigate={navigate}
         />
@@ -249,6 +286,7 @@ export default function FinanceTransactions() {
             onSaved={loadData}
           />
         )}
+        {paymentCaptureSheet}
       </>
     )
   }
@@ -266,6 +304,13 @@ export default function FinanceTransactions() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <MonthNavigator year={navYear} month={navMonth} onChange={handleMonthChange} />
       </div>
+
+      {suggestions.length > 0 && (
+        <div className="card payment-review-web">
+          <div><span className="native-eyebrow">Needs review</span><strong>{suggestions.length} detected {suggestions.length === 1 ? 'payment' : 'payments'}</strong></div>
+          <button type="button" className="btn btn-primary" onClick={() => setSelectedSuggestion(suggestions[0])}>Review</button>
+        </div>
+      )}
 
       {/* Month Summary Bar */}
       {!loading && monthSummary && (
@@ -475,6 +520,7 @@ export default function FinanceTransactions() {
           onSaved={loadData}
         />
       )}
+      {paymentCaptureSheet}
     </>
   )
 }
@@ -500,7 +546,7 @@ function NativeFinanceTransactionsView({
   onPageChange,
   onAddTx,
   onEditTx,
-  onAcceptSuggestion,
+  onReviewSuggestion,
   onRejectSuggestion,
   navigate,
 }) {
@@ -586,7 +632,7 @@ function NativeFinanceTransactionsView({
         </div>
         <NativePaymentSuggestionsPanel
           suggestions={suggestions}
-          onAccept={onAcceptSuggestion}
+          onReview={onReviewSuggestion}
           onReject={onRejectSuggestion}
         />
       </section>}
@@ -767,7 +813,7 @@ function NativeFinanceTransactionsView({
   )
 }
 
-function NativePaymentSuggestionsPanel({ suggestions, onAccept, onReject }) {
+function NativePaymentSuggestionsPanel({ suggestions, onReview, onReject }) {
   if (!suggestions.length) {
     return <div className="native-empty-state">Detected card payments will appear here before they become transactions.</div>
   }
@@ -790,9 +836,9 @@ function NativePaymentSuggestionsPanel({ suggestions, onAccept, onReject }) {
             <em>-{formatCurrency(Math.abs(Number(suggestion.amount || 0)))}</em>
           </div>
           <div className="native-payment-suggestion__actions">
-            <button type="button" className="native-primary-button" onClick={() => onAccept(suggestion)}>
-              <Icon name="check" size={16} />
-              Add
+            <button type="button" className="native-primary-button" onClick={() => onReview(suggestion)}>
+              <Icon name="search" size={16} />
+              Review
             </button>
             <button type="button" className="native-secondary-button" onClick={() => onReject(suggestion)}>
               <Icon name="x" size={16} />

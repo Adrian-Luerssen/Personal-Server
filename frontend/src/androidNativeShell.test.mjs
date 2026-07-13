@@ -34,6 +34,10 @@ const paymentParserPath = resolve(
   process.cwd(),
   'android/app/src/main/java/com/adrianluerssen/personalserver/payments/PaymentNotificationParser.java',
 )
+const paymentActionReceiverPath = resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/payments/PaymentSuggestionActionReceiver.java',
+)
 
 test('native Android activity colors system bars to match the app shell', () => {
   assert.match(mainActivity, /setStatusBarColor/)
@@ -85,6 +89,23 @@ test('native payment detection cannot reprocess Personal Server prompts', () => 
   assert.match(paymentParser, /sourceNotificationKey/)
   assert.match(paymentListener, /PaymentSuggestionStore\.addSuggestion/)
   assert.match(paymentListener, /showDetectedPaymentNotification/)
+})
+
+test('detected payments stay normalized locally and offer review actions', () => {
+  const paymentListener = readFileSync(paymentListenerPath, 'utf8')
+  const paymentParser = readFileSync(paymentParserPath, 'utf8')
+  const paymentActions = readFileSync(paymentActionReceiverPath, 'utf8')
+
+  assert.match(paymentParser, /amountMinor/)
+  assert.match(paymentParser, /android-notification-v2/)
+  assert.doesNotMatch(paymentParser, /suggestion\.put\("rawText"/)
+  assert.match(paymentListener, /"Confirm"/)
+  assert.match(paymentListener, /"Edit"/)
+  assert.match(paymentListener, /"Ignore"/)
+  assert.match(paymentActions, /PaymentSuggestionStore\.clearSuggestion/)
+  assert.match(paymentActions, /captureAction/)
+  assert.match(mainActivity, /paymentSuggestionId/)
+  assert.match(manifest, /PaymentSuggestionActionReceiver/)
 })
 
 test('native payment bridge purges self-generated payment loop suggestions', () => {

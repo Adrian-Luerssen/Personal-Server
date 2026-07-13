@@ -2,16 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import {
-  StatCard,
-  SessionCard,
-  SkeletonStatCard,
-  SkeletonSessionCard,
-  SkeletonCard,
   formatDate,
   formatNumberShort,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
-import PageHeader from '../../components/PageHeader'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import {
   getSyncedActivityMetrics,
@@ -341,7 +335,6 @@ export default function Workout() {
     }
   }
 
-  if (isNativeMobileApp()) {
     return (
       <NativeWorkoutView
         loading={loading}
@@ -361,171 +354,4 @@ export default function Workout() {
         navigate={navigate}
       />
     )
-  }
-
-  return (
-    <>
-      <PageHeader icon="dumbbell" title="Workout" accentColor="#4ade80" />
-
-      {loadError && <div className="alert-error" style={{ marginBottom: '1rem' }}>{loadError}</div>}
-      {actionError && <div className="alert-error" style={{ marginBottom: '1rem' }}>{actionError}</div>}
-
-      {loading ? (
-        <SkeletonCard lines={2} widths={["30%", "50%"]} />
-      ) : activeSession ? (
-        <div
-          className="card interactive"
-          style={{ marginBottom: '1.5rem', background: 'var(--color-warning-muted)', borderColor: 'var(--color-warning)' }}
-          onClick={() => navigate('/workout/active')}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <Icon name="play" size={32} style={{ color: 'var(--color-warning)' }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-warning)' }}>Workout in Progress</div>
-              <div style={{ color: 'var(--color-text-secondary)', fontSize: '.9rem', marginTop: 4 }}>
-                {activeSession.sets?.length || 0} sets &bull; Started {formatDate(activeSession.startAt)}
-              </div>
-            </div>
-            <button className="btn" onClick={(e) => { e.stopPropagation(); navigate('/workout/active') }}>Continue &rarr;</button>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
-        {loading ? (
-          Array.from({ length: 6 }).map((_, i) => <SkeletonStatCard key={i} />)
-        ) : (
-          <>
-            <StatCard icon="dumbbell" accentColor="#4ade80" label="Total Workouts" value={stats.totalSessions} />
-            <StatCard icon="calendar" accentColor="#4ade80" label="This Week" value={stats.thisWeek} />
-            <StatCard icon="layers" accentColor="#4ade80" label="Total Sets" value={stats.totalSets} />
-            <StatCard icon="repeat" accentColor="#4ade80" label="Total Reps" value={stats.totalReps} />
-            <StatCard icon="weight" accentColor="#4ade80" label="Total Volume" value={`${stats.totalVolume} kg`} />
-            <StatCard icon="activity" accentColor="#4ade80" label="Steps Today" value={activitySummary.today?.steps ?? 0} subtitle={`${activitySummary.week?.steps ?? 0} 7-day steps`} />
-            {latestWeight && (
-              <StatCard icon="scale" accentColor="#4ade80" label="Latest Weight" value={`${latestWeight.weightKg} kg`} subtitle={formatDate(latestWeight.date)} />
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="section">
-        <h3>Quick Actions</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-          {[
-            { icon: 'dumbbell', label: 'Start Workout', onClick: startWorkout, accent: true },
-            { icon: 'bar-chart-3', label: 'View History', onClick: () => navigate('/workout/history') },
-            { icon: 'folder-open', label: 'Manage Exercises', onClick: () => navigate('/workout/exercises') },
-            { icon: 'scale', label: 'Bodyweight', onClick: () => navigate('/workout/bodyweight') },
-          ].map(action => (
-            <button
-              type="button"
-              key={action.label}
-              className="card interactive"
-              style={{ padding: '1.5rem', textAlign: 'center', color: 'inherit', border: action.accent ? '2px solid var(--color-accent)' : undefined, background: action.accent ? 'var(--color-accent-muted)' : undefined }}
-              onClick={action.onClick}
-            >
-              <Icon name={action.icon} size={40} style={{ marginBottom: '.5rem', color: 'var(--color-accent)' }} />
-              <div style={{ fontWeight: 700 }}>{action.label}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="section">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginBottom: '.75rem' }}>
-          <Icon name="trophy" size={20} style={{ color: '#4ade80' }} />
-          <h3 style={{ margin: 0 }}>Personal Records</h3>
-        </div>
-
-        {prsLoading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
-            {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} lines={2} widths={["40%", "60%"]} />)}
-          </div>
-        ) : prs.length === 0 ? (
-          <div className="empty-state">No personal records yet. Start lifting to set your first PR!</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
-            {prs.map((pr, index) => {
-              const isTop3 = index < 3
-              const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32']
-              const medalColor = isTop3 ? medalColors[index] : null
-              return (
-                <div
-                  key={pr.exerciseId || index}
-                  className="card"
-                  style={{
-                    padding: '1rem 1.25rem',
-                    borderLeft: isTop3 ? `4px solid ${medalColor}` : '4px solid var(--glass-border)',
-                    background: isTop3 ? `${medalColor}08` : undefined,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-                    {isTop3 && (
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        background: `${medalColor}20`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        <Icon name="trophy" size={18} style={{ color: medalColor }} />
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>{pr.exerciseName || 'Unknown Exercise'}</span>
-                        {isTop3 && (
-                          <span style={{
-                            fontSize: '.75rem', fontWeight: 700, padding: '2px 8px',
-                            borderRadius: 'var(--radius-md)', background: `${medalColor}20`, color: medalColor,
-                          }}>
-                            #{index + 1}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: 4, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700, fontSize: '1.1rem', color: '#4ade80' }}>
-                          {pr.maxWeight} kg
-                        </span>
-                        {pr.reps != null && (
-                          <span style={{ fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>
-                            {pr.reps} rep{pr.reps !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {pr.date && (
-                          <span style={{ fontSize: '.85rem', color: 'var(--color-text-muted)' }}>
-                            {formatDate(pr.date)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.75rem' }}>
-          <h3>Recent Workouts</h3>
-          <button className="btn small" onClick={() => navigate('/workout/history')}>View All &rarr;</button>
-        </div>
-
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {Array.from({ length: 3 }).map((_, i) => <SkeletonSessionCard key={i} />)}
-          </div>
-        ) : recentSessions.length === 0 ? (
-          <div className="empty-state">No workouts yet. Start your first workout!</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {recentSessions.map(session => (
-              <SessionCard key={session.id} session={session} onClick={() => navigate('/workout/history')} />
-            ))}
-          </div>
-        )}
-      </div>
-    </>
-  )
 }

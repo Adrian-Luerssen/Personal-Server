@@ -855,3 +855,96 @@
   .anime-continuity__rail li { grid-template-columns: 14px minmax(0, 1fr); gap: 0.45rem; }
   .anime-continuity__position, .anime-continuity__rail li > span:last-child { grid-column: 2; }
 }
+
+/* Series is a register, not a poster gallery: dense status groups on the left,
+   season and continuity detail on the right. */
+.series-register {
+  --series-rule: var(--border-subtle);
+  --color-text: var(--text-primary);
+  --color-bg: var(--surface-canvas);
+  --color-bg-subtle: var(--surface-raised);
+  --color-accent: var(--domain-series);
+  width: min(100%, 76rem);
+  padding: clamp(1rem, 2.4vw, 2.25rem);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-panel);
+}
+
+.series-register__header {
+  min-height: 13rem;
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  align-items: end;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(105deg, color-mix(in srgb, var(--domain-series) 14%, var(--surface-raised)), var(--surface-panel) 64%);
+}
+.series-register__header::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--domain-series); }
+.series-register__header h1 { font-family: var(--font-display); font-size: clamp(3.2rem, 7vw, 6rem); font-weight: 650; letter-spacing: -.075em; line-height: .86; }
+.series-register__header p { max-width: 38rem; color: var(--text-secondary); }
+.series-register__add { border: 1px solid var(--domain-series); border-radius: var(--radius-sm); background: var(--domain-series); color: #261701; }
+
+.series-register__summary { padding: 0; gap: 1px; border: 0; background: var(--border-subtle); }
+.series-register__summary > div { min-height: 5.8rem; padding: .9rem 1rem; display: grid; align-content: space-between; border: 0; background: var(--surface-raised); }
+.series-register__summary > div:first-child { padding-left: 1rem; }
+.series-register__summary dt { color: var(--text-muted); font: 600 .64rem/1 var(--font-data); letter-spacing: .08em; }
+.series-register__summary dd { font: 650 1.55rem/1 var(--font-data); letter-spacing: -.04em; }
+
+.series-completion { margin: 1px 0 0; padding: 1rem; border: 0; border-inline-start: 2px solid var(--domain-series); background: color-mix(in srgb, var(--domain-series) 6%, var(--surface-raised)); }
+.series-completion button { border-color: var(--border-strong); border-radius: var(--radius-sm); }
+.series-completion button:first-child { border-color: var(--domain-series); color: var(--domain-series); }
+.series-status-tabs,
+.series-register .media-type-chips { margin-top: 1px; padding-inline: .5rem; border: 0; background: var(--surface-canvas); }
+.series-status-tabs button.is-active,
+.series-register .media-chip.active { border-bottom-color: var(--domain-series); color: var(--text-primary) !important; }
+.series-register .media-toolbar { margin: 1px 0 0; padding: .8rem 1rem; border: 0; background: var(--surface-raised); }
+.series-register .media-search-input-wrap input { border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-canvas); }
+
+.series-groups { margin: 1px 0 0; padding: .4rem 1rem 1.25rem; background: var(--surface-panel); }
+.series-group { margin-top: 1.25rem; }
+.series-group__heading { border-bottom-color: var(--border-strong); }
+.series-group__heading h2 { font-family: var(--font-display); font-weight: 650; letter-spacing: -.035em; }
+.series-row { grid-template-columns: 58px minmax(0, 1fr) auto; min-height: 92px; border-bottom-color: var(--border-subtle); }
+.series-row:hover { background: var(--surface-raised); }
+.series-row__cover { width: 44px; height: 66px; background: var(--surface-control); }
+.series-row__title { font-size: .92rem; }
+.series-row__progress progress { accent-color: var(--domain-series); }
+.series-row__increment { border-left-color: var(--border-subtle) !important; }
+.series-row__episode-action { color: var(--domain-series) !important; }
+
+.series-detail-overlay { background: var(--surface-overlay); backdrop-filter: blur(10px); }
+.series-detail { width: min(52rem, 100%); border-left-color: var(--border-strong); background: var(--surface-canvas); color: var(--text-primary); box-shadow: -2rem 0 6rem rgb(0 0 0 / 38%); }
+.series-detail__hero { min-height: 13rem; padding: 1.5rem; border-bottom-color: var(--border-subtle); background: linear-gradient(110deg, color-mix(in srgb, var(--domain-series) 10%, var(--surface-raised)), var(--surface-panel)); }
+.series-detail__cover { background: var(--surface-control); }
+.series-detail__intro h2 { font-family: var(--font-display); font-weight: 650; letter-spacing: -.05em; }
+.series-detail__kicker { color: var(--domain-series); }
+.series-detail__actions { border-bottom-color: var(--border-subtle); background: var(--surface-panel); }
+.series-detail__actions > button { border-color: var(--border-strong); }
+.series-detail__actions .series-detail__primary { border-color: var(--domain-series); background: var(--domain-series); color: #261701; }
+.series-detail__upcoming { border-left-color: var(--domain-series); }
+.series-detail__section-heading { border-bottom-color: var(--border-strong); }
+.series-detail__section-heading h3 { font-family: var(--font-display); font-weight: 650; }
+.series-season-tabs button.is-active { border-color: var(--domain-series); color: var(--domain-series); }
+.series-episode-list,
+.series-episode,
+.series-episode__check { border-color: var(--border-subtle); }
+.series-episode.is-next { box-shadow: inset 2px 0 0 var(--domain-series); background: color-mix(in srgb, var(--domain-series) 5%, transparent); }
+.series-episode__check[aria-pressed='true'],
+.series-episode__title-row > span { color: var(--domain-series); }
+.anime-continuity__rail li { border-bottom-color: var(--border-subtle); }
+.anime-continuity__rail li.is-current .anime-continuity__marker { border-color: var(--domain-series); background: var(--domain-series); }
+.anime-continuity__rail li.is-current strong { color: var(--domain-series); }
+
+@media (max-width: 700px) {
+  .series-register { width: calc(100% + 1.5rem); margin-inline: -.75rem; padding: 0 0 calc(env(safe-area-inset-bottom, 0px) + 5.4rem); border-inline: 0; }
+  .series-register__header { min-height: 10rem; padding: 1.2rem 1rem; }
+  .series-register__header h1 { font-size: 3.8rem; }
+  .series-register__header p { display: none; }
+  .series-register__summary { grid-template-columns: repeat(2,1fr); }
+  .series-register__summary > div:nth-child(3) { padding-left: 1rem; }
+  .series-completion,
+  .series-register .media-toolbar,
+  .series-groups { padding-inline: 1rem; }
+  .series-row__actions { align-self: stretch; }
+  .series-row__episode-action { min-width: 68px !important; }
+  .series-detail { border-top-color: var(--domain-series); }
+}

@@ -17,6 +17,9 @@ const sidebarSource = read('src/components/Sidebar.jsx')
 const dailyBriefSource = read('src/pages/Home/components/DailyBrief.jsx')
 const landingSource = read('src/pages/Landing.jsx')
 const landingCss = read('src/pages/Landing.css')
+const financeTransactionsSource = read('src/pages/Finance/FinanceTransactions.jsx')
+const workoutSource = read('src/pages/Workout/Workout.jsx')
+const seriesSource = read('src/pages/Media/Media.jsx')
 const designSystemDoc = read('../DESIGN.md')
 const brandProfileDoc = read('../docs/product/BRAND_PROFILE.md')
 
@@ -114,6 +117,15 @@ test('Today is an action-first brief built from source facts rather than a synth
   assert.match(dailyBriefSource, /Ask about today/)
   assert.doesNotMatch(dailyBriefSource, /SignalRing|dailySignal|Daily signal/)
   assert.match(read('src/styles/domains/today.css'), /\.daily-brief__body/)
+})
+
+test('Cash, Gym, and Series use purpose-built working surfaces on web and native', () => {
+  assert.doesNotMatch(financeTransactionsSource, /<PageHeader|className="card" style=/)
+  assert.match(financeTransactionsSource, /native-transaction-day-group/)
+  assert.doesNotMatch(workoutSource, /<StatCard|Quick Actions/)
+  assert.match(workoutSource, /native-workout-primary/)
+  assert.match(seriesSource, /series-groups/)
+  assert.match(seriesSource, /series-row__episode-action/)
 })
 
 test('landing is a faithful product showcase instead of an editorial ledger', () => {

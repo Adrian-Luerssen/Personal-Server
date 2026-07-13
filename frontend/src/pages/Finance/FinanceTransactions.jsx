@@ -1,15 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import { api } from '../../api'
-import { formatDate, SkeletonCard } from '../../components/shared'
+import { formatDate } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
-import PageHeader from '../../components/PageHeader'
-import MonthNavigator, { getMonthRange } from '../../components/finance/MonthNavigator'
-import CategoryIcon from '../../components/finance/CategoryIcon'
-import CategoryLabel from '../../components/finance/CategoryLabel'
-import CategoryPicker from '../../components/finance/CategoryPicker'
-import WalletPicker from '../../components/finance/WalletPicker'
+import { getMonthRange } from '../../components/finance/MonthNavigator'
 import TransactionForm from '../../components/finance/TransactionForm'
 import PaymentCaptureSheet from '../../components/finance/PaymentCaptureSheet'
 import { normalizeFinanceColor } from '../../components/finance/financeVisuals.mjs'
@@ -78,7 +72,6 @@ function getTransactionWalletName(tx) {
 }
 
 export default function FinanceTransactions() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -248,8 +241,7 @@ export default function FinanceTransactions() {
   const monthExpense = monthSummary?.totalExpense || 0
   const monthNet = monthIncome - Math.abs(monthExpense)
 
-  if (isNativeMobileApp()) {
-    return (
+  return (
       <>
         <NativeFinanceTransactionsView
           loading={loading}
@@ -288,243 +280,8 @@ export default function FinanceTransactions() {
         )}
         {paymentCaptureSheet}
       </>
-    )
-  }
-
-  return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-        <PageHeader icon="receipt" title="Transactions" accentColor="#fbbf24" />
-        <button className="btn btn-primary" onClick={openAddTx}>
-          <Icon name="plus" size={16} /> Add Transaction
-        </button>
-      </div>
-
-      {/* Month Navigator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <MonthNavigator year={navYear} month={navMonth} onChange={handleMonthChange} />
-      </div>
-
-      {suggestions.length > 0 && (
-        <div className="card payment-review-web">
-          <div><span className="native-eyebrow">Needs review</span><strong>{suggestions.length} detected {suggestions.length === 1 ? 'payment' : 'payments'}</strong></div>
-          <button type="button" className="btn btn-primary" onClick={() => setSelectedSuggestion(suggestions[0])}>Review</button>
-        </div>
-      )}
-
-      {/* Month Summary Bar */}
-      {!loading && monthSummary && (
-        <div className="month-summary-bar">
-          <div className="summary-item">
-            <span className="summary-label">Income</span>
-            <span className="summary-value" style={{ color: 'var(--color-success)' }}>+{formatCurrency(monthIncome)}</span>
-          </div>
-          <div className="summary-item">
-            <span className="summary-label">Expenses</span>
-            <span className="summary-value" style={{ color: 'var(--color-error)' }}>-{formatCurrency(Math.abs(monthExpense))}</span>
-          </div>
-          <div className="summary-item">
-            <span className="summary-label">Net</span>
-            <span className="summary-value" style={{ color: monthNet >= 0 ? 'var(--color-success)' : 'var(--color-error)' }}>
-              {monthNet >= 0 ? '+' : ''}{formatCurrency(monthNet)}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
-          {/* Search */}
-          <div style={{ flex: '1 1 200px' }}>
-            <label style={labelStyle}>{t('common.search')}</label>
-            <input
-              type="text"
-              aria-label={t('finance.searchTransactions')}
-              placeholder={t('finance.searchTransactions')}
-              value={filters.search}
-              onChange={e => handleFilterChange('search', e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Transaction Type */}
-          <div style={{ flex: '0 1 150px' }}>
-            <label style={labelStyle}>{t('finance.type')}</label>
-            <select aria-label={t('finance.type')} value={filters.transactionType} onChange={e => handleFilterChange('transactionType', e.target.value)} style={inputStyle}>
-              <option value="">{t('finance.allTypes')}</option>
-              <option value="income">{t('finance.income')}</option>
-              <option value="expense">{t('finance.expense')}</option>
-              <option value="transfer">{t('finance.transfer')}</option>
-            </select>
-          </div>
-
-          {/* Wallet */}
-          <div style={{ flex: '0 1 200px' }}>
-            <label style={labelStyle}>{t('finance.wallet')}</label>
-            <WalletPicker
-              wallets={wallets}
-              value={filters.walletId}
-              onChange={val => handleFilterChange('walletId', val || '')}
-              placeholder={t('finance.allWallets')}
-              ariaLabel={t('finance.wallet')}
-            />
-          </div>
-
-          {/* Category */}
-          <div style={{ flex: '0 1 180px' }}>
-            <label style={labelStyle}>{t('finance.category')}</label>
-            <CategoryPicker
-              categories={categories}
-              value={filters.categoryId}
-              onChange={val => handleFilterChange('categoryId', val || '')}
-              placeholder={t('finance.allCategories')}
-              ariaLabel={t('finance.category')}
-            />
-          </div>
-
-          {/* Clear Filters */}
-          <button
-            className="btn small"
-            onClick={clearFilters}
-            style={{ background: 'transparent', border: '1px solid var(--glass-border)' }}
-          >
-            <Icon name="x" size={16} />
-            {t('common.clear')}
-          </button>
-        </div>
-      </div>
-
-      {/* Transactions Table */}
-      {loading ? (
-        <SkeletonCard lines={8} />
-      ) : transactions.length === 0 ? (
-        <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
-          <Icon name="receipt" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block', margin: '0 auto 1rem' }} />
-          <div style={{ color: 'var(--color-text-secondary)' }}>
-            {t('finance.noTransactions')}
-          </div>
-          <button className="btn" onClick={() => navigate('/settings?section=data')} style={{ marginTop: '1rem' }}>
-            <Icon name="database" size={18} />
-            Settings and Data
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
-              <thead>
-                <tr style={{ background: 'var(--color-bg-elevated)' }}>
-                  <th style={thStyle}>{t('finance.date')}</th>
-                  <th style={thStyle}>{t('finance.description')}</th>
-                  <th style={thStyle}>{t('finance.wallet')}</th>
-                  <th style={thStyle}>{t('finance.category')}</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>{t('finance.amount')}</th>
-                </tr>
-              </thead>
-              <tbody className="stagger-list">
-                {transactions.map(tx => {
-                  const txType = getTransactionType(tx)
-                  const txColor = getTransactionColor(tx)
-                  const txIcon = getTransactionIcon(tx)
-
-                  return (
-                    <tr
-                      key={tx.id}
-                      style={{ borderBottom: '1px solid var(--glass-border)', cursor: 'pointer' }}
-                      onClick={() => openEditTx(tx)}
-                    >
-                      <td style={tdStyle}>{formatDate(tx.transactionDate || tx.date)}</td>
-                      <td style={tdStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Icon name={txIcon} size={18} style={{ color: txColor }} />
-                          <div>
-                            <div style={{ fontWeight: 500 }}>{tx.name || tx.description || '—'}</div>
-                            {tx.note && (
-                              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                                {tx.note}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td style={tdStyle}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <Icon name={tx.wallet?.iconName || 'wallet'} size={16} style={{ color: normalizeFinanceColor(tx.wallet?.colour, FINANCE_COLOR) }} />
-                          {tx.wallet?.name || tx.walletName || '—'}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <CategoryLabel category={tx.category} fallback={t('finance.uncategorized')} />
-                      </td>
-                      <td style={{
-                        ...tdStyle,
-                        textAlign: 'right',
-                        fontWeight: 700,
-                        color: txColor,
-                      }}>
-                        {txType === 'income' ? '+' : txType === 'expense' ? '-' : ''}
-                        {formatCurrency(Math.abs(tx.amount))}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            </div>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '1rem',
-              marginTop: '1.5rem',
-            }}>
-              <button
-                className="btn small"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                style={{ opacity: page === 1 ? 0.4 : 1 }}
-              >
-                <Icon name="chevron-left" size={18} />
-                {t('common.previous')}
-              </button>
-              <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                {t('common.page')} {page} {t('common.of')} {totalPages}
-              </span>
-              <button
-                className="btn small"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                style={{ opacity: page === totalPages ? 0.4 : 1 }}
-              >
-                {t('common.next')}
-                <Icon name="chevron-right" size={18} />
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {showTxForm && (
-        <TransactionForm
-          transaction={txFormData}
-          wallets={wallets}
-          categories={categories}
-          initialMode={txFormMode}
-          onClose={() => setShowTxForm(false)}
-          onSaved={loadData}
-        />
-      )}
-      {paymentCaptureSheet}
-    </>
   )
 }
-
 function NativeFinanceTransactionsView({
   loading,
   transactions,
@@ -887,39 +644,4 @@ function NativeTransactionFeedCard({ tx, onClick }) {
       <em style={{ color: txColor }}>{sign}{formatCurrency(Math.abs(tx.amount), currency)}</em>
     </button>
   )
-}
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '0.75rem',
-  fontWeight: 600,
-  color: 'var(--color-text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  marginBottom: '0.4rem',
-}
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.6rem 0.75rem',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--glass-border)',
-  background: 'var(--color-bg-elevated)',
-  color: 'var(--color-text-primary)',
-  fontSize: '0.9rem',
-}
-
-const thStyle = {
-  textAlign: 'left',
-  padding: '0.75rem 1rem',
-  fontSize: '0.8rem',
-  color: 'var(--color-text-muted)',
-  fontWeight: 600,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-}
-
-const tdStyle = {
-  padding: '0.75rem 1rem',
-  fontSize: '0.9rem',
 }

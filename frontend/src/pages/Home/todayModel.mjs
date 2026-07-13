@@ -9,6 +9,37 @@ function timestampFor(record) {
   return record?.occurredAt || record?.updatedAt || record?.createdAt || null
 }
 
+export function buildTodayBrief({
+  activeWorkout = null,
+  habitsCompleted = 0,
+  habitsTotal = 0,
+  paymentSuggestions = [],
+  spentToday = 0,
+  streamsToday = 0,
+  steps = 0,
+} = {}) {
+  const pendingPayments = paymentSuggestions.filter((item) => item?.status === 'pending')
+  const habitsRemain = habitsTotal > habitsCompleted
+  const primary = pendingPayments.length > 0
+    ? { kind: 'payment-review', label: 'Review a detected payment', to: '/finance/transactions?review=pending' }
+    : activeWorkout?.id
+      ? { kind: 'active-workout', label: `Continue ${activeWorkout.name || 'active workout'}`, to: '/workout/active' }
+      : habitsRemain
+        ? { kind: 'habit-due', label: 'Log today’s habits', to: '/habits' }
+        : null
+
+  return {
+    openCount: pendingPayments.length + (activeWorkout?.id ? 1 : 0) + (habitsRemain ? 1 : 0),
+    primary,
+    facts: {
+      habits: { completed: Number(habitsCompleted || 0), total: Number(habitsTotal || 0) },
+      cash: { spentToday: Number(spentToday || 0) },
+      movement: { steps: Number(steps || 0) },
+      music: { streamsToday: Number(streamsToday || 0) },
+    },
+  }
+}
+
 export function buildTodayItems({
   activeWorkout = null,
   habitsDue = [],

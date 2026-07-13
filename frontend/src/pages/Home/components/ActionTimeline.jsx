@@ -16,8 +16,8 @@ export default function ActionTimeline({ items, loaded, onHabitDone }) {
     <section className="action-timeline" aria-labelledby="action-timeline-title">
       <div className="action-timeline__heading">
         <div>
-          <span>Daily register</span>
-          <h2 id="action-timeline-title">Needs your attention</h2>
+          <span>Action queue</span>
+          <h2 id="action-timeline-title">Decide, continue, or confirm</h2>
         </div>
         <small>{items.length} open</small>
       </div>

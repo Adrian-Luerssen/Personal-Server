@@ -108,12 +108,12 @@ test('global navigation stays flat while domain navigation owns local routes', (
   assert.match(sidebarSource, /aria-label="Product navigation"/)
 })
 
-test('Today is composed as an asymmetric command center with real domain instruments', () => {
-  assert.match(dailyBriefSource, /today-command/)
-  assert.match(dailyBriefSource, /daily-signal/)
-  assert.match(dailyBriefSource, /MetricValue/)
-  assert.match(dailyBriefSource, /SignalRing/)
-  assert.match(read('src/styles/domains/today.css'), /grid-template-areas:/)
+test('Today is an action-first brief built from source facts rather than a synthetic score', () => {
+  assert.match(dailyBriefSource, /Next action/)
+  assert.match(dailyBriefSource, /daily-facts/)
+  assert.match(dailyBriefSource, /Ask about today/)
+  assert.doesNotMatch(dailyBriefSource, /SignalRing|dailySignal|Daily signal/)
+  assert.match(read('src/styles/domains/today.css'), /\.daily-brief__body/)
 })
 
 test('landing is a faithful product showcase instead of an editorial ledger', () => {

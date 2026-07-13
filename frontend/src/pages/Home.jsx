@@ -10,7 +10,7 @@ import { isFeatureSyncEnabled } from '../modulePreferences.mjs'
 import { mergeLiveStepIntoActivitySummary, subscribeToLiveStepUpdates } from '../nativeHealth.mjs'
 import ActionTimeline from './Home/components/ActionTimeline'
 import DailyBrief from './Home/components/DailyBrief'
-import { buildTodayItems } from './Home/todayModel.mjs'
+import { buildTodayBrief, buildTodayItems } from './Home/todayModel.mjs'
 
 function mapHabitSummary(items) {
   return (Array.isArray(items) ? items : []).map((habit) => ({
@@ -157,6 +157,15 @@ export default function Home() {
     habitsDue: dueHabits,
     paymentSuggestions,
   }), [activeWorkout, dueHabits, paymentSuggestions])
+  const todayBrief = useMemo(() => buildTodayBrief({
+    activeWorkout,
+    habitsCompleted: completedHabits,
+    habitsTotal: habits.length,
+    paymentSuggestions,
+    spentToday: Math.abs(Number(financeSummary?.todayExpense ?? financeSummary?.todaySpent ?? 0)),
+    steps: Number(activitySummary?.today?.steps || activitySummary?.steps || 0),
+    streamsToday: Number(spotifyStats?.todayStreams || 0),
+  }), [activeWorkout, activitySummary, completedHabits, financeSummary, habits.length, paymentSuggestions, spotifyStats])
 
   const handleHabitDone = useCallback(async (timelineItem) => {
     const habitId = String(timelineItem.id).replace(/^habit-/, '')
@@ -205,13 +214,9 @@ export default function Home() {
   return (
     <div className="today-page" data-testid={nativeApp ? 'native-dashboard' : 'today-dashboard'}>
       <DailyBrief
-        activitySummary={activitySummary}
+        brief={todayBrief}
         currency={currency}
-        habitsCompleted={completedHabits}
-        habitsTotal={habits.length}
         onAsk={askAboutToday}
-        spentToday={Math.abs(Number(financeSummary?.todayExpense ?? financeSummary?.todaySpent ?? 0))}
-        streamsToday={Number(spotifyStats?.todayStreams || 0)}
         syncDetail={formatSyncDetail(snapshot?.generatedAt || snapshot?.sync?.checkedAt, syncState)}
         syncState={syncStateFor(syncState)}
       />

@@ -495,15 +495,26 @@ test.describe('Native Android app shell', () => {
     await expect(page.locator('[data-testid="native-dashboard"]')).toBeVisible()
     await expect(page.getByRole('heading', { name: /habits logged/i })).toBeVisible()
     await expect(page.getByText(/mobility/i)).toBeVisible()
-    await expect(page.locator('.native-tabbar__item', { hasText: 'Today' })).toBeVisible()
-    await expect(page.locator('.native-tabbar__item', { hasText: 'Apps' })).toBeVisible()
-    await expect(page.locator('.native-tabbar__item', { hasText: 'Assistant' })).toBeVisible()
+    const primaryNavigation = page.getByRole('navigation', { name: 'Primary' })
+    await expect(primaryNavigation.getByRole('link', { name: 'Today' })).toBeVisible()
+    await expect(primaryNavigation.getByRole('link', { name: 'Apps' })).toBeVisible()
+    await expect(primaryNavigation.getByRole('button', { name: 'Capture' })).toBeVisible()
+    await expect(primaryNavigation.getByRole('link', { name: 'Assistant' })).toBeVisible()
+    await expect(primaryNavigation.getByRole('link', { name: 'You' })).toBeVisible()
+    const captureButton = primaryNavigation.getByRole('button', { name: 'Capture' })
+    await captureButton.click()
+    const captureDialog = page.getByRole('dialog', { name: 'What happened?' })
+    await expect(captureDialog).toBeVisible()
+    await expect(captureDialog.getByRole('button', { name: 'Transaction' })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(captureDialog).toBeHidden()
+    await expect(captureButton).toBeFocused()
     await expect(page.locator('.native-app-switcher__item')).toHaveCount(0)
     const switcher = page.getByRole('button', { name: /open app menu/i })
     await expect(switcher).toContainText('Apps')
-    await expect(switcher).toHaveAccessibleName(/current area Overview/i)
+    await expect(switcher).toHaveAccessibleName(/current area Today/i)
     await expect(page.getByRole('button', { name: /open settings/i })).toBeVisible()
-    await expect(page.locator('.native-tabbar__item')).toHaveCount(3)
+    await expect(page.locator('.native-tabbar__item')).toHaveCount(5)
     await expect(page.getByRole('link', { name: /download android app/i })).toHaveCount(0)
   })
 
@@ -522,11 +533,11 @@ test.describe('Native Android app shell', () => {
     await expect(switcher).toHaveAccessibleName(/current area Habits/i)
     await switcher.click()
     await expect(page.getByRole('dialog', { name: /switch app/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /training workout log/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /money finance/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /gym training record/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /cash ledger and budgets/i })).toBeVisible()
   })
 
-  test('adapts native navigation to the current app section', async ({ page }) => {
+  test('keeps global navigation stable while section navigation adapts', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
       ;(window as any).Capacitor = { isNativePlatform: () => true }
@@ -536,73 +547,62 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/finance', { waitUntil: 'domcontentloaded' })
 
-    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Money/i)
-    await expect(page.locator('.native-tabbar__item')).toHaveText([
-      /Summary/,
+    const globalNavigation = page.getByRole('navigation', { name: 'Primary' })
+    const sectionNavigation = page.getByRole('navigation', { name: 'Section navigation' })
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Cash/i)
+    await expect(globalNavigation.locator('.native-tabbar__item')).toHaveText([
+      /Today/,
+      /Apps/,
+      /Capture/,
+      /Assistant/,
+      /You/,
+    ])
+    await expect(sectionNavigation.getByRole('link')).toHaveText([
+      /Ledger/,
       /Transactions/,
       /Budgets/,
-      /Trends/,
+      /Analysis/,
     ])
-    await expect(page.locator('.native-tabbar__item', { hasText: /setup|import/i })).toHaveCount(0)
-    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Summary/])
+    await expect(sectionNavigation.getByRole('link', { name: 'Ledger' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto('/finance/transactions', { waitUntil: 'domcontentloaded' })
-    await expect(page.locator('.native-tabbar__item')).toHaveText([
-      /Summary/,
-      /Transactions/,
-      /Budgets/,
-      /Trends/,
-    ])
-    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Transactions/])
+    await expect(globalNavigation.locator('.native-tabbar__item')).toHaveCount(5)
+    await expect(sectionNavigation.getByRole('link', { name: 'Transactions' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto('/workout', { waitUntil: 'domcontentloaded' })
 
-    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Training/i)
-    await expect(page.locator('.native-tabbar__item')).toHaveText([
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Gym/i)
+    await expect(sectionNavigation.getByRole('link')).toHaveText([
       /Today/,
       /Active/,
       /History/,
       /Exercises/,
+      /Progress/,
     ])
-    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Today/])
+    await expect(sectionNavigation.getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto('/workout/history')
-    await expect(page.locator('.native-tabbar__item')).toHaveText([
-      /Today/,
-      /Active/,
-      /History/,
-      /Exercises/,
-    ])
-    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/History/])
+    await expect(sectionNavigation.getByRole('link', { name: 'History' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto('/habits')
 
     await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Habits/i)
-    await expect(page.locator('.native-tabbar__item')).toHaveText([
+    await expect(sectionNavigation.getByRole('link')).toHaveText([
       /Today/,
       /Plan/,
       /History/,
       /Insights/,
     ])
-    await expect(page.locator('.native-tabbar__item', { hasText: /manage|reminders|import/i })).toHaveCount(0)
 
     await page.goto('/media')
-    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Media/i)
-    await expect(page.locator('.native-tabbar__item')).toHaveText([
-      /Today/,
-      /Apps/,
-      /Library/,
-    ])
-    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Library/])
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Series/i)
+    await expect(sectionNavigation.getByRole('link')).toHaveText([/My list/, /Discover/])
+    await expect(sectionNavigation.getByRole('link', { name: 'My list' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto('/chat')
     await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Assistant/i)
-    await expect(page.locator('.native-tabbar__item')).toHaveText([
-      /Today/,
-      /Apps/,
-      /Assistant/,
-    ])
-    await expect(page.locator('.native-tabbar__item.active')).toHaveText([/Assistant/])
+    await expect(globalNavigation.locator('.native-tabbar__item')).toHaveCount(5)
+    await expect(globalNavigation.getByRole('link', { name: 'Assistant' })).toHaveAttribute('aria-current', 'page')
   })
 
   test('keeps the native app switcher label readable on narrow Android headers', async ({ page }) => {

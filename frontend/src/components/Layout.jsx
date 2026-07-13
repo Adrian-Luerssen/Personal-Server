@@ -11,6 +11,11 @@ import { isNativeMobileApp } from '../mobilePlatform'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { FEATURE_MODULES, getModuleIdForPath, isFeatureEnabled, isFeatureSyncEnabled } from '../modulePreferences.mjs'
 import Icon from './icons/Icon'
+import BrandMark from './product/BrandMark'
+import CaptureSheet from './product/CaptureSheet'
+import DomainNav from './product/DomainNav'
+import MobileGlobalNav from './product/MobileGlobalNav'
+import { getCaptureActions } from '../product/capture.mjs'
 import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
 import { pollPendingAiNotifications } from '../aiNotifications.mjs'
 import {
@@ -30,19 +35,18 @@ import {
   getNativeAppForPath,
   getNativeAppSwitcherOptions,
   getNativeBackDestination,
-  getNativeTabsForPath,
 } from '../nativeNavigation.mjs'
 
 const NATIVE_ROUTE_TITLES = [
   { match: /^\/home$/, title: 'Today', subtitle: 'Overview' },
   { match: /^\/menu/, title: 'Menu', subtitle: 'App map' },
-  { match: /^\/workout/, title: 'Training', subtitle: 'Workout log' },
+  { match: /^\/workout/, title: 'Gym', subtitle: 'Training record' },
   { match: /^\/habits/, title: 'Habits', subtitle: 'Daily routines' },
-  { match: /^\/finance/, title: 'Money', subtitle: 'Spending and wallets' },
+  { match: /^\/finance/, title: 'Cash', subtitle: 'Ledger and budgets' },
   { match: /^\/spotify/, title: 'Music', subtitle: 'Spotify insights' },
-  { match: /^\/media/, title: 'Media', subtitle: 'Library' },
-  { match: /^\/chat/, title: 'Assistant', subtitle: 'AI copilot' },
-  { match: /^\/settings/, title: 'Settings', subtitle: 'Account and app' },
+  { match: /^\/media/, title: 'Series', subtitle: 'Watch list' },
+  { match: /^\/chat/, title: 'Assistant', subtitle: 'Across your records' },
+  { match: /^\/settings/, title: 'You', subtitle: 'Account and app' },
 ]
 
 function NativeAppHeader() {
@@ -55,8 +59,8 @@ function NativeAppHeader() {
   const isSettingsRoute = location.pathname.startsWith('/settings')
   const showAppSwitcher = !isSettingsRoute && appSwitcherOptions.length > 0
   const current = NATIVE_ROUTE_TITLES.find((item) => item.match.test(location.pathname)) || {
-    title: 'Personal Server',
-    subtitle: 'Private dashboard',
+    title: 'Personal Record',
+    subtitle: 'Your records, kept useful',
   }
 
   useEffect(() => {
@@ -75,7 +79,7 @@ function NativeAppHeader() {
   return (
     <header className="native-app-header">
       <div className="native-app-header__top">
-        <div className={`native-app-header__mark native-app-header__mark--${currentApp.tone}`} aria-hidden="true">PS</div>
+        <BrandMark className={`native-app-header__mark native-app-header__mark--${currentApp.tone}`} size={32} />
         <div className="native-app-header__copy">
           <span>{current.subtitle}</span>
           <strong>{current.title}</strong>
@@ -215,7 +219,10 @@ export default function Layout() {
   const navigate = useNavigate()
   const { prefs, updatePrefs } = usePreferences()
   const [collapsed, setCollapsed] = useState(false)
-  const hasNativeTabbar = !nativeApp || getNativeTabsForPath(location.pathname, prefs).length > 0
+  const [captureOpen, setCaptureOpen] = useState(false)
+  const enabledCaptureModules = ['finance', 'training', 'habits', 'media']
+    .filter((moduleId) => isFeatureEnabled(prefs, moduleId))
+  const captureActions = getCaptureActions({ enabled: enabledCaptureModules })
   const disabledRouteModule = getModuleIdForPath(location.pathname)
   const routeDisabled = disabledRouteModule && !isFeatureEnabled(prefs, disabledRouteModule)
 
@@ -378,11 +385,12 @@ export default function Layout() {
   }, [location.pathname, location.search, navigate, nativeApp])
 
   return (
-    <div className={"layout" + (collapsed ? ' sidebar-collapsed' : '') + (nativeApp && !hasNativeTabbar ? ' native-no-tabbar' : '')}>
+    <div className={"layout product-shell" + (collapsed ? ' sidebar-collapsed' : '')}>
       {nativeApp && <NativeAppHeader />}
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+      {!nativeApp && <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />}
       <main className="content">
         <div className="content-shell">
+          {nativeApp && <DomainNav />}
           <div className="content-shell__frame">
             <PageTransition>
               <RouteErrorBoundary key={location.pathname}>
@@ -398,6 +406,18 @@ export default function Layout() {
       </main>
       <ApiStatus />
       {nativeApp && <NativeUpdatePrompt />}
+      {nativeApp && <MobileGlobalNav onCapture={() => setCaptureOpen(true)} />}
+      {nativeApp && (
+        <CaptureSheet
+          actions={captureActions}
+          open={captureOpen}
+          onClose={() => setCaptureOpen(false)}
+          onSelect={(action) => {
+            setCaptureOpen(false)
+            navigate(action.to)
+          }}
+        />
+      )}
       {!nativeApp && <ChatPanel />}
       {!nativeApp && <PWAInstallPrompt />}
     </div>

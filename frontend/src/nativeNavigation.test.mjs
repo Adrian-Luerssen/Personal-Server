@@ -18,30 +18,13 @@ describe('native adaptive app navigation', () => {
     assert.equal(getNativeAppForPath('/finance/transactions?action=new').id, 'money');
   });
 
-  it('shows contextual tabs for the selected app instead of one global tabbar', () => {
-    assert.deepEqual(
-      getNativeTabsForPath('/finance').map((tab) => tab.label),
-      ['Summary', 'Transactions', 'Budgets', 'Trends'],
-    );
-    assert.deepEqual(
-      getNativeTabsForPath('/workout').map((tab) => tab.label),
-      ['Today', 'Active', 'History', 'Exercises'],
-    );
-    assert.deepEqual(
-      getNativeTabsForPath('/habits').map((tab) => tab.label),
-      ['Today', 'Plan', 'History', 'Insights'],
-    );
-    assert.deepEqual(
-      getNativeTabsForPath('/media').map((tab) => tab.label),
-      ['Today', 'Apps', 'Library'],
-    );
-    assert.deepEqual(
-      getNativeTabsForPath('/chat').map((tab) => tab.label),
-      ['Today', 'Apps', 'Assistant'],
-    );
+  it('leaves the bottom bar to the stable global navigation', () => {
+    for (const path of ['/finance', '/workout', '/habits', '/media', '/chat']) {
+      assert.deepEqual(getNativeTabsForPath(path), []);
+    }
   });
 
-  it('keeps setup and import routes out of feature app tabbars', () => {
+  it('keeps setup and import routes out of feature app definitions', () => {
     const featureAppIds = new Set(['training', 'habits', 'money', 'music', 'media']);
     for (const app of NATIVE_APPS.filter((item) => featureAppIds.has(item.id))) {
       for (const tab of app.tabs) {
@@ -96,10 +79,7 @@ describe('native adaptive app navigation', () => {
       getNativeAppSwitcherOptions('/home', prefs).map((app) => app.id),
       ['training', 'music', 'media'],
     );
-    assert.deepEqual(
-      getNativeTabsForPath('/home', prefs).map((tab) => tab.label),
-      ['Today', 'Apps'],
-    );
+    assert.deepEqual(getNativeTabsForPath('/home', prefs), []);
     assert.deepEqual(
       getNativeAppSwitcherOptions('/settings', prefs).map((app) => app.id),
       ['overview', 'training', 'music', 'media'],

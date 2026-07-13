@@ -1,11 +1,7 @@
-import { filterEnabledNativeApps, isNativeAppEnabled } from './modulePreferences.mjs'
+import { filterEnabledNativeApps } from './modulePreferences.mjs'
 
 function normalizePath(path) {
   return String(path || '/').split('?')[0]
-}
-
-function destination(path, label, icon, options = {}) {
-  return { to: path, label, icon, ...options }
 }
 
 const SETTINGS_DATA_PREFIXES = [
@@ -27,8 +23,8 @@ function isSettingsDataRoute(path) {
 
 export const NATIVE_SETTINGS_APP = {
   id: 'settings',
-  label: 'Settings',
-  subtitle: 'System control',
+  label: 'You',
+  subtitle: 'Account and app',
   icon: 'settings',
   root: '/settings',
   tone: 'info',
@@ -39,32 +35,23 @@ export const NATIVE_SETTINGS_APP = {
 export const NATIVE_APPS = [
   {
     id: 'overview',
-    label: 'Overview',
-    subtitle: 'Today',
+    label: 'Today',
+    subtitle: 'Daily record',
     icon: 'layout-dashboard',
     root: '/home',
     tone: 'info',
     matches: ['/home', '/menu'],
-    tabs: [
-      destination('/home', 'Today', 'home', { exact: true }),
-      destination('/menu', 'Apps', 'grid-3x3'),
-      destination('/chat', 'Assistant', 'message-square', { module: 'assistant' }),
-    ],
+    tabs: [],
   },
   {
     id: 'training',
-    label: 'Training',
-    subtitle: 'Workout log',
+    label: 'Gym',
+    subtitle: 'Training record',
     icon: 'dumbbell',
     root: '/workout',
     tone: 'success',
     matches: ['/workout'],
-    tabs: [
-      destination('/workout', 'Today', 'layout-dashboard', { exact: true }),
-      destination('/workout/active', 'Active', 'zap'),
-      destination('/workout/history', 'History', 'clock'),
-      destination('/workout/exercises', 'Exercises', 'list'),
-    ],
+    tabs: [],
   },
   {
     id: 'habits',
@@ -74,69 +61,47 @@ export const NATIVE_APPS = [
     root: '/habits',
     tone: 'habits',
     matches: ['/habits'],
-    tabs: [
-      destination('/habits', 'Today', 'heart-pulse', { exact: true }),
-      destination('/habits?view=plan', 'Plan', 'list-checks', { activeIncludes: 'view=plan' }),
-      destination('/habits?view=history', 'History', 'calendar-days', { activeIncludes: 'view=history' }),
-      destination('/habits?view=insights', 'Insights', 'bar-chart-3', { activeIncludes: 'view=insights' }),
-    ],
+    tabs: [],
   },
   {
     id: 'money',
-    label: 'Money',
-    subtitle: 'Finance',
+    label: 'Cash',
+    subtitle: 'Ledger and budgets',
     icon: 'wallet',
     root: '/finance',
     tone: 'money',
     matches: ['/finance'],
-    tabs: [
-      destination('/finance', 'Summary', 'layout-dashboard', { exact: true }),
-      destination('/finance/transactions', 'Transactions', 'receipt'),
-      destination('/finance/budgets', 'Budgets', 'gauge'),
-      destination('/finance/trends', 'Trends', 'chart-no-axes-combined'),
-    ],
+    tabs: [],
   },
   {
     id: 'music',
-    label: 'Music',
-    subtitle: 'Spotify',
+    label: 'Spotify',
+    subtitle: 'Listening record',
     icon: 'music',
     root: '/spotify/personal',
     tone: 'music',
     matches: ['/spotify'],
-    tabs: [
-      destination('/spotify/personal', 'Personal', 'user'),
-      destination('/spotify/ranking', 'Ranking', 'trophy'),
-      destination('/spotify/global', 'Global', 'globe'),
-    ],
+    tabs: [],
   },
   {
     id: 'media',
-    label: 'Media',
-    subtitle: 'Library',
+    label: 'Series',
+    subtitle: 'Watch list',
     icon: 'clapperboard',
     root: '/media',
     tone: 'media',
     matches: ['/media'],
-    tabs: [
-      destination('/home', 'Today', 'home', { exact: true }),
-      destination('/menu', 'Apps', 'grid-3x3'),
-      destination('/media', 'Library', 'library', { exact: true }),
-    ],
+    tabs: [],
   },
   {
     id: 'assistant',
     label: 'Assistant',
-    subtitle: 'AI copilot',
+    subtitle: 'Across your records',
     icon: 'message-square',
     root: '/chat',
     tone: 'ai',
     matches: ['/chat'],
-    tabs: [
-      destination('/home', 'Today', 'home', { exact: true }),
-      destination('/menu', 'Apps', 'grid-3x3'),
-      destination('/chat', 'Assistant', 'message-square', { exact: true }),
-    ],
+    tabs: [],
   },
 ]
 
@@ -154,15 +119,8 @@ export function getNativeAppForPath(path) {
   )
 }
 
-function isTabEnabled(tab, prefs) {
-  if (!tab.module || prefs == null) return true
-  return isNativeAppEnabled({ id: tab.module }, prefs)
-}
-
-export function getNativeTabsForPath(path, prefs) {
-  const app = getNativeAppForPath(path)
-  if (!isNativeAppEnabled(app, prefs)) return []
-  return (app.tabs || []).filter((tab) => isTabEnabled(tab, prefs))
+export function getNativeTabsForPath() {
+  return []
 }
 
 export function getNativeAppSwitcherOptions(path, prefs) {

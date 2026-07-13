@@ -24,3 +24,27 @@
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+.sync-state {
+  display: inline-flex;
+  min-height: 1.75rem;
+  color: var(--color-text-muted);
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+}
+
+.sync-state--failed,
+.sync-state--conflict {
+  color: var(--color-error);
+}
+
+.sync-state button {
+  min-height: 1.75rem;
+  padding: 0 0.35rem;
+  border: 0;
+  color: currentColor;
+  background: transparent;
+  font-weight: 700;
+  text-decoration: underline;
+}

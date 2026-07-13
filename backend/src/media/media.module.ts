@@ -3,6 +3,9 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { MulterModule } from "@nestjs/platform-express";
 
 import { MediaItem } from "./entities/media-item.entity";
+import { MediaSeason } from "./entities/media-season.entity";
+import { MediaEpisode } from "./entities/media-episode.entity";
+import { MediaRelation } from "./entities/media-relation.entity";
 
 import { MediaService } from "./media/media.service";
 import { MediaController } from "./media/media.controller";
@@ -19,7 +22,7 @@ import { SyncModule } from "../sync/sync.module";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MediaItem]),
+    TypeOrmModule.forFeature([MediaItem, MediaSeason, MediaEpisode, MediaRelation]),
     MulterModule.register({ storage: undefined }),
     SyncModule,
   ],

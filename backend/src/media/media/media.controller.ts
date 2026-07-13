@@ -6,6 +6,7 @@ import {
   Post,
   Patch,
   Delete,
+  BadRequestException,
   Param,
   Body,
   Query,
@@ -23,12 +24,16 @@ import { MediaService } from "./media.service";
 import { ReqUser } from "../../system/auth/auth.decorator";
 import { Account } from "../../system/accounts/account.entity";
 import { MediaType, MediaStatus } from "../entities/media-item.entity";
+import { MediaCatalogService } from "../catalog/media-catalog.service";
 
 @ApiTags("Media")
 @ApiBearerAuth("access-token")
 @Controller("media")
 export class MediaController {
-  constructor(private readonly mediaService: MediaService) {}
+  constructor(
+    private readonly mediaService: MediaService,
+    private readonly mediaCatalogService: MediaCatalogService,
+  ) {}
 
   // ========== LIST & FILTER ==========
 
@@ -80,6 +85,41 @@ export class MediaController {
     @Param("id", ParseUUIDPipe) id: string
   ) {
     return this.mediaService.findOne(account, id);
+  }
+
+  @Get(":id/catalog")
+  @ApiOperation({ summary: "Get structured seasons, episodes, and anime relations" })
+  async getCatalog(
+    @ReqUser() account: Account,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    const item = await this.mediaService.findOne(account, id);
+    return this.mediaCatalogService.getCatalog(account, item);
+  }
+
+  @Post(":id/catalog/sync")
+  @ApiOperation({ summary: "Synchronize seasons, episodes, or anime continuity" })
+  async syncCatalog(
+    @ReqUser() account: Account,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    const item = await this.mediaService.findOne(account, id);
+    return this.mediaCatalogService.syncItem(account, item);
+  }
+
+  @Patch(":id/episodes/:episodeId")
+  @ApiOperation({ summary: "Mark a concrete episode watched or unwatched" })
+  async setEpisodeWatched(
+    @ReqUser() account: Account,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("episodeId", ParseUUIDPipe) episodeId: string,
+    @Body() body: { watched: boolean },
+  ) {
+    if (typeof body?.watched !== "boolean") {
+      throw new BadRequestException("watched must be a boolean");
+    }
+    const item = await this.mediaService.findOne(account, id);
+    return this.mediaCatalogService.setEpisodeWatched(account, item, episodeId, body.watched);
   }
 
   // ========== CREATE ==========

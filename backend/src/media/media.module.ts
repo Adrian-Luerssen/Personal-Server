@@ -18,6 +18,7 @@ import { TvTimeImportService } from "./import/tvtime-import.service";
 import { GoodreadsImportService } from "./import/goodreads-import.service";
 import { MediaImportController } from "./import/import.controller";
 import { MediaEnrichmentService } from "./enrichment/enrichment.service";
+import { MediaCatalogService } from "./catalog/media-catalog.service";
 import { SyncModule } from "../sync/sync.module";
 
 @Module({
@@ -33,6 +34,7 @@ import { SyncModule } from "../sync/sync.module";
     TvTimeImportService,
     GoodreadsImportService,
     MediaEnrichmentService,
+    MediaCatalogService,
   ],
   controllers: [MediaController, MediaSearchController, MediaImportController],
   exports: [MediaService],

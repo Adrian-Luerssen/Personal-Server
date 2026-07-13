@@ -115,6 +115,20 @@ npm run dev
 docker-compose up -d
 ```
 
+### Product analytics
+
+The React web client includes Vercel Web Analytics through `@vercel/analytics/react`. Enable Web Analytics for the Vercel project and redeploy the frontend; hosted web page views then use Vercel's automatically injected analytics routes. Query strings and URL fragments are removed before events are sent.
+
+The Android app uses the same analytics component, but a Capacitor WebView cannot use Vercel's relative `/_vercel/insights/*` routes. Set these build-time values to absolute HTTPS URLs for the deployed frontend before syncing or building Android:
+
+```bash
+VITE_VERCEL_ANALYTICS_SCRIPT_SRC=https://your-domain.example/_vercel/insights/script.js
+VITE_VERCEL_ANALYTICS_VIEW_ENDPOINT=https://your-domain.example/_vercel/insights/view
+VITE_VERCEL_ANALYTICS_EVENT_ENDPOINT=https://your-domain.example/_vercel/insights/event
+```
+
+If any native analytics URL is missing or invalid, analytics stays disabled in the app rather than attempting to send data to `capacitor://localhost`. No custom personal-record events are emitted.
+
 ---
 
 ## Project Structure

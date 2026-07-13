@@ -5,6 +5,7 @@ import withRefreshGuard from './withRefreshGuard'
 import Layout from './components/Layout'
 import AuthGuard from './components/AuthGuard'
 import NativeUpdateGate from './components/NativeUpdateGate'
+import ProductAnalytics from './components/ProductAnalytics'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { isMobileBrowser, isNativeMobileApp } from './mobilePlatform'
 import { getTokens } from './auth'
@@ -138,6 +139,7 @@ export default function AppRouter() {
   return (
     <PreferencesProvider>
       <BrowserRouter>
+        <ProductAnalytics nativeApp={nativeApp} />
         <div className="app">
           <NativeNotificationPermissionBoot nativeApp={nativeApp} />
           <NativeUpdateGate nativeApp={nativeApp} />

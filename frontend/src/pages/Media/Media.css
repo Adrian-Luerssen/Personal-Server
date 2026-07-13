@@ -704,6 +704,7 @@
 .series-row__cover-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: var(--color-text-muted); }
 .series-row__open { min-width: 0; padding: 0.8rem 0.75rem; border: 0; background: transparent; color: inherit; text-align: left; }
 .series-row__title { display: block; overflow: hidden; font-size: 0.98rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.series-row__title-button { width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .series-row__meta { display: flex; gap: 0.6rem; margin-top: 0.28rem; color: var(--color-text-muted); font-size: 0.72rem; }
 .series-row__progress { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.55rem; color: var(--color-text-secondary); font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
 .series-row__progress progress { width: min(14rem, 42vw); height: 3px; border: 0; border-radius: 0; background: var(--series-rule); accent-color: var(--color-accent, #a44a37); }
@@ -712,6 +713,7 @@
 .series-row__increment { display: inline-flex; align-items: baseline; justify-content: center; gap: 0.15rem; border-left: 1px solid var(--series-rule) !important; font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; }
 .series-row__increment span { color: var(--color-text-muted); font-size: 0.64rem; font-weight: 600; }
 .series-row__increment:disabled { opacity: 0.35; }
+.series-row__episode-action { min-width: 78px !important; color: var(--color-accent, #a44a37) !important; font-size: 0.72rem; letter-spacing: 0.02em; }
 .series-row__edit { color: var(--color-text-muted) !important; }
 .series-register__empty { padding: 4rem 0; border-bottom: 1px solid var(--series-rule); text-align: center; }
 .series-register__empty svg { margin-inline: auto; }
@@ -731,4 +733,125 @@
   .series-row__meta span:nth-child(2) { display: none; }
   .series-row__progress progress { width: min(28vw, 8rem); }
   .series-row__edit { display: none; }
+}
+
+/* Structured Series detail */
+.series-detail-overlay {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--color-text, #25221f) 48%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.series-detail {
+  width: min(760px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  border-left: 1px solid color-mix(in srgb, var(--color-text, #25221f) 22%, transparent);
+  background: var(--color-bg, #f6f0e7);
+  color: var(--color-text, #25221f);
+}
+
+.series-detail__hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text, #25221f) 18%, transparent);
+}
+
+.series-detail__cover {
+  aspect-ratio: 2 / 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--color-bg-subtle, #e8e1d7);
+  color: var(--color-text-muted);
+}
+
+.series-detail__cover img { width: 100%; height: 100%; object-fit: cover; }
+.series-detail__intro { min-width: 0; align-self: center; }
+.series-detail__intro h2 { margin: 0.25rem 0 0.65rem; font-family: var(--font-display, Georgia, serif); font-size: clamp(1.7rem, 4vw, 2.6rem); font-weight: 500; line-height: 1.02; }
+.series-detail__kicker { color: var(--color-accent, #a44a37); font-size: 0.68rem; font-weight: 750; letter-spacing: 0.1em; text-transform: uppercase; }
+.series-detail__facts { display: flex; flex-wrap: wrap; gap: 0.35rem 0.85rem; color: var(--color-text-muted); font-size: 0.76rem; }
+.series-detail__facts span + span::before { content: '·'; margin-right: 0.85rem; }
+.series-detail__progress { display: block; margin-top: 0.85rem; font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.series-detail__close { width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: inherit; }
+
+.series-detail__actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text, #25221f) 15%, transparent);
+}
+
+.series-detail__actions > button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--color-text, #25221f) 22%, transparent);
+  background: transparent;
+  color: inherit;
+}
+
+.series-detail__actions .series-detail__primary { border-color: var(--color-accent, #a44a37); background: var(--color-accent, #a44a37); color: var(--color-on-accent, #fffaf3); }
+.series-detail__primary span { display: grid; text-align: left; }
+.series-detail__primary small { margin-top: 0.1rem; font-size: 0.66rem; font-weight: 500; opacity: 0.8; }
+.series-detail__upcoming { display: grid; gap: 0.1rem; margin-right: auto; padding: 0.35rem 0.7rem; border-left: 2px solid var(--color-accent, #a44a37); font-size: 0.72rem; }
+.series-detail__upcoming strong { font-size: 0.86rem; }
+.series-detail__content { padding: 1.5rem; }
+.series-detail__loading, .series-detail__error { margin: 1rem 1.5rem; padding: 0.8rem 1rem; border-left: 2px solid var(--color-accent, #a44a37); background: var(--color-bg-subtle, #e8e1d7); }
+.series-detail__error { border-left-color: var(--color-danger, #a63d35); color: var(--color-danger, #a63d35); }
+.series-detail__empty { padding: 1.25rem 0; color: var(--color-text-muted); }
+.series-detail__about { max-width: 68ch; margin-bottom: 2rem; }
+.series-detail__about p { margin: 0.55rem 0 0.75rem; color: var(--color-text-secondary); line-height: 1.65; }
+.series-detail__about div { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.series-detail__about div span { padding: 0.25rem 0.45rem; border: 1px solid color-mix(in srgb, var(--color-text, #25221f) 16%, transparent); font-size: 0.68rem; }
+.series-detail__section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--color-text, #25221f); }
+.series-detail__section-heading h3 { margin: 0.2rem 0 0; font-family: var(--font-display, Georgia, serif); font-size: 1.35rem; font-weight: 500; }
+.series-detail__section-heading > span { color: var(--color-text-muted); font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.74rem; }
+
+.series-season-tabs { display: flex; gap: 0.25rem; overflow-x: auto; padding: 0.8rem 0; scrollbar-width: thin; }
+.series-season-tabs button { flex: 0 0 auto; min-height: 40px; padding: 0.45rem 0.7rem; border: 1px solid transparent; background: transparent; color: var(--color-text-muted); }
+.series-season-tabs button.is-active { border-color: var(--color-text, #25221f); color: var(--color-text, #25221f); }
+.series-episode-list { border-top: 1px solid color-mix(in srgb, var(--color-text, #25221f) 14%, transparent); }
+.series-episode { display: grid; grid-template-columns: 48px minmax(0, 1fr); border-bottom: 1px solid color-mix(in srgb, var(--color-text, #25221f) 14%, transparent); }
+.series-episode.is-next { box-shadow: inset 2px 0 0 var(--color-accent, #a44a37); }
+.series-episode__check { width: 48px; min-height: 64px; display: grid; place-items: center; border: 0; border-right: 1px solid color-mix(in srgb, var(--color-text, #25221f) 14%, transparent); background: transparent; color: var(--color-text-muted); }
+.series-episode__check[aria-pressed='true'] { color: var(--color-accent, #a44a37); }
+.series-episode__body { min-width: 0; padding: 0.75rem; }
+.series-episode__title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.series-episode__title-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; }
+.series-episode__title-row > span { color: var(--color-accent, #a44a37); font-size: 0.66rem; font-weight: 750; text-transform: uppercase; }
+.series-episode__meta { display: flex; gap: 0.7rem; margin-top: 0.2rem; color: var(--color-text-muted); font-size: 0.68rem; }
+.series-episode__body p { margin: 0.5rem 0 0; color: var(--color-text-secondary); font-size: 0.76rem; line-height: 1.45; }
+
+.anime-continuity__rail { display: grid; margin: 1rem 0 0; padding: 0; list-style: none; }
+.anime-continuity__rail li { position: relative; display: grid; grid-template-columns: 18px minmax(5rem, auto) minmax(0, 1fr) auto; align-items: baseline; gap: 0.65rem; min-height: 50px; padding: 0.65rem 0; border-bottom: 1px solid color-mix(in srgb, var(--color-text, #25221f) 14%, transparent); }
+.anime-continuity__marker { width: 8px; height: 8px; border: 1px solid var(--color-text-muted); border-radius: 50%; }
+.anime-continuity__rail li.is-current .anime-continuity__marker { border-color: var(--color-accent, #a44a37); background: var(--color-accent, #a44a37); }
+.anime-continuity__rail li.is-current strong { color: var(--color-accent, #a44a37); }
+.anime-continuity__position, .anime-continuity__rail li > span:last-child { color: var(--color-text-muted); font-size: 0.7rem; }
+
+@media (max-width: 640px) {
+  .series-detail-overlay { align-items: flex-end; }
+  .series-detail { width: 100%; height: min(92dvh, 900px); border-top: 1px solid var(--color-text); border-left: 0; }
+  .series-detail__hero { grid-template-columns: 76px minmax(0, 1fr) 44px; gap: 0.8rem; padding: 1rem; }
+  .series-detail__intro h2 { font-size: 1.55rem; }
+  .series-detail__facts span:nth-child(n+4) { display: none; }
+  .series-detail__actions { flex-wrap: wrap; padding: 0.75rem 1rem; }
+  .series-detail__actions .series-detail__primary { flex: 1 0 100%; }
+  .series-detail__actions > button:not(.series-detail__primary) { flex: 1; }
+  .series-detail__content { padding: 1rem; }
+  .series-episode__body p { display: none; }
+  .anime-continuity__rail li { grid-template-columns: 14px minmax(0, 1fr); gap: 0.45rem; }
+  .anime-continuity__position, .anime-continuity__rail li > span:last-child { grid-column: 2; }
 }

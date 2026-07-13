@@ -27,31 +27,33 @@ Avoid hype, faux intimacy, productivity guilt, “AI-powered” as a substitute 
 
 ## Visual system
 
-The base world is warm paper and charcoal with one oxide-red brand accent. Domain colors identify instruments without repainting the whole product.
+The base world is blue-black graphite with cool hairlines, precise typography, and restrained depth. Domain colors identify instruments without repainting whole pages.
 
 | Role | Direction |
 |---|---|
-| Paper | warm off-white, low glare |
-| Charcoal | near-black brown, not blue-black |
-| Brand accent | oxide red |
-| Gym | moss |
-| Habits | iris |
-| Cash | ochre |
-| Spotify | cobalt |
-| Series | mulberry |
-| Assistant | slate |
+| Canvas | blue-black `#080f18` |
+| Panel | graphite `#111a27` |
+| Raised surface | cool graphite `#172234` |
+| Primary text | cool white `#eef3f8` |
+| Today | electric blue |
+| Cash | emerald |
+| Habits | teal |
+| Gym | warm orange |
+| Music | magenta |
+| Series | amber |
+| Assistant | ultraviolet |
 
-Use an editorial serif for primary display headings, a highly readable sans for controls and prose, and tabular or monospaced numerals for amounts, sets, progress, time, and ranks.
+Use Sora Variable for the interface and JetBrains Mono Variable for amounts, sets, progress, time, ranks, dates, and source state. Both fonts are self-hosted for reliable web, PWA, and native rendering.
 
 ## Mark
 
-The mark is a square record sheet: three ruled lines and a single recorded point. Use the complete mark, preserve a clear space equal to one quarter of its width, and do not add glows, gradients, shadows, or domain colors. The point may use oxide red; all other strokes follow the foreground color.
+The mark is a modular constellation: seven domain nodes connected around one personal center. Use the complete mark, preserve a clear space equal to one quarter of its width, and keep it legible as a single-color mask at small sizes. A restrained blue-to-ultraviolet treatment is reserved for identity moments; navigation uses the single-color form.
 
 Use **Personal Record** in customer product surfaces. Use **Personal Server** only when referring to the repository, deployment package, or self-host operations.
 
 ## Interface grammar
 
-- Ruled lists before floating card walls.
+- Records, tables, timelines, and purpose-built work surfaces before floating card walls.
 - Source records before aggregate claims.
 - One dominant action per working surface.
 - Persistent global navigation; local navigation never replaces it.

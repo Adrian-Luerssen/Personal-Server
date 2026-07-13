@@ -12,7 +12,6 @@ import './styles/domains/today.css'
 import './styles/domains/gym.css'
 import './styles/domains/cash.css'
 import './styles/domains/spotify.css'
-import './styles/premium-overrides.css'
 import './i18n' // Initialize i18n
 
 createRoot(document.getElementById('root')).render(

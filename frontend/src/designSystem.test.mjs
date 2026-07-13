@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
@@ -17,6 +17,15 @@ const dailyBriefSource = read('src/pages/Home/components/DailyBrief.jsx')
 const landingSource = read('src/pages/Landing.jsx')
 const landingCss = read('src/pages/Landing.css')
 const designSystemDoc = read('../DESIGN.md')
+const brandProfileDoc = read('../docs/product/BRAND_PROFILE.md')
+
+test('the premium interface is structural rather than a global legacy override', () => {
+  assert.doesNotMatch(mainSource, /premium-overrides\.css/)
+  assert.equal(existsSync(resolve(process.cwd(), 'src/styles/premium-overrides.css')), false)
+  assert.doesNotMatch(brandProfileDoc, /warm paper|oxide red|editorial serif/i)
+  assert.match(brandProfileDoc, /graphite/i)
+  assert.match(brandProfileDoc, /constellation/i)
+})
 
 test('visual foundation uses the approved graphite instrument palette', () => {
   assert.match(tokensCss, /--surface-canvas:\s*#080f18/i)

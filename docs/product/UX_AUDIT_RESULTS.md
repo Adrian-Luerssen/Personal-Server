@@ -5,7 +5,7 @@ Product: Personal Record (repository: Personal Server)
 
 ## Outcome
 
-The product now has one recognizable interaction and visual system across web and Android: warm paper, charcoal type, oxide-red product accents, restrained domain colors, ruled records, explicit provenance, and action-first working screens. The generic dashboard/card language was removed from the primary journeys. Mobile is optimized for capture and continuation; desktop remains the denser review surface.
+This audit is being revalidated. The prior release established graphite tokens and product naming but retained too much legacy page structure through a global override stylesheet. `CORRECTIVE_UX_AUDIT.md` is the current source of truth until every route below has fresh interaction, responsive, and visual evidence. No criterion should be read as complete solely because a token, class name, or component exists.
 
 ## Requirement evidence
 

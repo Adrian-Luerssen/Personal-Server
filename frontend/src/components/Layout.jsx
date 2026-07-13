@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import ApiStatus from './ApiStatus'
 import PageTransition from './PageTransition'
@@ -10,10 +10,10 @@ import { isNativeMobileApp } from '../mobilePlatform'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { FEATURE_MODULES, getModuleIdForPath, isFeatureEnabled, isFeatureSyncEnabled } from '../modulePreferences.mjs'
 import Icon from './icons/Icon'
-import BrandMark from './product/BrandMark'
 import CaptureSheet from './product/CaptureSheet'
 import DomainNav from './product/DomainNav'
 import MobileGlobalNav from './product/MobileGlobalNav'
+import ProductHeader from './product/ProductHeader'
 import { getCaptureActions } from '../product/capture.mjs'
 import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
 import { pollPendingAiNotifications } from '../aiNotifications.mjs'
@@ -30,136 +30,9 @@ import {
   subscribeToLiveStepUpdates,
   syncLiveStepSnapshot,
 } from '../nativeHealth.mjs'
-import {
-  getNativeAppForPath,
-  getNativeAppSwitcherOptions,
-  getNativeBackDestination,
-} from '../nativeNavigation.mjs'
+import { getNativeBackDestination } from '../nativeNavigation.mjs'
 
 const ChatPanel = lazy(() => import('./ChatPanel'))
-
-const NATIVE_ROUTE_TITLES = [
-  { match: /^\/home$/, title: 'Today', subtitle: 'Daily record' },
-  { match: /^\/menu/, title: 'Menu', subtitle: 'App map' },
-  { match: /^\/workout/, title: 'Gym', subtitle: 'Training record' },
-  { match: /^\/habits/, title: 'Habits', subtitle: 'Daily routines' },
-  { match: /^\/finance/, title: 'Cash', subtitle: 'Ledger and budgets' },
-  { match: /^\/spotify/, title: 'Music', subtitle: 'Spotify insights' },
-  { match: /^\/media/, title: 'Series', subtitle: 'Watch list' },
-  { match: /^\/chat/, title: 'Assistant', subtitle: 'Across your records' },
-  { match: /^\/settings/, title: 'You', subtitle: 'Account and app' },
-]
-
-function NativeAppHeader() {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const { prefs } = usePreferences()
-  const [appSwitcherOpen, setAppSwitcherOpen] = useState(false)
-  const currentApp = getNativeAppForPath(location.pathname)
-  const appSwitcherOptions = getNativeAppSwitcherOptions(location.pathname, prefs)
-  const isSettingsRoute = location.pathname.startsWith('/settings')
-  const showAppSwitcher = !isSettingsRoute && appSwitcherOptions.length > 0
-  const current = NATIVE_ROUTE_TITLES.find((item) => item.match.test(location.pathname)) || {
-    title: 'Personal Record',
-    subtitle: 'Your records, kept useful',
-  }
-
-  useEffect(() => {
-    setAppSwitcherOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
-    if (!appSwitcherOpen) return undefined
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') setAppSwitcherOpen(false)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [appSwitcherOpen])
-
-  return (
-    <header className="native-app-header">
-      <div className="native-app-header__top">
-        <BrandMark className={`native-app-header__mark native-app-header__mark--${currentApp.tone}`} size={32} />
-        <div className="native-app-header__copy">
-          <span>{current.subtitle}</span>
-          <strong>{current.title}</strong>
-        </div>
-        {showAppSwitcher && (
-          <button
-            type="button"
-            className={`native-app-header__selector native-app-header__selector--${currentApp.tone}`}
-            onClick={() => setAppSwitcherOpen((open) => !open)}
-            aria-expanded={appSwitcherOpen}
-            aria-controls="native-app-switcher-sheet"
-            aria-label={`Open app menu, current area ${currentApp.label}`}
-          >
-            <Icon name="grid-3x3" size={16} />
-            <span className="native-app-header__selector-label">Apps</span>
-            <Icon name={appSwitcherOpen ? 'chevron-up' : 'chevron-down'} size={15} aria-hidden="true" />
-          </button>
-        )}
-        {!isSettingsRoute && (
-          <button
-            type="button"
-            className="native-app-header__button"
-            onClick={() => navigate('/settings')}
-            aria-label="Open settings"
-          >
-            <Icon name="settings" size={20} />
-          </button>
-        )}
-      </div>
-      {showAppSwitcher && appSwitcherOpen && (
-        <>
-          <button
-            type="button"
-            className="native-app-sheet-backdrop"
-            aria-label="Close app switcher"
-            onClick={() => setAppSwitcherOpen(false)}
-          />
-          <section
-            className="native-app-sheet"
-            id="native-app-switcher-sheet"
-            role="dialog"
-            aria-label="Switch app"
-          >
-            <div className="native-app-sheet__header">
-              <div>
-                <span>Current area</span>
-                <strong>{currentApp.label}</strong>
-              </div>
-              <button
-                type="button"
-                className="native-icon-button native-app-sheet__close"
-                aria-label="Close app switcher"
-                onClick={() => setAppSwitcherOpen(false)}
-              >
-                <Icon name="x" size={18} />
-              </button>
-            </div>
-            <nav className="native-app-sheet__grid" aria-label="Choose app">
-              {appSwitcherOptions.map((app) => (
-                <NavLink
-                  key={app.id}
-                  to={app.root}
-                  className={`native-app-sheet__item native-app-sheet__item--${app.tone}`}
-                  onClick={() => setAppSwitcherOpen(false)}
-                >
-                  <span aria-hidden="true">
-                    <Icon name={app.icon} size={18} />
-                  </span>
-                  <strong>{app.label}</strong>
-                  <small>{app.subtitle}</small>
-                </NavLink>
-              ))}
-            </nav>
-          </section>
-        </>
-      )}
-    </header>
-  )
-}
 
 function NativeUpdatePrompt() {
   const [update, setUpdate] = useState(null)
@@ -226,11 +99,6 @@ export default function Layout() {
   const captureActions = getCaptureActions({ enabled: enabledCaptureModules })
   const disabledRouteModule = getModuleIdForPath(location.pathname)
   const routeDisabled = disabledRouteModule && !isFeatureEnabled(prefs, disabledRouteModule)
-  const routeMeta = NATIVE_ROUTE_TITLES.find((item) => item.match.test(location.pathname)) || {
-    title: 'Personal Record',
-    subtitle: 'Everything you are, in context.',
-  }
-
   function enableCurrentModule() {
     if (!disabledRouteModule) return
     updatePrefs({
@@ -391,28 +259,12 @@ export default function Layout() {
 
   return (
     <div className={"layout product-shell" + (collapsed ? ' sidebar-collapsed' : '')}>
-      {nativeApp && <NativeAppHeader />}
+      {nativeApp && <ProductHeader native onCapture={() => setCaptureOpen(true)} />}
       {!nativeApp && <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />}
       <main className="content">
-        {!nativeApp && (
-          <header className="app-command-bar">
-            <div className="app-command-bar__route">
-              <span>{routeMeta.subtitle}</span>
-              <strong>{routeMeta.title}</strong>
-            </div>
-            <button type="button" className="app-command-bar__search" onClick={() => navigate('/chat')}>
-              <Icon name="search" size={16} />
-              <span>Search records and actions</span>
-              <kbd>⌘ K</kbd>
-            </button>
-            <div className="app-command-bar__status" title="Personal Record is ready">
-              <span aria-hidden="true" />
-              Ready
-            </div>
-          </header>
-        )}
+        {!nativeApp && <ProductHeader onCapture={() => setCaptureOpen(true)} />}
         <div className="content-shell">
-          {nativeApp && <DomainNav />}
+          <DomainNav />
           <div className="content-shell__frame">
             <PageTransition>
               <RouteErrorBoundary key={location.pathname}>
@@ -429,7 +281,7 @@ export default function Layout() {
       <ApiStatus />
       {nativeApp && <NativeUpdatePrompt />}
       {nativeApp && <MobileGlobalNav onCapture={() => setCaptureOpen(true)} />}
-      {nativeApp && (
+      {(
         <CaptureSheet
           actions={captureActions}
           open={captureOpen}

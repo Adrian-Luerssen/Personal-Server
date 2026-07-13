@@ -12,6 +12,7 @@ const globalCss = read('src/styles.css')
 const mainSource = read('src/main.jsx')
 const brandMarkSource = read('src/components/product/BrandMark.jsx')
 const layoutSource = read('src/components/Layout.jsx')
+const productHeaderSource = read('src/components/product/ProductHeader.jsx')
 const sidebarSource = read('src/components/Sidebar.jsx')
 const dailyBriefSource = read('src/pages/Home/components/DailyBrief.jsx')
 const landingSource = read('src/pages/Landing.jsx')
@@ -90,13 +91,21 @@ test('design documentation names the premium identity and compositional rules', 
   assert.match(designSystemDoc, /prefers-reduced-motion/)
 })
 
-test('desktop shell presents product identity and a compact command bar', () => {
+test('desktop shell presents product identity and one shared product header', () => {
   assert.match(sidebarSource, /<BrandMark/)
   assert.match(sidebarSource, /PRODUCT\.displayName/)
-  assert.match(layoutSource, /app-command-bar/)
-  assert.match(layoutSource, /Search records and actions/)
-  assert.match(shellCss, /\.app-command-bar\s*{/)
+  assert.match(layoutSource, /<ProductHeader/)
+  assert.match(productHeaderSource, /Search records or ask a question/)
+  assert.match(productHeaderSource, /Capture a new record/)
+  assert.match(shellCss, /\.product-header--desktop\s*{/)
   assert.match(shellCss, /\.sidebar\s*{[^}]*width:\s*var\(--sidebar-width\)/s)
+})
+
+test('global navigation stays flat while domain navigation owns local routes', () => {
+  assert.doesNotMatch(sidebarSource, /spotifyMenuOpen|workoutMenuOpen|financeMenuOpen|mediaMenuOpen|habitsMenuOpen/)
+  assert.match(layoutSource, /<DomainNav \/>/)
+  assert.doesNotMatch(layoutSource, /nativeApp && <DomainNav/)
+  assert.match(sidebarSource, /aria-label="Product navigation"/)
 })
 
 test('Today is composed as an asymmetric command center with real domain instruments', () => {

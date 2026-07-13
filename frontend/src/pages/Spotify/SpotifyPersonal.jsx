@@ -28,11 +28,11 @@ import {
   HistoryModal,
   HistoryItem,
   StatCard,
-  PodiumCard,
   AnimatedNumber,
   formatDuration,
   formatNumberShort,
 } from '../../components/shared'
+import { getListeningArtworkUrl, getRankMovement, normalizeSpotifyTimeframe } from '../../spotifyRanking.mjs'
 
 ChartJS.register(
   CategoryScale,
@@ -54,6 +54,46 @@ const TIMEFRAMES = [
   { label: 'All Time', value: 'all' },
   { label: 'Custom', value: 'custom' },
 ]
+
+function ListeningRankRow({ data, details, rank, type }) {
+  const artwork = getListeningArtworkUrl(details)
+  const movement = getRankMovement({ ...data, rank })
+  const title = type === 'tracks'
+    ? (details?.title || data.trackId)
+    : type === 'albums'
+      ? (details?.title || data.albumId)
+      : type === 'playlists'
+        ? (details?.title || details?.name || data.playlistId)
+        : (details?.name || data.artistId)
+  const subtitle = type === 'tracks'
+    ? details?.artists
+    : type === 'albums'
+      ? details?.artistName
+      : type === 'playlists'
+        ? (details?.ownerName || details?.owner?.displayName)
+        : 'Artist'
+
+  return (
+    <article className="listening-rank-row">
+      <span className="listening-rank-row__rank">{String(rank).padStart(2, '0')}</span>
+      <div className="listening-rank-row__artwork">
+        {artwork ? <img src={artwork} alt="" loading="lazy" /> : <Icon name="headphones" size={20} />}
+      </div>
+      <div className="listening-rank-row__copy">
+        <strong>{title}</strong>
+        <span>{subtitle || type}</span>
+      </div>
+      <span className={`listening-rank-row__movement is-${movement.direction}`} aria-label={movement.label}>
+        {movement.direction === 'up' ? '↑' : movement.direction === 'down' ? '↓' : movement.direction === 'new' ? 'new' : '—'}
+        {movement.delta ? movement.delta : ''}
+      </span>
+      <div className="listening-rank-row__plays">
+        <strong>{formatNumberShort(Number(data.count) || 0)}</strong>
+        <span>plays</span>
+      </div>
+    </article>
+  )
+}
 
 export default function SpotifyPersonal() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -82,7 +122,7 @@ export default function SpotifyPersonal() {
   const [history, setHistory] = useState([])
   const [showHistoryModal, setShowHistoryModal] = useState(false)
 
-  const initialTf = searchParams.get('tf') || 'today'
+  const initialTf = normalizeSpotifyTimeframe(searchParams.get('tf'), 'today')
   const initialFrom = searchParams.get('from') || ''
   const initialTo = searchParams.get('to') || ''
   const [timeframe, setTimeframe] = useState(initialTf)
@@ -302,7 +342,7 @@ export default function SpotifyPersonal() {
     : topPlaylistDetails
 
   return (
-    <>
+    <div className="spotify-insights">
       <PageHeader icon="music" title="Spotify" />
 
       <ScrollReveal>
@@ -347,7 +387,7 @@ export default function SpotifyPersonal() {
 
       {(linked || linked === null) && (
         <>
-          <div className="card" style={{ marginBottom: '1rem' }}>
+          <div className="card spotify-timeframe-register" style={{ marginBottom: '1rem' }}>
             <div className="tab-group">
               {TIMEFRAMES.map(tf => (
                 <button
@@ -458,7 +498,7 @@ export default function SpotifyPersonal() {
 
           <ScrollReveal delay={200}>
           <div className="section">
-            <div className="card">
+            <div className="card spotify-rankings-register">
               <h3>Recent Streaming History</h3>
               <div style={{ maxHeight: 120, overflowY: 'auto' }} className="custom-scrollbar">
                 {!hasLoadedOnce ? (
@@ -495,11 +535,11 @@ export default function SpotifyPersonal() {
                   >Top {cat.charAt(0).toUpperCase() + cat.slice(1)}</button>
                 ))}
               </div>
-              <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+              <div className="listening-ranking-list">
                 {topItems.length === 0 ? (
                   <div className="empty-state">No top {topCategory} yet.</div>
                 ) : topItems.map((item, idx) => (
-                  <PodiumCard
+                  <ListeningRankRow
                     key={item.trackId || item.albumId || item.artistId || item.playlistId}
                     data={item}
                     details={topDetails[idx]}
@@ -616,6 +656,6 @@ export default function SpotifyPersonal() {
           )}
         </>
       )}
-    </>
+    </div>
   )
 }

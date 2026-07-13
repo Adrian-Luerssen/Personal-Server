@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api'
 import Icon from '../../components/icons/Icon'
-import PageHeader from '../../components/PageHeader'
 import {
   AnimatedNumber,
   LoadingLine,
@@ -10,7 +9,7 @@ import {
   formatNumberShort,
 } from '../../components/shared'
 import { isNativeMobileApp } from '../../mobilePlatform'
-import { getSpotifyProfileImageUrl } from '../../spotifyRanking.mjs'
+import { getRankMovement, getSpotifyProfileImageUrl, normalizeSpotifyTimeframe } from '../../spotifyRanking.mjs'
 
 const TIMEFRAMES = [
   { label: 'Day', value: 'today' },
@@ -125,6 +124,7 @@ function RankingPodiumCard({ user }) {
 }
 
 function RankingMobileRow({ user }) {
+  const movement = getRankMovement(user)
   return (
     <div className="native-ranking-row">
       <div className="native-ranking-row__rank">#{user.rank}</div>
@@ -136,14 +136,14 @@ function RankingMobileRow({ user }) {
       </div>
       <div className="native-ranking-row__stats">
         <strong>{formatNumberShort(user.streamCount)}</strong>
-        <span>streams</span>
+        <span>streams · {movement.label}</span>
       </div>
     </div>
   )
 }
 
 export default function SpotifyRanking() {
-  const [timeframe, setTimeframe] = useState('week')
+  const [timeframe, setTimeframe] = useState(() => normalizeSpotifyTimeframe('week'))
   const [ranking, setRanking] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -183,7 +183,11 @@ export default function SpotifyRanking() {
 
   return (
     <div className={nativeApp ? 'native-spotify-ranking' : undefined}>
-      <PageHeader icon="trophy" title="Spotify Ranking" />
+      <header className="listening-ranking-header">
+        <span>Community register</span>
+        <h1>Listening ranking</h1>
+        <p>Compare listening time and movement for the same selected period.</p>
+      </header>
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className={nativeApp ? 'native-ranking-timeframes' : 'tab-group'}>
@@ -192,6 +196,7 @@ export default function SpotifyRanking() {
               key={option.value}
               className={nativeApp ? (timeframe === option.value ? 'is-active' : '') : `tab-btn${timeframe === option.value ? ' active' : ''}`}
               onClick={() => setTimeframe(option.value)}
+              aria-pressed={timeframe === option.value}
             >
               {option.label}
             </button>

@@ -231,6 +231,7 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
             {
               accountId: 'spotify-1',
               rank: 1,
+              previousRank: 3,
               displayName: 'Arianna Caballero',
               spotifyUserId: '11145917586',
               streamCount: 4590,
@@ -242,6 +243,7 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
             {
               accountId: 'spotify-2',
               rank: 2,
+              previousRank: 2,
               displayName: 'Pau Coderch',
               spotifyUserId: 'rukiirukii90',
               streamCount: 3310,
@@ -1014,6 +1016,23 @@ test.describe('Native Android app shell', () => {
     await expect(imports.getByRole('link', { name: /^import media\b/i })).toBeVisible()
     await expect(appControl.getByRole('link', { name: /^sync and offline\b/i })).toBeVisible()
     await expect(appControl.getByRole('link', { name: /^app updates\b/i })).toBeVisible()
+  })
+
+  test('shows listening rank movement on a shared Spotify timeframe', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/spotify/ranking')
+
+    await expect(page.getByRole('heading', { name: 'Listening ranking' })).toBeVisible()
+    const firstListener = page.locator('.native-ranking-row').filter({ hasText: 'Arianna Caballero' })
+    await expect(firstListener).toContainText('Up 2')
+    await page.getByRole('button', { name: 'Month', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Month', exact: true })).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('shows native settings sections for notifications sync and updates', async ({ page }) => {

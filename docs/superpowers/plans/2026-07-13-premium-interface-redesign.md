@@ -208,4 +208,3 @@
 - [ ] Run `npx cap sync android` and `frontend/android/gradlew.bat assembleDebug`.
 - [ ] Review `git diff --check`, final branch diff, and the design-spec checklist.
 - [ ] Commit final verification fixes: `fix(ui): close premium release verification gaps`.
-

@@ -14,6 +14,7 @@ import ProgressRing from '../../components/ProgressRing'
 import HabitCalendarGrid from '../../components/habits/HabitCalendarGrid'
 import HabitHeatmap from '../../components/habits/HabitHeatmap'
 import { isNativeMobileApp } from '../../mobilePlatform'
+import { formatCadenceStreak } from './habitViewModel.mjs'
 import './Habits.css'
 
 const HABITS_COLOR = '#a78bfa'
@@ -144,7 +145,7 @@ function getCadenceUnit(habit) {
 function getStreakLabel(habit) {
   const streak = Number(habit.currentStreak || 0)
   if (streak <= 0) return 'No active streak'
-  return `${streak} ${getCadenceUnit(habit)} streak`
+  return formatCadenceStreak({ cadence: habit.frequencyType || 'daily', count: streak })
 }
 
 function getMissedStreakLabel(habit) {
@@ -166,6 +167,7 @@ export default function Habits() {
   const [savingEntries, setSavingEntries] = useState({})
   const [loadError, setLoadError] = useState('')
   const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [lastUndo, setLastUndo] = useState(null)
 
   const monthKey = getMonthKey(selectedDate)
 
@@ -299,6 +301,7 @@ export default function Habits() {
       } else {
         await api.post(`/habits/${habit.id}/entries`, { date: selectedDate, status })
       }
+      setLastUndo({ habit, date: selectedDate, previous })
       refreshSummary()
     } catch (error) {
       updateCalendarEntry(habit.id, selectedDate, previous)
@@ -308,6 +311,26 @@ export default function Habits() {
         delete next[entryKey]
         return next
       })
+    }
+  }
+
+  async function undoHabitEntry() {
+    if (!lastUndo) return
+    const { habit, date, previous } = lastUndo
+    setLastUndo(null)
+    updateCalendarEntry(habit.id, date, previous)
+    try {
+      if (previous) {
+        await api.patch(`/habits/${habit.id}/entries/${date}`, {
+          status: previous.status,
+          numericValue: previous.numericValue,
+        })
+      } else {
+        await api.delete(`/habits/${habit.id}/entries/${date}`)
+      }
+      refreshSummary()
+    } catch {
+      loadData({ silent: true, force: true })
     }
   }
 
@@ -410,6 +433,8 @@ export default function Habits() {
         saveNumericEntry={saveNumericEntry}
         quickAddOpen={quickAddOpen}
         createHabit={createHabit}
+        lastUndo={lastUndo}
+        onUndo={undoHabitEntry}
       />
     )
   }
@@ -631,6 +656,8 @@ function NativeHabitsView({
   saveNumericEntry,
   quickAddOpen,
   createHabit,
+  lastUndo,
+  onUndo,
 }) {
   const [searchParams] = useSearchParams()
   const requestedView = searchParams.get('view')
@@ -807,6 +834,12 @@ function NativeHabitsView({
           onClose={() => setQuickAddOpen(false)}
           onCreate={createHabit}
         />
+      )}
+      {lastUndo && (
+        <div className="native-habit-undo" role="status">
+          <span>Habit updated</span>
+          <button type="button" onClick={onUndo}>Undo</button>
+        </div>
       )}
     </div>
   )

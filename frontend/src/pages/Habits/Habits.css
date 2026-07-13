@@ -733,6 +733,66 @@
   color: var(--status-color);
 }
 
+body.native-mobile-app .native-habits-page { gap: 0; }
+
+body.native-mobile-app .native-habits-hero {
+  padding: 0.8rem 0 1.2rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+body.native-mobile-app .native-habits-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 12vw, 4rem);
+  font-weight: 500;
+}
+
+body.native-mobile-app .native-habits-date-rail {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+body.native-mobile-app .native-habit-panel { padding: 1rem 0; }
+
+body.native-mobile-app .native-habit-stack {
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  gap: 0;
+}
+
+body.native-mobile-app .native-habit-log-card {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-left: 3px solid color-mix(in srgb, var(--habit-color) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+body.native-mobile-app .native-habit-log-card:last-child { border-bottom: 0; }
+
+.native-habit-undo {
+  position: fixed;
+  z-index: 180;
+  right: 1rem;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+  display: flex;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--rule-strong);
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-depth-elevated);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.native-habit-undo button {
+  min-height: 2rem;
+  border: 0;
+  color: var(--tone-iris);
+  background: transparent;
+  font-weight: 700;
+}
+
 .native-plan-row {
   min-height: 3.9rem;
 }

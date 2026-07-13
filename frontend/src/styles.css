@@ -1,4 +1,4 @@
-/* ===== Dark Theme (default) ===== */
+/* ===== Legacy compatibility layer (migrated domain-by-domain) ===== */
 :root {
   --font-display: "Geist", "Plus Jakarta Sans", "Aptos Display", "Segoe UI Variable Display", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Geist", "Plus Jakarta Sans", "Aptos", "Segoe UI Variable", ui-sans-serif, system-ui, sans-serif;

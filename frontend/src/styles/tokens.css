@@ -1,0 +1,99 @@
+:root:root {
+  color-scheme: light dark;
+
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-body: Inter, "Aptos", "Segoe UI Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --paper: #f2eee6;
+  --paper-raised: #faf7f0;
+  --paper-muted: #e5dfd3;
+  --ink: #1c1a18;
+  --ink-soft: #615b53;
+  --ink-faint: #8a8177;
+  --rule: rgba(51, 45, 39, 0.18);
+  --rule-strong: rgba(51, 45, 39, 0.34);
+  --brand-accent: #a33b2b;
+  --brand-accent-strong: #79281d;
+  --brand-accent-soft: rgba(163, 59, 43, 0.12);
+
+  --tone-oxide: #a33b2b;
+  --tone-moss: #526e47;
+  --tone-iris: #655a87;
+  --tone-ochre: #9a6b28;
+  --tone-cobalt: #42628a;
+  --tone-mulberry: #875267;
+  --tone-slate: #54636d;
+
+  --color-bg-base: var(--paper);
+  --color-bg-surface: var(--paper-raised);
+  --color-bg-elevated: #ffffff;
+  --color-text-primary: var(--ink);
+  --color-text-secondary: var(--ink-soft);
+  --color-text-muted: var(--ink-faint);
+  --color-accent: var(--brand-accent);
+  --color-accent-hover: var(--brand-accent-strong);
+  --color-accent-muted: var(--brand-accent-soft);
+  --color-accent-text: #fffaf3;
+  --sidebar-bg: rgba(242, 238, 230, 0.97);
+  --sidebar-border: var(--rule);
+  --glass-bg: rgba(250, 247, 240, 0.96);
+  --glass-border: var(--rule);
+  --glass-shadow: none;
+  --glass-blur: 0px;
+  --surface-glass: rgba(250, 247, 240, 0.96);
+  --surface-glass-strong: #faf7f0;
+  --glass-bg-deep: rgba(229, 223, 211, 0.9);
+  --glass-bg-elevated: #ffffff;
+  --shadow-depth-bg: none;
+  --shadow-depth-content: none;
+  --shadow-depth-elevated: 0 12px 36px rgba(60, 47, 35, 0.09);
+  --chart-grid: var(--rule);
+  --scrollbar-thumb: var(--ink-faint);
+  --scrollbar-track: transparent;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 10px;
+  --radius-full: 9999px;
+  --touch-target: 44px;
+  --focus-ring: 0 0 0 3px rgba(163, 59, 43, 0.28);
+  --ease-premium: cubic-bezier(0.32, 0.72, 0, 1);
+  --transition-fast: 140ms var(--ease-premium);
+  --transition-normal: 220ms var(--ease-premium);
+  --transition-slow: 420ms var(--ease-premium);
+}
+
+:root:root[data-theme='dark'] {
+  --paper: #171614;
+  --paper-raised: #1e1c19;
+  --paper-muted: #292621;
+  --ink: #f3eee4;
+  --ink-soft: #bbb2a5;
+  --ink-faint: #888075;
+  --rule: rgba(237, 225, 207, 0.14);
+  --rule-strong: rgba(237, 225, 207, 0.28);
+  --brand-accent: #d66853;
+  --brand-accent-strong: #ed846f;
+  --brand-accent-soft: rgba(214, 104, 83, 0.14);
+  --color-bg-base: var(--paper);
+  --color-bg-surface: var(--paper-raised);
+  --color-bg-elevated: var(--paper-muted);
+  --color-text-primary: var(--ink);
+  --color-text-secondary: var(--ink-soft);
+  --color-text-muted: var(--ink-faint);
+  --color-accent: var(--brand-accent);
+  --color-accent-hover: var(--brand-accent-strong);
+  --color-accent-muted: var(--brand-accent-soft);
+  --color-accent-text: #1b1512;
+  --sidebar-bg: rgba(23, 22, 20, 0.97);
+  --sidebar-border: var(--rule);
+  --glass-bg: rgba(30, 28, 25, 0.96);
+  --glass-border: var(--rule);
+  --surface-glass: rgba(30, 28, 25, 0.96);
+  --surface-glass-strong: #24211d;
+  --glass-bg-deep: rgba(17, 16, 14, 0.92);
+  --glass-bg-elevated: #292621;
+  --shadow-depth-elevated: 0 16px 42px rgba(0, 0, 0, 0.28);
+}

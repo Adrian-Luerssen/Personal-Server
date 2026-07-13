@@ -1,12 +1,12 @@
-# Personal Server Design System
+# Personal Record Design System
 
 ## Design Read
 
-Personal Server is a private operations journal for one owner. It is not a SaaS analytics product and it should not look like one. The visual language is restrained, dense, and ledger-like: neutral graphite surfaces, cyan as the system accent, compact controls, ruled sections, clear data provenance, and enough editorial structure on the landing page to explain the product without becoming marketing theatre.
+Personal Record is a private suite of personal instruments. It is not a SaaS analytics product and it should not look like one. The visual language is restrained, tactile, and ledger-like: warm paper and charcoal surfaces, oxide red as the house ink, compact controls, ruled sections, clear data provenance, and enough editorial structure to make every record feel deliberately kept.
 
 The core product sentence is:
 
-Private records for daily review. Cached locally. Verified when changed. The week, made reviewable.
+Your records, kept useful.
 
 ## Registers
 
@@ -27,11 +27,11 @@ The authenticated web app and Android app are the product register. They serve f
 
 ## Visual Direction
 
-Reference language: a private command ledger, field notebook, and Android-native utility. Avoid generic dark SaaS cards, purple-blue glow stacks, decorative light blobs, oversized rounded cards, repeated tiny uppercase section labels, fake dashboard screenshots, stock-photo product theater, and blank admin panels.
+Reference language: a well-kept field journal, an index drawer, and a set of precise daily instruments. Avoid generic dark SaaS cards, purple-blue glow stacks, decorative light blobs, oversized rounded cards, repeated tiny uppercase section labels, fake dashboard screenshots, stock-photo product theater, and blank admin panels.
 
-Use graphite as the body, raised graphite as panels, cyan as the system action color, and domain colors only as functional status accents:
+Use warm paper as the light body, charcoal as the dark body, oxide red as the system action color, and domain colors only as functional status accents:
 
-- System: cyan
+- System: oxide
 - Training: green
 - Habits: violet
 - Money: amber

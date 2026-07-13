@@ -1,0 +1,18 @@
+.brand-mark {
+  flex: 0 0 auto;
+  color: var(--color-text-primary);
+}
+
+.product-shell {
+  min-height: 100%;
+  background-color: var(--color-bg-base);
+  background-image: linear-gradient(to bottom, transparent 31px, rgba(80, 68, 57, 0.055) 32px);
+  background-size: 100% 32px;
+}
+
+.product-kicker {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}

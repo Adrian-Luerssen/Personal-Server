@@ -21,13 +21,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'logo.svg', 'logo-dark.svg'],
       manifest: {
-        name: 'Personal Server',
-        short_name: 'PS',
-        description: 'Your personal data hub',
+        name: 'Personal Record',
+        short_name: 'Record',
+        description: 'Your records, kept useful.',
         start_url: '/home',
         display: 'standalone',
-        background_color: '#0f0f14',
-        theme_color: '#6366f1',
+        background_color: '#f2eee6',
+        theme_color: '#a33b2b',
         orientation: 'any',
         icons: [
           { src: '/logo.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }

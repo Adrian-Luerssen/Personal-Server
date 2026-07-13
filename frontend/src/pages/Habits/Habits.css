@@ -1010,3 +1010,41 @@ body.native-mobile-app .habit-numeric-control .btn {
     width: 4.75rem;
   }
 }
+
+/* Calm daily checklist: one deliberate teal signal, no floating glass cards. */
+.habits-page {
+  --habits-signal: var(--domain-habits);
+  width: min(100%, 76rem);
+  margin: 0 auto;
+  gap: 1px;
+  padding: clamp(1rem, 2.4vw, 2.25rem);
+  border: 1px solid var(--border-subtle);
+  background: var(--border-subtle);
+}
+.habits-day-board,
+.habits-panel { border: 0; border-radius: 0; background: var(--surface-panel); box-shadow: none; backdrop-filter: none; }
+.habits-day-board { padding: clamp(1rem, 2vw, 1.5rem); border-top: 3px solid var(--habits-signal); }
+.habits-day-board__title h2 { font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3.4rem); font-weight: 650; letter-spacing: -.055em; }
+.habits-kicker { color: var(--habits-signal); font: 600 .65rem/1 var(--font-data); }
+.habits-icon-button { border-color: var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-control); }
+.habits-icon-button:hover { border-color: var(--habits-signal); background: color-mix(in srgb,var(--habits-signal) 10%,var(--surface-control)); transform: none; }
+.habits-day-progress { border-color: var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-canvas); }
+.habits-day-progress__track { height: 3px; background: var(--border-strong); }
+.habits-day-progress__bar { border-radius: 0; background: var(--habits-signal); }
+.habits-board-groups { gap: 1px; background: var(--border-subtle); }
+.habits-group { padding: 1rem; background: var(--surface-raised); }
+.habit-log-row { gap: .7rem; padding: .8rem; border-color: var(--border-subtle); border-left-width: 2px; border-radius: 0; background: var(--surface-panel); }
+.habit-log-row + .habit-log-row { margin-top: -1px; }
+.habit-status-button,
+.habit-numeric-stepper__button,
+.habit-numeric-stepper__save { border-color: var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-control); }
+.habit-numeric-stepper__button--plus { background: var(--habits-signal); color: #021713; }
+.habit-numeric-stepper__save { color: var(--habits-signal); }
+.habits-secondary-grid { gap: 1px; background: var(--border-subtle); }
+
+@media (max-width: 700px) {
+  .habits-page { width: calc(100% + 1.5rem); margin-inline: -.75rem; padding: 0 0 calc(env(safe-area-inset-bottom,0px) + 5.4rem); border-inline: 0; }
+  .habits-day-board,
+  .habits-panel { padding-inline: 1rem; }
+  .habits-day-board__title h2 { font-size: 2.4rem; }
+}

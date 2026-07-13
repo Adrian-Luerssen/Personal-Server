@@ -128,6 +128,17 @@ test('Cash, Gym, and Series use purpose-built working surfaces on web and native
   assert.match(seriesSource, /series-row__episode-action/)
 })
 
+test('Habits, Music, Assistant, and settings share explicit domain workspaces', () => {
+  const habitsCss = read('src/pages/Habits/Habits.css')
+  const spotifyCss = read('src/styles/domains/spotify.css')
+  const utilityCss = read('src/styles/domains/utility.css')
+
+  assert.match(habitsCss, /--habits-signal:\s*var\(--domain-habits\)/)
+  assert.match(spotifyCss, /--music-signal:\s*var\(--domain-music\)/)
+  assert.match(utilityCss, /\.native-chat-page/)
+  assert.match(utilityCss, /\.native-settings-page/)
+})
+
 test('landing is a faithful product showcase instead of an editorial ledger', () => {
   assert.match(landingSource, /Everything you are,<br \/>in context\./)
   assert.match(landingSource, /landing-product-stage/)

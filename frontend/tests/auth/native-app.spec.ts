@@ -685,7 +685,7 @@ test.describe('Native Android app shell', () => {
     }
   })
 
-  test('renders the media app as a compact native library surface', async ({ page }) => {
+  test('renders Series as an action-first register with inline episode progress', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
       ;(window as any).Capacitor = { isNativePlatform: () => true }
@@ -695,19 +695,15 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/media')
 
-    await expect(page.locator('.stat-card')).toHaveCount(4)
-    const mediaMetrics = await page.evaluate(() => {
-      const cards = [...document.querySelectorAll('.stat-card')].map((card) => card.getBoundingClientRect().height)
-      return {
-        maxCardHeight: Math.max(...cards),
-        iconCount: document.querySelectorAll('.stat-card-icon svg').length,
-        bottomTabs: [...document.querySelectorAll('.native-tabbar__item')].map((item) => item.textContent?.trim()),
-      }
-    })
+    await expect(page.getByTestId('series-register')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible()
+    await expect(page.locator('.stat-card')).toHaveCount(0)
+    await expect(page.getByText('37 / 73 episodes')).toBeVisible()
 
-    expect(mediaMetrics.maxCardHeight).toBeLessThanOrEqual(128)
-    expect(mediaMetrics.iconCount).toBe(4)
-    expect(mediaMetrics.bottomTabs).toEqual(['Today', 'Apps', 'Library'])
+    await page.getByRole('button', { name: 'Log next episode for Blue Exorcist' }).click()
+    await expect(page.getByText('38 / 73 episodes')).toBeVisible()
+    await expect(page.locator('.media-card')).toHaveCount(0)
+    await expect(page.locator('.native-tabbar__item')).toHaveText(['Today', 'Apps', 'Capture', 'Assistant', 'You'])
   })
 
   test('redirects the native cash root to the month ledger', async ({ page }) => {

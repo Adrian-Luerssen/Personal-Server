@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { apiFetch } from '../../api'
-import { StatCard, SkeletonStatCard, SkeletonCard } from '../../components/shared'
+import { SkeletonCard } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
-import PageHeader from '../../components/PageHeader'
+import {
+  getNextProgressUpdate,
+  getSeriesProgress,
+  groupSeriesByStatus,
+  normalizeSeriesCollection,
+} from './seriesViewModel.mjs'
 import './Media.css'
 
 const MEDIA_COLOR = '#f472b6'
@@ -25,97 +30,58 @@ const STATUS_META = {
   dropped:   { label: 'Dropped',    color: '#f87171' },
 }
 
-function MediaCard({ item, onClick }) {
+function SeriesRow({ item, onEdit, onIncrement, busy }) {
   const typeMeta = TYPE_META[item.type] || {}
   const statusMeta = STATUS_META[item.status] || {}
+  const progress = getSeriesProgress(item)
+  const nextProgress = getNextProgressUpdate(item)
+  const progressLabel = progress
+    ? `${progress.value} / ${progress.total ?? 'unknown'} ${progress.unit}${progress.value === 1 ? '' : 's'}`
+    : null
 
   return (
-    <div className="media-card" onClick={() => onClick(item)}>
-      <div className="media-card-cover">
+    <article className="series-row" data-status={item.status || 'planning'}>
+      <div className="series-row__cover">
         {item.coverUrl && item.coverUrl.length > 1 ? (
           <img src={item.coverUrl} alt={item.title} loading="lazy" />
         ) : (
-          <div className="media-card-cover-placeholder">
-            <Icon name={typeMeta.icon || 'film'} size={32} />
-          </div>
-        )}
-        {(() => {
-          const tags = Array.isArray(item.metadata?.tags) ? item.metadata.tags : [item.type]
-          return (
-            <div style={{ position: 'absolute', top: '0.4rem', left: '0.4rem', display: 'flex', gap: '0.2rem' }}>
-              {tags.map(tag => {
-                const meta = TYPE_META[tag] || {}
-                return (
-                  <div key={tag} className="media-card-type-badge" style={{ background: meta.color || '#666', position: 'static' }}>
-                    {meta.label || tag}
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })()}
-        {item.rating != null && (
-          <div className="media-card-rating">
-            <Icon name="star" size={12} />
-            {Number(item.rating).toFixed(1)}
+          <div className="series-row__cover-placeholder" aria-hidden="true">
+            <Icon name={typeMeta.icon || 'film'} size={22} />
           </div>
         )}
       </div>
-      <div className="media-card-body">
-        <div className="media-card-title">{item.title}</div>
-        <div className="media-card-status" style={{ color: statusMeta.color }}>
-          {statusMeta.label}
-        </div>
-        {item.metadata?.episodesWatched != null && item.metadata?.episodes && (
-          <div className="media-card-progress-row">
-            <div className="media-card-progress-bar">
-              <div
-                className="media-card-progress-fill"
-                style={{
-                  width: `${Math.min(100, (item.metadata.episodesWatched / item.metadata.episodes) * 100)}%`,
-                  background: typeMeta.color,
-                }}
-              />
-            </div>
-            <span className="media-card-progress-text">
-              {item.metadata.episodesWatched}/{item.metadata.episodes}
-            </span>
-          </div>
+      <button type="button" className="series-row__open" onClick={() => onEdit(item)} aria-label={`Edit ${item.title}`}>
+        <span className="series-row__title">{item.title}</span>
+        <span className="series-row__meta">
+          <span>{typeMeta.label || item.type}</span>
+          {item.rating != null && <span>{Number(item.rating).toFixed(1)} / 10</span>}
+          <span style={{ color: statusMeta.color }}>{statusMeta.label || item.status}</span>
+        </span>
+        {progress && (
+          <span className="series-row__progress">
+            <progress value={progress.value} max={progress.total || Math.max(progress.value, 1)} aria-label={`${item.title}: ${progressLabel}`} />
+            <span>{progressLabel}</span>
+          </span>
         )}
-        {item.metadata?.chaptersRead != null && item.metadata?.chapters && (
-          <div className="media-card-progress-row">
-            <div className="media-card-progress-bar">
-              <div
-                className="media-card-progress-fill"
-                style={{
-                  width: `${Math.min(100, (item.metadata.chaptersRead / item.metadata.chapters) * 100)}%`,
-                  background: typeMeta.color,
-                }}
-              />
-            </div>
-            <span className="media-card-progress-text">
-              {item.metadata.chaptersRead}/{item.metadata.chapters} ch
-            </span>
-          </div>
+      </button>
+      <div className="series-row__actions">
+        {progress && (
+          <button
+            type="button"
+            className="series-row__increment"
+            aria-label={`Log next ${progress.unit} for ${item.title}`}
+            disabled={!nextProgress || busy}
+            onClick={() => onIncrement(item)}
+          >
+            {busy ? <Icon name="loader" size={15} /> : '+1'}
+            <span>{progress.unit === 'episode' ? 'ep' : progress.unit === 'chapter' ? 'ch' : 'pg'}</span>
+          </button>
         )}
-        {item.metadata?.pagesRead != null && item.metadata?.pages && (
-          <div className="media-card-progress-row">
-            <div className="media-card-progress-bar">
-              <div
-                className="media-card-progress-fill"
-                style={{
-                  width: `${Math.min(100, (item.metadata.pagesRead / item.metadata.pages) * 100)}%`,
-                  background: typeMeta.color,
-                }}
-              />
-            </div>
-            <span className="media-card-progress-text">
-              {item.metadata.pagesRead}/{item.metadata.pages} pg
-            </span>
-          </div>
-        )}
+        <button type="button" className="series-row__edit" aria-label={`Open details for ${item.title}`} onClick={() => onEdit(item)}>
+          <Icon name="chevron-right" size={18} />
+        </button>
       </div>
-    </div>
+    </article>
   )
 }
 
@@ -596,6 +562,8 @@ export default function Media() {
   const [search, setSearch] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [editItem, setEditItem] = useState(null)
+  const [busyItemId, setBusyItemId] = useState(null)
+  const [completionPrompt, setCompletionPrompt] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -608,7 +576,7 @@ export default function Media() {
         apiFetch(`/media?${params}`),
         apiFetch('/media/stats'),
       ])
-      setItems(Array.isArray(data) ? data : [])
+      setItems(normalizeSeriesCollection(data))
       setStats(s)
     } catch { }
     finally { setLoading(false) }
@@ -619,25 +587,84 @@ export default function Media() {
   const activeCount = items.filter(i => ['watching', 'reading'].includes(i.status)).length
   const completedCount = stats?.completed ?? 0
   const avgRating = stats?.averageRating
+  const groups = groupSeriesByStatus(items)
+
+  const incrementProgress = async (item) => {
+    const update = getNextProgressUpdate(item)
+    if (!update || busyItemId) return
+    const metadata = { ...(item.metadata || {}), [update.field]: update.value }
+    setBusyItemId(item.id)
+    setItems(current => current.map(entry => entry.id === item.id ? { ...entry, metadata } : entry))
+    try {
+      await apiFetch(`/media/${item.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ metadata }),
+      })
+      if (update.completionSuggested) {
+        setCompletionPrompt({ id: item.id, title: item.title })
+      }
+    } catch {
+      setItems(current => current.map(entry => entry.id === item.id ? item : entry))
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
+  const markCompleted = async () => {
+    const prompt = completionPrompt
+    if (!prompt) return
+    setCompletionPrompt(null)
+    setItems(current => current.map(item => item.id === prompt.id ? { ...item, status: 'completed' } : item))
+    try {
+      await apiFetch(`/media/${prompt.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'completed' }),
+      })
+    } catch {
+      await load()
+    }
+  }
 
   return (
-    <>
-      <PageHeader icon="clapperboard" title="Media" accentColor={MEDIA_COLOR} />
+    <div className="series-register" data-testid="series-register">
+      <header className="series-register__header">
+        <div>
+          <span className="series-register__eyebrow">Watch and reading register</span>
+          <h1>Series</h1>
+          <p>Update progress where you left off. Your source records remain editable.</p>
+        </div>
+        <button className="series-register__add" onClick={() => setAddOpen(true)}>
+          <Icon name="plus" size={17} /> Add title
+        </button>
+      </header>
 
-      {/* Stats */}
-      <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
-        {loading ? (
-          <>
-            <SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard />
-          </>
-        ) : (
-          <>
-            <StatCard icon="library" label="Total" value={stats?.total ?? 0} accentColor={MEDIA_COLOR} />
-            <StatCard icon="play" label="In Progress" value={activeCount} accentColor="#60a5fa" />
-            <StatCard icon="check-circle" label="Completed" value={completedCount} accentColor="#a78bfa" />
-            <StatCard icon="star" label="Avg Rating" value={avgRating != null ? avgRating.toFixed(1) : '--'} accentColor="#fbbf24" />
-          </>
-        )}
+      <dl className="series-register__summary" aria-label="Series library summary">
+        <div><dt>Total</dt><dd>{loading ? '--' : stats?.total ?? items.length}</dd></div>
+        <div><dt>In progress</dt><dd>{loading ? '--' : activeCount}</dd></div>
+        <div><dt>Completed</dt><dd>{loading ? '--' : completedCount}</dd></div>
+        <div><dt>Average score</dt><dd>{loading ? '--' : avgRating != null ? avgRating.toFixed(1) : '--'}</dd></div>
+      </dl>
+
+      {completionPrompt && (
+        <section className="series-completion" role="status">
+          <div>
+            <strong>{completionPrompt.title} reached its known total.</strong>
+            <span>Mark it completed, or keep the current status if more is expected.</span>
+          </div>
+          <div>
+            <button type="button" onClick={markCompleted}>Mark completed</button>
+            <button type="button" onClick={() => setCompletionPrompt(null)}>Keep active</button>
+          </div>
+        </section>
+      )}
+
+      <div className="series-status-tabs" aria-label="Filter by status">
+        <button type="button" className={!filterStatus ? 'is-active' : ''} aria-pressed={!filterStatus} onClick={() => setFilterStatus('')}>All</button>
+        {Object.entries(STATUS_META).map(([key, meta]) => (
+          <button type="button" key={key} className={filterStatus === key ? 'is-active' : ''} aria-pressed={filterStatus === key} onClick={() => setFilterStatus(filterStatus === key ? '' : key)}>
+            {meta.label}
+          </button>
+        ))}
       </div>
 
       {/* Type chips */}
@@ -667,7 +694,6 @@ export default function Media() {
         ))}
       </div>
 
-      {/* Toolbar */}
       <div className="media-toolbar">
         <div className="media-search-input-wrap" style={{ flex: 1, maxWidth: 320 }}>
           <Icon name="search" size={16} className="media-search-icon" />
@@ -679,35 +705,43 @@ export default function Media() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <select aria-label="Filter media status" value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="media-filter-select">
-          <option value="">All statuses</option>
-          {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        <button className="btn" onClick={() => setAddOpen(true)} style={{ background: MEDIA_COLOR, color: '#000', whiteSpace: 'nowrap' }}>
-          <Icon name="plus" size={18} /> Add
-        </button>
       </div>
 
-      {/* Grid */}
       {loading ? (
-        <div className="media-grid">
-          {[...Array(8)].map((_, i) => <SkeletonCard key={i} style={{ height: 280 }} />)}
+        <div className="series-register__loading">
+          {[...Array(5)].map((_, i) => <SkeletonCard key={i} style={{ height: 92 }} />)}
         </div>
       ) : items.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+        <div className="series-register__empty">
           <Icon name="clapperboard" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }} />
-          <h3 style={{ marginBottom: '0.5rem' }}>No media items yet</h3>
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: '1.5rem' }}>
+          <h2>No titles recorded yet</h2>
+          <p>
             Search for anime, movies, TV shows, manga, or books to start tracking.
           </p>
-          <button className="btn" onClick={() => setAddOpen(true)} style={{ background: MEDIA_COLOR, color: '#000' }}>
-            <Icon name="plus" size={18} /> Add Your First Item
+          <button className="series-register__add" onClick={() => setAddOpen(true)}>
+            <Icon name="plus" size={18} /> Add your first title
           </button>
         </div>
       ) : (
-        <div className="media-grid">
-          {items.map(item => (
-            <MediaCard key={item.id} item={item} onClick={setEditItem} />
+        <div className="series-groups">
+          {groups.map(group => (
+            <section className="series-group" key={group.status}>
+              <div className="series-group__heading">
+                <h2>{STATUS_META[group.status]?.label || group.status}</h2>
+                <span>{group.items.length}</span>
+              </div>
+              <div className="series-list">
+                {group.items.map(item => (
+                  <SeriesRow
+                    key={item.id}
+                    item={item}
+                    onEdit={setEditItem}
+                    onIncrement={incrementProgress}
+                    busy={busyItemId === item.id}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
@@ -716,6 +750,6 @@ export default function Media() {
       <EditModal key={editItem?.id || 'none'} item={editItem} open={!!editItem} onClose={() => setEditItem(null)} onSave={load} onDelete={load} />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
-    </>
+    </div>
   )
 }

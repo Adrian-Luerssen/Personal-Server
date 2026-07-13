@@ -9,6 +9,7 @@ import { api } from '../api'
 import { getTokens } from '../auth'
 import { getApiBase } from '../config'
 import { usePageContext } from '../hooks/usePageContext'
+import { formatProvenance } from '../chatProvenance.mjs'
 import './ChatPanel.css'
 
 const POLL_OPEN_MS = 5000
@@ -67,20 +68,20 @@ function upsertMessage(messages, nextMessage) {
 }
 
 function ContextBadge({ pageContext }) {
-  if (!pageContext || !pageContext.pageType) return null
-
-  const parts = [pageContext.pageType.replace(/-/g, ' ')]
-  if (pageContext.filters) {
-    const f = pageContext.filters
-    if (f.timeframe) parts.push(f.timeframe)
-    if (f.from && f.to) parts.push(`${f.from} to ${f.to}`)
-    else if (f.from) parts.push(`from ${f.from}`)
-  }
+  const provenance = formatProvenance(pageContext)
+  if (!provenance) return null
 
   return (
-    <div className="chat-msg-context-badge">
-      <Icon name="compass" size={10} />
-      {parts.join(' / ')}
+    <div className="chat-msg-context-badge" aria-label="Record provenance">
+      <div>
+        <Icon name="compass" size={10} />
+        <span>{provenance.label}</span>
+      </div>
+      {provenance.sources.length > 0 ? (
+        <ul>
+          {provenance.sources.map((source) => <li key={source}>{source}</li>)}
+        </ul>
+      ) : null}
     </div>
   )
 }

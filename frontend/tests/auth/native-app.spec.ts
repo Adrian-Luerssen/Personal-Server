@@ -493,7 +493,8 @@ test.describe('Native Android app shell', () => {
 
     await expect(page).toHaveURL(/\/home$/)
     await expect(page.locator('[data-testid="native-dashboard"]')).toBeVisible()
-    await expect(page.getByRole('heading', { name: /habits logged/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
+    await expect(page.getByText(/habits logged/i)).toBeVisible()
     await expect(page.getByText(/mobility/i)).toBeVisible()
     const primaryNavigation = page.getByRole('navigation', { name: 'Primary' })
     await expect(primaryNavigation.getByRole('link', { name: 'Today' })).toBeVisible()

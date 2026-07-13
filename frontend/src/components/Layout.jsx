@@ -38,7 +38,7 @@ import {
 } from '../nativeNavigation.mjs'
 
 const NATIVE_ROUTE_TITLES = [
-  { match: /^\/home$/, title: 'Today', subtitle: 'Overview' },
+  { match: /^\/home$/, title: 'Today', subtitle: 'Daily record' },
   { match: /^\/menu/, title: 'Menu', subtitle: 'App map' },
   { match: /^\/workout/, title: 'Gym', subtitle: 'Training record' },
   { match: /^\/habits/, title: 'Habits', subtitle: 'Daily routines' },

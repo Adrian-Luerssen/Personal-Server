@@ -27,14 +27,14 @@ function ProductStage() {
   return (
     <div className="landing-product-stage" aria-label="Personal Record Today product preview">
       <aside className="landing-stage-sidebar">
-        <BrandMark size={30} />
+        <div className="landing-stage-brand"><BrandMark size={25} /><strong>Record</strong></div>
         {DOMAINS.slice(0, 5).map(([icon, label, , tone]) => <span key={label} data-tone={tone}><Icon name={icon} size={14} />{label}</span>)}
       </aside>
       <div className="landing-stage-canvas">
-        <div className="landing-stage-bar"><span>Today / Daily record</span><strong>Ready</strong></div>
+        <div className="landing-stage-bar"><span>TODAY / MON 13 JUL</span><strong><i /> READY</strong></div>
         <div className="landing-stage-grid">
-          <article className="landing-stage-hero"><span>PERSONAL RECORD / TODAY</span><h2>Good day.</h2><p>Two records need your attention.</p><button type="button">Ask about today</button></article>
-          <article className="landing-stage-signal"><div>82</div><strong>On course</strong><small>Daily signal</small></article>
+          <article className="landing-stage-hero"><span>PERSONAL RECORD / TODAY</span><h2>Start with what needs you.</h2><p>Two records are open. Everything else is already in place.</p><button type="button">Ask about today</button></article>
+          <article className="landing-stage-next"><span>NEXT ACTION</span><Icon name="wallet" size={18} /><strong>Review a detected payment</strong><small>Contactless payment · moments ago</small><button type="button">Review capture <Icon name="arrow-right" size={12} /></button></article>
           {SIGNALS.map(([label, value, tone]) => <article className="landing-stage-metric" data-tone={tone} key={label}><span>{label}</span><strong>{value}</strong><small>Today</small></article>)}
         </div>
       </div>
@@ -77,8 +77,8 @@ export default function Landing({ mobileGate = false }) {
 
         <section className="landing-domain-section" id="domains">
           <div className="landing-section-copy"><span>ONE RECORD, DISTINCT INSTRUMENTS</span><h2>Your domains keep their character.</h2><p>Cash should feel like Cash. Gym should feel built for a set in progress. Personal Record connects them without making them identical.</p></div>
-          <div className="landing-domain-grid">
-            {DOMAINS.map(([icon, title, text, tone]) => <article className="landing-bento-card" data-tone={tone} key={title}><Icon name={icon} size={20} /><span>{title}</span><h3>{text}</h3><small>Open instrument <Icon name="arrow-up-right" size={13} /></small></article>)}
+          <div className="landing-domain-register">
+            {DOMAINS.map(([icon, title, text, tone], index) => <article className="landing-domain-row" data-tone={tone} key={title}><span className="landing-domain-row__index">0{index + 1}</span><span className="landing-domain-row__icon"><Icon name={icon} size={18} /></span><h3>{title}</h3><p>{text}</p><small>Purpose-built <Icon name="arrow-up-right" size={13} /></small></article>)}
           </div>
           <div className="landing-instrument-register" aria-label="Live product records">
             {SIGNALS.concat([['Next episode', 'S02 E04', 'series']]).map(([label, value, tone]) => <div className="landing-instrument-row" data-tone={tone} key={label}><i /><span>{label}</span><strong>{value}</strong><small>Synced</small></div>)}

@@ -32,6 +32,14 @@ export interface MediaCatalogView {
   upcomingEpisode: MediaEpisode | null;
 }
 
+export interface ImportedCatalogSyncProgress {
+  current: number;
+  total: number;
+  synced: number;
+  failed: number;
+  item: MediaItem;
+}
+
 @Injectable()
 export class MediaCatalogService {
   constructor(
@@ -79,6 +87,44 @@ export class MediaCatalogService {
         "Catalog synchronization failed. Existing progress is still available.",
       );
     }
+  }
+
+  async syncImportedItems(
+    account: Account,
+    items: MediaItem[],
+    onProgress?: (progress: ImportedCatalogSyncProgress) => void,
+  ): Promise<{ eligible: number; synced: number; failed: number }> {
+    const eligible = items.filter((item) =>
+      (item.type === MediaType.ANIME && Number(item.externalIds?.malId) > 0) ||
+      (item.type === MediaType.TV && Number(item.externalIds?.tmdbId) > 0),
+    );
+    let synced = 0;
+    let failed = 0;
+
+    for (let index = 0; index < eligible.length; index++) {
+      const item = eligible[index];
+      try {
+        await this.syncItem(account, item);
+        synced++;
+      } catch {
+        failed++;
+      }
+      onProgress?.({
+        current: index + 1,
+        total: eligible.length,
+        synced,
+        failed,
+        item,
+      });
+
+      // Jikan's public API is deliberately rate limited. Keeping MAL imports
+      // sequential prevents a large upload from turning into a burst of 429s.
+      if (item.type === MediaType.ANIME && index < eligible.length - 1) {
+        await this.pause(375);
+      }
+    }
+
+    return { eligible: eligible.length, synced, failed };
   }
 
   async getCatalog(account: Account, item: MediaItem): Promise<MediaCatalogView> {
@@ -297,10 +343,7 @@ export class MediaCatalogService {
     const malId = item.externalIds?.malId;
     if (!malId) throw new BadRequestException("This anime title is not matched to MyAnimeList");
 
-    const response = await axios.get(`https://api.jikan.moe/v4/anime/${malId}/full`, {
-      timeout: 10000,
-    });
-    const details = response.data?.data || {};
+    const details = await this.fetchAnimeFull(Number(malId));
     const localItems = await this.mediaRepo.find({ where: { accountId: account.id } });
     let sortOrder = 0;
 
@@ -348,11 +391,41 @@ export class MediaCatalogService {
       airingStatus: details.status || item.metadata?.airingStatus,
       mediaFormat: details.type || item.metadata?.mediaFormat,
       malScore: details.score || item.metadata?.malScore,
+      episodes: details.episodes ?? item.metadata?.episodes ?? null,
       studios: (details.studios || []).map((studio: any) => studio.name),
       genres: (details.genres || []).map((genre: any) => genre.name),
       releaseStartDate: this.providerDate(details.aired?.from) || item.metadata?.releaseStartDate,
       releaseEndDate: this.providerDate(details.aired?.to) || item.metadata?.releaseEndDate,
     };
+    item.coverUrl = details.images?.jpg?.large_image_url ||
+      details.images?.jpg?.image_url ||
+      item.coverUrl ||
+      null;
+  }
+
+  private async fetchAnimeFull(malId: number): Promise<any> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await axios.get(`https://api.jikan.moe/v4/anime/${malId}/full`, {
+          timeout: 15000,
+        });
+        if (!response.data?.data?.mal_id) throw new Error("MAL anime was not found");
+        return response.data.data;
+      } catch (error: any) {
+        lastError = error;
+        const status = Number(error?.response?.status || 0);
+        const retryable = status === 429 || status >= 500 || status === 0;
+        if (!retryable || attempt === 2) break;
+        const retryAfter = Number(error?.response?.headers?.["retry-after"] || 0);
+        await this.pause(retryAfter > 0 ? retryAfter * 1000 : 500 * (attempt + 1));
+      }
+    }
+    throw lastError;
+  }
+
+  private pause(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
 
   async getAnimePreview(malId: number): Promise<{ item: Partial<MediaItem>; relations: any[] }> {

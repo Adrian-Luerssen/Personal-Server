@@ -320,8 +320,8 @@ function ProgressStep({ previewId, onComplete, onError }) {
     }
   }, [previewId])
 
-  const STAGE_ICONS = { starting: 'hourglass', creating: 'plus-circle', replacing: 'refresh-cw', complete: 'check-circle', error: 'alert-circle' }
-  const STAGE_LABELS = { starting: 'Preparing...', creating: 'Creating items...', replacing: 'Updating duplicates...', complete: 'Complete!', error: 'Error' }
+  const STAGE_ICONS = { starting: 'hourglass', creating: 'plus-circle', replacing: 'refresh-cw', catalog: 'database', complete: 'check-circle', error: 'alert-circle' }
+  const STAGE_LABELS = { starting: 'Preparing...', creating: 'Creating items...', replacing: 'Updating duplicates...', catalog: 'Synchronizing catalog...', complete: 'Complete!', error: 'Error' }
 
   return (
     <ImportProgressPanel
@@ -347,6 +347,12 @@ function SummaryStep({ summary, onReset }) {
         {(summary?.replaced ?? 0) > 0 && <>, <strong style={{ color: MEDIA_COLOR }}>{summary.replaced}</strong> replaced</>}
         , <strong>{summary?.skipped ?? 0}</strong> skipped
       </p>
+      {(summary?.catalogEligible ?? 0) > 0 && (
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', margin: '-0.75rem 0 1.5rem' }}>
+          Catalog: <strong style={{ color: 'var(--color-success)' }}>{summary.catalogSynced ?? 0}</strong> enriched
+          {(summary?.catalogFailed ?? 0) > 0 && <>, <strong style={{ color: 'var(--color-warning)' }}>{summary.catalogFailed}</strong> need retry</>}
+        </p>
+      )}
       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
         <button className="btn" onClick={onReset}><Icon name="refresh-cw" size={18} /> Import More</button>
         <a href="/media" className="btn" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

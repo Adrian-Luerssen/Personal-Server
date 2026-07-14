@@ -28,6 +28,7 @@ import { MediaService } from "../media/media.service";
 import { Response } from "express";
 import { MediaStatus } from "../entities/media-item.entity";
 import { createImportProgressSender } from "../../utils/sse";
+import { MediaCatalogService } from "../catalog/media-catalog.service";
 
 // In-memory preview store
 const previewStore = new Map<
@@ -49,7 +50,8 @@ export class MediaImportController {
     private readonly malImport: MalImportService,
     private readonly tvTimeImport: TvTimeImportService,
     private readonly goodreadsImport: GoodreadsImportService,
-    private readonly mediaService: MediaService
+    private readonly mediaService: MediaService,
+    private readonly mediaCatalogService: MediaCatalogService,
   ) {}
 
   // ========== MAL ANIME PREVIEW ==========
@@ -201,7 +203,7 @@ export class MediaImportController {
         skipped += bulkResult.skipped;
         send({
           stage: "creating",
-          progress: total > 0 ? 5 + (toCreate.length / total) * 90 : 95,
+          progress: total > 0 ? 5 + (toCreate.length / total) * 50 : 55,
           current: toCreate.length,
           total,
           message: `Creating new items (${toCreate.length}/${toCreate.length})`,
@@ -230,7 +232,7 @@ export class MediaImportController {
         if ((i + 1) % 5 === 0 || i + 1 === toReplace.length) {
           send({
             stage: "replacing",
-            progress: 5 + (idx / total) * 90,
+            progress: 5 + (idx / total) * 50,
             current: idx,
             total,
             message: `Updating duplicates (${i + 1}/${toReplace.length})`,
@@ -238,13 +240,62 @@ export class MediaImportController {
         }
       }
 
+      // Preserve the imported provider identity even when the user skips a
+      // duplicate. Skip protects personal tracking fields; it should not leave
+      // an existing title disconnected from its MAL/TMDB catalog record.
+      for (const duplicate of preview.duplicates) {
+        const incoming = duplicate.incoming;
+        if (!this.catalogIdentity(incoming)) continue;
+        await this.mediaService.update(account, duplicate.existing.id, {
+          type: incoming.type,
+          externalIds: incoming.externalIds || {},
+          metadata: {
+            importSource: incoming.metadata?.importSource,
+            sourceType: incoming.metadata?.sourceType,
+            tags: incoming.metadata?.tags,
+          },
+        });
+      }
+
+      const importedItems = [...toCreate, ...preview.duplicates.map((entry) => entry.incoming)];
+      const catalogIdentities = new Set(
+        importedItems.map((item) => this.catalogIdentity(item)).filter(Boolean),
+      );
+      const library = await this.mediaService.findAll(account);
+      const catalogCandidates = library.filter((item) =>
+        catalogIdentities.has(this.catalogIdentity(item)),
+      );
+      const catalog = await this.mediaCatalogService.syncImportedItems(
+        account,
+        catalogCandidates,
+        ({ current, total: catalogTotal, synced, failed, item }) => {
+          send({
+            stage: "catalog",
+            progress: 60 + (current / Math.max(catalogTotal, 1)) * 38,
+            current,
+            total: catalogTotal,
+            message: `Synchronizing catalog (${current}/${catalogTotal}): ${item.title}`,
+            catalog: { synced, failed },
+          });
+        },
+      );
+
       previewStore.delete(previewId);
 
       send({
         stage: "complete",
         progress: 100,
-        message: "Import completed successfully!",
-        summary: { created, replaced, skipped },
+        message: catalog.failed
+          ? `Import complete. ${catalog.failed} catalog ${catalog.failed === 1 ? "record needs" : "records need"} another sync attempt.`
+          : "Import and catalog synchronization completed successfully!",
+        summary: {
+          created,
+          replaced,
+          skipped,
+          catalogEligible: catalog.eligible,
+          catalogSynced: catalog.synced,
+          catalogFailed: catalog.failed,
+        },
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -306,5 +357,17 @@ export class MediaImportController {
       items: newItems.slice(0, 30),
       duplicates: duplicates.slice(0, 50),
     };
+  }
+
+  private catalogIdentity(item: any): string | null {
+    const malId = Number(item?.externalIds?.malId);
+    if (item?.type === "anime" && Number.isInteger(malId) && malId > 0) {
+      return `mal:${malId}`;
+    }
+    const tmdbId = Number(item?.externalIds?.tmdbId);
+    if (item?.type === "tv" && Number.isInteger(tmdbId) && tmdbId > 0) {
+      return `tmdb:${tmdbId}`;
+    }
+    return null;
   }
 }

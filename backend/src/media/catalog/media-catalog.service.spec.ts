@@ -115,6 +115,9 @@ describe("MediaCatalogService", () => {
     mockedAxios.get.mockResolvedValueOnce({ data: { data: {
       mal_id: 100,
       title: "First Season",
+      synopsis: "A complete provider synopsis.",
+      episodes: 12,
+      images: { jpg: { large_image_url: "https://img.example/first-season.jpg" } },
       aired: { from: "2024-04-05T00:00:00+00:00", to: "2024-06-21T00:00:00+00:00" },
       relations: [{ relation: "Sequel", entry: [{ mal_id: 200, type: "anime", name: "Second Season" }] }],
     } } } as any);
@@ -126,9 +129,31 @@ describe("MediaCatalogService", () => {
     ]));
     expect(item.metadata).toMatchObject({ catalogSyncState: "ready" });
     expect(item.metadata).toMatchObject({
+      synopsis: "A complete provider synopsis.",
+      episodes: 12,
       releaseStartDate: "2024-04-05",
       releaseEndDate: "2024-06-21",
     });
+    expect(item.coverUrl).toBe("https://img.example/first-season.jpg");
+  });
+
+  it("synchronizes eligible imported titles and reports progress without failing the import", async () => {
+    const anime = {
+      id: "anime-1", accountId: account.id, type: MediaType.ANIME,
+      externalIds: { malId: 100 }, metadata: {},
+    } as any;
+    const manga = {
+      id: "manga-1", accountId: account.id, type: MediaType.MANGA,
+      externalIds: { malId: 200 }, metadata: {},
+    } as any;
+    const progress = jest.fn();
+    jest.spyOn(service, "syncItem").mockResolvedValue({} as any);
+
+    const result = await service.syncImportedItems(account, [anime, manga], progress);
+
+    expect(result).toEqual({ eligible: 1, synced: 1, failed: 0 });
+    expect(service.syncItem).toHaveBeenCalledWith(account, anime);
+    expect(progress).toHaveBeenCalledWith({ current: 1, total: 1, synced: 1, failed: 0, item: anime });
   });
 
   it("preserves concrete watch state during an idempotent refresh", async () => {

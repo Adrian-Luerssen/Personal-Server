@@ -40,6 +40,32 @@ test('the customer identity is Record with the Bookplate R mark', () => {
   assert.doesNotMatch(markSource, /indexed-spine|brand-mark__rail|brand-mark__tick|<circle/)
 })
 
+test('Bookplate R is the browser, installable web, and native launcher identity', () => {
+  const html = read('index.html')
+  const viteConfig = read('vite.config.mjs')
+  const nativeMark = read('android/app/src/main/res/drawable/ps_launcher_foreground.xml')
+
+  assert.match(html, /favicon\.svg\?v=bookplate-r/)
+  assert.match(html, /favicon-32\.png\?v=bookplate-r/)
+  assert.match(html, /apple-touch-icon\.png\?v=bookplate-r/)
+  assert.match(viteConfig, /pwa-maskable-512\.png\?v=bookplate-r/)
+  assert.match(nativeMark, /#A999FF/i)
+  assert.match(nativeMark, /#7C5CFF/i)
+  assert.doesNotMatch(nativeMark, /#7DD3FC|#34D399/i)
+
+  for (const asset of [
+    'public/favicon-32.png',
+    'public/apple-touch-icon.png',
+    'public/pwa-192.png',
+    'public/pwa-512.png',
+    'public/pwa-maskable-512.png',
+    'android/app/src/main/res/mipmap-mdpi/ic_launcher.png',
+    'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
+  ]) {
+    assert.equal(existsSync(resolve(process.cwd(), asset)), true, `${asset} must exist`)
+  }
+})
+
 test('the foundation keeps self-hosted type, visible focus, touch targets, and reduced motion', () => {
   const css = read('src/record.css')
   assert.match(mainSource, /@fontsource-variable\/sora/)

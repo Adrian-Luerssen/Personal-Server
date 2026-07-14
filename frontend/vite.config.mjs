@@ -19,7 +19,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'logo.svg', 'logo-dark.svg'],
+      includeAssets: ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png', 'logo.svg', 'logo-dark.svg', 'pwa-192.png', 'pwa-512.png', 'pwa-maskable-512.png'],
       manifest: {
         name: 'Record',
         short_name: 'Record',
@@ -30,7 +30,10 @@ export default defineConfig({
         theme_color: '#7c5cff',
         orientation: 'any',
         icons: [
-          { src: '/logo.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }
+          { src: '/logo.svg?v=bookplate-r', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/pwa-192.png?v=bookplate-r', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-512.png?v=bookplate-r', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-maskable-512.png?v=bookplate-r', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
       workbox: {

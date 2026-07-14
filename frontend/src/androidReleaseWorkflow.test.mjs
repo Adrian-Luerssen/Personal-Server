@@ -7,6 +7,8 @@ const workflowPath = resolve(process.cwd(), '../.github/workflows/android-releas
 const workflow = readFileSync(workflowPath, 'utf8')
 const metadataScript = readFileSync(resolve(process.cwd(), 'scripts/generate-android-release-metadata.mjs'), 'utf8')
 const syncScript = readFileSync(resolve(process.cwd(), 'scripts/sync-android-release-version.mjs'), 'utf8')
+const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'))
+const capacitorConfig = readFileSync(resolve(process.cwd(), 'capacitor.config.ts'), 'utf8')
 
 test('android release workflow runs automatically for every main-branch push', () => {
   assert.match(workflow, /push:\s*\n\s+branches:\s*\n\s+- main/)
@@ -26,6 +28,17 @@ test('android release workflow injects the generated release version into the AP
   assert.match(workflow, /echo "version=\$release_version" >> "\$GITHUB_OUTPUT"/)
   assert.match(workflow, /VITE_APP_VERSION: \$\{\{ steps\.app_version\.outputs\.version \}\}/)
   assert.match(workflow, /ANDROID_VERSION_NAME: \$\{\{ steps\.app_version\.outputs\.version \}\}/)
+})
+
+test('local Android preparation cannot package a stale frontend bundle', () => {
+  assert.equal(packageJson.scripts['android:prepare'], 'npm run build && cap sync android')
+  assert.match(capacitorConfig, /appName:\s*['"]Record['"]/)
+  assert.match(capacitorConfig, /webDir:\s*['"]dist['"]/)
+
+  const buildStep = workflow.indexOf('name: Build web app')
+  const syncStep = workflow.indexOf('name: Sync Capacitor Android project')
+  const apkStep = workflow.indexOf('name: Build release APK')
+  assert.ok(buildStep >= 0 && buildStep < syncStep && syncStep < apkStep)
 })
 
 test('android release workflow publishes a real changelog in release notes', () => {

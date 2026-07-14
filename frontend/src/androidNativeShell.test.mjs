@@ -97,7 +97,7 @@ test('detected payments stay normalized locally and offer review actions', () =>
   const paymentActions = readFileSync(paymentActionReceiverPath, 'utf8')
 
   assert.match(paymentParser, /amountMinor/)
-  assert.match(paymentParser, /android-notification-v2/)
+  assert.match(paymentParser, /android-notification-v3/)
   assert.doesNotMatch(paymentParser, /suggestion\.put\("rawText"/)
   assert.match(paymentListener, /"Confirm"/)
   assert.match(paymentListener, /"Edit"/)

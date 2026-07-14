@@ -5,6 +5,7 @@ import {
   buildContinuity,
   formatEpisodeCode,
   getCatalogProgressLabel,
+  getContinuityTarget,
   getNextEpisodeAction,
   summarizeSeriesMetadata,
 } from './seriesCatalogModel.mjs'
@@ -48,6 +49,16 @@ test('orders anime continuity around the current MAL release', () => {
   )
 })
 
+test('routes tracked continuity locally and untracked releases through a MAL preview', () => {
+  assert.deepEqual(getContinuityTarget({ mediaItemId: 'local-2', malId: 22 }), {
+    kind: 'library', id: 'local-2',
+  })
+  assert.deepEqual(getContinuityTarget({ mediaItemId: null, malId: 33 }), {
+    kind: 'provider', malId: 33,
+  })
+  assert.equal(getContinuityTarget({ mediaItemId: null, malId: null }), null)
+})
+
 test('surfaces provider metadata without leaking opaque fields', () => {
   assert.deepEqual(summarizeSeriesMetadata({
     metadata: {
@@ -58,6 +69,8 @@ test('surfaces provider metadata without leaking opaque fields', () => {
       genres: ['Action', 'Drama'],
       malScore: 8.45,
       synopsis: 'Story',
+      releaseStartDate: '2026-01-10',
+      releaseEndDate: '2026-03-28',
     },
   }), {
     year: 2026,
@@ -67,5 +80,7 @@ test('surfaces provider metadata without leaking opaque fields', () => {
     genres: ['Action', 'Drama'],
     providerScore: 8.5,
     synopsis: 'Story',
+    releaseStartDate: '2026-01-10',
+    releaseEndDate: '2026-03-28',
   })
 })

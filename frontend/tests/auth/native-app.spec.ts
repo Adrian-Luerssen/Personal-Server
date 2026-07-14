@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test'
 
 async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean; paymentSuggestions?: any[] } = {}) {
+  await page.addInitScript(() => {
+    ;(window as any).__NATIVE_APP__ = true
+    ;(window as any).__API_BASE__ = 'http://localhost:4051'
+  })
+
   const habits = [
     {
       id: 'sleep',
@@ -577,12 +582,13 @@ test.describe('Native Android app shell', () => {
 
     await expect(page).toHaveURL(/\/home$/)
     await expect(page.locator('[data-testid="native-dashboard"]')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /record needs you|all caught up/i })).toBeVisible()
+    await expect(page.locator('.record-route-bar--native')).toContainText('Daily brief')
     await expect(page.getByText(/habits logged/i)).toBeVisible()
-    await expect(page.getByText(/mobility/i)).toBeVisible()
+    await expect(page.getByText('Movement', { exact: true }).first()).toBeVisible()
     const primaryNavigation = page.getByRole('navigation', { name: 'Primary' })
     await expect(primaryNavigation.getByRole('link', { name: 'Today' })).toBeVisible()
-    await expect(primaryNavigation.getByRole('link', { name: 'Apps' })).toBeVisible()
+    await expect(primaryNavigation.getByRole('link', { name: 'Records' })).toBeVisible()
     await expect(primaryNavigation.getByRole('button', { name: 'Capture' })).toBeVisible()
     await expect(primaryNavigation.getByRole('link', { name: 'Assistant' })).toBeVisible()
     await expect(primaryNavigation.getByRole('link', { name: 'You' })).toBeVisible()
@@ -595,15 +601,13 @@ test.describe('Native Android app shell', () => {
     await expect(captureDialog).toBeHidden()
     await expect(captureButton).toBeFocused()
     await expect(page.locator('.native-app-switcher__item')).toHaveCount(0)
-    const switcher = page.getByRole('button', { name: /open app menu/i })
-    await expect(switcher).toContainText('Apps')
-    await expect(switcher).toHaveAccessibleName(/current area Today/i)
-    await expect(page.getByRole('button', { name: /open settings/i })).toBeVisible()
+    await expect(page.locator('.record-route-bar--native')).toContainText('Today')
+    await expect(page.getByRole('button', { name: 'New record' })).toBeVisible()
     await expect(page.locator('.native-tabbar__item')).toHaveCount(5)
     await expect(page.getByRole('link', { name: /download android app/i })).toHaveCount(0)
   })
 
-  test('opens app switching from a compact header control instead of a top nav row', async ({ page }) => {
+  test('keeps route context in a compact header while records stay in global navigation', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
       ;(window as any).Capacitor = { isNativePlatform: () => true }
@@ -613,13 +617,11 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/habits')
 
-    const switcher = page.getByRole('button', { name: /open app menu/i })
-    await expect(switcher).toContainText('Apps')
-    await expect(switcher).toHaveAccessibleName(/current area Habits/i)
-    await switcher.click()
-    await expect(page.getByRole('dialog', { name: /switch app/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /gym training record/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /cash ledger and budgets/i })).toBeVisible()
+    const routeHeader = page.locator('.record-route-bar--native')
+    await expect(routeHeader).toContainText('Habits')
+    await expect(routeHeader).toContainText('Today')
+    await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Records' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveCount(0)
   })
 
   test('logs and undoes a Gym set without leaving the active session', async ({ page }) => {
@@ -662,10 +664,10 @@ test.describe('Native Android app shell', () => {
 
     const globalNavigation = page.getByRole('navigation', { name: 'Primary' })
     const sectionNavigation = page.getByRole('navigation', { name: 'Section navigation' })
-    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Cash/i)
+    await expect(page.locator('.record-route-bar--native')).toContainText(/Cash[\s\S]*Ledger/)
     await expect(globalNavigation.locator('.native-tabbar__item')).toHaveText([
       /Today/,
-      /Apps/,
+      /Records/,
       /Capture/,
       /Assistant/,
       /You/,
@@ -683,7 +685,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/workout', { waitUntil: 'domcontentloaded' })
 
-    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Gym/i)
+    await expect(page.locator('.record-route-bar--native')).toContainText(/Gym[\s\S]*Training today/)
     await expect(sectionNavigation.getByRole('link')).toHaveText([
       /Today/,
       /Active/,
@@ -698,7 +700,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/habits')
 
-    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Habits/i)
+    await expect(page.locator('.record-route-bar--native')).toContainText(/Habits[\s\S]*Today/)
     await expect(sectionNavigation.getByRole('link')).toHaveText([
       /Today/,
       /Plan/,
@@ -707,17 +709,17 @@ test.describe('Native Android app shell', () => {
     ])
 
     await page.goto('/media')
-    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Series/i)
+    await expect(page.locator('.record-route-bar--native')).toContainText(/Series[\s\S]*My list/)
     await expect(sectionNavigation.getByRole('link')).toHaveText([/My list/, /Discover/])
     await expect(sectionNavigation.getByRole('link', { name: 'My list' })).toHaveAttribute('aria-current', 'page')
 
     await page.goto('/chat')
-    await expect(page.getByRole('button', { name: /open app menu/i })).toHaveAccessibleName(/current area Assistant/i)
+    await expect(page.locator('.record-route-bar--native')).toContainText(/Assistant[\s\S]*Record analysis/)
     await expect(globalNavigation.locator('.native-tabbar__item')).toHaveCount(5)
     await expect(globalNavigation.getByRole('link', { name: 'Assistant' })).toHaveAttribute('aria-current', 'page')
   })
 
-  test('keeps the native app switcher label readable on narrow Android headers', async ({ page }) => {
+  test('keeps the native route title readable on narrow Android headers', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
       ;(window as any).Capacitor = { isNativePlatform: () => true }
@@ -732,12 +734,12 @@ test.describe('Native Android app shell', () => {
     ]) {
       await page.setViewportSize(viewport)
       await page.goto('/workout/history')
-      const labelReport = await page.locator('.native-app-header__selector-label').evaluate((label) => ({
+      const labelReport = await page.locator('.record-route-bar__context strong').evaluate((label) => ({
         text: label.textContent,
         clientWidth: label.clientWidth,
         scrollWidth: label.scrollWidth,
       }))
-      expect(labelReport.text).toBe('Apps')
+      expect(labelReport.text).toBe('History')
       expect(labelReport.scrollWidth).toBeLessThanOrEqual(labelReport.clientWidth + 1)
     }
   })
@@ -772,7 +774,7 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByText('Blue Exorcist', { exact: true })).toBeVisible()
     await expect(page.getByText('Blue Exorcist: Shimane Illuminati Saga')).toBeVisible()
     await expect(page.locator('.media-card')).toHaveCount(0)
-    await expect(page.locator('.native-tabbar__item')).toHaveText(['Today', 'Apps', 'Capture', 'Assistant', 'You'])
+    await expect(page.locator('.native-tabbar__item')).toHaveText(['Today', 'Records', 'Capture', 'Assistant', 'You'])
 
     await page.setViewportSize({ width: 320, height: 568 })
     const overflow = await getHorizontalOverflowReport(page)
@@ -968,7 +970,7 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('button', { name: /filter category food/i })).toBeVisible()
     await expect(page.getByText('Concert')).toBeVisible()
     const concertRow = page.locator('.native-transaction-card', { hasText: 'Concert' })
-    await expect(concertRow).toContainText('Events - Santander')
+    await expect(concertRow).toContainText('Events · Santander')
     await expect(concertRow).toContainText(/\u20ac55\.00/)
     await expect(page.locator('table')).toHaveCount(0)
   })
@@ -1007,7 +1009,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/finance/transactions')
 
-    const feedCard = page.locator('.native-finance-card', { hasText: 'Feed' })
+    const feedCard = page.locator('.record-register', { hasText: 'Transactions' })
     await expect(feedCard.getByText(/no transactions match this view/i)).toBeVisible()
     await expect(page.locator('.native-finance-floating-add')).toHaveCount(0)
     await expect(feedCard.getByRole('button', { name: /add transaction/i })).toBeVisible()
@@ -1015,7 +1017,7 @@ test.describe('Native Android app shell', () => {
     const alignment = await feedCard.evaluate((card) => {
       const cardBox = card.getBoundingClientRect()
       const addButton = card.querySelector('[aria-label="Add transaction"]')?.getBoundingClientRect()
-      const emptyState = card.querySelector('.native-empty-state')?.getBoundingClientRect()
+      const emptyState = card.querySelector('.record-state')?.getBoundingClientRect()
       return {
         addInsideCard: Boolean(addButton && addButton.right <= cardBox.right + 1 && addButton.left >= cardBox.left - 1),
         addAboveEmptyState: Boolean(addButton && emptyState && addButton.bottom <= emptyState.top + 1),
@@ -1100,8 +1102,9 @@ test.describe('Native Android app shell', () => {
     const imports = page.getByRole('region', { name: /^settings and data$/i })
     const appControl = page.getByRole('region', { name: /^app control$/i })
 
-    await expect(page.getByRole('heading', { name: /^menu$/i })).toBeVisible()
-    await expect(page.getByRole('searchbox', { name: /search app sections/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^records$/i })).toBeVisible()
+    const recordSearch = page.getByRole('searchbox', { name: /search app sections/i })
+    await expect(recordSearch).toBeVisible()
     await expect(dailyActions.getByRole('link', { name: /^habits\b/i })).toBeVisible()
     await expect(dailyActions.getByRole('link', { name: /^gym\b/i })).toBeVisible()
     await expect(libraryAndInsights.getByRole('link', { name: /^cash\b/i })).toBeVisible()
@@ -1112,6 +1115,10 @@ test.describe('Native Android app shell', () => {
     await expect(imports.getByRole('link', { name: /^import series\b/i })).toBeVisible()
     await expect(appControl.getByRole('link', { name: /^sync and offline\b/i })).toBeVisible()
     await expect(appControl.getByRole('link', { name: /^updates\b/i })).toBeVisible()
+
+    await recordSearch.fill('updates')
+    await expect(page.getByRole('link', { name: /^updates\b/i })).toBeVisible()
+    await expect(page.locator('.native-menu-row')).toHaveCount(1)
   })
 
   test('shows listening rank movement on a shared Spotify timeframe', async ({ page }) => {
@@ -1226,9 +1233,9 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/workout')
 
-    await expect(page.getByRole('heading', { name: /^gym$/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /start workout/i })).toBeVisible()
-    await expect(page.getByText(/no personal records yet/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^training$/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /start workout/i }).first()).toBeVisible()
+    await expect(page.getByText('No records yet', { exact: true })).toBeVisible()
   })
 
   test('keeps native dashboard content clear of the bottom tabbar', async ({ page }) => {
@@ -1301,7 +1308,7 @@ test.describe('Native Android app shell', () => {
 
     await expect(page).toHaveURL(/\/login$/)
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /^register$/i })).toBeVisible()
+    await expect(page.getByLabel('Authentication mode').getByRole('link', { name: /^register$/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /download android app/i })).toHaveCount(0)
     await expect(page.locator('.landing-editorial')).toHaveCount(0)
   })
@@ -1321,14 +1328,14 @@ test.describe('Native Android app shell', () => {
 
       await page.goto('/login')
       await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
-      await expect(page.getByRole('link', { name: /^register$/i })).toBeVisible()
+      await expect(page.getByLabel('Authentication mode').getByRole('link', { name: /^register$/i })).toBeVisible()
       await expect(page.getByRole('button', { name: /^login$/i })).toBeVisible()
       await expect(page.locator('input[name="email"]')).toBeVisible()
       await expect(page.locator('input[name="password"]')).toBeVisible()
 
       await page.goto('/register')
       await expect(page.getByRole('heading', { name: /sign up/i })).toBeVisible()
-      await expect(page.getByRole('link', { name: /^login$/i })).toBeVisible()
+      await expect(page.getByLabel('Authentication mode').getByRole('link', { name: /^login$/i })).toBeVisible()
       await expect(page.getByRole('button', { name: /^register$/i })).toBeVisible()
       await expect(page.locator('input[name="name"]')).toBeVisible()
       await expect(page.locator('input[name="email"]')).toBeVisible()
@@ -1388,14 +1395,9 @@ test.describe('Native Android app shell', () => {
         await page.waitForTimeout(100)
         const report = await getHorizontalOverflowReport(page)
         expect(
-          report,
-          `${route} at ${viewport.width}px should not create page or local horizontal scroll`,
-        ).toEqual({
-          viewportWidth: viewport.width,
-          documentScrollWidth: expect.any(Number),
-          bodyScrollWidth: expect.any(Number),
-          scrollable: [],
-        })
+          report.scrollable.every((item) => /domain-nav|record-segmented|series-season-tabs|chat-state-row|record-settings-nav/.test(item.selector)),
+          `${route} at ${viewport.width}px should only allow intentional section-tab scrolling`,
+        ).toBe(true)
         expect(report.documentScrollWidth).toBeLessThanOrEqual(report.viewportWidth + 1)
         expect(report.bodyScrollWidth).toBeLessThanOrEqual(report.viewportWidth + 1)
       }

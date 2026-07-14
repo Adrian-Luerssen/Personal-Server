@@ -9,7 +9,7 @@ import axios from "axios";
 import { Repository } from "typeorm";
 import { Account } from "../../system/accounts/account.entity";
 import { MediaEpisode } from "../entities/media-episode.entity";
-import { MediaItem, MediaType } from "../entities/media-item.entity";
+import { MediaItem, MediaStatus, MediaType } from "../entities/media-item.entity";
 import {
   MediaRelation,
   MediaRelationType,
@@ -143,10 +143,35 @@ export class MediaCatalogService {
     const episodes = await this.episodeRepo.find({
       where: { accountId: account.id, mediaItemId: item.id },
     });
+    const regularEpisodes = episodes.filter((entry) => entry.seasonNumber > 0);
+    const watchedCount = regularEpisodes.filter((entry) => entry.watched).length;
+    const today = new Date().toISOString().slice(0, 10);
     item.metadata = {
       ...(item.metadata || {}),
-      episodesWatched: episodes.filter((entry) => entry.seasonNumber > 0 && entry.watched).length,
+      episodesWatched: watchedCount,
     };
+
+    if (watched && watchedCount > 0 && !item.startDate) {
+      item.startDate = today;
+      item.metadata.startDateSource = "episode-progress";
+    }
+
+    const statusCanFollowProgress =
+      item.status === MediaStatus.PLANNING ||
+      item.status === MediaStatus.WATCHING ||
+      item.metadata?.trackingStatusSource === "episode-progress";
+    if (statusCanFollowProgress) {
+      const allWatched = regularEpisodes.length > 0 && watchedCount === regularEpisodes.length;
+      item.status = allWatched ? MediaStatus.COMPLETED : MediaStatus.WATCHING;
+      item.metadata.trackingStatusSource = "episode-progress";
+      if (allWatched && !item.endDate) {
+        item.endDate = today;
+        item.metadata.endDateSource = "episode-progress";
+      } else if (!allWatched && item.metadata.endDateSource === "episode-progress") {
+        item.endDate = null;
+        delete item.metadata.endDateSource;
+      }
+    }
     await this.mediaRepo.save(item);
     return this.getCatalog(account, item);
   }
@@ -325,7 +350,70 @@ export class MediaCatalogService {
       malScore: details.score || item.metadata?.malScore,
       studios: (details.studios || []).map((studio: any) => studio.name),
       genres: (details.genres || []).map((genre: any) => genre.name),
+      releaseStartDate: this.providerDate(details.aired?.from) || item.metadata?.releaseStartDate,
+      releaseEndDate: this.providerDate(details.aired?.to) || item.metadata?.releaseEndDate,
     };
+  }
+
+  async getAnimePreview(malId: number): Promise<{ item: Partial<MediaItem>; relations: any[] }> {
+    if (!Number.isInteger(malId) || malId <= 0) {
+      throw new BadRequestException("A valid MAL anime id is required");
+    }
+    try {
+      const response = await axios.get(`https://api.jikan.moe/v4/anime/${malId}/full`, {
+        timeout: 10000,
+      });
+      const details = response.data?.data;
+      if (!details?.mal_id) throw new Error("MAL anime was not found");
+      const relations = (details.relations || []).flatMap((group: any) =>
+        (group.entry || [])
+          .filter((target: any) => String(target.type).toLowerCase() === "anime" && target.mal_id)
+          .map((target: any, index: number) => ({
+            id: `mal-${target.mal_id}`,
+            relationType: this.normalizeRelationType(group.relation),
+            targetMalId: Number(target.mal_id),
+            targetMediaItemId: null,
+            targetTitle: target.name || "Related anime",
+            targetType: MediaType.ANIME,
+            targetCoverUrl: null,
+            targetYear: null,
+            sortOrder: index,
+          })),
+      );
+      return {
+        item: {
+          title: details.title || "MAL anime",
+          type: MediaType.ANIME,
+          status: MediaStatus.PLANNING,
+          rating: null,
+          coverUrl: details.images?.jpg?.large_image_url || details.images?.jpg?.image_url || null,
+          externalIds: { malId: Number(details.mal_id) },
+          metadata: {
+            synopsis: details.synopsis || "",
+            releaseStartDate: this.providerDate(details.aired?.from),
+            releaseEndDate: this.providerDate(details.aired?.to),
+            year: details.year || null,
+            mediaFormat: details.type || null,
+            airingStatus: details.status || null,
+            malScore: details.score ?? null,
+            episodes: details.episodes ?? null,
+            episodesWatched: 0,
+            studios: (details.studios || []).map((studio: any) => studio.name),
+            genres: (details.genres || []).map((genre: any) => genre.name),
+          },
+        },
+        relations,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new ServiceUnavailableException("MAL details could not be loaded");
+    }
+  }
+
+  private providerDate(value: unknown): string | null {
+    if (typeof value !== "string") return null;
+    const match = value.match(/^\d{4}-\d{2}-\d{2}/);
+    return match ? match[0] : null;
   }
 
   private normalizeRelationType(value: unknown): MediaRelationType {

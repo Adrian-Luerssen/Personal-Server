@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import AuthGuard from './components/AuthGuard'
 import NativeUpdateGate from './components/NativeUpdateGate'
 import ProductAnalytics from './components/ProductAnalytics'
+import BookplateLoader from './components/product/BookplateLoader'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { isMobileBrowser, isNativeMobileApp } from './mobilePlatform'
 import { getTokens } from './auth'
@@ -33,7 +34,6 @@ const WorkoutHistory = lazy(() => import('./pages/Workout/WorkoutHistory'))
 const WorkoutExercises = lazy(() => import('./pages/Workout/WorkoutExercises'))
 const WorkoutBodyweight = lazy(() => import('./pages/Workout/WorkoutBodyweight'))
 const WorkoutImport = lazy(() => import('./pages/Workout/WorkoutImport'))
-const Finance = lazy(() => import('./pages/Finance/Finance'))
 const FinanceTransactions = lazy(() => import('./pages/Finance/FinanceTransactions'))
 const FinanceBudgets = lazy(() => import('./pages/Finance/FinanceBudgets'))
 const FinanceTrends = lazy(() => import('./pages/Finance/FinanceTrends'))
@@ -59,7 +59,6 @@ const GuardedWorkoutHistory = withRefreshGuard(WorkoutHistory)
 const GuardedWorkoutExercises = withRefreshGuard(WorkoutExercises)
 const GuardedWorkoutBodyweight = withRefreshGuard(WorkoutBodyweight)
 const GuardedWorkoutImport = withRefreshGuard(WorkoutImport)
-const GuardedFinance = withRefreshGuard(Finance)
 const GuardedFinanceTransactions = withRefreshGuard(FinanceTransactions)
 const GuardedFinanceBudgets = withRefreshGuard(FinanceBudgets)
 const GuardedFinanceTrends = withRefreshGuard(FinanceTrends)
@@ -143,7 +142,7 @@ export default function AppRouter() {
         <div className="app">
           <NativeNotificationPermissionBoot nativeApp={nativeApp} />
           <NativeUpdateGate nativeApp={nativeApp} />
-          <Suspense fallback={<div className="route-loading" role="status">Opening your records…</div>}>
+          <Suspense fallback={<BookplateLoader screen label="Opening your records" />}>
           {mobileBlocked ? (
             <Routes>
               <Route path="/" element={<Landing mobileGate />} />
@@ -170,7 +169,7 @@ export default function AppRouter() {
               <Route path="/workout/exercises" element={<GuardedWorkoutExercises />} />
               <Route path="/workout/bodyweight" element={<GuardedWorkoutBodyweight />} />
               <Route path="/workout/import" element={<GuardedWorkoutImport />} />
-              <Route path="/finance" element={<GuardedFinance />} />
+              <Route path="/finance" element={<Navigate to="/finance/transactions" replace />} />
               <Route path="/finance/transactions" element={<GuardedFinanceTransactions />} />
               <Route path="/finance/budgets" element={<GuardedFinanceBudgets />} />
               <Route path="/finance/trends" element={<GuardedFinanceTrends />} />

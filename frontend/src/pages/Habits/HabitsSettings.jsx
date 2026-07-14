@@ -23,7 +23,7 @@ import {
   updateNotificationPreference,
 } from '../../notificationPreferences.mjs'
 
-const HABITS_COLOR = '#a78bfa'
+const HABITS_COLOR = '#7c5cff'
 
 function getFrequencyLabel(habit) {
   const ft = habit.frequencyType || 'daily'
@@ -1002,7 +1002,7 @@ function RemindersTab() {
       const ok = await deliverCustomNotification({
         id: 410002,
         nativeId: 410002,
-        title: 'Personal Server',
+        title: 'Record',
         body: 'Notifications are working.',
         actionUrl: '/habits/settings?tab=reminders',
       }).catch(() => false)
@@ -1133,7 +1133,7 @@ export default function HabitsSettings() {
 
   return (
     <>
-      <PageHeader icon="settings" title="Habits Settings" accentColor={HABITS_COLOR} />
+      <PageHeader title="Habits Settings" />
 
       {/* Tab Bar */}
       <div style={{

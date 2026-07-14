@@ -4,19 +4,21 @@ test.describe('Finance Import', () => {
   test('should display import page with heading', async ({ authenticatedPage: page }) => {
     await page.goto('/finance/import')
     await expect(page).toHaveURL(/\/finance\/import/)
-    await expect(page.locator('h2').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Import', exact: true })).toBeVisible({ timeout: 10000 })
   })
 
   test('should show step indicator', async ({ authenticatedPage: page }) => {
     await page.goto('/finance/import')
-    // StepIndicator renders step labels
-    await expect(page.locator('h2').first()).toBeVisible({ timeout: 10000 })
+    const progress = page.getByLabel('Import progress')
+    await expect(progress.getByText('Select File', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(progress.getByText('Preview Import', { exact: true })).toBeVisible()
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Select File')
   })
 
   test('should show file upload drop zone', async ({ authenticatedPage: page }) => {
     await page.goto('/finance/import')
-    // Drop zone has text about dragging or clicking to browse
-    await expect(page.getByText(/\.json, \.backup, \.sqlite/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/drop your cashew backup file here/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/\.backup, \.sqlite, \.sqlite3, or \.db/i)).toBeVisible()
   })
 
   test('should have disabled preview button when no file selected', async ({ authenticatedPage: page }) => {
@@ -29,6 +31,6 @@ test.describe('Finance Import', () => {
   test('should show file input accepting correct file types', async ({ authenticatedPage: page }) => {
     await page.goto('/finance/import')
     const fileInput = page.locator('input[type="file"]')
-    await expect(fileInput).toHaveAttribute('accept', '.json,.backup,.sqlite')
+    await expect(fileInput).toHaveAttribute('accept', /\.backup.*\.sqlite.*\.db/)
   })
 })

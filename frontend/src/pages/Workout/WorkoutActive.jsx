@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { api } from '../../api'
 import Icon from '../../components/icons/Icon'
+import { PageHeading, StatePanel } from '../../components/record'
 import ExerciseBlock from './components/ExerciseBlock'
 import { completeSetOptimistically, createNextSet } from './workoutViewModel.mjs'
 
@@ -26,6 +27,8 @@ export default function WorkoutActive() {
   const [now, setNow] = useState(Date.now())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [finishConfirmationOpen, setFinishConfirmationOpen] = useState(false)
+  const [finishing, setFinishing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -70,7 +73,7 @@ export default function WorkoutActive() {
       setSets([])
       setSelectedExerciseIds([])
     } catch (nextError) {
-      setError(nextError.message || 'Could not start the workout')
+      setError(nextError.message || 'The workout could not be started')
     }
   }
 
@@ -94,7 +97,7 @@ export default function WorkoutActive() {
 
     setSavingExerciseId(group.exerciseId)
     setSets((current) => [...current, optimistic])
-    setDrafts((current) => ({ ...current, [group.exerciseId]: { weight: draft.weight, reps: draft.reps } }))
+    setError('')
     try {
       const saved = await api.post(`/workout/sets/session/${session.id}/add`, {
         exerciseId: group.exerciseId,
@@ -108,7 +111,7 @@ export default function WorkoutActive() {
       setNow(Date.now())
     } catch (nextError) {
       setSets((current) => current.filter((set) => set.id !== optimisticId))
-      setError(nextError.message || 'Could not save the set. Your values are still in the row.')
+      setError(nextError.message || 'The set could not be saved. Your values remain in the row.')
     } finally {
       setSavingExerciseId(null)
     }
@@ -122,34 +125,33 @@ export default function WorkoutActive() {
     setDrafts((current) => ({ ...current, [target.exerciseId]: { weight: target.weight || '', reps: target.reps || '' } }))
     await api.delete(`/workout/sets/${target.id}`).catch(() => {
       setSets((current) => [...current, target])
-      setError('Could not undo the set.')
+      setError('The set could not be undone.')
     })
   }
 
   async function finishWorkout() {
-    if (!session || !window.confirm('Finish and save this workout?')) return
+    if (!session || finishing) return
+    setFinishing(true)
+    setError('')
     try {
       await api.patch(`/workout/sessions/${session.id}/end`, {})
       navigate('/workout/history')
     } catch (nextError) {
-      setError(nextError.message || 'Could not finish the workout')
+      setError(nextError.message || 'The workout could not be finished')
+      setFinishConfirmationOpen(false)
+    } finally {
+      setFinishing(false)
     }
   }
 
-  if (loading) return <div className="gym-active-page"><p>Opening active workout…</p></div>
+  if (loading) return <StatePanel kind="loading" title="Opening active workout" detail="Sets already saved will appear first." />
 
   if (!session) {
     return (
-      <div className="gym-active-page">
-        {error ? <div className="alert-error">{error}</div> : null}
-        <section className="gym-empty">
-          <div>
-            <Icon name="dumbbell" size={32} />
-            <h1>Ready when you are.</h1>
-            <p>Start an empty session, choose the first exercise, and log each set without leaving the screen.</p>
-            <button type="button" onClick={startWorkout}>Start workout</button>
-          </div>
-        </section>
+      <div className="record-gym-active">
+        <PageHeading eyebrow="Gym · Active workout" title="Ready when you are"><p>Start an empty session, choose the first exercise, and log each set without leaving the screen.</p></PageHeading>
+        {error && <StatePanel kind="error" title="Workout unavailable" detail={error} />}
+        <StatePanel kind="empty" title="No active workout" detail="Starting creates an empty session and keeps you on this workbench." action={<button type="button" className="record-button record-button--primary" onClick={startWorkout}>Start workout</button>} />
       </div>
     )
   }
@@ -157,25 +159,20 @@ export default function WorkoutActive() {
   const restSeconds = restEndsAt ? Math.max(0, Math.ceil((restEndsAt - now) / 1000)) : 0
 
   return (
-    <div className="gym-active-page">
-      <header className="gym-active-header">
-        <div>
-          <span>Active workout · {durationLabel(session.startAt)}</span>
-          <h1>{session.title || 'Training session'}</h1>
-        </div>
-        <div className="gym-session-actions">
-          <button type="button" onClick={() => navigate('/workout')}>Leave open</button>
-          <button type="button" onClick={finishWorkout}>Finish</button>
-        </div>
-      </header>
+    <div className="record-gym-active" data-testid="gym-active-workbench">
+      <PageHeading
+        eyebrow={`Active workout · ${durationLabel(session.startAt)}`}
+        title={session.title || 'Training session'}
+        actions={<><button type="button" className="record-button" onClick={() => navigate('/workout')}>Leave open</button><button type="button" className="record-button record-button--primary" onClick={() => setFinishConfirmationOpen(true)}>Finish</button></>}
+      ><p>{sets.length} completed {sets.length === 1 ? 'set' : 'sets'} in this session.</p></PageHeading>
 
-      {error ? <div className="alert-error">{error}</div> : null}
-      <div className="gym-rest-timer" role="timer" aria-label="Rest timer">
-        <span>{restEndsAt ? 'Rest timer' : 'Set complete starts a 90 second rest'}</span>
+      {error && <StatePanel kind="error" title="The last workout action failed" detail={error} />}
+      <div className={`record-gym-rest${restSeconds > 0 ? ' is-running' : ''}`} role="timer" aria-label="Rest timer">
+        <span>{restEndsAt ? 'Rest timer' : 'Complete a set to start 90 seconds'}</span>
         <strong>{Math.floor(restSeconds / 60)}:{String(restSeconds % 60).padStart(2, '0')}</strong>
       </div>
 
-      <div className="gym-exercise-list">
+      <div className="record-gym-exercise-list">
         {groups.map((group) => (
           <ExerciseBlock
             key={group.exerciseId}
@@ -189,22 +186,25 @@ export default function WorkoutActive() {
         ))}
       </div>
 
-      <div className="gym-add-exercise">
+      <div className="record-gym-add-exercise">
         <select value={exerciseToAdd} onChange={(event) => setExerciseToAdd(event.target.value)} aria-label="Exercise to add">
           <option value="">Choose an exercise</option>
-          {exercises.filter((exercise) => !selectedExerciseIds.includes(exercise.id)).map((exercise) => (
-            <option key={exercise.id} value={exercise.id}>{exercise.name}</option>
-          ))}
+          {exercises.filter((exercise) => !selectedExerciseIds.includes(exercise.id)).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
         </select>
-        <button type="button" onClick={addExercise} disabled={!exerciseToAdd}>Add exercise</button>
+        <button type="button" className="record-button" onClick={addExercise} disabled={!exerciseToAdd}>Add exercise</button>
       </div>
 
-      {undoSet ? (
-        <div className="gym-undo" role="status">
-          <span>Set saved</span>
-          <button type="button" onClick={undoLastSet}>Undo</button>
+      {undoSet && <div className="record-gym-undo" role="status"><span>Set saved</span><button type="button" onClick={undoLastSet}>Undo</button></div>}
+
+      {finishConfirmationOpen && (
+        <div className="modal-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !finishing && setFinishConfirmationOpen(false)}>
+          <section className="record-confirmation" role="dialog" aria-modal="true" aria-labelledby="finish-workout-title">
+            <Icon name="check-circle" size={22} />
+            <div><h2 id="finish-workout-title">Finish and save?</h2><p>This closes the active session with {sets.length} completed {sets.length === 1 ? 'set' : 'sets'}. You can review it in History.</p></div>
+            <footer><button type="button" className="record-button" onClick={() => setFinishConfirmationOpen(false)} disabled={finishing}>Keep training</button><button type="button" className="record-button record-button--primary" onClick={finishWorkout} disabled={finishing}>{finishing ? 'Saving…' : 'Finish and save'}</button></footer>
+          </section>
         </div>
-      ) : null}
+      )}
     </div>
   )
 }

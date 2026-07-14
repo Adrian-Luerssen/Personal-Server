@@ -4,12 +4,13 @@ test.describe('Workout Bodyweight', () => {
   test('should display bodyweight page with heading', async ({ authenticatedPage: page }) => {
     await page.goto('/workout/bodyweight')
     await expect(page).toHaveURL(/\/workout\/bodyweight/)
-    await expect(page.locator('h2').filter({ hasText: /Bodyweight/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /body weight/i })).toBeVisible({ timeout: 10000 })
   })
 
-  test('should show stat cards for weight data', async ({ authenticatedPage: page }) => {
+  test('should show a single summary strip for weight data', async ({ authenticatedPage: page }) => {
     await page.goto('/workout/bodyweight')
     await expect(page.locator('.stat-grid').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.record-summary__item')).toHaveCount(4)
   })
 
   test('should show log weight button', async ({ authenticatedPage: page }) => {

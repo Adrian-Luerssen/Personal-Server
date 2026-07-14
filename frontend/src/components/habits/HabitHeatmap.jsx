@@ -94,13 +94,20 @@ export default function HabitHeatmap({ compact = false }) {
   const activeDays = data.filter(d => d.count > 0).length
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+    <div className={`habit-heatmap${compact ? ' habit-heatmap--compact' : ''}`}>
+      <div className="habit-heatmap__summary">
         <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
           <span><strong style={{ color: 'var(--color-text-primary)' }}>{totalCompletions}</strong> completions</span>
           <span><strong style={{ color: 'var(--color-text-primary)' }}>{activeDays}</strong> active days</span>
         </div>
       </div>
+
+      {totalCompletions === 0 && (
+        <div className="habit-heatmap__empty">
+          <strong>Your activity map starts with the first check-in.</strong>
+          <span>Completed habits will build a year-long pattern here.</span>
+        </div>
+      )}
 
       {compact ? (
         <div style={{ minWidth: 0 }}>
@@ -163,14 +170,12 @@ export default function HabitHeatmap({ compact = false }) {
           </div>
         </div>
       ) : (
-        <div style={{ overflowX: 'clip', position: 'relative', width: '100%', maxWidth: '100%', minWidth: 0 }}>
-          <div style={{
+            <div className="habit-heatmap__viewport">
+          <div className="habit-heatmap__grid" style={{
             display: 'grid',
             gridTemplateColumns: '14px minmax(0, 1fr)',
             gap: '0.35rem',
             alignItems: 'start',
-            maxWidth: '100%',
-            minWidth: 0,
           }}>
             <div />
             <div style={{

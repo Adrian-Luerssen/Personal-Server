@@ -21,13 +21,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'logo.svg', 'logo-dark.svg'],
       manifest: {
-        name: 'Personal Record',
+        name: 'Record',
         short_name: 'Record',
-        description: 'Your records, kept useful.',
+        description: 'Keep the life you live useful.',
         start_url: '/home',
         display: 'standalone',
-        background_color: '#f2eee6',
-        theme_color: '#a33b2b',
+        background_color: '#090d15',
+        theme_color: '#7c5cff',
         orientation: 'any',
         icons: [
           { src: '/logo.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }

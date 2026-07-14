@@ -1,21 +1,25 @@
 import { test, expect } from '../fixtures/auth'
 
 test.describe('Connections Settings', () => {
-  test('should navigate to connections tab', async ({ authenticatedPage: page }) => {
+  async function openConnections(page) {
     await page.goto('/settings')
-    await page.click('text=/connection/i')
-    await expect(page.locator('[class*="connection"], [class*="integration"], [class*="service"]').first()).toBeVisible()
+    await page.getByRole('button', { name: /^connections/i }).click()
+  }
+
+  test('should navigate to connections tab', async ({ authenticatedPage: page }) => {
+    await openConnections(page)
+    await expect(page).toHaveURL(/tab=connections/)
+    await expect(page.getByRole('heading', { name: /spotify connection/i })).toBeVisible()
   })
 
   test('should show connection elements', async ({ authenticatedPage: page }) => {
-    await page.goto('/settings')
-    await page.click('text=/connection/i')
-    await expect(page.locator('[class*="connection"], [class*="integration"], [class*="linked"]').first()).toBeVisible()
+    await openConnections(page)
+    await expect(page.getByRole('button', { name: /oauth/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /manual/i })).toBeVisible()
   })
 
   test('should show connect or disconnect buttons', async ({ authenticatedPage: page }) => {
-    await page.goto('/settings')
-    await page.click('text=/connection/i')
-    await expect(page.getByRole('button', { name: /connect|disconnect|link|unlink/i }).first()).toBeVisible()
+    await openConnections(page)
+    await expect(page.getByRole('button', { name: /connect with spotify|disconnect spotify/i })).toBeVisible()
   })
 })

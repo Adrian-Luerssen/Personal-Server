@@ -4,7 +4,7 @@ test.describe('Workout Exercises', () => {
   test('should display exercises page with heading', async ({ authenticatedPage: page }) => {
     await page.goto('/workout/exercises')
     await expect(page).toHaveURL(/\/workout\/exercises/)
-    await expect(page.locator('h2').filter({ hasText: /Exercises & Categories/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Exercises', exact: true })).toBeVisible({ timeout: 10000 })
   })
 
   test('should show tab group with exercises and categories tabs', async ({ authenticatedPage: page }) => {

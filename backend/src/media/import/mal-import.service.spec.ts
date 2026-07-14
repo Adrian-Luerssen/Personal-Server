@@ -18,6 +18,8 @@ describe('MalImportService', () => {
           <my_watched_episodes>3</my_watched_episodes>
           <my_score>6</my_score>
           <my_status>On-Hold</my_status>
+          <my_start_date>2025-01-03</my_start_date>
+          <my_finish_date>0000-00-00</my_finish_date>
         </anime>
       </myanimelist>
     `;
@@ -30,6 +32,8 @@ describe('MalImportService', () => {
         type: MediaType.ANIME,
         status: MediaStatus.PAUSED,
         rating: 6,
+        startDate: '2025-01-03',
+        endDate: undefined,
         externalIds: { malId: 12345 },
         metadata: expect.objectContaining({
           importSource: 'mal',

@@ -5,6 +5,7 @@ import { getApiBase } from '../../config'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import BrandMark from '../../components/product/BrandMark'
 import { PRODUCT } from '../../product/brand.mjs'
+import Icon from '../../components/icons/Icon'
 
 export default function Register() {
   const { t } = useTranslation()
@@ -65,6 +66,19 @@ export default function Register() {
 
   return (
     <div className={`auth-screen${nativeApp ? ' auth-screen--native' : ''}`}>
+      <aside className="auth-record-context" aria-label="Record product context">
+        <Link to="/" className="auth-back-link"><Icon name="arrow-left" size={14} /> Back to Record</Link>
+        <div>
+          <span className="auth-record-context__eyebrow">START YOUR RECORD</span>
+          <h2>One account. The parts of life you want to remember.</h2>
+          <p>Begin with one area and add the rest when they become useful.</p>
+        </div>
+        <div className="auth-record-context__register" aria-label="Ownership promises">
+          <span><Icon name="shield-check" size={15} /><strong>Private</strong><small>Your records are not a social feed.</small></span>
+          <span><Icon name="database" size={15} /><strong>Portable</strong><small>Export and self-hosting remain available.</small></span>
+          <span><Icon name="wifi-off" size={15} /><strong>Resilient</strong><small>Mobile reads from its local cache first.</small></span>
+        </div>
+      </aside>
       <div className="auth-panel">
         <div className="auth-brand">
           <div className="auth-brand__mark"><BrandMark size={32} /></div>
@@ -139,7 +153,7 @@ export default function Register() {
         <div className={`auth-switch${nativeApp ? ' auth-switch--web-secondary' : ''}`}>
           {t('auth.hasAccount')} <Link to="/login">{t('auth.login')}</Link>
         </div>
-        {message && <div className={message.startsWith(t('common.error')) ? 'alert-error' : 'alert-success'} style={{ marginTop: '1rem' }}>{message}</div>}
+        {message && <div className={`auth-message ${message.startsWith(t('common.error')) ? 'alert-error' : 'alert-success'}`} role="status">{message}</div>}
       </div>
     </div>
   )

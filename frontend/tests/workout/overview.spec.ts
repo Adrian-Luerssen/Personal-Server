@@ -3,44 +3,39 @@ import { test, expect } from '../fixtures/auth'
 test.describe('Workout Overview', () => {
   test('should display workout overview page with heading', async ({ authenticatedPage: page }) => {
     await page.goto('/workout')
-    await expect(page.locator('h2').filter({ hasText: /Workout Tracker/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Training', exact: true })).toBeVisible({ timeout: 10000 })
   })
 
-  test('should show stat cards grid', async ({ authenticatedPage: page }) => {
+  test('should show a compact training summary', async ({ authenticatedPage: page }) => {
     await page.goto('/workout')
-    await expect(page.locator('.stat-grid').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.record-summary')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.record-summary__item')).toHaveCount(4)
   })
 
-  test('should show quick action cards for navigation', async ({ authenticatedPage: page }) => {
+  test('should expose the primary session action and training records', async ({ authenticatedPage: page }) => {
     await page.goto('/workout')
-    // Quick Actions section has interactive cards for Start Workout, View History, etc.
-    const quickActions = page.locator('.card.interactive')
-    await expect(quickActions.first()).toBeVisible({ timeout: 10000 })
-    // Verify at least the core navigation actions exist
-    await expect(page.getByText('View History')).toBeVisible()
-    await expect(page.getByText('Manage Exercises')).toBeVisible()
-    await expect(page.getByText('Bodyweight')).toBeVisible()
-    await expect(page.getByText('Import Data')).toBeVisible()
+    await expect(page.getByTestId('gym-primary-action')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /recent sessions/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /training records/i })).toBeVisible()
   })
 
   test('should show recent workouts section or empty state', async ({ authenticatedPage: page }) => {
     await page.goto('/workout')
     // Wait for loading to finish
     await page.waitForTimeout(2000)
-    const hasRecent = await page.getByText('Recent Workouts').isVisible().catch(() => false)
-    const hasEmpty = await page.locator('.empty-state').isVisible().catch(() => false)
-    expect(hasRecent || hasEmpty).toBeTruthy()
+    await expect(page.locator('.record-register').filter({ hasText: /recent sessions/i })).toBeVisible()
+    await expect(page.locator('.record-register__row, .record-state-panel').first()).toBeVisible()
   })
 
   test('should navigate to history page via quick action', async ({ authenticatedPage: page }) => {
     await page.goto('/workout')
-    await page.getByText('View History').click()
+    await page.getByRole('button', { name: /full history/i }).click()
     await expect(page).toHaveURL(/\/workout\/history/)
   })
 
   test('should navigate to exercises page via quick action', async ({ authenticatedPage: page }) => {
     await page.goto('/workout')
-    await page.getByText('Manage Exercises').click()
+    await page.getByRole('button', { name: /open exercises/i }).click()
     await expect(page).toHaveURL(/\/workout\/exercises/)
   })
 })

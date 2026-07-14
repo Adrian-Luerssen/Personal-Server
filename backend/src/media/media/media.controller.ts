@@ -11,6 +11,7 @@ import {
   Body,
   Query,
   ParseUUIDPipe,
+  ParseIntPipe,
   UseInterceptors,
 } from "@nestjs/common";
 import {
@@ -81,6 +82,12 @@ export class MediaController {
   async getCatalogSummaries(@ReqUser() account: Account) {
     const items = await this.mediaService.findAll(account);
     return this.mediaCatalogService.getCatalogSummaries(account, items);
+  }
+
+  @Get("catalog/anime/:malId")
+  @ApiOperation({ summary: "Preview an untracked MAL anime release" })
+  async getAnimePreview(@Param("malId", ParseIntPipe) malId: number) {
+    return this.mediaCatalogService.getAnimePreview(malId);
   }
 
   // ========== SINGLE ITEM ==========

@@ -49,7 +49,7 @@ const MENU_SECTIONS = [
 
 function MenuRow({ item }) {
   return (
-    <Link className={`native-menu-row native-menu-row--${item.tone || 'info'}`} to={item.to}>
+    <Link className={`native-menu-row native-menu-row--${item.tone || 'info'}`} to={item.to} aria-label={`${item.label}: ${item.description}`}>
       <span className="native-menu-row__icon" aria-hidden="true">
         <Icon name={item.icon} size={20} />
       </span>
@@ -101,9 +101,9 @@ export default function MobileMenu() {
   return (
     <main className="native-menu-page">
       <section className="native-menu-hero">
-        <span className="native-eyebrow">Navigation</span>
-        <h1>Menu</h1>
-        <p>Jump directly to any app area, import flow, or system control.</p>
+        <span className="native-eyebrow">Record index</span>
+        <h1>Records</h1>
+        <p>Open a daily record, review an insight, or manage its source.</p>
         <div className="native-app-grid" aria-label="App areas">
           {enabledApps.map((app) => (
             <Link key={app.id} className={`native-app-card native-app-card--${app.tone}`} to={app.root}>

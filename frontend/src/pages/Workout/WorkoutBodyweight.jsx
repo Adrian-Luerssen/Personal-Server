@@ -9,6 +9,7 @@ import {
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
+import InlineConfirmation from '../../components/record/InlineConfirmation'
 
 export default function WorkoutBodyweight() {
   const [entries, setEntries] = useState([])
@@ -17,6 +18,7 @@ export default function WorkoutBodyweight() {
 
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ id: null, date: '', weightKg: '', note: '' })
+  const [pendingDelete, setPendingDelete] = useState(null)
 
   useEffect(() => { loadEntries() }, [])
 
@@ -55,11 +57,11 @@ export default function WorkoutBodyweight() {
 
   // BUG FIX B3: use api.delete instead of api.post with { method: 'DELETE' }
   async function deleteEntry(entry) {
-    if (!window.confirm('Delete this bodyweight entry?')) return
     setError('')
     try {
       await api.delete(`/workout/bodyweight/${entry.id}`)
       setEntries(entries.filter(e => e.id !== entry.id))
+      setPendingDelete(null)
     } catch (e) { setError(e.message || 'Failed to delete entry') }
   }
 
@@ -71,19 +73,28 @@ export default function WorkoutBodyweight() {
 
   return (
     <>
-      <PageHeader icon="scale" title="Body Weight" accentColor="#4ade80" />
+      <PageHeader title="Body Weight" />
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+
+      {pendingDelete && (
+        <InlineConfirmation
+          message={`Delete the ${formatDate(pendingDelete.date)} bodyweight entry?`}
+          confirmLabel="Delete entry"
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => deleteEntry(pendingDelete)}
+        />
+      )}
 
       <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
         ) : (
           <>
-            <StatCard icon="scale" accentColor="#4ade80" label="Latest Weight" value={latestEntry ? `${latestEntry.weightKg} kg` : '—'} subtitle={latestEntry ? formatDate(latestEntry.date) : ''} />
-            <StatCard icon="calculator" accentColor="#4ade80" label="30-Day Average" value={avg30 ? `${avg30} kg` : '—'} />
-            <StatCard icon="trending-up" accentColor="#4ade80" label="Total Change" value={change !== null ? `${change > 0 ? '+' : ''}${change} kg` : '—'} subtitle={oldest && latestEntry ? `since ${formatDate(oldest.date)}` : ''} />
-            <StatCard icon="hash" accentColor="#4ade80" label="Total Entries" value={entries.length} />
+            <StatCard label="Latest Weight" value={latestEntry ? `${latestEntry.weightKg} kg` : '—'} subtitle={latestEntry ? formatDate(latestEntry.date) : ''} />
+            <StatCard label="30-Day Average" value={avg30 ? `${avg30} kg` : '—'} />
+            <StatCard label="Total Change" value={change !== null ? `${change > 0 ? '+' : ''}${change} kg` : '—'} subtitle={oldest && latestEntry ? `since ${formatDate(oldest.date)}` : ''} />
+            <StatCard label="Total Entries" value={entries.length} />
           </>
         )}
       </div>
@@ -147,7 +158,7 @@ export default function WorkoutBodyweight() {
                 </div>
                 <div style={{ display: 'flex', gap: '.5rem' }}>
                   <button className="btn small" onClick={() => openModal(entry)} aria-label={`Edit bodyweight entry ${formatDate(entry.date)}`}><Icon name="pencil" size={18} /></button>
-                  <button className="btn small btn-danger" onClick={() => deleteEntry(entry)} aria-label={`Delete bodyweight entry ${formatDate(entry.date)}`}><Icon name="trash-2" size={18} /></button>
+                  <button className="btn small btn-danger" onClick={() => setPendingDelete(entry)} aria-label={`Delete bodyweight entry ${formatDate(entry.date)}`}><Icon name="trash-2" size={18} /></button>
                 </div>
               </div>
             ))}

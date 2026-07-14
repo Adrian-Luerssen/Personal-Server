@@ -1,15 +1,23 @@
 import { test, expect } from '../fixtures/auth'
 
-test.describe('Dashboard', () => {
-  test('should display dashboard after login', async ({ authenticatedPage: page }) => {
-    await expect(page.locator('h1, h2, [class*="dashboard"], [class*="home"]').first()).toBeVisible()
+test.describe('Today', () => {
+  test('should display the open-record brief after login', async ({ authenticatedPage: page }) => {
+    await page.goto('/home')
+    await expect(page.locator('[data-testid="today-dashboard"]')).toBeVisible()
+    await expect(page.locator('.record-page-heading h1')).toContainText(/today is clear|records? needs? you/i)
   })
 
-  test('should show stat cards', async ({ authenticatedPage: page }) => {
-    await expect(page.locator('[class*="stat"], [class*="card"]').first()).toBeVisible({ timeout: 10000 })
+  test('should make the source of the daily brief inspectable', async ({ authenticatedPage: page }) => {
+    await page.goto('/home')
+    await expect(page.getByRole('heading', { name: /open records/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /record sources/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /ask from records/i })).toBeVisible()
   })
 
-  test('should have sidebar navigation', async ({ authenticatedPage: page }) => {
-    await expect(page.locator('[class*="sidebar"], nav').first()).toBeVisible()
+  test('should have the stable desktop record rail', async ({ authenticatedPage: page }) => {
+    await page.goto('/home')
+    await expect(page.getByRole('navigation', { name: /primary/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /cash/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /gym/i })).toBeVisible()
   })
 })

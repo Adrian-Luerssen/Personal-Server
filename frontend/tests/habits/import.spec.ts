@@ -3,14 +3,17 @@ import { test, expect } from '../fixtures/auth'
 test.describe('Habits Import', () => {
   test('should display import page with heading', async ({ authenticatedPage: page }) => {
     await page.goto('/habits/import')
-    await expect(page).toHaveURL(/\/habits\/import/)
-    await expect(page.locator('h2').filter({ hasText: /Import HabitShare Data/i })).toBeVisible({ timeout: 10000 })
+    await expect(page).toHaveURL(/\/habits\/settings\?tab=import/)
+    await expect(page.getByRole('heading', { name: /habits settings/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /select habitshare csv/i })).toBeVisible()
   })
 
   test('should show step indicator with wizard steps', async ({ authenticatedPage: page }) => {
     await page.goto('/habits/import')
     // STEPS = ['File', 'Preview', 'Import', 'Done']
-    await expect(page.getByText('File')).toBeVisible({ timeout: 10000 })
+    const progress = page.getByLabel('Import progress')
+    await expect(progress.getByText('File', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(progress.locator('[aria-current="step"]')).toContainText('File')
   })
 
   test('should show file upload drop zone for CSV', async ({ authenticatedPage: page }) => {
@@ -39,6 +42,6 @@ test.describe('Habits Import', () => {
   test('should accept only CSV files in file input', async ({ authenticatedPage: page }) => {
     await page.goto('/habits/import')
     const fileInput = page.locator('input[type="file"]')
-    await expect(fileInput).toHaveAttribute('accept', '.csv')
+    await expect(fileInput).toHaveAttribute('accept', /^\.csv(?:,|$)/)
   })
 })

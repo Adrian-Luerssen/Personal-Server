@@ -7,7 +7,7 @@ import Appearance from './Appearance'
 import Account from './Account'
 import DataManagement from './DataManagement'
 import Icon from '../../components/icons/Icon'
-import PageHeader from '../../components/PageHeader'
+import { PageHeading } from '../../components/record'
 import { APP_BUILD_TIME, APP_VERSION, formatBuildTime } from '../../appVersion.mjs'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { checkDataValidity, clearApiCache } from '../../api'
@@ -56,6 +56,16 @@ import {
 } from '../../modulePreferences.mjs'
 
 const SETTINGS_TABS = new Set(['account', 'connections', 'agent-keys', 'appearance', 'preferences', 'modules', 'data'])
+
+const WEB_SETTINGS_SECTIONS = [
+  { key: 'account', group: 'Ownership', label: 'Account', description: 'Profile, password, and MFA', icon: 'shield-check' },
+  { key: 'connections', group: 'Ownership', label: 'Connections', description: 'Linked services and permissions', icon: 'link' },
+  { key: 'appearance', group: 'Experience', label: 'Appearance', description: 'Density and product identity', icon: 'palette' },
+  { key: 'preferences', group: 'Experience', label: 'Language', description: 'Language and installed build', icon: 'globe' },
+  { key: 'modules', group: 'Experience', label: 'Modules', description: 'Visible records and Home', icon: 'layout-grid' },
+  { key: 'data', group: 'Data and access', label: 'Data', description: 'Import, export, and deletion', icon: 'database' },
+  { key: 'agent-keys', group: 'Data and access', label: 'Developer access', description: 'Scoped keys for trusted tools', icon: 'key-round' },
+]
 
 const NATIVE_SETTINGS_SECTIONS = [
   { key: 'account', label: 'Account', description: 'Profile, password, MFA, and service mode', icon: 'shield-check' },
@@ -391,7 +401,7 @@ function NativeNotificationsSection() {
     const delivered = await deliverCustomNotification({
       id: `settings-test-${Date.now()}`,
       nativeId: 520099,
-      title: 'Personal Record',
+      title: 'Record',
       body: 'Notifications are working on this phone.',
       actionUrl: '/settings?section=notifications',
     }).catch(() => false)
@@ -535,7 +545,7 @@ function NativeWidgetsSection() {
         <article className="native-integration-card">
           <div>
             <h2>Lock-screen widgets</h2>
-            <p>Personal Record includes a compact, privacy-safe keyguard widget. Samsung One UI on the S24 Ultra may still only expose Samsung-approved lock-screen widgets until Samsung enables broader third-party support.</p>
+            <p>Record includes a compact, privacy-safe keyguard widget. Samsung One UI on the S24 Ultra may still only expose Samsung-approved lock-screen widgets until Samsung enables broader third-party support.</p>
           </div>
           <div className="native-status-strip">
             <span>Eligibility</span>
@@ -544,7 +554,7 @@ function NativeWidgetsSection() {
           <div className="native-info-list">
             <span>{status.lockScreenAvailability}</span>
             <span>The lock-screen widget does not show spending, streams, raw messages, or other sensitive data.</span>
-            <span>Use Samsung Lock screen settings first; if Personal Record is not listed, this is an OS/OEM restriction rather than an app bug.</span>
+            <span>Use Samsung Lock screen settings first; if Record is not listed, this is an OS/OEM restriction rather than an app bug.</span>
           </div>
         </article>
       </div>
@@ -731,7 +741,7 @@ function NativeIntegrationsSection() {
             <NativePreferenceToggle
               enabled={stepPreferences.liveEnabled}
               label="Live in-app steps"
-              description="Stream step changes while Personal Record is open."
+              description="Stream step changes while Record is open."
               onChange={(liveEnabled) => updateStepSync({ liveEnabled })}
             />
             <NativePreferenceToggle
@@ -857,7 +867,7 @@ function NativeUpdatesSection() {
       message: error.message,
     }))
     if (result?.needsPermission) {
-      setStatus('Allow Personal Record to install unknown apps, then try again.')
+      setStatus('Allow Record to install unknown apps, then try again.')
       return
     }
     setStatus(result?.started === false ? (result?.message || 'Installer could not start.') : 'Android installer opened.')
@@ -996,137 +1006,77 @@ export default function Settings() {
     )
   }
 
+  function selectTab(tab) {
+    setActiveTab(tab)
+    setSearchParams({ tab })
+  }
+
+  const activeMeta = WEB_SETTINGS_SECTIONS.find((section) => section.key === activeTab) || WEB_SETTINGS_SECTIONS[0]
+  const groups = [...new Set(WEB_SETTINGS_SECTIONS.map((section) => section.group))]
+
   return (
-    <>
-      <PageHeader icon="user" title="You" />
+    <div className="record-settings-page">
+      <PageHeading eyebrow="System" title="Settings">
+        <p>Control ownership, integrations, visible modules, and the data boundary of Record.</p>
+      </PageHeading>
 
-      <div className="tab-group" style={{ marginBottom: '1.5rem' }}>
-        <button
-          className={`tab-btn ${activeTab === 'account' ? 'active' : ''}`}
-          onClick={() => setActiveTab('account')}
-        >
-          <Icon name="user" size={16} style={{ marginRight: '4px' }} />
-          Account
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'connections' ? 'active' : ''}`}
-          onClick={() => setActiveTab('connections')}
-        >
-          <Icon name="link" size={16} style={{ marginRight: '4px' }} />
-          {t('settings.connections')}
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'agent-keys' ? 'active' : ''}`}
-          onClick={() => setActiveTab('agent-keys')}
-        >
-          <Icon name="key-round" size={16} style={{ marginRight: '4px' }} />
-          {t('settings.agentApiKeys')}
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
-          onClick={() => setActiveTab('appearance')}
-        >
-          <Icon name="palette" size={16} style={{ marginRight: '4px' }} />
-          Appearance
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'preferences' ? 'active' : ''}`}
-          onClick={() => setActiveTab('preferences')}
-        >
-          <Icon name="sliders-horizontal" size={16} style={{ marginRight: '4px' }} />
-          {t('settings.preferences')}
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'modules' ? 'active' : ''}`}
-          onClick={() => setActiveTab('modules')}
-        >
-          <Icon name="sliders-horizontal" size={16} style={{ marginRight: '4px' }} />
-          Modules
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'data' ? 'active' : ''}`}
-          onClick={() => setActiveTab('data')}
-        >
-          <Icon name="database" size={16} style={{ marginRight: '4px' }} />
-          Data
-        </button>
+      <div className="record-settings-workspace">
+        <nav className="record-settings-nav" aria-label="Settings sections">
+          {groups.map((group) => (
+            <div className="record-settings-nav__group" key={group}>
+              <span>{group}</span>
+              {WEB_SETTINGS_SECTIONS.filter((section) => section.group === group).map((section) => (
+                <button
+                  type="button"
+                  key={section.key}
+                  className={activeTab === section.key ? 'is-active' : ''}
+                  aria-current={activeTab === section.key ? 'page' : undefined}
+                  onClick={() => selectTab(section.key)}
+                >
+                  <Icon name={section.icon} size={16} />
+                  <span><strong>{section.label}</strong><small>{section.description}</small></span>
+                  <Icon name="chevron-right" size={14} />
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <main className="record-settings-content">
+          <header className="record-settings-content__heading">
+            <span>{activeMeta.group}</span>
+            <h2>{activeMeta.label}</h2>
+            <p>{activeMeta.description}</p>
+          </header>
+
+          <div className="record-settings-content__body">
+            {activeTab === 'account' && <Account />}
+            {activeTab === 'agent-keys' && <AgentApiKeys />}
+            {activeTab === 'connections' && <Connections initialError={spotifyError} />}
+            {activeTab === 'appearance' && <Appearance />}
+            {activeTab === 'data' && <DataManagement />}
+            {activeTab === 'modules' && <ModuleSettingsSection />}
+            {activeTab === 'preferences' && (
+              <>
+                <section className="record-settings-card">
+                  <header><div><span>Locale</span><h2>{t('settings.language')}</h2></div><small>{t('settings.languageDesc')}</small></header>
+                  <div className="record-language-options" role="radiogroup" aria-label={t('settings.language')}>
+                    <button type="button" role="radio" aria-checked={currentLanguage === 'en'} className={currentLanguage === 'en' ? 'is-active' : ''} onClick={() => changeLanguage('en')}><strong>EN</strong><span>{t('settings.english')}</span></button>
+                    <button type="button" role="radio" aria-checked={currentLanguage === 'es'} className={currentLanguage === 'es' ? 'is-active' : ''} onClick={() => changeLanguage('es')}><strong>ES</strong><span>{t('settings.spanish')}</span></button>
+                  </div>
+                </section>
+                <section className="record-settings-card">
+                  <header><div><span>Installed service</span><h2>Build information</h2></div></header>
+                  <div className="settings-version-card">
+                    <div><span>App version</span><strong>v{APP_VERSION}</strong></div>
+                    <div><span>Built</span><strong>{formatBuildTime(APP_BUILD_TIME)}</strong></div>
+                  </div>
+                </section>
+              </>
+            )}
+          </div>
+        </main>
       </div>
-
-      {activeTab === 'account' && <Account />}
-
-      {activeTab === 'agent-keys' && <AgentApiKeys />}
-
-      {activeTab === 'connections' && <Connections initialError={spotifyError} />}
-
-      {activeTab === 'appearance' && <Appearance />}
-
-      {activeTab === 'data' && <DataManagement />}
-
-      {activeTab === 'modules' && <ModuleSettingsSection />}
-
-      {activeTab === 'preferences' && (
-        <div className="card section">
-          <h2>{t('settings.preferences')}</h2>
-
-          {/* Language Selector */}
-          <div style={{ marginTop: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
-              <Icon name="globe" size={18} style={{ marginRight: '0.5rem' }} />
-              {t('settings.language')}
-            </h3>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              {t('settings.languageDesc')}
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                className={`btn ${currentLanguage === 'en' ? '' : 'btn-ghost'}`}
-                onClick={() => changeLanguage('en')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  minWidth: '120px',
-                  justifyContent: 'center',
-                }}
-              >
-                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>EN</span>
-                {t('settings.english')}
-              </button>
-              <button
-                className={`btn ${currentLanguage === 'es' ? '' : 'btn-ghost'}`}
-                onClick={() => changeLanguage('es')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  minWidth: '120px',
-                  justifyContent: 'center',
-                }}
-              >
-                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>ES</span>
-                {t('settings.spanish')}
-              </button>
-            </div>
-          </div>
-
-          <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
-            <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
-              {t('settings.themeDesc')}
-            </p>
-          </div>
-
-          <div className="settings-version-card">
-            <div>
-              <span>App version</span>
-              <strong>v{APP_VERSION}</strong>
-            </div>
-            <div>
-              <span>Build</span>
-              <strong>{formatBuildTime(APP_BUILD_TIME)}</strong>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   )
 }

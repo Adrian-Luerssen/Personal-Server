@@ -170,3 +170,40 @@ describe('SpotifyService beta access', () => {
     );
   });
 });
+
+describe('Spotify sound profile enrichment', () => {
+  it('selects the exact Spotify recording for an ISRC and persists its audio traits', async () => {
+    const track = { id: 'track-1', spotifyId: 'spotify-exact', isrc: 'USABC1234567', audioFeatures: null, bpm: null };
+    const trackRepo = { save: jest.fn(async (value) => value) };
+    const { service } = createService();
+    (service as any).trackRepo = trackRepo;
+    const provider = {
+      get: jest.fn()
+        .mockResolvedValueOnce({ data: { content: [
+          { id: 'wrong', href: 'https://open.spotify.com/track/spotify-other' },
+          { id: 'exact', href: 'https://open.spotify.com/track/spotify-exact' },
+        ] } })
+        .mockResolvedValueOnce({ data: {
+          danceability: 0.71, energy: 0.82, valence: 0.63, acousticness: 0.12,
+          instrumentalness: 0.04, speechiness: 0.08, liveness: 0.2, tempo: 128.4,
+        } }),
+    };
+
+    await (service as any).enrichTrackAudioFeatures(track, provider);
+
+    expect(provider.get).toHaveBeenNthCalledWith(1, '/v1/track', { params: { ids: track.isrc }, timeout: 8000 });
+    expect(provider.get).toHaveBeenNthCalledWith(2, '/v1/track/exact/audio-features', { timeout: 8000 });
+    expect(trackRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      bpm: 128,
+      audioFeatures: expect.objectContaining({ energy: 0.82, danceability: 0.71, valence: 0.63 }),
+    }));
+  });
+
+  it('leaves listening sync usable when audio enrichment is unavailable', async () => {
+    const track = { id: 'track-1', spotifyId: 'spotify-id', isrc: 'USABC1234567', audioFeatures: null };
+    const { service } = createService();
+    const provider = { get: jest.fn().mockRejectedValue(new Error('provider unavailable')) };
+
+    await expect((service as any).enrichTrackAudioFeatures(track, provider)).resolves.toBe(false);
+  });
+});

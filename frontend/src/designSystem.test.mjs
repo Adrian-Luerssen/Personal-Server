@@ -5,149 +5,96 @@ import test from 'node:test'
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), 'utf8')
 
-const tokensCss = read('src/styles/tokens.css')
-const baseCss = read('src/styles/base.css')
-const shellCss = read('src/styles/shell.css')
-const globalCss = read('src/styles.css')
 const mainSource = read('src/main.jsx')
-const brandMarkSource = read('src/components/product/BrandMark.jsx')
 const layoutSource = read('src/components/Layout.jsx')
-const productHeaderSource = read('src/components/product/ProductHeader.jsx')
 const sidebarSource = read('src/components/Sidebar.jsx')
-const dailyBriefSource = read('src/pages/Home/components/DailyBrief.jsx')
-const landingSource = read('src/pages/Landing.jsx')
-const landingCss = read('src/pages/Landing.css')
-const financeTransactionsSource = read('src/pages/Finance/FinanceTransactions.jsx')
-const workoutSource = read('src/pages/Workout/Workout.jsx')
-const seriesSource = read('src/pages/Media/Media.jsx')
-const designSystemDoc = read('../DESIGN.md')
-const brandProfileDoc = read('../docs/product/BRAND_PROFILE.md')
+const headerSource = read('src/components/product/ProductHeader.jsx')
+const markSource = read('src/components/product/BrandMark.jsx')
+const mobileNavSource = read('src/components/product/MobileGlobalNav.jsx')
+const brandSource = read('src/product/brand.mjs')
+const designDoc = read('../DESIGN.md')
+const brandDoc = read('../docs/product/BRAND_PROFILE.md')
 
-test('the premium interface is structural rather than a global legacy override', () => {
-  assert.doesNotMatch(mainSource, /premium-overrides\.css/)
-  assert.equal(existsSync(resolve(process.cwd(), 'src/styles/premium-overrides.css')), false)
-  assert.doesNotMatch(brandProfileDoc, /warm paper|oxide red|editorial serif/i)
-  assert.match(brandProfileDoc, /graphite/i)
-  assert.match(brandProfileDoc, /constellation/i)
+test('the application loads one ordered Record stylesheet instead of inherited theme layers', () => {
+  assert.match(mainSource, /import ['"]\.\/record\.css['"]/)
+  assert.doesNotMatch(mainSource, /styles\.css|styles\/domains|styles\/tokens|styles\/shell|styles\/primitives/)
+  assert.equal(existsSync(resolve(process.cwd(), 'src/record.css')), true)
 })
 
-test('visual foundation uses the approved graphite instrument palette', () => {
-  assert.match(tokensCss, /--surface-canvas:\s*#080f18/i)
-  assert.match(tokensCss, /--surface-panel:\s*#111a27/i)
-  assert.match(tokensCss, /--surface-raised:\s*#172234/i)
-  assert.match(tokensCss, /--text-primary:\s*#eef3f8/i)
-  assert.match(tokensCss, /--text-secondary:\s*#9aa8ba/i)
-  assert.doesNotMatch(tokensCss, /Iowan Old Style|Palatino Linotype/)
+test('Record uses one brand accent and semantic state colors, not domain page themes', () => {
+  const css = read('src/record.css')
+  assert.match(css, /--record-accent:\s*#7c5cff/i)
+  assert.match(css, /--record-canvas:\s*#090e14/i)
+  assert.match(css, /--record-line:\s*#233041/i)
+  assert.match(css, /--record-success:\s*#32d583/i)
+  assert.doesNotMatch(css, /--domain-(?:cash|gym|habits|music|series|assistant)/)
+  assert.doesNotMatch(mainSource, /styles\/domains/)
 })
 
-test('visual foundation assigns one stable signal color to every product domain', () => {
-  const expectedTokens = {
-    today: '#3b82f6',
-    cash: '#22c55e',
-    habits: '#14b8a6',
-    gym: '#f97316',
-    music: '#ec4899',
-    series: '#f59e0b',
-    assistant: '#8b5cf6',
-  }
-
-  for (const [domain, color] of Object.entries(expectedTokens)) {
-    assert.match(tokensCss, new RegExp(`--domain-${domain}:\\s*${color}`, 'i'))
-  }
+test('the customer identity is Record with the Bookplate R mark', () => {
+  assert.match(brandSource, /displayName:\s*['"]Record['"]/) // customer-facing name
+  assert.match(brandSource, /Keep the life you live useful\./)
+  assert.match(markSource, /brand-mark__bookplate/)
+  assert.match(markSource, /brand-mark__plate/)
+  assert.match(markSource, /brand-mark__monogram/)
+  assert.doesNotMatch(markSource, /indexed-spine|brand-mark__rail|brand-mark__tick|<circle/)
 })
 
-test('typography is self-hosted and separates interface copy from precise data', () => {
-  assert.match(tokensCss, /--font-body:\s*"Sora Variable"/)
-  assert.match(tokensCss, /--font-data:\s*"JetBrains Mono Variable"/)
-  assert.match(baseCss, /font-family:\s*var\(--font-body\)/)
+test('the foundation keeps self-hosted type, visible focus, touch targets, and reduced motion', () => {
+  const css = read('src/record.css')
   assert.match(mainSource, /@fontsource-variable\/sora/)
   assert.match(mainSource, /@fontsource-variable\/jetbrains-mono/)
+  assert.match(css, /--record-font-ui:\s*['"]Sora Variable['"]/)
+  assert.match(css, /--record-font-data:\s*['"]JetBrains Mono Variable['"]/)
+  assert.match(css, /--record-touch:\s*44px/)
+  assert.match(css, /:focus-visible\s*{/)
+  assert.match(css, /prefers-reduced-motion:\s*reduce/)
+  assert.match(css, /overflow-x:\s*(?:clip|hidden)/)
 })
 
-test('brand mark is a connected constellation rather than a ledger glyph', () => {
-  assert.match(brandMarkSource, /brand-mark__constellation/)
-  assert.match(brandMarkSource, /<path[^>]+brand-mark__links/)
-  assert.match(brandMarkSource, /<circle/g)
-  assert.doesNotMatch(brandMarkSource, /<rect x="4\.5"|M11 13\.5h18/)
+test('desktop navigation is a flat Record rail with explicit groups', () => {
+  assert.match(sidebarSource, /Record rail/)
+  assert.match(sidebarSource, /Records/)
+  assert.match(sidebarSource, /Workspace/)
+  assert.match(sidebarSource, /System/)
+  assert.match(sidebarSource, /Assistant/)
+  assert.match(sidebarSource, /Settings/)
+  assert.doesNotMatch(sidebarSource, /--nav-signal|domain-/)
 })
 
-test('app surfaces prevent horizontal overflow and expose visible keyboard focus', () => {
-  assert.match(baseCss, /html,[\s\S]*body,[\s\S]*#root\s*{[^}]*overflow-x:\s*(?:clip|hidden)/s)
-  assert.match(baseCss, /:focus-visible\s*{[^}]*outline:/s)
-  assert.match(tokensCss, /--touch-target:\s*44px/)
+test('the route bar owns context and capture without duplicating Assistant', () => {
+  assert.match(headerSource, /record-route-bar/)
+  assert.match(headerSource, /New record/)
+  assert.match(headerSource, /Last checked/)
+  assert.doesNotMatch(headerSource, /Search records or ask a question/)
+  assert.doesNotMatch(layoutSource, /<ChatPanel/)
 })
 
-test('motion is brief, functional, and disabled when reduced motion is requested', () => {
-  assert.match(tokensCss, /--motion-fast:\s*1[23456]0ms/)
-  assert.match(tokensCss, /--motion-standard:\s*2[0-6]0ms/)
-  assert.match(globalCss, /prefers-reduced-motion:\s*reduce/)
-  assert.doesNotMatch(shellCss, /animation:\s*[^;]*(?:infinite|loop)/i)
+test('native global navigation uses Records and does not duplicate an app switcher', () => {
+  const navigationSource = read('src/product/navigation.mjs')
+  assert.match(navigationSource, /label:\s*['"]Records['"]/)
+  assert.match(navigationSource, /label:\s*['"]Today['"]/)
+  assert.match(navigationSource, /label:\s*['"]Capture['"]/)
+  assert.match(navigationSource, /label:\s*['"]Assistant['"]/)
+  assert.match(navigationSource, /label:\s*['"]You['"]/)
+  assert.doesNotMatch(headerSource, /app switcher|Apps/)
 })
 
-test('design documentation names the premium identity and compositional rules', () => {
-  assert.match(designSystemDoc, /Everything you are, in context\./)
-  assert.match(designSystemDoc, /Sora Variable/)
-  assert.match(designSystemDoc, /JetBrains Mono Variable/)
-  assert.match(designSystemDoc, /constellation/i)
-  assert.match(designSystemDoc, /asymmetric/i)
-  assert.match(designSystemDoc, /320px/)
-  assert.match(designSystemDoc, /prefers-reduced-motion/)
+test('shared register primitives exist for purpose-built route composition', () => {
+  const registerSource = read('src/components/record/Register.jsx')
+  const headingSource = read('src/components/record/PageHeading.jsx')
+  const stateSource = read('src/components/record/StatePanel.jsx')
+  assert.match(registerSource, /record-register/)
+  assert.match(registerSource, /record-register__row/)
+  assert.match(headingSource, /record-page-heading/)
+  assert.match(stateSource, /loading|empty|error|offline/)
 })
 
-test('desktop shell presents product identity and one shared product header', () => {
-  assert.match(sidebarSource, /<BrandMark/)
-  assert.match(sidebarSource, /PRODUCT\.displayName/)
-  assert.match(layoutSource, /<ProductHeader/)
-  assert.match(productHeaderSource, /Search records or ask a question/)
-  assert.match(productHeaderSource, /Capture a new record/)
-  assert.match(shellCss, /\.product-header--desktop\s*{/)
-  assert.match(shellCss, /\.sidebar\s*{[^}]*width:\s*var\(--sidebar-width\)/s)
-})
-
-test('global navigation stays flat while domain navigation owns local routes', () => {
-  assert.doesNotMatch(sidebarSource, /spotifyMenuOpen|workoutMenuOpen|financeMenuOpen|mediaMenuOpen|habitsMenuOpen/)
-  assert.match(layoutSource, /<DomainNav \/>/)
-  assert.doesNotMatch(layoutSource, /nativeApp && <DomainNav/)
-  assert.match(sidebarSource, /aria-label="Product navigation"/)
-})
-
-test('Today is an action-first brief built from source facts rather than a synthetic score', () => {
-  assert.match(dailyBriefSource, /Next action/)
-  assert.match(dailyBriefSource, /daily-facts/)
-  assert.match(dailyBriefSource, /Ask about today/)
-  assert.doesNotMatch(dailyBriefSource, /SignalRing|dailySignal|Daily signal/)
-  assert.match(read('src/styles/domains/today.css'), /\.daily-brief__body/)
-})
-
-test('Cash, Gym, and Series use purpose-built working surfaces on web and native', () => {
-  assert.doesNotMatch(financeTransactionsSource, /<PageHeader|className="card" style=/)
-  assert.match(financeTransactionsSource, /native-transaction-day-group/)
-  assert.doesNotMatch(workoutSource, /<StatCard|Quick Actions/)
-  assert.match(workoutSource, /native-workout-primary/)
-  assert.match(seriesSource, /series-groups/)
-  assert.match(seriesSource, /series-row__episode-action/)
-})
-
-test('Habits, Music, Assistant, and settings share explicit domain workspaces', () => {
-  const habitsCss = read('src/pages/Habits/Habits.css')
-  const spotifyCss = read('src/styles/domains/spotify.css')
-  const utilityCss = read('src/styles/domains/utility.css')
-
-  assert.match(habitsCss, /--habits-signal:\s*var\(--domain-habits\)/)
-  assert.match(spotifyCss, /--music-signal:\s*var\(--domain-music\)/)
-  assert.match(utilityCss, /\.native-chat-page/)
-  assert.match(utilityCss, /\.native-settings-page/)
-})
-
-test('landing is a faithful product showcase instead of an editorial ledger', () => {
-  assert.match(landingSource, /Everything you are,<br \/>in context\./)
-  assert.match(landingSource, /landing-product-stage/)
-  assert.match(landingSource, /Managed cloud/)
-  assert.match(landingSource, /Self-hosted/)
-  assert.doesNotMatch(landingSource, /private ledger for the week|Records, not noise/)
-  assert.match(landingCss, /--landing-signal:/)
-  assert.match(landingCss, /\.landing-product-stage\s*{/)
-  assert.doesNotMatch(landingSource, /Daily signal|landing-stage-signal|landing-bento-card/)
-  assert.match(landingSource, /landing-stage-next/)
-  assert.match(landingSource, /landing-domain-row/)
+test('the design sources name the new product and reject the retired redesign language', () => {
+  for (const source of [designDoc, brandDoc]) {
+    assert.match(source, /Customer name:\s*\*\*Record\*\*/i)
+    assert.match(source, /Keep the life you live useful\./)
+    assert.match(source, /register/i)
+    assert.doesNotMatch(source, /constellation|Everything you are, in context\./i)
+  }
 })

@@ -7,7 +7,7 @@ import Icon from '../icons/Icon'
 function isActive(item, pathname) {
   if (!item.to) return false
   if (item.id === 'today') return pathname === '/home'
-  if (item.id === 'apps') return pathname === '/menu'
+  if (item.id === 'records') return pathname === '/menu'
   if (item.id === 'assistant') return pathname.startsWith('/chat')
   if (item.id === 'you') return pathname.startsWith('/settings')
   return false
@@ -26,7 +26,7 @@ export default function MobileGlobalNav({ onCapture }) {
               <span className="mobile-global-nav__icon" aria-hidden="true">
                 <Icon name={item.icon} size={item.id === 'capture' ? 23 : 20} />
               </span>
-              <span>{item.label}</span>
+              <span>{item.id === 'records' ? 'Records' : item.label}</span>
             </>
           )
 

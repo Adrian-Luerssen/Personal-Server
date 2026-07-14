@@ -20,16 +20,12 @@ import {
 import { applyChartTheme } from '../../chartTheme'
 import { api } from '../../api'
 import Icon from '../../components/icons/Icon'
-import ScrollReveal from '../../components/ScrollReveal'
-import PageHeader from '../../components/PageHeader'
-import '../../custom-scrollbar.css'
+import { PageHeading, StatePanel, SummaryItem, SummaryStrip } from '../../components/record'
 import {
   LoadingDot,
   LoadingLine,
   HistoryModal,
   HistoryItem,
-  StatCard,
-  AnimatedNumber,
   formatDuration,
   formatNumberShort,
 } from '../../components/shared'
@@ -283,8 +279,8 @@ export default function SpotifyPersonal() {
         label: 'Streams per Day',
         data: perDay.map(d => d.count),
         fill: false,
-        borderColor: '#7dd3fc',
-        backgroundColor: 'rgba(125,211,252,0.2)',
+        borderColor: '#7c5cff',
+        backgroundColor: 'rgba(124,92,255,0.18)',
         tension: 0.3,
       }]
     }
@@ -303,8 +299,9 @@ export default function SpotifyPersonal() {
       datasets: [{
         label: 'Streams per Hour',
         data: hourCounts,
-        backgroundColor: hours.map((_, i) => `hsl(${i * 15}, 80%, 60%)`),
-        borderWidth: 1,
+        backgroundColor: hours.map((_, i) => `rgba(124,92,255,${0.24 + ((i % 6) * 0.1)})`),
+        borderColor: '#121216',
+        borderWidth: 2,
       }]
     }
   }, [perHour])
@@ -343,319 +340,174 @@ export default function SpotifyPersonal() {
     : topCategory === 'artists' ? topArtistDetails
     : topPlaylistDetails
 
+  const periodLabel = TIMEFRAMES.find(item => item.value === timeframe)?.label || 'Today'
+  const soundMeasures = [
+    ['energy', 'Energy'],
+    ['danceability', 'Dance'],
+    ['valence', 'Mood'],
+    ['acousticness', 'Acoustic'],
+    ['instrumentalness', 'Instrumental'],
+    ['speechiness', 'Spoken'],
+  ]
+
   return (
-    <div className="spotify-insights">
-      <PageHeader icon="music" title="Spotify" />
+    <div className="record-music-page">
+      <PageHeading
+        eyebrow="Listening record"
+        title="Music"
+        description="Your listening history, ranked and placed in time."
+        meta={`${periodLabel} · ${profile?.streamTrackingEnabled ? 'Tracking on' : 'Tracking off'}`}
+        actions={(
+          <button className="btn primary" onClick={syncLatest} disabled={syncing || loading || !linked}>
+            {syncing ? 'Syncing…' : 'Sync plays'}
+          </button>
+        )}
+      />
 
-      <ScrollReveal>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', alignItems: 'stretch', marginBottom: '2rem' }}>
-        <CurrentlyPlayingBox loading={currentlyPlayingLoading} data={currentlyPlaying} />
-        <div className="card" style={{ display: 'flex', gap: '1rem', alignItems: 'center', height: '100%' }}>
-          {loading ? (
-            <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', background: 'var(--color-accent-muted)', display: 'grid', placeItems: 'center' }}><LoadingDot /></div>
-          ) : avatarUrl ? (
-            <img src={avatarUrl} alt="avatar" style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', objectFit: 'cover' }} />
-          ) : (
-            <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', background: 'var(--color-accent-muted)', display: 'grid', placeItems: 'center' }}>
-              <Icon name="music" size={28} style={{ color: 'var(--color-accent)' }} />
-            </div>
-          )}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{loading ? <LoadingLine width={120} /> : (profile?.displayName || 'Spotify Account')}</div>
-            <div style={{ color: 'var(--color-text-secondary)' }}>{loading ? <LoadingLine width={160} /> : (profile?.email || profile?.spotifyUserId || 'Not linked yet')}</div>
-            <div style={{ marginTop: '.5rem', display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="btn small" onClick={toggleTracking} disabled={loading}>
-                {profile?.streamTrackingEnabled ? 'Disable tracking' : 'Enable tracking'}
-              </button>
-              <button className="btn small" onClick={syncLatest} disabled={syncing || loading}>
-                {syncing ? 'Syncing...' : 'Sync latest plays'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      </ScrollReveal>
+      {error && <StatePanel kind="error" title="Music could not update" detail={error} />}
 
-      {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
-
-      {!linked && linked !== null && (
-        <div className="alert-warning">
-          Your account is not linked to Spotify.<br />
-          {betaAccess?.enabled
-            ? 'Spotify is currently in beta. Link an approved tester account in Settings > Connections.'
-            : 'Link your Spotify account in Settings > Connections.'}
-        </div>
-      )}
-
-      {(linked || linked === null) && (
+      {!linked && linked !== null ? (
+        <StatePanel
+          kind="empty"
+          title="Connect Spotify to begin"
+          detail={betaAccess?.enabled
+            ? 'Spotify access is in beta. Connect an approved account from Settings → Connections.'
+            : 'Connect your account from Settings → Connections to build a private listening record.'}
+        />
+      ) : (
         <>
-          <div className="card spotify-timeframe-register" style={{ marginBottom: '1rem' }}>
-            <div className="tab-group">
+          <section className="record-music-profile" aria-label="Spotify profile and current playback">
+            <div className="record-music-profile__account">
+              <div className="record-music-profile__avatar">
+                {loading ? <LoadingDot /> : avatarUrl ? <img src={avatarUrl} alt="" /> : <Icon name="music" size={26} />}
+              </div>
+              <div className="record-music-profile__copy">
+                <span>Connected source</span>
+                <strong>{loading ? <LoadingLine width={120} /> : (profile?.displayName || 'Spotify')}</strong>
+                <small>{loading ? <LoadingLine width={160} /> : (profile?.email || profile?.spotifyUserId || 'Awaiting account details')}</small>
+              </div>
+              <button className="btn subtle small" onClick={toggleTracking} disabled={loading}>
+                {profile?.streamTrackingEnabled ? 'Pause tracking' : 'Resume tracking'}
+              </button>
+            </div>
+            <div className="record-music-profile__playing">
+              <CurrentlyPlayingBox loading={currentlyPlayingLoading} data={currentlyPlaying} />
+            </div>
+          </section>
+
+          <section className="record-music-period" aria-label="Listening period">
+            <div className="record-segmented" role="group" aria-label="Listening period">
               {TIMEFRAMES.map(tf => (
                 <button
                   key={tf.value}
-                  className={`tab-btn${timeframe === tf.value ? ' active' : ''}`}
+                  className={timeframe === tf.value ? 'is-active' : ''}
+                  aria-pressed={timeframe === tf.value}
                   onClick={() => setTimeframe(tf.value)}
                 >{tf.label}</button>
               ))}
             </div>
             {timeframe === 'custom' && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginTop: '1rem' }}>
-                <input type="date" className="input" value={customStart} onChange={e => setCustomStart(e.target.value)} />
-                <span style={{ color: 'var(--color-text-secondary)' }}>to</span>
-                <input type="date" className="input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+              <div className="record-music-period__dates">
+                <label>From<input type="date" className="input" value={customStart} onChange={e => setCustomStart(e.target.value)} /></label>
+                <label>To<input type="date" className="input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} /></label>
               </div>
             )}
-          </div>
+          </section>
 
-          <ScrollReveal delay={100}>
-          <div className="section">
-            <h3>General Statistics</h3>
-            <div className="stat-grid">
-              <StatCard icon="play-circle" accentColor="var(--color-accent)" label="Total Streams" value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={stats?.totalStreams ?? 0} formatter={formatNumberShort} />} />
-              <StatCard icon="disc" accentColor="var(--color-accent)" label="Unique Tracks" value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={stats?.uniqueTracks ?? 0} formatter={formatNumberShort} />} />
-              <StatCard icon="mic" accentColor="var(--color-accent)" label="Unique Artists" value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={stats?.uniqueArtists ?? 0} formatter={formatNumberShort} />} />
-              <StatCard icon="clock" accentColor="var(--color-accent)" label="Total Minutes" value={!hasLoadedOnce ? <LoadingLine width={80} /> : <AnimatedNumber value={Math.floor((stats?.msListened ?? 0) / 1000 / 60)} formatter={formatNumberShort} />} />
-              <StatCard icon="timer" accentColor="var(--color-accent)" label="Total Time" value={!hasLoadedOnce ? <LoadingLine width={120} /> : <AnimatedNumber value={stats?.msListened ?? 0} formatter={formatDuration} />} />
-            </div>
+          <SummaryStrip>
+            <SummaryItem label="Plays" value={hasLoadedOnce ? formatNumberShort(stats?.totalStreams ?? 0) : '—'} />
+            <SummaryItem label="Tracks" value={hasLoadedOnce ? formatNumberShort(stats?.uniqueTracks ?? 0) : '—'} />
+            <SummaryItem label="Artists" value={hasLoadedOnce ? formatNumberShort(stats?.uniqueArtists ?? 0) : '—'} />
+            <SummaryItem label="Listening time" value={hasLoadedOnce ? formatDuration(stats?.msListened ?? 0) : '—'} />
+          </SummaryStrip>
 
-            <div style={{ marginTop: '1rem', height: 240, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {!hasLoadedOnce ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                  <LoadingDot />
-                  <div style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>Loading chart data...</div>
-                </div>
-              ) : lineData ? (
-                <div style={{ width: '100%', height: '100%' }}>
+          <section className="record-music-pattern" aria-labelledby="listening-pattern-title">
+            <header className="record-section-heading">
+              <div><span>Rhythm</span><h2 id="listening-pattern-title">Listening pattern</h2></div>
+              <small>{periodLabel}</small>
+            </header>
+            <div className="record-music-pattern__grid">
+              <div className="record-music-timeline" aria-label="Plays over time">
+                {!hasLoadedOnce ? <LoadingDot /> : lineData ? (
                   <Line data={lineData} options={{
                     responsive: true,
                     plugins: { legend: { display: false } },
                     maintainAspectRatio: false,
                     scales: {
-                      x: { grid: { color: 'rgba(125,211,252,0.1)' }, ticks: { color: 'rgba(125,211,252,0.5)' } },
-                      y: { grid: { color: 'rgba(125,211,252,0.1)' }, ticks: { color: 'rgba(125,211,252,0.5)' }, min: 0 }
-                    }
-                  }} style={{ width: '100%', height: '100%' }} />
+                      x: { grid: { display: false }, ticks: { color: '#777781', maxTicksLimit: 7 } },
+                      y: { grid: { color: 'rgba(255,255,255,.06)' }, ticks: { color: '#777781' }, min: 0 },
+                    },
+                  }} />
+                ) : <StatePanel title="No plays in this period" detail="Listening activity will appear here after the next sync." />}
+              </div>
+              <div className="record-music-clock">
+                <span>Listening clock</span>
+                <div className="record-music-clock__chart">
+                  {!hasLoadedOnce ? <LoadingDot /> : wheelData ? (
+                    <PolarArea data={wheelData} options={{
+                      responsive: true,
+                      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw}` } } },
+                      maintainAspectRatio: false,
+                      scales: { r: { grid: { color: 'rgba(255,255,255,.06)' }, ticks: { display: false }, angleLines: { color: 'rgba(255,255,255,.06)' } } },
+                    }} />
+                  ) : <small>No hourly data</small>}
                 </div>
-              ) : (
-                <div style={{ color: 'var(--color-text-muted)', fontSize: 18, textAlign: 'center' }}>No stream data for graph.</div>
-              )}
-            </div>
-
-            <div className="spotify-clock-row" style={{ marginTop: '2rem', width: '100%', display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'stretch' }}>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--color-accent)', marginBottom: 8, textAlign: 'center' }}>Listening Clock</div>
-                <div className="spotify-clock-chart" style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', maxWidth: 340, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, boxSizing: 'border-box' }}>
-                  {!hasLoadedOnce ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                      <LoadingDot />
-                      <div style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>Loading...</div>
+              </div>
+              <div className="record-music-sound">
+                <div className="record-music-sound__lead">
+                  <span>Sound profile</span>
+                  <strong>{moodData?.averages?.bpm ? `${moodData.averages.bpm} BPM` : 'Not enough data'}</strong>
+                  <small>{moodData?.totalTracks ? `${moodData.totalTracks} analysed tracks · Audio traits supplied by ReccoBeats` : 'Sync plays to enrich your listening record with audio traits.'}</small>
+                </div>
+                {soundMeasures.map(([key, label]) => {
+                  const value = Math.round((moodData?.averages?.[key] || 0) * 100)
+                  return (
+                    <div className="record-music-sound__row" key={key}>
+                      <span>{label}</span><div><i style={{ width: `${value}%` }} /></div><em>{value}%</em>
                     </div>
-                  ) : wheelData ? (
-                    <>
-                      <PolarArea data={wheelData} options={{
-                        responsive: true,
-                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw}` } } },
-                        maintainAspectRatio: false,
-                        scales: { r: { grid: { display: true, color: 'rgba(125,211,252,0.13)' }, pointLabels: { color: 'rgba(125,211,252,0.7)', font: { size: 13, weight: 'bold' } }, ticks: { display: false }, angleLines: { color: 'rgba(125,211,252,0.1)' } } }
-                      }} style={{ width: '100%', height: '100%' }} />
-                      <div style={{ position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: 15 }}>00</div>
-                      <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: 15 }}>06</div>
-                      <div style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: 15 }}>12</div>
-                      <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)', fontWeight: 600, fontSize: 15 }}>18</div>
-                    </>
-                  ) : (
-                    <div style={{ color: 'var(--color-text-muted)', fontSize: 18, textAlign: 'center' }}>No hourly data for chart.</div>
-                  )}
-                </div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'stretch', justifyContent: 'center' }}>
-                <div className="spotify-mood-summary">
-                  <div>
-                    <span>Sound profile</span>
-                    <strong>{moodData?.averages?.bpm ? `${moodData.averages.bpm} BPM` : 'No mood data'}</strong>
-                  </div>
-                  {[
-                    { key: 'energy', label: 'Energy', color: '#f97316' },
-                    { key: 'danceability', label: 'Dance', color: '#a78bfa' },
-                    { key: 'valence', label: 'Mood', color: '#fbbf24' },
-                    { key: 'acousticness', label: 'Acoustic', color: '#4ade80' },
-                  ].map(item => {
-                    const value = Math.round((moodData?.averages?.[item.key] || 0) * 100)
-                    return (
-                      <div className="spotify-mood-summary__row" key={item.key}>
-                        <span>{item.label}</span>
-                        <div>
-                          <i style={{ width: `${value}%`, background: item.color }} />
-                        </div>
-                        <em>{value}%</em>
-                      </div>
-                    )
-                  })}
-                </div>
+                  )
+                })}
               </div>
             </div>
-          </div>
-          </ScrollReveal>
+          </section>
 
-          <ScrollReveal delay={200}>
-          <div className="section">
-            <div className="card spotify-rankings-register">
-              <h3>Recent Streaming History</h3>
-              <div style={{ maxHeight: 120, overflowY: 'auto' }} className="custom-scrollbar">
-                {!hasLoadedOnce ? (
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <li key={i} style={{ padding: '.3rem 0', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-                        <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-sm)', background: 'var(--color-accent-muted)', flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}><LoadingLine width={220} /><LoadingLine width={150} /></div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : history && history.length ? (
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {history.map((h, i) => <HistoryItem key={h.id || i} stream={h} />)}
-                  </ul>
-                ) : <div className="empty-state">No recent streams.</div>}
+          <section className="record-music-history">
+            <header className="record-section-heading">
+              <div><span>Chronology</span><h2>Recent plays</h2></div>
+              <button className="btn subtle small" onClick={() => setShowHistoryModal(true)} disabled={!history.length}>View all</button>
+            </header>
+            {!hasLoadedOnce ? (
+              <div className="record-loading-row"><LoadingLine width={220} /></div>
+            ) : history.length ? (
+              <ul>{history.slice(0, 5).map((item, index) => <HistoryItem key={item.id || index} stream={item} />)}</ul>
+            ) : <StatePanel title="No recent plays" detail="Sync Spotify to bring the latest listening history into Record." />}
+          </section>
+
+          <section className="record-music-rankings" aria-labelledby="music-ranking-title">
+            <header className="record-section-heading">
+              <div><span>Ranking</span><h2 id="music-ranking-title">Most played</h2></div>
+              <div className="record-segmented record-segmented--compact" role="group" aria-label="Ranking category">
+                {['tracks', 'albums', 'artists', 'playlists'].map(cat => (
+                  <button key={cat} className={topCategory === cat ? 'is-active' : ''} aria-pressed={topCategory === cat} onClick={() => setTopCategory(cat)}>
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </button>
+                ))}
               </div>
-              <button className="btn small" style={{ marginTop: '0.5rem' }} onClick={() => setShowHistoryModal(true)}>Show all recent streams</button>
+            </header>
+            <div className="listening-ranking-list">
+              {topItems.length ? topItems.map((item, index) => (
+                <ListeningRankRow
+                  key={item.trackId || item.albumId || item.artistId || item.playlistId}
+                  data={item}
+                  details={topDetails[index]}
+                  rank={index + 1}
+                  type={topCategory}
+                />
+              )) : <StatePanel title={`No ranked ${topCategory}`} detail={`Play data for ${periodLabel.toLowerCase()} will be ranked here.`} />}
             </div>
-          </div>
-          </ScrollReveal>
+          </section>
 
           {showHistoryModal && <HistoryModal onClose={() => setShowHistoryModal(false)} />}
-
-          <ScrollReveal delay={300}>
-          <div className="section">
-            <div className="card">
-              <div className="tab-group" style={{ marginBottom: '1rem' }}>
-                {['tracks', 'albums', 'artists', 'playlists'].map(cat => (
-                  <button
-                    key={cat}
-                    className={`tab-btn${topCategory === cat ? ' active' : ''}`}
-                    onClick={() => setTopCategory(cat)}
-                  >Top {cat.charAt(0).toUpperCase() + cat.slice(1)}</button>
-                ))}
-              </div>
-              <div className="listening-ranking-list">
-                {topItems.length === 0 ? (
-                  <div className="empty-state">No top {topCategory} yet.</div>
-                ) : topItems.map((item, idx) => (
-                  <ListeningRankRow
-                    key={item.trackId || item.albumId || item.artistId || item.playlistId}
-                    data={item}
-                    details={topDetails[idx]}
-                    rank={idx + 1}
-                    type={topCategory}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-          </ScrollReveal>
-
-          {/* Mood & Energy Analysis */}
-          {moodData?.averages && (
-            <ScrollReveal delay={400}>
-              <div className="section" style={{ marginTop: '1.5rem' }}>
-                <div className="card" style={{ padding: '1.25rem' }}>
-                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                    <Icon name="heart" size={20} />
-                    Mood & Energy Analysis
-                  </h3>
-
-                  {/* Audio feature bars */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-                    {[
-                      { key: 'energy', label: 'Energy', color: '#f97316', icon: 'zap' },
-                      { key: 'danceability', label: 'Danceability', color: '#a78bfa', icon: 'music' },
-                      { key: 'valence', label: 'Happiness', color: '#fbbf24', icon: 'smile' },
-                      { key: 'acousticness', label: 'Acoustic', color: '#4ade80', icon: 'guitar' },
-                      { key: 'instrumentalness', label: 'Instrumental', color: '#60a5fa', icon: 'piano' },
-                      { key: 'speechiness', label: 'Speechiness', color: '#f472b6', icon: 'mic' },
-                    ].map(feat => {
-                      const val = moodData.averages[feat.key] || 0
-                      const pct = Math.round(val * 100)
-                      return (
-                        <div key={feat.key}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: '0.8rem' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Icon name={feat.icon} size={12} style={{ color: feat.color }} />
-                              {feat.label}
-                            </span>
-                            <span style={{ fontWeight: 700, color: feat.color }}>{pct}%</span>
-                          </div>
-                          <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                            <div style={{
-                              height: '100%', borderRadius: 3,
-                              width: `${pct}%`, background: feat.color,
-                              transition: 'width 0.5s ease',
-                            }} />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* BPM and distribution */}
-                  <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                    {moodData.averages.bpm > 0 && (
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-accent)' }}>{moodData.averages.bpm}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Avg BPM</div>
-                      </div>
-                    )}
-                    {moodData.distribution?.energy && (
-                      <div style={{ flex: 1, minWidth: 120 }}>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>Energy Distribution</div>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {[
-                            { label: 'Chill', value: moodData.distribution.energy.low, color: '#60a5fa' },
-                            { label: 'Medium', value: moodData.distribution.energy.medium, color: '#fbbf24' },
-                            { label: 'High', value: moodData.distribution.energy.high, color: '#f97316' },
-                          ].map(b => {
-                            const total = moodData.distribution.energy.low + moodData.distribution.energy.medium + moodData.distribution.energy.high
-                            const pct = total > 0 ? Math.round((b.value / total) * 100) : 0
-                            return (
-                              <div key={b.label} style={{ flex: 1, textAlign: 'center' }}>
-                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: b.color }}>{pct}%</div>
-                                <div style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>{b.label}</div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    {moodData.distribution?.mood && (
-                      <div style={{ flex: 1, minWidth: 120 }}>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>Mood Distribution</div>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {[
-                            { label: 'Melancholy', value: moodData.distribution.mood.sad, color: '#60a5fa' },
-                            { label: 'Neutral', value: moodData.distribution.mood.neutral, color: '#a78bfa' },
-                            { label: 'Happy', value: moodData.distribution.mood.happy, color: '#fbbf24' },
-                          ].map(b => {
-                            const total = moodData.distribution.mood.sad + moodData.distribution.mood.neutral + moodData.distribution.mood.happy
-                            const pct = total > 0 ? Math.round((b.value / total) * 100) : 0
-                            return (
-                              <div key={b.label} style={{ flex: 1, textAlign: 'center' }}>
-                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: b.color }}>{pct}%</div>
-                                <div style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)' }}>{b.label}</div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '0.75rem' }}>
-                    Based on {moodData.totalTracks} tracks with audio feature data
-                  </div>
-                </div>
-              </div>
-            </ScrollReveal>
-          )}
         </>
       )}
     </div>

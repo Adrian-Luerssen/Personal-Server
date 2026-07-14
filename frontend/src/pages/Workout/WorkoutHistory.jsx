@@ -17,6 +17,7 @@ import {
 import Icon from '../../components/icons/Icon'
 import ScrollReveal from '../../components/ScrollReveal'
 import PageHeader from '../../components/PageHeader'
+import InlineConfirmation from '../../components/record/InlineConfirmation'
 
 export default function WorkoutHistory() {
   const [sessions, setSessions] = useState([])
@@ -34,6 +35,7 @@ export default function WorkoutHistory() {
 
   const [selectedSession, setSelectedSession] = useState(null)
   const [showDetail, setShowDetail] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [exercises, setExercises] = useState([])
 
   const [dateFilter, setDateFilter] = useState('')
@@ -92,10 +94,9 @@ export default function WorkoutHistory() {
   }
 
   function openDetail(session) { setSelectedSession(session); setShowDetail(true) }
-  function closeDetail() { setShowDetail(false); setSelectedSession(null) }
+  function closeDetail() { setShowDetail(false); setSelectedSession(null); setConfirmingDelete(false) }
 
   async function deleteSession(sessionId) {
-    if (!window.confirm('Delete this workout session? All sets will be removed.')) return
     setError('')
     try { await api.delete(`/workout/sessions/${sessionId}`); setSessions(sessions.filter(s => s.id !== sessionId)); closeDetail(); loadSessions(1, true) }
     catch (e) { setError(e.message || 'Failed to delete session') }
@@ -111,7 +112,7 @@ export default function WorkoutHistory() {
 
   return (
     <>
-      <PageHeader icon="bar-chart-3" title="Workout History" accentColor="#4ade80" />
+      <PageHeader title="Workout History" />
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
@@ -121,11 +122,11 @@ export default function WorkoutHistory() {
             Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)
           ) : (
             <>
-              <StatCard icon="dumbbell" accentColor="#4ade80" label="Total Workouts" value={totalWorkouts} />
-              <StatCard icon="layers" accentColor="#4ade80" label="Total Sets" value={totalSets} />
-              <StatCard icon="repeat" accentColor="#4ade80" label="Total Reps" value={totalReps} />
-              <StatCard icon="weight" accentColor="#4ade80" label="Total Volume" value={`${totalVolume} kg`} />
-              <StatCard icon="timer" accentColor="#4ade80" label="Total Time" value={totalTimeSeconds > 0 ? `${Math.floor(totalTimeSeconds / 3600)}h ${Math.floor((totalTimeSeconds % 3600) / 60)}m` : '—'} />
+              <StatCard label="Total Workouts" value={totalWorkouts} />
+              <StatCard label="Total Sets" value={totalSets} />
+              <StatCard label="Total Reps" value={totalReps} />
+              <StatCard label="Total Volume" value={`${totalVolume} kg`} />
+              <StatCard label="Total Time" value={totalTimeSeconds > 0 ? `${Math.floor(totalTimeSeconds / 3600)}h ${Math.floor((totalTimeSeconds % 3600) / 60)}m` : '—'} />
             </>
           )}
         </div>
@@ -201,9 +202,9 @@ export default function WorkoutHistory() {
               </div>
             </div>
             <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-              <StatCard icon="layers" accentColor="#4ade80" label="Sets" value={(selectedSession.sets || []).length} />
-              <StatCard icon="list" accentColor="#4ade80" label="Exercises" value={new Set((selectedSession.sets || []).filter(s => s.exerciseId).map(s => s.exerciseId)).size} />
-              <StatCard icon="weight" accentColor="#4ade80" label="Volume" value={calculateVolume(selectedSession.sets || []) > 0 ? `${calculateVolume(selectedSession.sets || []).toFixed(0)} kg` : '—'} />
+              <StatCard label="Sets" value={(selectedSession.sets || []).length} />
+              <StatCard label="Exercises" value={new Set((selectedSession.sets || []).filter(s => s.exerciseId).map(s => s.exerciseId)).size} />
+              <StatCard label="Volume" value={calculateVolume(selectedSession.sets || []) > 0 ? `${calculateVolume(selectedSession.sets || []).toFixed(0)} kg` : '—'} />
             </div>
             {selectedSession.notes && (
               <div className="card" style={{ background: 'var(--color-accent-muted)', padding: '1rem' }}>
@@ -242,12 +243,19 @@ export default function WorkoutHistory() {
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '.75rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem' }}>
-              <button className="btn btn-danger" onClick={() => deleteSession(selectedSession.id)}>
-                <Icon name="trash-2" size={18} style={{ verticalAlign: 'middle', marginRight: 4 }} />Delete Workout
-              </button>
-              <button className="btn btn-ghost" onClick={closeDetail} style={{ marginLeft: 'auto' }}>Close</button>
-            </div>
+            {confirmingDelete ? (
+              <InlineConfirmation
+                message="Delete this workout and every set recorded in it?"
+                confirmLabel="Delete workout"
+                onCancel={() => setConfirmingDelete(false)}
+                onConfirm={() => deleteSession(selectedSession.id)}
+              />
+            ) : (
+              <div className="record-modal-actions">
+                <button className="btn danger" onClick={() => setConfirmingDelete(true)}><Icon name="trash-2" size={18} />Delete workout</button>
+                <button className="btn subtle" onClick={closeDetail}>Close</button>
+              </div>
+            )}
           </div>
         </Modal>
       )}

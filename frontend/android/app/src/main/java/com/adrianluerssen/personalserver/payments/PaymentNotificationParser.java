@@ -10,6 +10,8 @@ public final class PaymentNotificationParser {
     private static final Pattern SYMBOL_BEFORE = Pattern.compile("(?i)(\\u20ac|\\u00a3|\\$)\\s*([0-9]+(?:[.,][0-9]{2})?)");
     private static final Pattern SYMBOL_AFTER = Pattern.compile("(?i)([0-9]+(?:[.,][0-9]{2})?)\\s*(\\u20ac|eur|\\u00a3|gbp|\\$|usd)");
     private static final Pattern MERCHANT_AT = Pattern.compile("(?i)\\b(?:at|en|a)\\s+([^\\n.,]+)");
+    private static final Pattern BALANCE_BOILERPLATE = Pattern.compile("(?iu)\\s+[^\\p{L}\\p{N}]*\\b(?:you|your)\\s+(?:eur|usd|gbp)\\s+balance\\b.*$");
+    private static final Pattern GENERIC_TITLE = Pattern.compile("(?iu)^(?:card\\s+)?(?:payment|purchase|transaction|paid|pago|compra|tarjeta|revolut)$");
 
     private PaymentNotificationParser() {}
 
@@ -20,7 +22,7 @@ public final class PaymentNotificationParser {
         Amount amount = findAmount(combined);
         if (amount == null || amount.value <= 0) return null;
 
-        String merchant = findMerchant(combined);
+        String merchant = findMerchant(title, text);
         long amountMinor = Math.round(amount.value * 100d);
         String sourceKey = sourceNotificationKey == null ? "" : sourceNotificationKey.trim();
         String identity = sourceKey.length() > 0
@@ -40,7 +42,7 @@ public final class PaymentNotificationParser {
         suggestion.put("currency", amount.currency);
         suggestion.put("occurredAt", java.time.Instant.ofEpochMilli(occurredAt).toString());
         suggestion.put("confidence", combined.toLowerCase(Locale.ROOT).contains("payment") ? 0.85 : 0.7);
-        suggestion.put("parserVersion", "android-notification-v2");
+        suggestion.put("parserVersion", "android-notification-v3");
         suggestion.put("state", "pending");
         return suggestion;
     }
@@ -60,17 +62,25 @@ public final class PaymentNotificationParser {
         return null;
     }
 
-    private static String findMerchant(String text) {
-        Matcher matcher = MERCHANT_AT.matcher(text);
+    static String findMerchant(String title, String text) {
+        String combined = ((title == null ? "" : title) + " " + (text == null ? "" : text)).trim();
+        Matcher matcher = MERCHANT_AT.matcher(combined);
         if (matcher.find()) return cleanMerchant(matcher.group(1));
-        String cleaned = text.replaceAll("(?i)(payment|paid|purchase|spent|charged|transaction|pago|compra|tarjeta|card)", " ");
+
+        String titleCandidate = cleanMerchant(title);
+        if (!GENERIC_TITLE.matcher(titleCandidate).matches() && !titleCandidate.equals("Detected payment")) {
+            return titleCandidate;
+        }
+
+        String cleaned = combined.replaceAll("(?i)(payment|paid|purchase|spent|charged|transaction|pago|compra|tarjeta|card)", " ");
         cleaned = cleaned.replaceAll("(?i)(\\u20ac|eur|\\u00a3|gbp|\\$|usd)\\s*[0-9]+(?:[.,][0-9]{2})?", " ");
         cleaned = cleaned.replaceAll("(?i)[0-9]+(?:[.,][0-9]{2})?\\s*(\\u20ac|eur|\\u00a3|gbp|\\$|usd)", " ");
         return cleanMerchant(cleaned);
     }
 
     private static String cleanMerchant(String value) {
-        String cleaned = value == null ? "" : value.replaceAll("\\s+", " ").trim();
+        String cleaned = value == null ? "" : BALANCE_BOILERPLATE.matcher(value).replaceFirst("");
+        cleaned = cleaned.replaceAll("\\s+", " ").replaceAll("[^\\p{L}\\p{N}]+$", "").trim();
         if (cleaned.length() == 0) return "Detected payment";
         return cleaned.length() > 80 ? cleaned.substring(0, 80).trim() : cleaned;
     }

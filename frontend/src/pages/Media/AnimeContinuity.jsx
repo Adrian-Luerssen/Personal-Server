@@ -1,5 +1,6 @@
 import React from 'react'
-import { buildContinuity } from './seriesCatalogModel.mjs'
+import Icon from '../../components/icons/Icon'
+import { buildContinuity, getContinuityTarget } from './seriesCatalogModel.mjs'
 
 const POSITION_LABELS = {
   before: 'Before',
@@ -8,7 +9,7 @@ const POSITION_LABELS = {
   related: 'Related',
 }
 
-export default function AnimeContinuity({ item, relations = [] }) {
+export default function AnimeContinuity({ item, relations = [], onOpenRelated }) {
   const continuity = buildContinuity(item, relations)
   if (continuity.length <= 1) {
     return <p className="series-detail__empty">No prequel or sequel relationships were returned for this release.</p>
@@ -27,7 +28,16 @@ export default function AnimeContinuity({ item, relations = [] }) {
           <li key={`${entry.position}-${entry.id}`} className={entry.position === 'current' ? 'is-current' : ''}>
             <div className="anime-continuity__marker" aria-hidden="true" />
             <span className="anime-continuity__position">{POSITION_LABELS[entry.position]}</span>
-            <strong>{entry.title}</strong>
+            {entry.position === 'current' ? <strong>{entry.title}</strong> : (
+              <button
+                type="button"
+                className="anime-continuity__link"
+                disabled={!getContinuityTarget(entry)}
+                onClick={() => onOpenRelated?.(entry)}
+              >
+                <strong>{entry.title}</strong><Icon name="arrow-right" size={15} />
+              </button>
+            )}
             <span>{entry.year || (entry.mediaItemId ? 'In your library' : 'Not tracked')}</span>
           </li>
         ))}

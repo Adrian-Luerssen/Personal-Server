@@ -1,6 +1,6 @@
 import axios from "axios";
 import { MediaCatalogService } from "./media-catalog.service";
-import { MediaType } from "../entities/media-item.entity";
+import { MediaStatus, MediaType } from "../entities/media-item.entity";
 
 jest.mock("axios");
 
@@ -115,6 +115,7 @@ describe("MediaCatalogService", () => {
     mockedAxios.get.mockResolvedValueOnce({ data: { data: {
       mal_id: 100,
       title: "First Season",
+      aired: { from: "2024-04-05T00:00:00+00:00", to: "2024-06-21T00:00:00+00:00" },
       relations: [{ relation: "Sequel", entry: [{ mal_id: 200, type: "anime", name: "Second Season" }] }],
     } } } as any);
 
@@ -124,6 +125,10 @@ describe("MediaCatalogService", () => {
       expect.objectContaining({ relationType: "sequel", targetMalId: 200, targetMediaItemId: "anime-2" }),
     ]));
     expect(item.metadata).toMatchObject({ catalogSyncState: "ready" });
+    expect(item.metadata).toMatchObject({
+      releaseStartDate: "2024-04-05",
+      releaseEndDate: "2024-06-21",
+    });
   });
 
   it("preserves concrete watch state during an idempotent refresh", async () => {
@@ -160,6 +165,9 @@ describe("MediaCatalogService", () => {
       title: "Example Show",
       type: MediaType.TV,
       externalIds: { tmdbId: 42 },
+      status: MediaStatus.PLANNING,
+      startDate: null,
+      endDate: null,
       metadata: { episodesWatched: 0 },
     } as any;
     const season = { id: "season-1", accountId: account.id, mediaItemId: item.id, number: 1, name: "Season 1" };
@@ -176,11 +184,90 @@ describe("MediaCatalogService", () => {
     expect(episode).toMatchObject({ watched: true });
     expect(episode.watchedAt).toBeInstanceOf(Date);
     expect(item.metadata.episodesWatched).toBe(1);
+    expect(item.status).toBe(MediaStatus.COMPLETED);
+    expect(item.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(item.endDate).toBe(item.startDate);
+    expect(item.metadata).toMatchObject({
+      trackingStatusSource: "episode-progress",
+      startDateSource: "episode-progress",
+      endDateSource: "episode-progress",
+    });
     expect(watchedView.progress.watched).toBe(1);
 
     await service.setEpisodeWatched(account, item, episode.id, false);
     expect(episode).toMatchObject({ watched: false, watchedAt: null });
     expect(item.metadata.episodesWatched).toBe(0);
+    expect(item.status).toBe(MediaStatus.WATCHING);
+    expect(item.endDate).toBeNull();
+    expect(item.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("returns a navigable MAL preview for an untracked related release", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: { data: {
+      mal_id: 300,
+      title: "Third Season",
+      synopsis: "The story continues.",
+      images: { jpg: { large_image_url: "https://img.example/300.jpg" } },
+      aired: { from: "2026-01-09T00:00:00+00:00", to: null },
+      year: 2026,
+      type: "TV",
+      status: "Currently Airing",
+      score: 8.2,
+      episodes: 12,
+      studios: [{ name: "Bones" }],
+      genres: [{ name: "Action" }],
+      relations: [{ relation: "Prequel", entry: [{ mal_id: 200, type: "anime", name: "Second Season" }] }],
+    } } } as any);
+
+    const preview = await service.getAnimePreview(300);
+
+    expect(preview.item).toMatchObject({
+      title: "Third Season",
+      type: MediaType.ANIME,
+      coverUrl: "https://img.example/300.jpg",
+      externalIds: { malId: 300 },
+      metadata: expect.objectContaining({
+        synopsis: "The story continues.",
+        releaseStartDate: "2026-01-09",
+        releaseEndDate: null,
+        year: 2026,
+        mediaFormat: "TV",
+        airingStatus: "Currently Airing",
+        malScore: 8.2,
+        episodes: 12,
+        studios: ["Bones"],
+        genres: ["Action"],
+      }),
+    });
+    expect(preview.relations).toEqual([
+      expect.objectContaining({ relationType: "prequel", targetMalId: 200, targetTitle: "Second Season" }),
+    ]);
+  });
+
+  it("does not overwrite an explicit paused status or personal dates", async () => {
+    const item = {
+      id: "tv-manual",
+      accountId: account.id,
+      type: MediaType.TV,
+      status: MediaStatus.PAUSED,
+      startDate: "2025-01-10",
+      endDate: null,
+      metadata: { episodesWatched: 0 },
+    } as any;
+    const season = { id: "season-manual", accountId: account.id, mediaItemId: item.id, number: 1 };
+    const episode = {
+      id: "episode-manual", accountId: account.id, mediaItemId: item.id, seasonId: season.id,
+      seasonNumber: 1, number: 1, watched: false, watchedAt: null,
+    };
+    mediaRepo.rows.push(item);
+    seasonRepo.rows.push(season);
+    episodeRepo.rows.push(episode);
+
+    await service.setEpisodeWatched(account, item, episode.id, true);
+
+    expect(item.status).toBe(MediaStatus.PAUSED);
+    expect(item.startDate).toBe("2025-01-10");
+    expect(item.endDate).toBeNull();
   });
 
   it("rejects episode progress from another title or account", async () => {

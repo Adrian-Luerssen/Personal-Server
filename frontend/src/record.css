@@ -1441,6 +1441,9 @@ tbody tr:hover { background: var(--record-raised); }
 .auth-mode-switch { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 28px; padding: 3px; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); }
 .auth-mode-switch__item { display: grid; min-height: 36px; place-items: center; border-radius: 6px; color: var(--record-muted); font-size: 9px; }
 .auth-mode-switch__item.active { background: var(--record-accent-soft); color: var(--record-text); }
+.auth-screen--native .auth-form input.auth-input,
+.auth-screen--native .auth-form .btn { min-height: 56px; }
+.auth-screen--native .auth-mode-switch__item { min-height: 44px; }
 .auth-message { margin-top: 15px; padding: 10px 12px; border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); font-size: 9px; }
 .auth-message.alert-error { background: rgba(255,100,110,.06); border-color: rgba(255,100,110,.22); color: var(--record-danger); }
 .auth-message.alert-success, .auth-message.alert-info { background: rgba(124,92,255,.06); border-color: rgba(124,92,255,.22); color: var(--record-accent-hover); }

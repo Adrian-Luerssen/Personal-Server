@@ -26,6 +26,9 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
   private readonly spotifyApi: AxiosInstance = axios.create({
     baseURL: "https://api.spotify.com/v1",
   });
+  private readonly reccoBeatsApi: AxiosInstance = axios.create({
+    baseURL: "https://api.reccobeats.com",
+  });
   private readonly clientId: string =
     this.configService.get<string>("SPOTIFY_CLIENT_ID")!;
   private readonly clientSecret: string = this.configService.get<string>(
@@ -458,7 +461,12 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
     let track = await this.trackRepo.findOne({
       where: { spotifyId: spotifyTrackId },
     });
-    if (track) return track;
+    if (track) {
+      if (!track.audioFeatures && track.isrc) {
+        await this.enrichTrackAudioFeatures(track);
+      }
+      return track;
+    }
 
     const res = await this.spotifyApi.get(`/tracks/${spotifyTrackId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -506,7 +514,58 @@ export class SpotifyService extends TypeOrmCrudService<SpotifyCredentials> {
     }
 
     await this.trackRepo.save(track);
+    await this.enrichTrackAudioFeatures(track);
     return track;
+  }
+
+  private async enrichTrackAudioFeatures(
+    track: Track,
+    provider: Pick<AxiosInstance, "get"> = this.reccoBeatsApi,
+  ): Promise<boolean> {
+    if (track.audioFeatures || !track.isrc) return false;
+    try {
+      const matchesResponse = await provider.get("/v1/track", {
+        params: { ids: track.isrc },
+        timeout: 8000,
+      });
+      const matches = Array.isArray(matchesResponse.data?.content)
+        ? matchesResponse.data.content
+        : [];
+      const spotifyUrl = `https://open.spotify.com/track/${track.spotifyId}`;
+      const match = matches.find((candidate: any) => candidate?.href === spotifyUrl)
+        || matches[0];
+      if (!match?.id) return false;
+
+      const featuresResponse = await provider.get(
+        `/v1/track/${match.id}/audio-features`,
+        { timeout: 8000 },
+      );
+      const source = featuresResponse.data || {};
+      const unitValue = (value: unknown): number | undefined => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : undefined;
+      };
+      track.audioFeatures = {
+        danceability: unitValue(source.danceability),
+        energy: unitValue(source.energy),
+        loudness: Number.isFinite(Number(source.loudness)) ? Number(source.loudness) : undefined,
+        speechiness: unitValue(source.speechiness),
+        acousticness: unitValue(source.acousticness),
+        instrumentalness: unitValue(source.instrumentalness),
+        liveness: unitValue(source.liveness),
+        valence: unitValue(source.valence),
+      };
+      const tempo = Number(source.tempo);
+      if (Number.isFinite(tempo) && tempo > 0) track.bpm = Math.round(tempo);
+      await this.trackRepo.save(track);
+      return true;
+    } catch (error) {
+      Logger.debug(
+        `Audio feature enrichment unavailable for Spotify track ${track.spotifyId}`,
+        "SpotifyAudioFeatures",
+      );
+      return false;
+    }
   }
 
   private async fetchOrCreateAlbum(

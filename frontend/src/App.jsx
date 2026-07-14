@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import AuthGuard from './components/AuthGuard'
 import NativeUpdateGate from './components/NativeUpdateGate'
 import ProductAnalytics from './components/ProductAnalytics'
+import BookplateLoader from './components/product/BookplateLoader'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { isMobileBrowser, isNativeMobileApp } from './mobilePlatform'
 import { getTokens } from './auth'
@@ -141,7 +142,7 @@ export default function AppRouter() {
         <div className="app">
           <NativeNotificationPermissionBoot nativeApp={nativeApp} />
           <NativeUpdateGate nativeApp={nativeApp} />
-          <Suspense fallback={<div className="route-loading" role="status">Opening your records…</div>}>
+          <Suspense fallback={<BookplateLoader screen label="Opening your records" />}>
           {mobileBlocked ? (
             <Routes>
               <Route path="/" element={<Landing mobileGate />} />

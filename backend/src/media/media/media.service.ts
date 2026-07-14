@@ -134,6 +134,32 @@ export class MediaService {
       dto.externalIds = { ...item.externalIds, ...dto.externalIds };
     }
 
+    if (dto.metadata && Object.prototype.hasOwnProperty.call(dto.metadata, "episodesWatched") && dto.status === undefined) {
+      const watched = Math.max(0, Number(dto.metadata.episodesWatched) || 0);
+      const total = Math.max(0, Number(dto.metadata.episodes) || 0);
+      const statusCanFollowProgress =
+        item.status === MediaStatus.PLANNING ||
+        item.status === MediaStatus.WATCHING ||
+        dto.metadata.trackingStatusSource === "episode-progress";
+      if (statusCanFollowProgress) {
+        const today = new Date().toISOString().slice(0, 10);
+        if (watched > 0 && !item.startDate && dto.startDate === undefined) {
+          item.startDate = today;
+          dto.metadata.startDateSource = "episode-progress";
+        }
+        const completed = total > 0 && watched >= total;
+        item.status = completed ? MediaStatus.COMPLETED : MediaStatus.WATCHING;
+        dto.metadata.trackingStatusSource = "episode-progress";
+        if (completed && !item.endDate && dto.endDate === undefined) {
+          item.endDate = today;
+          dto.metadata.endDateSource = "episode-progress";
+        } else if (!completed && dto.metadata.endDateSource === "episode-progress" && dto.endDate === undefined) {
+          item.endDate = null;
+          delete dto.metadata.endDateSource;
+        }
+      }
+    }
+
     Object.assign(item, dto);
     const result = await this.mediaRepo.save(item);
     await this.cacheManager.reset();
@@ -218,6 +244,18 @@ export class MediaService {
       // Remove enrichment-derived fields while preserving source import facts.
       const newMeta = { ...item.metadata };
       delete newMeta.reclassified;
+
+      // A manual provider match is the user's canonical classification choice.
+      // Keep it intact even when the original import came from another source.
+      if (newMeta.manualMatch) {
+        if (item.type === MediaType.TV && item.externalIds?.malId) item.type = MediaType.ANIME;
+        newMeta.tags = this.tagsForSourceType(item.type);
+        item.metadata = newMeta;
+        await this.mediaRepo.save(item);
+        reset++;
+        continue;
+      }
+
       delete newMeta.synopsis;
       delete newMeta.malScore;
       delete newMeta.tmdbScore;

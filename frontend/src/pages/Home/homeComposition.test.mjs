@@ -21,3 +21,9 @@ test('Today actions remain direct and source-aware', () => {
   assert.match(source, /Last checked/)
   assert.match(source, /Ask from records/)
 })
+
+test('web Today reads the authoritative Spotify today total', () => {
+  assert.match(source, /\/streams\/stats\?timeframe=today/)
+  assert.match(source, /todayStreams:\s*data\.spotify\.totalStreams/)
+  assert.doesNotMatch(source, /\['spotify',[\s\S]*\/streams\/stats\?timeframe=all/)
+})

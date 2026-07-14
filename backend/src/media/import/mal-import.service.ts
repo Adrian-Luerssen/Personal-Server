@@ -11,6 +11,8 @@ export interface ImportPreviewItem {
   type: MediaType;
   status: MediaStatus;
   rating: number | null;
+  startDate?: string;
+  endDate?: string;
   coverUrl?: string | null;
   metadata: Record<string, any>;
   externalIds: Record<string, any>;
@@ -87,6 +89,14 @@ export class MalImportService {
       null;
     const score = parseInt(getText(entry.my_score)) || null;
     const rating = score && score > 0 ? score : null;
+    const personalDate = (field: any): string | undefined => {
+      const value = getText(field).trim();
+      return /^\d{4}-\d{2}-\d{2}$/.test(value) && value !== "0000-00-00"
+        ? value
+        : undefined;
+    };
+    const startDate = personalDate(entry.my_start_date);
+    const endDate = personalDate(entry.my_finish_date);
 
     const statusMap: Record<string, MediaStatus> = {
       "Watching": MediaStatus.WATCHING,
@@ -107,6 +117,8 @@ export class MalImportService {
         type: MediaType.ANIME,
         status,
         rating,
+        startDate,
+        endDate,
         externalIds: malId ? { malId } : {},
         metadata: {
           importSource: "mal",
@@ -123,6 +135,8 @@ export class MalImportService {
         type: MediaType.MANGA,
         status,
         rating,
+        startDate,
+        endDate,
         externalIds: malId ? { malId } : {},
         metadata: {
           importSource: "mal",

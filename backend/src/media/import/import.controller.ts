@@ -190,6 +190,8 @@ export class MediaImportController {
             type: dto.type,
             status: dto.status ?? MediaStatus.PLANNING,
             rating: dto.rating ?? undefined,
+            startDate: dto.startDate ?? undefined,
+            endDate: dto.endDate ?? undefined,
             coverUrl: dto.coverUrl ?? undefined,
             metadata: dto.metadata ?? {},
             externalIds: dto.externalIds ?? {},
@@ -213,6 +215,8 @@ export class MediaImportController {
           await this.mediaService.update(account, existingId, {
             status: incoming.status,
             rating: incoming.rating ?? undefined,
+            startDate: incoming.startDate ?? undefined,
+            endDate: incoming.endDate ?? undefined,
             coverUrl: incoming.coverUrl ?? undefined,
             metadata: incoming.metadata ?? {},
             externalIds: incoming.externalIds ?? {},

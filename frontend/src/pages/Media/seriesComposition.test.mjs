@@ -22,6 +22,10 @@ test('Series detail exposes TV seasons and anime continuity as different structu
   assert.match(detail, /item\.type === 'anime'/)
   assert.match(detail, /<AnimeContinuity/)
   assert.match(detail, /series-detail__progress/)
+  assert.match(detail, /aria-label="Your rating"/)
+  assert.match(detail, /Release dates/)
+  assert.match(detail, /onOpenRelated/)
+  assert.match(detail, /Add to library/)
 })
 
 test('Series creation and editing do not use blocking browser alerts or confirmations', () => {

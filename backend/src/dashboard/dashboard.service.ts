@@ -882,8 +882,12 @@ export class DashboardService {
   }
 
   private getMobileSpotifyStats(accountId: string, fromDate?: string, toDate?: string) {
-    const lowerBound = fromDate ? ' AND s."streamedAt" >= $2' : "";
-    const upperBound = toDate ? ' AND s."streamedAt" < $3' : "";
+    const lowerBound = fromDate
+      ? ` AND s."streamedAt" >= ($2::date AT TIME ZONE 'Europe/Madrid')`
+      : "";
+    const upperBound = toDate
+      ? ` AND s."streamedAt" < ($3::date AT TIME ZONE 'Europe/Madrid')`
+      : "";
     return this.dataSource.query(
       `SELECT
         COUNT(*) AS "totalStreams",

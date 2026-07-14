@@ -31,13 +31,13 @@ test('Record uses one brand accent and semantic state colors, not domain page th
   assert.doesNotMatch(mainSource, /styles\/domains/)
 })
 
-test('the customer identity is Record with the indexed-spine mark', () => {
-  assert.match(brandSource, /displayName:\s*['"]Record['"]/)
+test('the customer identity is Record with the Bookplate R mark', () => {
+  assert.match(brandSource, /displayName:\s*['"]Record['"]/) // customer-facing name
   assert.match(brandSource, /Keep the life you live useful\./)
-  assert.match(markSource, /brand-mark__spine/)
-  assert.match(markSource, /brand-mark__rail/)
-  assert.match(markSource, /brand-mark__tick/)
-  assert.doesNotMatch(markSource, /constellation|brand-mark__links|<circle/)
+  assert.match(markSource, /brand-mark__bookplate/)
+  assert.match(markSource, /brand-mark__plate/)
+  assert.match(markSource, /brand-mark__monogram/)
+  assert.doesNotMatch(markSource, /indexed-spine|brand-mark__rail|brand-mark__tick|<circle/)
 })
 
 test('the foundation keeps self-hosted type, visible focus, touch targets, and reduced motion', () => {

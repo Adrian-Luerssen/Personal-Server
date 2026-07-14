@@ -4,23 +4,29 @@ import PageHeading from '../../components/record/PageHeading'
 import SummaryStrip, { SummaryItem } from '../../components/record/SummaryStrip'
 import StatePanel from '../../components/record/StatePanel'
 import { Register, RegisterRow } from '../../components/record/Register'
+import { Icon } from '../../components/icons'
 import { formatDuration, formatNumberShort } from '../../components/shared'
+import { getListeningArtworkUrl } from '../../spotifyRanking.mjs'
 
 function itemIdentity(type, data, details) {
+  const artwork = getListeningArtworkUrl(details)
   if (type === 'tracks') return {
     id: data.trackId,
     title: details?.title || data.trackId || 'Unknown track',
     subtitle: details?.artists || 'Track',
+    artwork,
   }
   if (type === 'albums') return {
     id: data.albumId,
     title: details?.title || data.albumId || 'Unknown album',
     subtitle: details?.artistName || 'Album',
+    artwork,
   }
   return {
     id: data.artistId,
     title: details?.name || data.artistId || 'Unknown artist',
     subtitle: 'Artist',
+    artwork,
   }
 }
 
@@ -39,8 +45,17 @@ function RankingRegister({ details, items, loading, title, type }) {
             leading={String(index + 1).padStart(2, '0')}
             meta={`${formatNumberShort(Number(item.count) || 0)} plays`}
           >
-            <strong>{identity.title}</strong>
-            <small>{identity.subtitle}</small>
+            <span className={`record-music-global__artwork is-${type}`} aria-hidden="true">
+              {identity.artwork ? (
+                <img src={identity.artwork} alt="" loading="lazy" />
+              ) : (
+                <Icon name={type === 'artists' ? 'user' : type === 'albums' ? 'disc' : 'music'} size={18} />
+              )}
+            </span>
+            <span className="record-music-global__copy">
+              <strong>{identity.title}</strong>
+              <small>{identity.subtitle}</small>
+            </span>
           </RegisterRow>
         )
       })}

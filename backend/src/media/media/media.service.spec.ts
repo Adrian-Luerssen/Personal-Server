@@ -289,6 +289,61 @@ describe('MediaService', () => {
   });
 
   describe('resetClassification', () => {
+    it('keeps a deliberate MAL anime match canonical over the original import type', async () => {
+      const item = {
+        id: 'item-manual-match',
+        type: MediaType.TV,
+        coverUrl: 'https://cdn.myanimelist.net/images/anime/canonical.jpg',
+        externalIds: { tvdbId: 123, malId: 456 },
+        metadata: {
+          importSource: 'tvtime',
+          sourceType: 'tv',
+          reclassified: true,
+          manualMatch: true,
+          tags: ['anime'],
+          mediaFormat: 'TV',
+        },
+      };
+      mockQueryBuilder.getMany.mockResolvedValue([item]);
+
+      await service.resetClassification(mockAccount);
+
+      expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+        type: MediaType.ANIME,
+        externalIds: expect.objectContaining({ malId: 456 }),
+        metadata: expect.objectContaining({ manualMatch: true, tags: ['anime'] }),
+      }));
+    });
+
+    it('derives anime tracking status and personal dates from aggregate progress', async () => {
+      const existingItem = {
+        id: 'anime-progress',
+        accountId: 'acc-123',
+        type: MediaType.ANIME,
+        status: MediaStatus.PLANNING,
+        startDate: null,
+        endDate: null,
+        metadata: { episodesWatched: 0, episodes: 12 },
+        externalIds: { malId: 123 },
+      };
+      mockRepo.findOne.mockResolvedValue(existingItem);
+
+      await service.update(mockAccount, existingItem.id, {
+        metadata: { episodesWatched: 12 },
+      });
+
+      expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+        status: MediaStatus.COMPLETED,
+        startDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        endDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        metadata: expect.objectContaining({
+          trackingStatusSource: 'episode-progress',
+          startDateSource: 'episode-progress',
+          endDateSource: 'episode-progress',
+        }),
+      }));
+    });
+
     it('restores TVTime-sourced items to TV with their original import cover and removes guessed MAL ids', async () => {
       const item = {
         id: 'item-1',

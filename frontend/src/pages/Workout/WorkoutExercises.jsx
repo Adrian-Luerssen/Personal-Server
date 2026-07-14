@@ -4,6 +4,7 @@ import { Modal } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 import InlineConfirmation from '../../components/record/InlineConfirmation'
+import ColorField from '../../components/product/ColorField'
 
 export default function WorkoutExercises() {
   const [exercises, setExercises] = useState([])
@@ -289,10 +290,7 @@ export default function WorkoutExercises() {
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Name <span style={{ color: 'var(--color-error)' }}>*</span></label>
               <input type="text" className="input" aria-label="Workout category name" placeholder="e.g. Strength, Cardio..." value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} autoFocus />
             </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Color</label>
-              <input type="color" aria-label="Workout category color" value={categoryForm.color} onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })} style={{ width: 60, height: 44, padding: 0, border: 'none', background: 'transparent' }} title={categoryForm.color} />
-            </div>
+            <ColorField label="Colour" value={categoryForm.color} onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })} />
             <div>
               <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Description</label>
               <textarea className="input" rows={3} aria-label="Workout category description" placeholder="Optional description..." value={categoryForm.description} onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })} />

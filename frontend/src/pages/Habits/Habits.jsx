@@ -593,7 +593,7 @@ export default function Habits() {
           )}
         </div>
 
-        <div className="habits-panel">
+        <div className="habits-panel habits-panel--yearly">
           <div className="habits-panel__header">
             <div>
               <span className="habits-kicker">Overview</span>
@@ -887,10 +887,10 @@ function NativeHabitLogCard({ habit, saving, onToggle, onNumericSubmit }) {
 
 function HabitGroup({ title, habits, children }) {
   return (
-    <div className="habits-group">
-      <div className="habits-group__header">
+    <div className="habit-group">
+      <div className="habit-group__header">
         <h3>{title}</h3>
-        <span>{habits.length}</span>
+        <span aria-label={`${habits.length} habits`}>{habits.length}</span>
       </div>
       {habits.length === 0 ? (
         <div className="habits-group__empty">Clear</div>
@@ -932,44 +932,47 @@ function HabitLogRow({ habit, saving, onToggle, onNumericSubmit }) {
         </div>
       </div>
 
-      <ProgressRing value={habit.successRate || 0} size={34} color={color} />
-
-      <div className="habit-log-row__controls">
-        {isNumeric ? (
-          <NumericHabitControl
-            habit={habit}
-            saving={saving}
-            onSubmit={(value) => onNumericSubmit(habit, value)}
-          />
-        ) : (
-          <div className="habit-status-buttons" role="group" aria-label={`${habit.name} status`}>
-            {Object.entries(STATUS_META).map(([nextStatus, meta]) => (
-              <button
-                key={nextStatus}
-                type="button"
-                className={`habit-status-button ${status === nextStatus ? 'is-active' : ''}`}
-                style={{ '--status-color': meta.color }}
-                aria-pressed={status === nextStatus}
-                disabled={saving}
-                onClick={() => onToggle(habit, nextStatus)}
-              >
-                <Icon name={meta.icon} size={15} />
-                {meta.label}
-              </button>
-            ))}
+      <div className="habit-log-row__actions">
+        <div className="habit-log-row__progress">
+          <ProgressRing value={habit.successRate || 0} size={34} color={color} />
+          <div className="habit-log-row__status">
+            {statusMeta ? (
+              <span style={{ '--status-color': statusMeta.color }}>
+                <Icon name={statusMeta.icon} size={13} />
+                {statusMeta.shortLabel}
+              </span>
+            ) : (
+              <span className="habit-log-row__status-empty">Open</span>
+            )}
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="habit-log-row__status">
-        {statusMeta ? (
-          <span style={{ '--status-color': statusMeta.color }}>
-            <Icon name={statusMeta.icon} size={14} />
-            {statusMeta.shortLabel}
-          </span>
-        ) : (
-          <span className="habit-log-row__status-empty">Open</span>
-        )}
+        <div className="habit-log-row__controls">
+          {isNumeric ? (
+            <NumericHabitControl
+              habit={habit}
+              saving={saving}
+              onSubmit={(value) => onNumericSubmit(habit, value)}
+            />
+          ) : (
+            <div className="habit-status-buttons" role="group" aria-label={`${habit.name} status`}>
+              {Object.entries(STATUS_META).map(([nextStatus, meta]) => (
+                <button
+                  key={nextStatus}
+                  type="button"
+                  className={`habit-status-button ${status === nextStatus ? 'is-active' : ''}`}
+                  style={{ '--status-color': meta.color }}
+                  aria-pressed={status === nextStatus}
+                  disabled={saving}
+                  onClick={() => onToggle(habit, nextStatus)}
+                >
+                  <Icon name={meta.icon} size={15} />
+                  {meta.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

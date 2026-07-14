@@ -10,6 +10,7 @@ import { PageHeading, Register, RegisterDivider, RegisterRow, StatePanel, Summar
 import { formatDate } from '../../components/shared'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { syncNativePaymentSuggestions } from '../../nativePayments.mjs'
+import { cleanDetectedMerchantName } from '../../paymentCapture.mjs'
 import { groupTransactionsByDate } from './financeViewModel.mjs'
 
 const TYPE_META = Object.freeze({
@@ -350,7 +351,7 @@ function CashLedger({
       </SummaryStrip>
 
       {suggestions.length > 0 && (
-        <Register title="Payments to review" description="Detected locally and not yet added" className="record-cash__reviews" action={<button type="button" className="record-register__header-link" onClick={() => navigate('/settings?section=integrations')}>Capture settings</button>}>
+        <Register title="Payments to review" description="Detected locally and not yet added" className="record-cash__reviews" action={<button type="button" className="record-register-action" onClick={() => navigate('/settings?section=integrations')}>Capture settings</button>}>
           {suggestions.map((suggestion) => (
             <RegisterRow
               key={suggestion.id}
@@ -358,7 +359,7 @@ function CashLedger({
               meta={`-${formatCurrency(Math.abs(Number(suggestion.amount || 0)), suggestion.currency || 'EUR')}`}
               action={<div className="record-cash__review-actions"><button type="button" className="record-button record-button--compact" onClick={() => onReviewSuggestion(suggestion)}>Review</button><button type="button" className="record-button record-button--compact record-button--quiet" onClick={() => onRejectSuggestion(suggestion)}>Dismiss</button></div>}
             >
-              <strong>{suggestion.merchantRaw || 'Detected payment'}</strong>
+              <strong>{cleanDetectedMerchantName(suggestion.merchantRaw)}</strong>
               <span>{formatDate(suggestion.occurredAt)} · {suggestion.sourceAppLabel || suggestion.sourcePackage || 'Phone notification'}</span>
             </RegisterRow>
           ))}
@@ -394,7 +395,7 @@ function CashLedger({
         title="Transactions"
         description={`${transactions.length} visible in ${monthLabel}`}
         data-testid="cash-ledger"
-        action={<button type="button" className="record-register__header-link" aria-label="Add transaction" onClick={() => onAddTransaction('expense')}><Icon name="plus" size={14} />Add</button>}
+        action={<button type="button" className="record-register-action" aria-label="Add transaction" onClick={() => onAddTransaction('expense')}><Icon name="plus" size={14} />Add</button>}
       >
         {loadError ? (
           <StatePanel kind="error" title="Could not refresh the ledger" detail={loadError} action={<button type="button" className="record-button record-button--compact" onClick={onRetry}>Retry</button>} />

@@ -18,17 +18,37 @@ export default function SeriesDetail({
   onRefresh,
   onToggleEpisode,
   onEdit,
+  onUpdateRating,
+  onOpenRelated,
+  onAddPreview,
   busyEpisodeId,
 }) {
   const dialogRef = useRef(null)
   const firstRegularSeason = catalog?.seasons?.find((season) => season.number > 0)?.number
   const [selectedSeason, setSelectedSeason] = useState(firstRegularSeason ?? catalog?.seasons?.[0]?.number ?? 0)
+  const [rating, setRating] = useState(item?.rating ?? '')
+  const [ratingSaving, setRatingSaving] = useState(false)
   const metadata = useMemo(() => summarizeSeriesMetadata(item), [item])
   const nextAction = getNextEpisodeAction(catalog)
 
   useEffect(() => {
     setSelectedSeason(firstRegularSeason ?? catalog?.seasons?.[0]?.number ?? 0)
+    setRating(item?.rating ?? '')
   }, [item?.id, firstRegularSeason])
+
+  const saveRating = async () => {
+    if (item?.isCatalogPreview || ratingSaving) return
+    const parsed = rating === '' ? null : Number(rating)
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0 || parsed > 10)) {
+      setRating(item?.rating ?? '')
+      return
+    }
+    if (parsed === (item?.rating == null ? null : Number(item.rating))) return
+    setRatingSaving(true)
+    try { await onUpdateRating?.(parsed) }
+    catch { setRating(item?.rating ?? '') }
+    finally { setRatingSaving(false) }
+  }
 
   useEffect(() => {
     if (!item) return undefined
@@ -37,7 +57,7 @@ export default function SeriesDetail({
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') { event.preventDefault(); onClose(); return }
       if (event.key !== 'Tab' || !dialogRef.current) return
-      const focusable = [...dialogRef.current.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      const focusable = [...dialogRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
       if (!focusable.length) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
@@ -79,6 +99,25 @@ export default function SeriesDetail({
               {metadata.airingStatus && <span>{metadata.airingStatus}</span>}
             </div>
             <strong className="series-detail__progress">{getCatalogProgressLabel(catalog, item)}</strong>
+            {!item.isCatalogPreview && (
+              <label className="series-detail__rating">
+                <span>Your rating</span>
+                <input
+                  type="number"
+                  aria-label="Your rating"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  value={rating}
+                  disabled={ratingSaving}
+                  placeholder="—"
+                  onChange={(event) => setRating(event.target.value)}
+                  onBlur={saveRating}
+                  onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                />
+                <span>/ 10</span>
+              </label>
+            )}
           </div>
           <button type="button" className="series-detail__close" onClick={onClose} aria-label={`Close ${item.title}`}>
             <Icon name="x" size={20} />
@@ -104,12 +143,18 @@ export default function SeriesDetail({
               {nextAction.airDate && <span>{nextAction.airDate}</span>}
             </div>
           )}
-          <button type="button" onClick={onRefresh} disabled={loading}>
-            <Icon name="refresh-cw" size={16} /> {loading ? 'Syncing…' : 'Refresh catalog'}
-          </button>
-          <button type="button" onClick={() => onEdit(item)}>
-            <Icon name="pen" size={16} /> Edit record
-          </button>
+          {item.isCatalogPreview ? (
+            <button type="button" className="series-detail__primary" onClick={() => onAddPreview?.(item)} disabled={loading}>
+              <Icon name="plus" size={16} /> Add to library
+            </button>
+          ) : <>
+            <button type="button" onClick={onRefresh} disabled={loading}>
+              <Icon name="refresh-cw" size={16} /> {loading ? 'Syncing…' : 'Refresh catalog'}
+            </button>
+            <button type="button" onClick={() => onEdit(item)}>
+              <Icon name="pen" size={16} /> Edit record
+            </button>
+          </>}
         </div>
 
         {error && <div className="series-detail__error" role="alert">{error}</div>}
@@ -122,6 +167,15 @@ export default function SeriesDetail({
                 {!!metadata.genres.length && <div>{metadata.genres.map((genre) => <span key={genre}>{genre}</span>)}</div>}
               </section>
             )}
+            {(metadata.releaseStartDate || metadata.releaseEndDate) && (
+              <section className="series-detail__release-dates" aria-label="Release dates">
+                <span className="series-detail__kicker">Release dates</span>
+                <dl>
+                  <div><dt>First aired</dt><dd>{metadata.releaseStartDate || 'Unknown'}</dd></div>
+                  <div><dt>Final aired</dt><dd>{metadata.releaseEndDate || (metadata.airingStatus === 'Currently Airing' ? 'Still airing' : 'Unknown')}</dd></div>
+                </dl>
+              </section>
+            )}
             {item.type === 'tv' && (
               <SeriesSeasonList
                 seasons={catalog?.seasons || []}
@@ -132,7 +186,7 @@ export default function SeriesDetail({
                 nextEpisodeId={catalog?.nextEpisode?.id}
               />
             )}
-            {item.type === 'anime' && <AnimeContinuity item={item} relations={catalog?.relations || []} />}
+            {item.type === 'anime' && <AnimeContinuity item={item} relations={catalog?.relations || []} onOpenRelated={onOpenRelated} />}
           </div>
         )}
       </section>

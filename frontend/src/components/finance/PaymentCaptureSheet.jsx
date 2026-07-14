@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../icons/Icon'
+import { cleanDetectedMerchantName } from '../../paymentCapture.mjs'
 
 function toLocalDateTime(value) {
   const date = new Date(value || Date.now())
@@ -9,7 +10,7 @@ function toLocalDateTime(value) {
 }
 
 export default function PaymentCaptureSheet({ suggestion, wallets = [], categories = [], busy = false, error = '', onClose, onConfirm, onIgnore }) {
-  const [merchant, setMerchant] = useState(suggestion?.merchantRaw || 'Detected payment')
+  const [merchant, setMerchant] = useState(cleanDetectedMerchantName(suggestion?.merchantRaw))
   const [amount, setAmount] = useState(String(suggestion?.amount || ''))
   const [occurredAt, setOccurredAt] = useState(toLocalDateTime(suggestion?.occurredAt))
   const [walletId, setWalletId] = useState(suggestion?.walletId || '')

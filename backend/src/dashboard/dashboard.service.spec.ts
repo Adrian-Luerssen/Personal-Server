@@ -761,7 +761,9 @@ describe('DashboardService', () => {
       expect(financeTodayQuery[0]).toContain('"transactionDate" < $3');
       expect(financeTodayQuery[1]).toEqual([accountId, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
       const spotifyTodayQuery = mockDataSource.query.mock.calls[8];
-      expect(spotifyTodayQuery[0]).toContain('s."streamedAt" < $3');
+      expect(spotifyTodayQuery[0]).toContain('s."streamedAt" < ($3::date');
+      expect(spotifyTodayQuery[0]).toContain("$2::date AT TIME ZONE 'Europe/Madrid'");
+      expect(spotifyTodayQuery[0]).toContain("$3::date AT TIME ZONE 'Europe/Madrid'");
       expect(spotifyTodayQuery[1]).toEqual([accountId, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
       const activityQuery = mockDataSource.query.mock.calls[10][0];
       expect(activityQuery).toMatch(/FROM\s+app_activity_daily_metrics/);

@@ -72,6 +72,12 @@ export function buildContinuity(item, relations = []) {
   )
 }
 
+export function getContinuityTarget(entry) {
+  if (entry?.mediaItemId) return { kind: 'library', id: entry.mediaItemId }
+  const malId = Number(entry?.malId)
+  return Number.isInteger(malId) && malId > 0 ? { kind: 'provider', malId } : null
+}
+
 export function summarizeSeriesMetadata(item) {
   const metadata = item?.metadata || {}
   const providerScore = Number(metadata.malScore ?? metadata.tmdbScore)
@@ -83,5 +89,7 @@ export function summarizeSeriesMetadata(item) {
     genres: Array.isArray(metadata.genres) ? metadata.genres.slice(0, 4) : [],
     providerScore: Number.isFinite(providerScore) ? Math.round(providerScore * 10) / 10 : null,
     synopsis: typeof metadata.synopsis === 'string' ? metadata.synopsis : '',
+    releaseStartDate: metadata.releaseStartDate || null,
+    releaseEndDate: metadata.releaseEndDate || null,
   }
 }

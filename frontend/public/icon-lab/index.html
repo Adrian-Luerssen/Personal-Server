@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090e14" />
+    <title>Record — Icon laboratory</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-motion="full">
+    <header class="lab-header">
+      <a class="brand" href="/" aria-label="Back to Record">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span><strong>Record</strong><small>Motion mark laboratory</small></span>
+      </a>
+      <div class="lab-header__meta">
+        <span>50 studies</span><span>HTML / CSS</span><span>14 July 2026</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="lab-title">
+        <div>
+          <p class="eyebrow">Identity system / kinetic studies</p>
+          <h1 id="lab-title">A mark should explain why Record exists.</h1>
+        </div>
+        <p class="intro__copy">Fifty recognizable subjects built from the acts of keeping, capturing, continuing, and owning a personal history. Every study names its meaning and makes the loading motion perform that idea.</p>
+      </section>
+
+      <section class="toolbar" aria-label="Icon laboratory controls">
+        <div class="filter-group" role="group" aria-label="Filter icon families">
+          <button type="button" class="is-active" data-filter="all" aria-pressed="true">All 50</button>
+          <button type="button" data-filter="archive" aria-pressed="false" aria-label="Show Archive icons">Archive</button>
+          <button type="button" data-filter="continuity" aria-pressed="false" aria-label="Show Continuity icons">Continuity</button>
+          <button type="button" data-filter="capture" aria-pressed="false" aria-label="Show Capture icons">Capture</button>
+          <button type="button" data-filter="life" aria-pressed="false" aria-label="Show Life icons">Life</button>
+          <button type="button" data-filter="signature" aria-pressed="false" aria-label="Show Signature icons">Signature</button>
+        </div>
+        <div class="action-group">
+          <button type="button" data-pause>Pause animations</button>
+          <button type="button" data-replay>Replay animations</button>
+          <button type="button" data-density aria-pressed="false" aria-label="Use compact view">Compact view</button>
+        </div>
+      </section>
+
+      <div class="catalogue" data-catalogue aria-live="polite"></div>
+    </main>
+
+    <footer>
+      <span>Record / private record system</span>
+      <span>Static prototype — no production routes changed</span>
+    </footer>
+
+    <script src="./lab.js" defer></script>
+  </body>
+</html>

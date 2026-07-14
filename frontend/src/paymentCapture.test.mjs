@@ -3,9 +3,16 @@ import assert from 'node:assert/strict'
 
 import {
   classifyCaptureConfidence,
+  cleanDetectedMerchantName,
   normalizePaymentEvent,
   paymentFingerprint,
 } from './paymentCapture.mjs'
+
+test('removes Revolut balance boilerplate from detected merchant names', () => {
+  assert.equal(cleanDetectedMerchantName('Balboa 🍽 You EUR balance: 🍽 You EUR balance:'), 'Balboa')
+  assert.equal(cleanDetectedMerchantName('Incògnit Bar 🍽 You EUR balance: 🍽 You EUR balance:'), 'Incògnit Bar')
+  assert.equal(cleanDetectedMerchantName('Mercadona'), 'Mercadona')
+})
 
 test('normalized payment events exclude raw notification text', () => {
   const event = normalizePaymentEvent({

@@ -120,7 +120,7 @@ export default function Home() {
       ['workout', isFeatureSyncEnabled(prefs, 'training'), '/workout/sessions/active'],
       ['finance', isFeatureSyncEnabled(prefs, 'finance'), '/finance/transactions/summary'],
       ['payments', isFeatureSyncEnabled(prefs, 'finance'), '/finance/transaction-suggestions'],
-      ['spotify', isFeatureSyncEnabled(prefs, 'music'), '/streams/stats?timeframe=all'],
+      ['spotify', isFeatureSyncEnabled(prefs, 'music'), '/streams/stats?timeframe=today'],
       ['intelligence', isFeatureSyncEnabled(prefs, 'assistant'), '/dashboard/intelligence'],
     ]
 
@@ -132,7 +132,10 @@ export default function Home() {
         setActiveWorkout(data.workout || null)
         setFinanceSummary(data.finance || null)
         setPaymentSuggestions(Array.isArray(data.payments) ? data.payments : [])
-        setSpotifyStats(data.spotify || null)
+        setSpotifyStats(data.spotify ? {
+          ...data.spotify,
+          todayStreams: data.spotify.totalStreams ?? 0,
+        } : null)
         setIntelligence(data.intelligence || null)
         setLoaded(true)
         setSyncState('idle')

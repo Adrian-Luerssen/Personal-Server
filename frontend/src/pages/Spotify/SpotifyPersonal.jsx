@@ -457,7 +457,7 @@ export default function SpotifyPersonal() {
                 <div className="record-music-sound__lead">
                   <span>Sound profile</span>
                   <strong>{moodData?.averages?.bpm ? `${moodData.averages.bpm} BPM` : 'Not enough data'}</strong>
-                  <small>{moodData?.totalTracks ? `${moodData.totalTracks} analysed tracks` : 'Audio traits appear as your record grows.'}</small>
+                  <small>{moodData?.totalTracks ? `${moodData.totalTracks} analysed tracks · Audio traits supplied by ReccoBeats` : 'Sync plays to enrich your listening record with audio traits.'}</small>
                 </div>
                 {soundMeasures.map(([key, label]) => {
                   const value = Math.round((moodData?.averages?.[key] || 0) * 100)

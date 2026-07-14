@@ -11,10 +11,12 @@ import {
 } from './seriesViewModel.mjs'
 import {
   getCatalogProgressLabel,
+  getContinuityTarget,
   getNextEpisodeAction,
   summarizeSeriesMetadata,
 } from './seriesCatalogModel.mjs'
 import SeriesDetail from './SeriesDetail'
+import IconInput from '../../components/product/IconInput'
 
 const TYPE_META = {
   anime:  { icon: 'tv',           label: 'Anime' },
@@ -251,16 +253,7 @@ function AddModal({ open, onClose, onSave }) {
         {mode === 'search' ? (
           <>
             <div className="media-search-row">
-              <div className="media-search-input-wrap">
-                <Icon name="search" size={16} className="media-search-icon" />
-                <input
-                  type="text"
-                  aria-label="Search external media"
-                  placeholder="Search anime, movies, books..."
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                />
-              </div>
+              <IconInput aria-label="Search external media" placeholder="Search anime, movies, books..." value={query} onChange={e => setQuery(e.target.value)} />
               <select aria-label="Media search type" value={type} onChange={e => setType(e.target.value)}>
                 <option value="">All types</option>
                 {Object.entries(TYPE_META).map(([k, v]) => (
@@ -575,17 +568,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                 Search external databases and pick the correct match to override type, cover, and metadata.
               </p>
               <div className="media-search-row" style={{ padding: 0, border: 'none' }}>
-                <div className="media-search-input-wrap" style={{ flex: 1 }}>
-                  <Icon name="search" size={16} className="media-search-icon" />
-                  <input
-                    type="text"
-                    aria-label="Search media matches"
-                    placeholder="Search..."
-                    value={matchQuery}
-                    onChange={e => setMatchQuery(e.target.value)}
-                    autoFocus
-                  />
-                </div>
+                <IconInput aria-label="Search media matches" placeholder="Search..." value={matchQuery} onChange={e => setMatchQuery(e.target.value)} autoFocus />
                 <select aria-label="Media match type" value={matchType} onChange={e => setMatchType(e.target.value)} style={{ padding: '0.45rem 0.6rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--glass-border)', background: 'var(--color-bg, #0f0f14)', color: 'var(--color-text)', fontSize: '0.82rem' }}>
                   <option value="">All</option>
                   {Object.entries(TYPE_META).map(([k, v]) => (
@@ -662,7 +645,6 @@ export default function Media() {
   const [detailError, setDetailError] = useState('')
   const [busyEpisodeId, setBusyEpisodeId] = useState(null)
   const [busyItemId, setBusyItemId] = useState(null)
-  const [completionPrompt, setCompletionPrompt] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -732,6 +714,61 @@ export default function Media() {
     }
   }
 
+  const openRelated = async (entry) => {
+    const target = getContinuityTarget(entry)
+    if (!target) return
+    if (target.kind === 'library') {
+      const localItem = items.find(candidate => candidate.id === target.id)
+      if (localItem) await openDetail(localItem)
+      return
+    }
+    setDetailLoading(true)
+    setDetailError('')
+    try {
+      const preview = await apiFetch(`/media/catalog/anime/${target.malId}`)
+      const previewItem = { ...preview.item, id: `mal-${target.malId}`, isCatalogPreview: true }
+      setDetailItem(previewItem)
+      setDetailCatalog({ item: previewItem, seasons: [], relations: preview.relations || [], progress: { watched: 0, total: previewItem.metadata?.episodes || null } })
+    } catch (error) {
+      setDetailError(error.message || 'This related release could not be loaded.')
+    } finally { setDetailLoading(false) }
+  }
+
+  const updateDetailRating = async (rating) => {
+    if (!detailItem?.id || detailItem.isCatalogPreview) return
+    const updated = await apiFetch(`/media/${detailItem.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rating }),
+    })
+    setDetailItem(current => current?.id === updated.id ? { ...current, ...updated } : current)
+    setItems(current => current.map(entry => entry.id === updated.id ? { ...entry, ...updated } : entry))
+    return updated
+  }
+
+  const addPreviewToLibrary = async (previewItem) => {
+    setDetailLoading(true)
+    setDetailError('')
+    try {
+      const created = await apiFetch('/media', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: previewItem.title,
+          type: 'anime',
+          status: 'planning',
+          coverUrl: previewItem.coverUrl,
+          metadata: previewItem.metadata || {},
+          externalIds: previewItem.externalIds || {},
+        }),
+      })
+      const view = await apiFetch(`/media/${created.id}/catalog/sync`, { method: 'POST' })
+      await load()
+      setDetailItem(view.item)
+      setDetailCatalog(view)
+    } catch (error) {
+      setDetailError(error.message || 'This release could not be added to your library.')
+    } finally { setDetailLoading(false) }
+  }
+
   const toggleEpisode = async (item, episode, watched) => {
     if (!item || !episode?.id || busyEpisodeId) return
     const previous = catalogs[item.id]
@@ -758,32 +795,15 @@ export default function Media() {
     setBusyItemId(item.id)
     setItems(current => current.map(entry => entry.id === item.id ? { ...entry, metadata } : entry))
     try {
-      await apiFetch(`/media/${item.id}`, {
+      const updated = await apiFetch(`/media/${item.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ metadata }),
       })
-      if (update.completionSuggested) {
-        setCompletionPrompt({ id: item.id, title: item.title })
-      }
+      setItems(current => current.map(entry => entry.id === item.id ? { ...entry, ...updated } : entry))
     } catch {
       setItems(current => current.map(entry => entry.id === item.id ? item : entry))
     } finally {
       setBusyItemId(null)
-    }
-  }
-
-  const markCompleted = async () => {
-    const prompt = completionPrompt
-    if (!prompt) return
-    setCompletionPrompt(null)
-    setItems(current => current.map(item => item.id === prompt.id ? { ...item, status: 'completed' } : item))
-    try {
-      await apiFetch(`/media/${prompt.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'completed' }),
-      })
-    } catch {
-      await load()
     }
   }
 
@@ -806,30 +826,8 @@ export default function Media() {
 
       {loadError && <StatePanel kind="offline" title="Using the last series record" detail={loadError} action={<button className="record-button record-button--compact" onClick={load}>Retry</button>} />}
 
-      {completionPrompt && (
-        <section className="series-completion" role="status">
-          <div>
-            <strong>{completionPrompt.title} reached its known total.</strong>
-            <span>Mark it completed, or keep the current status if more is expected.</span>
-          </div>
-          <div>
-            <button type="button" onClick={markCompleted}>Mark completed</button>
-            <button type="button" onClick={() => setCompletionPrompt(null)}>Keep active</button>
-          </div>
-        </section>
-      )}
-
       <section className="record-series-filters" aria-label="Filter series library">
-        <div className="record-series-filters__search">
-          <Icon name="search" size={16} className="media-search-icon" />
-          <input
-            type="text"
-            aria-label="Search media library"
-            placeholder="Search library..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
+        <IconInput className="record-series-filters__search" aria-label="Search media library" placeholder="Search library..." value={search} onChange={e => setSearch(e.target.value)} />
         <div className="record-series-filters__row">
           <span>Status</span>
           <div className="record-segmented record-segmented--compact">
@@ -892,6 +890,9 @@ export default function Media() {
         onRefresh={refreshCatalog}
         onToggleEpisode={(episode, watched) => toggleEpisode(detailItem, episode, watched)}
         onEdit={(item) => { setDetailItem(null); setEditItem(item) }}
+        onUpdateRating={updateDetailRating}
+        onOpenRelated={openRelated}
+        onAddPreview={addPreviewToLibrary}
         busyEpisodeId={busyEpisodeId}
       />
       <EditModal key={editItem?.id || 'none'} item={editItem} open={!!editItem} onClose={() => setEditItem(null)} onSave={load} onDelete={load} />

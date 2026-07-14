@@ -1,8 +1,16 @@
 const DEFAULT_PARSER_VERSION = 'payment-capture-v2'
+const BALANCE_BOILERPLATE = /\s+[^\p{L}\p{N}]*\b(?:you|your)\s+(?:eur|usd|gbp)\s+balance\b.*$/iu
+
+export function cleanDetectedMerchantName(value) {
+  const raw = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!raw) return 'Detected payment'
+  const cleaned = raw.replace(BALANCE_BOILERPLATE, '').replace(/[^\p{L}\p{N}]+$/gu, '').trim()
+  return cleaned || 'Detected payment'
+}
 
 export function normalizePaymentEvent(input = {}) {
   const amountMinor = normalizeAmountMinor(input)
-  const merchant = String(input.merchant || input.merchantRaw || 'Detected payment').trim()
+  const merchant = cleanDetectedMerchantName(input.merchant || input.merchantRaw)
   const occurredAt = normalizeDate(input.occurredAt)
   const sourcePackage = nullableText(input.sourcePackage || input.packageName)
   const sourceNotificationKey = nullableText(input.sourceNotificationKey || input.notificationId)

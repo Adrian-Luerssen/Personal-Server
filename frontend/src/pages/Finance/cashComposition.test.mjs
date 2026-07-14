@@ -26,3 +26,9 @@ test('contactless capture explains source, confidence, duplicates, and commit bo
   assert.match(capture, /Confirm payment/)
   assert.match(capture, /Ignore/)
 })
+
+test('register header actions use the deliberate transparent action treatment', () => {
+  assert.match(ledger, /Capture settings<\/button>/)
+  assert.equal((ledger.match(/className="record-register-action"/g) || []).length, 2)
+  assert.match(ledger, /className="record-register-action" aria-label="Add transaction"/)
+})

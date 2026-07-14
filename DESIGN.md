@@ -1,100 +1,61 @@
-# Personal Record Design System
+# Record design system
 
-Personal Record is a private operating system for everyday life. It connects money, routines, training, listening, series, and assistant context without flattening them into a generic dashboard.
+Customer name: **Record**
+Repository name: **Personal Server**
+Promise: **Keep the life you live useful.**
 
-The product line is exact and permanent:
-
-> Everything you are, in context.
+Record is a private system for the records that make up daily life. It connects Cash, Gym, Habits, Music, Series, and Assistant without turning them into unrelated mini brands or a generic card dashboard.
 
 ## Identity
 
-The constellation mark connects seven domain nodes around one personal center. It represents separate records becoming useful context. It replaces the former ruled-ledger glyph everywhere customers see the product.
+The mark is an indexed spine: offset rails, record ticks, and one active position. Use it in one color in navigation and at app-icon scale.
 
-Personal Record should feel like a premium instrument: calm graphite hardware, sharp information hierarchy, deliberate signal colors, restrained motion, and enough density to answer a real question at a glance. It must not look like a warm paper journal, a glassmorphism template, a stack of identical cards, or a neon sci-fi prop.
+The interface feels like a precise, calm instrument. The reference boards set the finish bar: confident dark composition, compact navigation, crisp data typography, selective color, and high information density. Record deliberately avoids their synthetic life scores, rainbow domain skins, equal-weight bento walls, and decorative sci-fi effects.
 
-## Type
+## Type and color
 
-- Interface, headings, and body: `Sora Variable`, self-hosted through Fontsource.
-- Data, times, measurements, amounts, and technical metadata: `JetBrains Mono Variable`, self-hosted through Fontsource.
-- Headings use weight and scale for hierarchy. Uppercase is reserved for very short instrument labels.
-- Numeric comparisons always use tabular figures.
+- Sora Variable for interface, headings, and body.
+- JetBrains Mono Variable for money, times, measurements, episode and set numbers, ranks, dates, and source state.
+- Canvas `#090e14`, surface `#0e151e`, raised `#131c27`, line `#233041`, text `#f2f5f8`.
+- One Record accent: violet `#7c5cff`.
+- Cyan is a comparison color. Green, amber, and red are semantic success, review, and danger colors.
+- Domains are distinguished by their information, imagery, icon, units, and workflow—not page themes.
 
-## Color
+## Register grammar
 
-Core surfaces:
+The main product primitive is a register: a titled and divided group of inspectable rows. Transactions, open items, habits, workout sets, episodes, rankings, connections, and settings all use the same reliable row anatomy while keeping purpose-built controls.
 
-- Canvas `#080f18`
-- Panel `#111a27`
-- Raised panel `#172234`
-- Primary text `#eef3f8`
-- Secondary text `#9aa8ba`
+Prefer registers, tables, timelines, and focused workbenches to card walls. Cards are reserved for one self-contained answer, artwork, or an active task that deserves elevation.
 
-Domain signals:
+## Shell
 
-- Today `#3b82f6`
-- Cash `#22c55e`
-- Habits `#14b8a6`
-- Gym `#f97316`
-- Music `#ec4899`
-- Series `#f59e0b`
-- Assistant `#8b5cf6`
-- Danger `#ef5b5b`
+Desktop uses a 224px Record rail, a 56px route bar, and a maximum 1480px content frame. The rail has explicit Today, Records, Workspace, and System groups. It has no accordions.
 
-Signal colors identify ownership, selection, chart series, and state. They do not become full-page washes or arbitrary gradients. Never rely on color alone; pair it with labels, icons, position, or copy.
-
-## Composition
-
-Desktop uses a fixed 240px sidebar and a maximum 1500px, 12-column content frame. The layout is intentionally asymmetric: one dominant answer, a few supporting instruments, and dense record rows. Avoid equal-weight bento grids.
-
-Native mobile uses a compact top bar and five stable bottom destinations: Today, Apps, Capture, Assistant, and You. Domain tabs sit inside the domain. Content respects safe areas, remains usable at 320px, and never creates horizontal page scroll.
-
-Cards are bounded instruments, not default containers. A row, divider, shared panel, or whitespace is preferable when it expresses the relationship more clearly. Default panel radii are 8px to 12px; pills are only for compact states and segmented controls.
+Native uses a compact contextual top bar and five stable bottom destinations: Today, Records, Capture, Assistant, and You. Records opens the full app index. Local navigation remains inside each page.
 
 ## Interaction
 
-- Minimum touch target: 44px.
-- Every action has default, focus-visible, active, disabled, loading, success, and error treatment where applicable.
-- Focus remains visible on graphite surfaces.
-- Product transitions last 140ms to 220ms and explain state or location.
-- `prefers-reduced-motion` removes transforms, choreography, shimmer, and decorative loops.
-- Loading keeps the final geometry stable; empty states explain the missing record and provide the next useful action.
-- Errors name the failed action and the recovery path.
+- 44px minimum touch targets.
+- Visible focus on every interactive element.
+- Default, hover, pressed, disabled, busy, success, and error behavior.
+- Stable loading geometry; factual empty states; actionable errors; explicit cached/offline state.
+- Inline undo for reversible quick writes.
+- Escape closes the topmost layer and returns focus. Native back closes sheets before navigating.
+- Motion lasts 120–220ms and explains state; `prefers-reduced-motion` removes transforms and animated charts.
 
-## Data instruments
+## Domain direction
 
-Reusable product primitives live under `frontend/src/components/product/`:
-
-- `InstrumentPanel` for a bounded question and its answer.
-- `MetricValue` for one labeled measurement with context.
-- `SignalRing` for bounded progress with a textual equivalent.
-- `MiniChart` for a small trend with a nearby summary.
-- `RecordRow` for inspectable source records and actions.
-- `EmptyInstrument` and `LoadingInstrument` for stable non-happy states.
-
-Charts use graphite grid lines, one dominant signal, and a text takeaway. Money uses green for income, red for expense, and neutral blue for balance or transfer. Privacy-sensitive widgets prefer ratios and status over personal titles or transaction details.
-
-## Product domains
-
-Today is the command center. It prioritizes unresolved capture, the daily signal, and the next action in each enabled domain.
-
-Cash follows Cashew’s comfort: compact ledger, obvious period and currency, one-tap edit paths, visible wallet/category review, and contactless capture as a first-class flow.
-
-Habits preserves direct daily interaction, neutral unselected controls, cadence-aware streaks, and numeric steppers.
-
-Gym puts the active workout first, with fast set editing, previous-set context, undo, and a legible rest timer.
-
-Music borrows the useful density of stats.fm: ranked identity, artwork, timeframe comparison, movement, and listening patterns.
-
-Series shows TV seasons and episodes explicitly. Anime releases stay separate catalog entries connected by continuity relationships and next-release actions.
-
-Assistant keeps contributing records, dates, freshness, and provenance visible beside generated conclusions.
-
-## Public landing
-
-The landing page is built after the authenticated product. Its first viewport shows a faithful live-code composition of Today, not a fake screenshot. It explains the managed service and self-hosting option honestly, uses the exact product identity, and converts with one primary action.
+- Today: an open-record queue and factual recent activity; no life score.
+- Cash: a Cashew-comfortable ledger with explicit filters, editing, and contactless review.
+- Gym: a FitNotes-fast active workout and set logger.
+- Habits: a direct selected-day register with neutral unlogged state and undo.
+- Music: stats.fm-style artwork, timeframe, ranks, movement, and listening patterns.
+- Series: MyAnimeList-style dense library information, explicit TV seasons, and separate anime entries connected by continuity.
+- Assistant: a full workspace with contributing records, dates, and freshness.
+- Settings: stable list/detail navigation with current values and consequences.
 
 ## Release gate
 
-A visual change is not ready until it has been inspected on desktop, narrow desktop, tablet, 390px mobile, and 320px mobile. Verify keyboard navigation, contrast, visible focus, touch targets, reduced motion, safe-area spacing, scrolling, loading, empty, error, and offline/cache states. Native changes also require Capacitor sync and an Android debug build.
+Inspect every major route at 320, 390, 768, 1024, and 1440px. Verify keyboard order, visible focus, contrast, safe areas, touch targets, scrolling, loading, empty, partial, error, offline, success, undo, and destructive states. Native work also requires Capacitor sync and an Android debug build.
 
-Reject any change that introduces generic feature-card grids, gradient text, decorative blobs, permanent glow, oversized type that hides useful information, emoji controls, placeholder marketing copy, or a visual-only interaction with no accessible equivalent.
+Reject clipped compositions, horizontal page scroll, duplicated global navigation, floating Assistant UI, domain color washes, wildcard legacy CSS, generic stat-card requirements, invented metrics, and interactions without accessible equivalents.

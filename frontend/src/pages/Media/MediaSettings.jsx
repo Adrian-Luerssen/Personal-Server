@@ -3,8 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../api'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
+import InlineConfirmation from '../../components/record/InlineConfirmation'
 
-const MEDIA_COLOR = '#f472b6'
+const MEDIA_COLOR = '#7c5cff'
 
 export default function MediaSettings() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -12,9 +13,9 @@ export default function MediaSettings() {
 
   const [reclassifying, setReclassifying] = useState(false)
   const [reclassifyResult, setReclassifyResult] = useState(null)
+  const [confirmingReclassify, setConfirmingReclassify] = useState(false)
 
   const handleReclassify = async () => {
-    if (!confirm('This will reset classification on all enriched items and re-process them. Covers and metadata will be refetched. Continue?')) return
     setReclassifying(true)
     setReclassifyResult(null)
     try {
@@ -24,12 +25,13 @@ export default function MediaSettings() {
       setReclassifyResult({ success: false, error: e.message })
     } finally {
       setReclassifying(false)
+      setConfirmingReclassify(false)
     }
   }
 
   return (
     <>
-      <PageHeader icon="settings" title="Media Settings" accentColor={MEDIA_COLOR} />
+      <PageHeader title="Media Settings" />
 
       <div className="card">
         <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -41,9 +43,9 @@ export default function MediaSettings() {
           If items are misclassified, you can reset and re-run the classification process.
         </p>
 
-        <button
+        {!confirmingReclassify && <button
           className="btn"
-          onClick={handleReclassify}
+          onClick={() => setConfirmingReclassify(true)}
           disabled={reclassifying}
           style={{
             background: 'transparent',
@@ -53,7 +55,17 @@ export default function MediaSettings() {
         >
           <Icon name={reclassifying ? 'loader' : 'refresh-cw'} size={18} style={reclassifying ? { animation: 'spin 1s linear infinite' } : {}} />
           {reclassifying ? 'Reclassifying...' : 'Reset & Reclassify All'}
-        </button>
+        </button>}
+
+        {confirmingReclassify && (
+          <InlineConfirmation
+            busy={reclassifying}
+            message="Reset classification for every enriched item and fetch its metadata again?"
+            confirmLabel="Reset and reclassify"
+            onCancel={() => setConfirmingReclassify(false)}
+            onConfirm={handleReclassify}
+          />
+        )}
 
         {reclassifyResult && (
           <div

@@ -4,7 +4,7 @@ import Icon from '../../components/icons/Icon'
 import CategoryIcon from '../../components/finance/CategoryIcon'
 import { normalizeFinanceColor, transparentFinanceColor } from '../../components/finance/financeVisuals.mjs'
 
-export const FINANCE_COLOR = '#d8aa35'
+export const FINANCE_COLOR = '#7c5cff'
 
 export const TYPE_COLORS = {
   income: '#5fcf88',
@@ -206,12 +206,12 @@ export function NativeCashflowChart({ transactions, title = 'Cashflow', subtitle
             <svg viewBox="0 0 260 100" preserveAspectRatio="none" aria-hidden="true">
               <defs>
                 <linearGradient id="native-cashflow-fill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(216, 170, 53, 0.38)" />
-                  <stop offset="100%" stopColor="rgba(216, 170, 53, 0)" />
+                  <stop offset="0%" stopColor="rgba(124, 92, 255, 0.34)" />
+                  <stop offset="100%" stopColor="rgba(124, 92, 255, 0)" />
                 </linearGradient>
               </defs>
               <path d={`${path} L 260 100 L 0 100 Z`} fill="url(#native-cashflow-fill)" />
-              <path d={path} fill="none" stroke="#d8aa35" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={path} fill="none" stroke="#7c5cff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <div className="native-cashflow-chart__axis">
               <span>{formatDate(days[0].date)}</span>

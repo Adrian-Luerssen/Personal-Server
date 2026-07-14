@@ -3,21 +3,22 @@ import { test, expect } from '../fixtures/auth'
 test.describe('Finance Wallets', () => {
   test('should display wallets page with heading', async ({ authenticatedPage: page }) => {
     await page.goto('/finance/wallets')
-    await expect(page).toHaveURL(/\/finance\/wallets/)
-    await expect(page.locator('h2').first()).toBeVisible({ timeout: 10000 })
+    await expect(page).toHaveURL(/\/finance\/settings\?tab=wallets/)
+    await expect(page.getByRole('heading', { name: /finance settings/i })).toBeVisible({ timeout: 10000 })
   })
 
-  test('should show total balance card', async ({ authenticatedPage: page }) => {
+  test('should preserve wallets as an explicit cash setup section', async ({ authenticatedPage: page }) => {
     await page.goto('/finance/wallets')
-    // Total balance card has gradient background and large balance text
-    await expect(page.locator('.card').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('button', { name: /wallets/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /categories/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /subscriptions/i })).toBeVisible()
   })
 
-  test('should show wallet cards grid or empty state', async ({ authenticatedPage: page }) => {
+  test('should show wallet records or an actionable empty state', async ({ authenticatedPage: page }) => {
     await page.goto('/finance/wallets')
-    await page.waitForTimeout(2000)
-    const hasWallets = await page.locator('.card').nth(1).isVisible().catch(() => false)
-    const hasEmpty = await page.locator('.card').filter({ hasText: /no wallets/i }).isVisible().catch(() => false)
-    expect(hasWallets || hasEmpty).toBeTruthy()
+    await expect(page.getByRole('button', { name: /add wallet/i })).toBeVisible({ timeout: 10000 })
+    const walletRecords = page.locator('.finance-wallet-card')
+    const emptyState = page.getByText(/no wallets found/i)
+    await expect.poll(async () => await walletRecords.count() > 0 || await emptyState.isVisible()).toBeTruthy()
   })
 })

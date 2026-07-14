@@ -209,20 +209,14 @@ export default function SpotifyRanking() {
       <div className="section">
         <div className="stat-grid">
           <StatCard
-            icon="users"
-            accentColor="var(--color-accent)"
             label="Ranked Users"
             value={loading ? <LoadingLine width={70} /> : <AnimatedNumber value={rows.length} formatter={formatNumberShort} />}
           />
           <StatCard
-            icon="play-circle"
-            accentColor="var(--color-accent)"
             label="Streams"
             value={loading ? <LoadingLine width={80} /> : <AnimatedNumber value={totals.streams} formatter={formatNumberShort} />}
           />
           <StatCard
-            icon="timer"
-            accentColor="var(--color-accent)"
             label="Listening Time"
             value={loading ? <LoadingLine width={100} /> : formatDuration(totals.ms)}
           />

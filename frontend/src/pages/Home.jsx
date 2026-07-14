@@ -1,16 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { api, subscribeToApiPath } from '../api'
 import { saveAndroidWidgetSnapshot } from '../androidWidgets.mjs'
+import Icon from '../components/icons/Icon'
+import { PageHeading, Register, RegisterRow, StatePanel, SummaryItem, SummaryStrip } from '../components/record'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { isNativeMobileApp } from '../mobilePlatform'
 import { normalizeCurrency } from '../moneyFormat.mjs'
 import { isFeatureSyncEnabled } from '../modulePreferences.mjs'
 import { mergeLiveStepIntoActivitySummary, subscribeToLiveStepUpdates } from '../nativeHealth.mjs'
-import ActionTimeline from './Home/components/ActionTimeline'
-import DailyBrief from './Home/components/DailyBrief'
 import { buildTodayBrief, buildTodayItems } from './Home/todayModel.mjs'
+
+const ITEM_META = Object.freeze({
+  'payment-review': { icon: 'receipt', label: 'Review detected payment' },
+  'active-workout': { icon: 'dumbbell', label: 'Continue active workout' },
+  'habit-due': { icon: 'circle', label: 'Habit waiting' },
+  'recent-stream': { icon: 'music', label: 'Recent listening' },
+})
+
+function formatToday(date = new Date()) {
+  return new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(date)
+}
 
 function mapHabitSummary(items) {
   return (Array.isArray(items) ? items : []).map((habit) => ({
@@ -29,24 +40,18 @@ function localDateKey(date = new Date()) {
   return `${year}-${month}-${day}`
 }
 
-function syncStateFor(state) {
-  if (state === 'offline') return 'queued'
-  if (state === 'syncing') return 'syncing'
-  return 'fresh'
-}
-
 function formatSyncDetail(value, state) {
-  if (state === 'offline') return 'Using local record'
-  if (state === 'syncing') return 'Refreshing record'
-  if (!value) return 'Saved'
+  if (state === 'offline') return 'Offline · using local record'
+  if (state === 'syncing') return 'Checking for changes…'
+  if (!value) return 'Last checked just now'
   const time = new Date(value).getTime()
-  if (!Number.isFinite(time)) return 'Saved'
+  if (!Number.isFinite(time)) return 'Last checked just now'
   const minutes = Math.max(0, Math.round((Date.now() - time) / 60_000))
-  if (minutes < 1) return 'Saved just now'
-  if (minutes < 60) return `Saved ${minutes}m ago`
+  if (minutes < 1) return 'Last checked just now'
+  if (minutes < 60) return `Last checked ${minutes}m ago`
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `Saved ${hours}h ago`
-  return `Saved ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(time))}`
+  if (hours < 24) return `Last checked ${hours}h ago`
+  return `Last checked ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(time))}`
 }
 
 export default function Home() {
@@ -207,20 +212,70 @@ export default function Home() {
       },
     }
     sessionStorage.setItem('personal-server:pending-chat-prompt', JSON.stringify(detail))
-    if (nativeApp) navigate('/chat')
-    else window.dispatchEvent(new CustomEvent('personal-server:chat-prompt', { detail }))
+    navigate('/chat')
   }
 
+  const syncDetail = formatSyncDetail(snapshot?.generatedAt || snapshot?.sync?.checkedAt, syncState)
+  const money = new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(todayBrief.facts.cash.spentToday)
+
   return (
-    <div className="today-page" data-testid={nativeApp ? 'native-dashboard' : 'today-dashboard'}>
-      <DailyBrief
-        brief={todayBrief}
-        currency={currency}
-        onAsk={askAboutToday}
-        syncDetail={formatSyncDetail(snapshot?.generatedAt || snapshot?.sync?.checkedAt, syncState)}
-        syncState={syncStateFor(syncState)}
-      />
-      <ActionTimeline items={todayItems} loaded={loaded} onHabitDone={handleHabitDone} />
+    <div className="record-today" data-testid={nativeApp ? 'native-dashboard' : 'today-dashboard'}>
+      <PageHeading
+        eyebrow={formatToday()}
+        title={todayBrief.openCount ? `${todayBrief.openCount} ${todayBrief.openCount === 1 ? 'record needs' : 'records need'} you` : 'Today is clear'}
+        actions={<button type="button" className="record-button" onClick={askAboutToday}><Icon name="sparkles" size={16} />Ask from records</button>}
+      >
+        <p>{todayBrief.openCount
+          ? 'Review the queue in order. Each item opens at the point where you can finish it.'
+          : 'Nothing needs review. Your latest factual totals remain below.'}</p>
+        <span className={`record-today__freshness${syncState === 'offline' ? ' is-offline' : ''}`}><i aria-hidden="true" />{syncDetail}</span>
+      </PageHeading>
+
+      <SummaryStrip>
+        <SummaryItem label="Habits logged" value={`${todayBrief.facts.habits.completed}/${todayBrief.facts.habits.total}`} detail="Today" />
+        <SummaryItem label="Cash out" value={money} detail="Today" tone="negative" />
+        <SummaryItem label="Movement" value={todayBrief.facts.movement.steps.toLocaleString()} detail="Steps today" />
+        <SummaryItem label="Listening" value={todayBrief.facts.music.streamsToday.toLocaleString()} detail="Streams today" />
+      </SummaryStrip>
+
+      <div className="record-today__grid">
+        <Register
+          title="Open records"
+          description="Decide, continue, or confirm"
+          data-testid="today-open-register"
+          action={todayBrief.primary && <Link className="record-register__header-link" to={todayBrief.primary.to}>Open next <Icon name="arrow-right" size={14} /></Link>}
+        >
+          {!loaded ? (
+            <StatePanel kind="loading" title="Opening today’s records" detail="Cached records appear first while changes are checked." />
+          ) : todayItems.length === 0 ? (
+            <StatePanel kind="empty" title="Nothing needs review" detail="New records will appear here when they need a decision or continuation." />
+          ) : todayItems.map((item) => {
+            const meta = ITEM_META[item.kind] || { icon: 'circle', label: 'Record' }
+            return (
+              <RegisterRow
+                key={item.id}
+                leading={<span className="record-today__row-icon"><Icon name={meta.icon} size={17} /></span>}
+                meta={item.detail || meta.label}
+                action={item.kind === 'habit-due' ? (
+                  <button type="button" className="record-button record-button--compact" onClick={() => handleHabitDone(item)} aria-label={`Mark ${item.label} done`}>Done</button>
+                ) : (
+                  <Link className="record-button record-button--compact" to={item.to}>Open <Icon name="arrow-up-right" size={14} /></Link>
+                )}
+              >
+                <strong>{item.label}</strong>
+                <span>{meta.label}</span>
+              </RegisterRow>
+            )
+          })}
+        </Register>
+
+        <Register title="Record sources" description="What today is based on">
+          <RegisterRow leading={<Icon name="check-circle" size={17} />} meta={`${todayBrief.facts.habits.completed} logged`}><strong>Habits</strong><span>{todayBrief.facts.habits.total} scheduled today</span></RegisterRow>
+          <RegisterRow leading={<Icon name="wallet" size={17} />} meta={money}><strong>Cash</strong><span>Transactions dated today</span></RegisterRow>
+          <RegisterRow leading={<Icon name="footprints" size={17} />} meta={todayBrief.facts.movement.steps.toLocaleString()}><strong>Movement</strong><span>Latest device record</span></RegisterRow>
+          <RegisterRow leading={<Icon name="music" size={17} />} meta={todayBrief.facts.music.streamsToday.toLocaleString()}><strong>Music</strong><span>Spotify streams today</span></RegisterRow>
+        </Register>
+      </div>
     </div>
   )
 }

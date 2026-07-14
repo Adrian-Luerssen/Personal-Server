@@ -10,7 +10,7 @@ import { getImportAccept, getImportFileDescription } from '../../importFileTypes
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { streamImportProgress } from '../../importProgress.mjs'
 
-const FINANCE_COLOR = '#fbbf24'
+const FINANCE_COLOR = '#7c5cff'
 
 function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -445,7 +445,7 @@ export default function FinanceImport() {
 
   return (
     <>
-      <PageHeader icon="upload" title="Import" accentColor="#fbbf24" />
+      <PageHeader title="Import" />
 
       <StepIndicator current={step} steps={STEPS} />
 

@@ -6,6 +6,7 @@ import { refreshIfPossible, setTokens } from '../../auth'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import BrandMark from '../../components/product/BrandMark'
 import { PRODUCT } from '../../product/brand.mjs'
+import Icon from '../../components/icons/Icon'
 
 export default function Login() {
   const { t } = useTranslation()
@@ -93,6 +94,19 @@ export default function Login() {
 
   return (
     <div className={`auth-screen${nativeApp ? ' auth-screen--native' : ''}`}>
+      <aside className="auth-record-context" aria-label="Record product context">
+        <Link to="/" className="auth-back-link"><Icon name="arrow-left" size={14} /> Back to Record</Link>
+        <div>
+          <span className="auth-record-context__eyebrow">PRIVATE RECORD SYSTEM</span>
+          <h2>Your history stays useful when you can return to it.</h2>
+          <p>Sign in to continue the same record across web and Android.</p>
+        </div>
+        <div className="auth-record-context__register" aria-label="Available records">
+          <span><Icon name="wallet" size={15} /><strong>Cash</strong><small>Transactions and capture</small></span>
+          <span><Icon name="dumbbell" size={15} /><strong>Gym</strong><small>Sessions and sets</small></span>
+          <span><Icon name="clapperboard" size={15} /><strong>Series</strong><small>Seasons and releases</small></span>
+        </div>
+      </aside>
       <div className="auth-panel">
         <div className="auth-brand">
           <div className="auth-brand__mark"><BrandMark size={32} /></div>
@@ -191,7 +205,7 @@ export default function Login() {
         <div className={`auth-switch${nativeApp ? ' auth-switch--web-secondary' : ''}`}>
           {t('auth.noAccount')} <Link to="/register">{t('auth.register')}</Link>
         </div>
-        {message && <div className={message.startsWith(t('common.error')) ? 'alert-error' : 'alert-info'} style={{ marginTop: '1rem' }}>{message}</div>}
+        {message && <div className={`auth-message ${message.startsWith(t('common.error')) ? 'alert-error' : 'alert-info'}`} role="status">{message}</div>}
       </div>
     </div>
   )

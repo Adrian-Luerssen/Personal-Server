@@ -45,7 +45,7 @@ public class PersonalServerWidgetsPlugin extends Plugin {
         result.put("lockScreenEligible", true);
         result.put(
             "lockScreenAvailability",
-            "Samsung One UI may only expose Samsung-approved lock-screen widgets. The Personal Record keyguard widget is declared for Android versions and launchers that allow third-party lock-screen widgets."
+            "Samsung One UI may only expose Samsung-approved lock-screen widgets. The Record keyguard widget is declared for Android versions and launchers that allow third-party lock-screen widgets."
         );
         call.resolve(result);
     }

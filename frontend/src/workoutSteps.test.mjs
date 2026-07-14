@@ -9,9 +9,9 @@ const workoutSource = readFileSync(workoutPath, 'utf8')
 test('training page treats synced steps as part of the workout dashboard', () => {
   assert.match(workoutSource, /getSyncedActivityMetrics/)
   assert.match(workoutSource, /activitySummary/)
-  assert.match(workoutSource, /Steps/)
-  assert.match(workoutSource, /7-day steps/)
-  assert.match(workoutSource, /Sync steps/)
+  assert.match(workoutSource, /getSyncedActivityMetrics\(\{ days: 7 \}\)/)
+  assert.match(workoutSource, /Steps today/)
+  assert.match(workoutSource, /onClick=\{syncSteps\}/)
 })
 
 test('training page subscribes to live native step updates', () => {

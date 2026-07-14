@@ -1,6 +1,6 @@
 export const GLOBAL_DESTINATIONS = Object.freeze([
   Object.freeze({ id: 'today', label: 'Today', to: '/home', icon: 'home' }),
-  Object.freeze({ id: 'apps', label: 'Apps', to: '/menu', icon: 'grid-3x3' }),
+  Object.freeze({ id: 'records', label: 'Records', to: '/menu', icon: 'library' }),
   Object.freeze({ id: 'capture', label: 'Capture', icon: 'plus', action: 'capture' }),
   Object.freeze({ id: 'assistant', label: 'Assistant', to: '/chat', icon: 'message-square' }),
   Object.freeze({ id: 'you', label: 'You', to: '/settings', icon: 'user' }),

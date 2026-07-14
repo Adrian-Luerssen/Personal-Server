@@ -145,7 +145,7 @@ export default function FinanceTrends() {
             walletDistribution.map((wallet) => (
               <div key={wallet.id || wallet.name} className="native-wallet-distribution__row">
                 <span>{wallet.name}</span>
-                <div aria-hidden="true"><i style={{ width: `${wallet.share}%`, background: normalizeFinanceColor(wallet.colour, '#d8aa35') }} /></div>
+                <div aria-hidden="true"><i style={{ width: `${wallet.share}%`, background: normalizeFinanceColor(wallet.colour, '#7c5cff') }} /></div>
                 <strong>{formatCurrency(wallet.balance || 0, wallet.currency || 'EUR')}</strong>
               </div>
             ))

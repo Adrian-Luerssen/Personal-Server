@@ -12,7 +12,7 @@ import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 import { normalizeFinanceColor, transparentFinanceColor } from '../../components/finance/financeVisuals.mjs'
 
-const FINANCE_COLOR = '#fbbf24'
+const FINANCE_COLOR = '#7c5cff'
 
 function formatCurrency(amount, currency = '€') {
   const formatted = Math.abs(amount).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -1145,7 +1145,7 @@ export default function FinanceSettings() {
 
   return (
     <>
-      <PageHeader icon="settings" title="Finance Settings" accentColor={FINANCE_COLOR} />
+      <PageHeader title="Finance Settings" />
 
       {/* Tab Bar */}
       <div style={{

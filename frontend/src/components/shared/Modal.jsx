@@ -1,35 +1,86 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../api'
 import { LoadingLine } from './LoadingLine'
 import { HistoryItem } from './HistoryItem'
 import Icon from '../icons/Icon'
-import '../../custom-scrollbar.css'
 
 function ModalPortal({ children }) {
   return createPortal(children, document.body)
 }
 
 export function Modal({ title, onClose, children, size = 'medium' }) {
+  const dialogRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  const titleId = useId()
+
   useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    const previousFocus = document.activeElement
+    const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
+    const focusTimer = window.setTimeout(() => {
+      const preferred = dialogRef.current?.querySelector('[autofocus]')
+        || dialogRef.current?.querySelector('input:not(:disabled), select:not(:disabled), textarea:not(:disabled)')
+        || dialogRef.current?.querySelector('button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])')
+      preferred?.focus()
+    }, 0)
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return
+      const focusable = [...dialogRef.current.querySelectorAll('button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])')]
+      if (focusable.length === 0) {
+        event.preventDefault()
+        dialogRef.current.focus()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.clearTimeout(focusTimer)
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+      previousFocus?.focus?.()
+    }
   }, [])
 
   return (
     <ModalPortal>
       <div className="modal-overlay" onClick={onClose}>
         <div
+          ref={dialogRef}
           className={`modal-content custom-scrollbar ${size}`}
           onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          tabIndex={-1}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0 }}>{title}</h3>
+          <div className="modal-header">
+            <h3 id={titleId}>{title}</h3>
             <button className="btn small btn-ghost modal-close-button" onClick={onClose} aria-label={`Close ${title}`}>
               <Icon name="x" size={18} />
             </button>
           </div>
-          {children}
+          <div className="modal-body">{children}</div>
         </div>
       </div>
     </ModalPortal>
@@ -97,22 +148,9 @@ export function HistoryModal({ onClose }) {
     return () => { if (el) el.removeEventListener('scroll', handleScroll) }
   }, [page, loading, hasMore, preloaded])
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
-
   return (
-    <ModalPortal>
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content medium" onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0 }}>All Recent Streams</h3>
-            <button className="btn small btn-ghost modal-close-button" onClick={onClose} aria-label="Close stream history">
-              <Icon name="x" size={18} />
-            </button>
-          </div>
-          <div ref={containerRef} style={{ overflowY: 'auto', maxHeight: '60vh', paddingRight: 8 }} className="custom-scrollbar">
+    <Modal title="All Recent Streams" onClose={onClose} size="medium">
+      <div ref={containerRef} style={{ overflowY: 'auto', maxHeight: '60vh', paddingRight: 8 }} className="custom-scrollbar">
             {items.length === 0 && loading ? (
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {Array.from({ length: 8 }).map((_, i) => (<li key={i}><LoadingLine width={220} /></li>))}
@@ -126,9 +164,7 @@ export function HistoryModal({ onClose }) {
             )}
             {loading && items.length > 0 && <LoadingLine width={180} />}
             {!hasMore && <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', margin: '1rem 0' }}>End of history</div>}
-          </div>
-        </div>
       </div>
-    </ModalPortal>
+    </Modal>
   )
 }

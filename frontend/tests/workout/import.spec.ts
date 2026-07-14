@@ -10,7 +10,9 @@ test.describe('Workout Import', () => {
   test('should show step indicator starting at step 1', async ({ authenticatedPage: page }) => {
     await page.goto('/workout/import')
     // StepIndicator component renders the STEPS array: File, Preview, Options, Import, Done
-    await expect(page.getByText('File')).toBeVisible({ timeout: 10000 })
+    const progress = page.getByLabel('Import progress')
+    await expect(progress.getByText('File', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(progress.locator('[aria-current="step"]')).toContainText('File')
   })
 
   test('should show file upload drop zone', async ({ authenticatedPage: page }) => {
@@ -20,7 +22,7 @@ test.describe('Workout Import', () => {
 
   test('should show file type instructions', async ({ authenticatedPage: page }) => {
     await page.goto('/workout/import')
-    await expect(page.getByText(/\.db, \.sqlite, \.sqlite3/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/\.fitnotes, \.db, \.sqlite, or \.sqlite3/i)).toBeVisible({ timeout: 10000 })
   })
 
   test('should have disabled preview button when no file selected', async ({ authenticatedPage: page }) => {

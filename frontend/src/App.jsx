@@ -33,7 +33,6 @@ const WorkoutHistory = lazy(() => import('./pages/Workout/WorkoutHistory'))
 const WorkoutExercises = lazy(() => import('./pages/Workout/WorkoutExercises'))
 const WorkoutBodyweight = lazy(() => import('./pages/Workout/WorkoutBodyweight'))
 const WorkoutImport = lazy(() => import('./pages/Workout/WorkoutImport'))
-const Finance = lazy(() => import('./pages/Finance/Finance'))
 const FinanceTransactions = lazy(() => import('./pages/Finance/FinanceTransactions'))
 const FinanceBudgets = lazy(() => import('./pages/Finance/FinanceBudgets'))
 const FinanceTrends = lazy(() => import('./pages/Finance/FinanceTrends'))
@@ -59,7 +58,6 @@ const GuardedWorkoutHistory = withRefreshGuard(WorkoutHistory)
 const GuardedWorkoutExercises = withRefreshGuard(WorkoutExercises)
 const GuardedWorkoutBodyweight = withRefreshGuard(WorkoutBodyweight)
 const GuardedWorkoutImport = withRefreshGuard(WorkoutImport)
-const GuardedFinance = withRefreshGuard(Finance)
 const GuardedFinanceTransactions = withRefreshGuard(FinanceTransactions)
 const GuardedFinanceBudgets = withRefreshGuard(FinanceBudgets)
 const GuardedFinanceTrends = withRefreshGuard(FinanceTrends)
@@ -170,7 +168,7 @@ export default function AppRouter() {
               <Route path="/workout/exercises" element={<GuardedWorkoutExercises />} />
               <Route path="/workout/bodyweight" element={<GuardedWorkoutBodyweight />} />
               <Route path="/workout/import" element={<GuardedWorkoutImport />} />
-              <Route path="/finance" element={<GuardedFinance />} />
+              <Route path="/finance" element={<Navigate to="/finance/transactions" replace />} />
               <Route path="/finance/transactions" element={<GuardedFinanceTransactions />} />
               <Route path="/finance/budgets" element={<GuardedFinanceBudgets />} />
               <Route path="/finance/trends" element={<GuardedFinanceTrends />} />

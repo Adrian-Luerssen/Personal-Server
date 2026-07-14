@@ -8,7 +8,6 @@ import { getTokens } from '../auth'
 import { getApiBase } from '../config'
 import { usePageContext } from '../hooks/usePageContext'
 import { formatProvenance } from '../chatProvenance.mjs'
-import './ChatPanel.css'
 
 const POLL_OPEN_MS = 5000
 const POLL_CLOSED_MS = 60000
@@ -126,6 +125,7 @@ export default function ChatPanel({ inline = false }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [sendContext, setSendContext] = useState(true)
   const [connectionState, setConnectionState] = useState('idle')
+  const [error, setError] = useState('')
 
   const messagesEndRef = useRef(null)
   const socketRef = useRef(null)
@@ -150,8 +150,10 @@ export default function ChatPanel({ inline = false }) {
       const data = await api.get('/chat/conversations')
       const list = Array.isArray(data) ? data : (data.conversations || [])
       setConversations(list)
+      setError('')
       return list
-    } catch {
+    } catch (requestError) {
+      setError(requestError.message || 'Conversations could not be refreshed.')
       return []
     }
   }, [])
@@ -162,8 +164,9 @@ export default function ChatPanel({ inline = false }) {
       const data = await api.get(`/chat/conversations/${activeConvId}/messages`)
       const msgs = Array.isArray(data) ? data : (data.messages || [])
       setMessages(msgs.map(normalizeMessage))
-    } catch {
-      // Silently ignore polling errors.
+      setError('')
+    } catch (requestError) {
+      setError(requestError.message || 'Messages could not be refreshed.')
     }
   }, [activeConvId])
 
@@ -175,6 +178,7 @@ export default function ChatPanel({ inline = false }) {
 
   const startConversationWithPrompt = useCallback(async ({ title, text, pageContext: promptContext }) => {
     try {
+      setError('')
       setOpen(true)
       const created = await api.post('/chat/conversations', { title: title || 'AI analysis' })
       const conv = created.conversation || created
@@ -189,8 +193,8 @@ export default function ChatPanel({ inline = false }) {
       const data = await api.get(`/chat/conversations/${conv.id}/messages`)
       const msgs = Array.isArray(data) ? data : (data.messages || [])
       setMessages(msgs.map(normalizeMessage))
-    } catch {
-      // Ignore prompt launch errors; chat remains available manually.
+    } catch (requestError) {
+      setError(requestError.message || 'The conversation could not be started.')
     }
   }, [])
 
@@ -326,12 +330,13 @@ export default function ChatPanel({ inline = false }) {
 
   const createConversation = async () => {
     try {
+      setError('')
       const data = await api.post('/chat/conversations', { title: 'New conversation' })
       const conv = data.conversation || data
       setConversations((prev) => [conv, ...prev])
       openConversation(conv.id)
-    } catch {
-      // Ignore create conversation errors.
+    } catch (requestError) {
+      setError(requestError.message || 'A new conversation could not be created.')
     }
   }
 
@@ -340,6 +345,7 @@ export default function ChatPanel({ inline = false }) {
     if (!text || !activeConvId || sending) return
 
     setSending(true)
+    setError('')
     setInputText('')
 
     const contextToSend = sendContext ? pageContext : null
@@ -381,10 +387,11 @@ export default function ChatPanel({ inline = false }) {
         })
         await fetchMessages()
       }
-    } catch {
+    } catch (requestError) {
       setMessages((prev) =>
         prev.map((m) => (m.id === tempMsg.id ? { ...m, status: 'error' } : m))
       )
+      setError(requestError.message || 'The message could not be delivered. It remains visible so you can retry.')
     } finally {
       setSending(false)
     }
@@ -415,14 +422,17 @@ export default function ChatPanel({ inline = false }) {
         />
       )}
 
-      <div className={`chat-panel${panelOpen ? ' open' : ''}${inline ? ' chat-panel--inline' : ''}`}>
+      <div className={`chat-panel${panelOpen ? ' open' : ''}${inline ? ' chat-panel--inline' : ''}${view === 'detail' ? ' is-detail' : ' is-list'}`}>
         <div className="chat-panel-header">
-          {view === 'detail' && (
+          {view === 'detail' && !inline && (
             <button className="chat-header-btn" onClick={backToList} aria-label="Back">
               <Icon name="arrow-left" size={18} />
             </button>
           )}
-          <h3>{view === 'list' ? 'Chat' : 'Conversation'}</h3>
+          <div>
+            <span>Private record workspace</span>
+            <h3>{view === 'detail' ? conversations.find((item) => item.id === activeConvId)?.title || 'Conversation' : 'Conversations'}</h3>
+          </div>
           {!inline && (
             <button className="chat-header-btn" onClick={() => setOpen(false)} aria-label="Close chat">
               <Icon name="x" size={18} />
@@ -460,40 +470,53 @@ export default function ChatPanel({ inline = false }) {
           </div>
         )}
 
-        {view === 'list' && (
-          <div className="chat-conv-list">
-            <button className="chat-new-conv-btn" onClick={createConversation}>
-              <Icon name="plus" size={16} />
-              New Conversation
-            </button>
-            {conversations.length === 0 && (
-              <div className="chat-empty">No conversations yet</div>
-            )}
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                className="chat-conv-item"
-                onClick={() => openConversation(conv.id)}
-              >
-                <div className="chat-conv-item-title">
-                  {conv.title || 'Untitled'}
-                  <span className="chat-conv-item-time">
-                    {formatTime(conv.updated_at || conv.created_at)}
-                  </span>
-                </div>
-                <div className="chat-conv-item-preview">
-                  {conv.last_message || 'No messages'}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {error && <div className="chat-error" role="alert"><Icon name="alert-circle" size={14} /><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Dismiss error"><Icon name="x" size={13} /></button></div>}
 
-        {view === 'detail' && (
-          <>
-            <div className="chat-messages">
+        <div className="chat-workspace">
+          {(inline || view === 'list') && (
+            <aside className="chat-conv-list" aria-label="Conversation history">
+              <button className="chat-new-conv-btn" onClick={createConversation}>
+                <Icon name="plus" size={15} />
+                New conversation
+              </button>
+              <div className="chat-conv-list__label">Recent</div>
+              {conversations.length === 0 && <div className="chat-empty chat-empty--compact">No saved conversations</div>}
+              {conversations.map((conv) => (
+                <button
+                  type="button"
+                  key={conv.id}
+                  className={`chat-conv-item${conv.id === activeConvId ? ' is-active' : ''}`}
+                  onClick={() => openConversation(conv.id)}
+                >
+                  <span className="chat-conv-item-title">
+                    {conv.title || 'Untitled'}
+                    <small>{formatTime(conv.updated_at || conv.created_at)}</small>
+                  </span>
+                  <span className="chat-conv-item-preview">{conv.last_message || 'No messages yet'}</span>
+                </button>
+              ))}
+            </aside>
+          )}
+
+          {view === 'list' && inline && (
+            <section className="chat-welcome" aria-labelledby="assistant-welcome-title">
+              <span>Record assistant</span>
+              <h2 id="assistant-welcome-title">Ask a question grounded in your life.</h2>
+              <p>Record attaches the current page and source names when context is on. You can turn that off before sending.</p>
+              <div className="chat-welcome__prompts">
+                <button type="button" onClick={() => startConversationWithPrompt({ title: 'Today in brief', text: 'Summarise today from my records and cite the sources you used.', pageContext })}>Summarise today<Icon name="arrow-up-right" size={14} /></button>
+                <button type="button" onClick={() => startConversationWithPrompt({ title: 'Needs attention', text: 'What needs my attention across my records right now?', pageContext })}>What needs attention?<Icon name="arrow-up-right" size={14} /></button>
+                <button type="button" onClick={() => startConversationWithPrompt({ title: 'Recent patterns', text: 'Compare my recent records and call out any useful pattern.', pageContext })}>Find a recent pattern<Icon name="arrow-up-right" size={14} /></button>
+              </div>
+            </section>
+          )}
+
+          {view === 'detail' && (
+            <section className="chat-detail" aria-label="Conversation">
+              {inline && <button className="chat-detail__back" onClick={backToList}><Icon name="arrow-left" size={15} />Conversations</button>}
+              <div className="chat-messages" aria-live="polite">
               {messages.length === 0 && (
-                <div className="chat-empty">Send a message to start</div>
+                  <div className="chat-empty"><strong>Start with a concrete question.</strong><span>Context and cited record sources will remain attached to the conversation.</span></div>
               )}
               {messages.map((msg) => (
                 <div key={msg.id} className={`chat-msg ${msg.role === 'user' ? 'user' : 'agent'}`}>
@@ -513,9 +536,9 @@ export default function ChatPanel({ inline = false }) {
                 </div>
               ))}
               <div ref={messagesEndRef} />
-            </div>
+              </div>
 
-            <div className="chat-input-area">
+              <div className="chat-input-area">
               <button
                 className={`chat-context-chip ${sendContext ? 'active' : 'inactive'}`}
                 onClick={() => setSendContext((prev) => !prev)}
@@ -529,10 +552,11 @@ export default function ChatPanel({ inline = false }) {
                   <Icon name="plus" size={10} className="chat-context-dismiss" />
                 )}
               </button>
-              <div className="chat-input-row">
-                <input
-                  type="text"
-                  placeholder="Type a message..."
+                <div className="chat-input-row">
+                <textarea
+                  rows={2}
+                  aria-label="Message Assistant"
+                  placeholder="Ask from your records…"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -546,10 +570,11 @@ export default function ChatPanel({ inline = false }) {
                 >
                   <Icon name="send" size={16} />
                 </button>
+                </div>
               </div>
-            </div>
-          </>
-        )}
+            </section>
+          )}
+        </div>
       </div>
     </>
   )

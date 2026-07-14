@@ -3,21 +3,18 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { api, apiFetch } from '../../api'
 import {
-  StatCard,
-  SkeletonStatCard,
   SkeletonCard,
   Modal,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
-import PageHeader from '../../components/PageHeader'
+import { PageHeading, StatePanel, SummaryItem, SummaryStrip } from '../../components/record'
 import ProgressRing from '../../components/ProgressRing'
 import HabitCalendarGrid from '../../components/habits/HabitCalendarGrid'
 import HabitHeatmap from '../../components/habits/HabitHeatmap'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { formatCadenceStreak } from './habitViewModel.mjs'
-import './Habits.css'
 
-const HABITS_COLOR = '#a78bfa'
+const HABITS_COLOR = '#7c5cff'
 
 const STATUS_META = {
   success: {
@@ -392,11 +389,11 @@ export default function Habits() {
 
   const headerActions = (
     <div className="habits-header-actions">
-      <button className="btn" type="button" onClick={() => setQuickAddOpen(true)}>
+      <button className="record-button record-button--primary" type="button" onClick={() => setQuickAddOpen(true)}>
         <Icon name="plus" size={16} />
         Add Habit
       </button>
-      <button className="btn btn-ghost" type="button" onClick={() => navigate('/settings?section=data')}>
+      <button className="record-button" type="button" onClick={() => navigate('/settings?section=data')}>
         <Icon name="settings" size={16} />
         Settings and Data
       </button>
@@ -441,20 +438,15 @@ export default function Habits() {
 
   return (
     <div className="habits-page">
-      <PageHeader
-        icon="heart-pulse"
-        title="Habits"
-        accentColor={HABITS_COLOR}
-        meta={headerActions}
-      />
+      <PageHeading eyebrow="Habits · Daily register" title="Habits" actions={headerActions}>
+        <p>Make a decision for the selected day. Nothing is assumed before you log it.</p>
+      </PageHeading>
 
       {loadError && (
-        <div className="alert-error" role="alert">
-          {loadError}
-        </div>
+        <StatePanel kind="offline" title="Using saved habit records" detail={loadError} />
       )}
 
-      <section className="habits-day-board" aria-labelledby="habits-selected-day-title">
+      <section className="habits-day-board record-habits-register" aria-labelledby="habits-selected-day-title">
         <div className="habits-day-board__header">
           <div className="habits-day-board__title">
             <span className="habits-kicker">Log</span>
@@ -554,18 +546,12 @@ export default function Habits() {
         )}
       </section>
 
-      <section className="stat-grid habits-stat-grid" aria-label="Habit summary">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, index) => <SkeletonStatCard key={index} />)
-        ) : (
-          <>
-            <StatCard icon="list-checks" accentColor={HABITS_COLOR} label="Active habits" value={totalHabits} />
-            <StatCard icon="calendar-check" accentColor={HABITS_COLOR} label="Logged today" value={`${loggedCount}/${totalHabits}`} />
-            <StatCard icon="percent" accentColor={HABITS_COLOR} label="Average success" value={`${averageSuccess}%`} />
-            <StatCard icon="flame" accentColor={HABITS_COLOR} label="Current streaks" value={totalCurrentStreak} />
-          </>
-        )}
-      </section>
+      <SummaryStrip className="habits-stat-grid" aria-label="Habit summary">
+        <SummaryItem label="Active habits" value={loading ? '—' : String(totalHabits)} detail="Current plan" />
+        <SummaryItem label="Logged" value={loading ? '—' : `${loggedCount}/${totalHabits}`} detail={formatSelectedDate(selectedDate, i18n.language)} />
+        <SummaryItem label="Average success" value={loading ? '—' : `${averageSuccess}%`} detail="Recorded days" />
+        <SummaryItem label="Current streaks" value={loading ? '—' : String(totalCurrentStreak)} detail="Cadence aware" />
+      </SummaryStrip>
 
       <section className="habits-secondary-grid">
         <div className="habits-panel habits-panel--calendar">

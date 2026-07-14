@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { apiFetch } from '../../api'
-import { SkeletonCard } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
+import { PageHeading, StatePanel, SummaryItem, SummaryStrip } from '../../components/record'
 import {
   getNextProgressUpdate,
   getSeriesProgress,
@@ -15,25 +15,57 @@ import {
   summarizeSeriesMetadata,
 } from './seriesCatalogModel.mjs'
 import SeriesDetail from './SeriesDetail'
-import './Media.css'
-
-const MEDIA_COLOR = '#f472b6'
 
 const TYPE_META = {
-  anime:  { icon: 'tv',          label: 'Anime',   color: '#818cf8' },
-  manga:  { icon: 'book-open',   label: 'Manga',   color: '#34d399' },
-  tv:     { icon: 'monitor',     label: 'TV',       color: '#60a5fa' },
-  movie:  { icon: 'clapperboard',label: 'Movies',   color: '#fbbf24' },
-  book:   { icon: 'book',        label: 'Books',    color: '#f97316' },
+  anime:  { icon: 'tv',           label: 'Anime' },
+  manga:  { icon: 'book-open',    label: 'Manga' },
+  tv:     { icon: 'monitor',      label: 'TV' },
+  movie:  { icon: 'clapperboard', label: 'Movies' },
+  book:   { icon: 'book',         label: 'Books' },
 }
 
 const STATUS_META = {
-  planning:  { label: 'Planning',   color: '#94a3b8' },
-  watching:  { label: 'Watching',   color: '#60a5fa' },
-  reading:   { label: 'Reading',    color: '#34d399' },
-  completed: { label: 'Completed',  color: '#a78bfa' },
-  paused:    { label: 'Paused',     color: '#fbbf24' },
-  dropped:   { label: 'Dropped',    color: '#f87171' },
+  planning:  { label: 'Planning' },
+  watching:  { label: 'Watching' },
+  reading:   { label: 'Reading' },
+  completed: { label: 'Completed' },
+  paused:    { label: 'Paused' },
+  dropped:   { label: 'Dropped' },
+}
+
+function useModalFocus(open, onClose, dialogRef) {
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const previous = document.activeElement
+    const focusDialog = window.requestAnimationFrame(() => {
+      const preferred = dialogRef.current?.querySelector('input[autofocus]')
+        || dialogRef.current?.querySelector('input, select, textarea')
+        || dialogRef.current?.querySelector('button')
+      preferred?.focus()
+    })
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); onCloseRef.current(); return }
+      if (event.key !== 'Tab' || !dialogRef.current) return
+      const focusable = [...dialogRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.cancelAnimationFrame(focusDialog)
+      document.removeEventListener('keydown', handleKeyDown)
+      if (previous instanceof HTMLElement) previous.focus()
+    }
+  }, [open, dialogRef])
 }
 
 function SeriesRow({ item, catalog, onOpen, onIncrement, onWatchEpisode, busy }) {
@@ -43,6 +75,13 @@ function SeriesRow({ item, catalog, onOpen, onIncrement, onWatchEpisode, busy })
   const nextProgress = getNextProgressUpdate(item)
   const metadata = summarizeSeriesMetadata(item)
   const nextAction = getNextEpisodeAction(catalog)
+  const seasonCount = catalog?.seasons?.filter((season) => Number(season.number) > 0).length || Number(item.metadata?.seasonCount) || 0
+  const relatedCount = catalog?.relations?.length || 0
+  const scopeLabel = item.type === 'tv'
+    ? (seasonCount ? `${seasonCount} season${seasonCount === 1 ? '' : 's'} in this series` : 'Season catalog pending')
+    : item.type === 'anime'
+      ? `${metadata.format || 'Anime release'} · ${relatedCount} related release${relatedCount === 1 ? '' : 's'}`
+      : metadata.format || typeMeta.label || item.type
   const progressLabel = item.type === 'anime' || item.type === 'tv'
     ? getCatalogProgressLabel(catalog, item)
     : progress
@@ -69,8 +108,9 @@ function SeriesRow({ item, catalog, onOpen, onIncrement, onWatchEpisode, busy })
           {metadata.year && <span>{metadata.year}</span>}
           {metadata.studio && <span>{metadata.studio}</span>}
           {item.rating != null && <span>{Number(item.rating).toFixed(1)} / 10</span>}
-          <span style={{ color: statusMeta.color }}>{statusMeta.label || item.status}</span>
+          <span className="series-row__status">{statusMeta.label || item.status}</span>
         </span>
+        <span className="series-row__scope">{scopeLabel}</span>
         {progressLabel && (
           <span className="series-row__progress">
             <progress value={catalog?.progress?.watched ?? progress?.value ?? 0} max={catalog?.progress?.total || progress?.total || Math.max(progress?.value || 0, 1)} aria-label={`${item.title}: ${progressLabel}`} />
@@ -115,9 +155,12 @@ function AddModal({ open, onClose, onSave }) {
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [adding, setAdding] = useState(null)
+  const [error, setError] = useState('')
   const [mode, setMode] = useState('search') // 'search' | 'manual'
   const [manual, setManual] = useState({ title: '', type: 'anime', status: 'planning', rating: '' })
   const debounce = useRef(null)
+  const dialogRef = useRef(null)
+  useModalFocus(open, onClose, dialogRef)
 
   const doSearch = useCallback(async (q, t) => {
     if (!q || q.length < 2) { setResults([]); return }
@@ -138,6 +181,7 @@ function AddModal({ open, onClose, onSave }) {
   }, [query, type])
 
   const addFromSearch = async (item) => {
+    setError('')
     setAdding(item.title)
     try {
       const created = await apiFetch('/media', {
@@ -157,12 +201,13 @@ function AddModal({ open, onClose, onSave }) {
       onSave()
       onClose()
     } catch (e) {
-      alert(e.message)
+      setError(e.message || 'This title could not be added.')
     } finally { setAdding(null) }
   }
 
   const addManual = async () => {
     if (!manual.title.trim()) return
+    setError('')
     setAdding('manual')
     try {
       await apiFetch('/media', {
@@ -176,7 +221,7 @@ function AddModal({ open, onClose, onSave }) {
       })
       onSave()
       onClose()
-    } catch (e) { alert(e.message) }
+    } catch (e) { setError(e.message || 'This title could not be added.') }
     finally { setAdding(null) }
   }
 
@@ -184,9 +229,9 @@ function AddModal({ open, onClose, onSave }) {
 
   return (
     <div className="media-modal-overlay" onClick={onClose}>
-      <div className="media-modal" onClick={e => e.stopPropagation()}>
+      <div ref={dialogRef} className="media-modal" role="dialog" aria-modal="true" aria-labelledby="add-series-title" onClick={e => e.stopPropagation()}>
         <div className="media-modal-header">
-          <h3>Add Media</h3>
+          <h3 id="add-series-title">Add title</h3>
           <button className="media-modal-close" aria-label="Close add media" onClick={onClose}>
             <Icon name="x" size={20} />
           </button>
@@ -201,6 +246,8 @@ function AddModal({ open, onClose, onSave }) {
           </button>
         </div>
 
+        {error && <div className="media-modal-error" role="alert">{error}</div>}
+
         {mode === 'search' ? (
           <>
             <div className="media-search-row">
@@ -212,7 +259,6 @@ function AddModal({ open, onClose, onSave }) {
                   placeholder="Search anime, movies, books..."
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  autoFocus
                 />
               </div>
               <select aria-label="Media search type" value={type} onChange={e => setType(e.target.value)}>
@@ -246,7 +292,7 @@ function AddModal({ open, onClose, onSave }) {
                     <div className="media-search-result-info">
                       <div className="media-search-result-title">{item.title}</div>
                       <div className="media-search-result-meta">
-                        <span style={{ color: meta.color }}>{meta.label}</span>
+                        <span>{meta.label}</span>
                         {item.year && <span>{item.year}</span>}
                       </div>
                       {item.description && (
@@ -289,7 +335,7 @@ function AddModal({ open, onClose, onSave }) {
                 <input type="number" aria-label="Manual media rating" min="0" max="10" step="0.5" value={manual.rating} onChange={e => setManual(m => ({ ...m, rating: e.target.value }))} placeholder="0-10" />
               </label>
             </div>
-            <button className="btn" onClick={addManual} disabled={!manual.title.trim() || adding === 'manual'} style={{ background: MEDIA_COLOR, color: '#000', marginTop: '1rem' }}>
+            <button className="btn primary" onClick={addManual} disabled={!manual.title.trim() || adding === 'manual'}>
               <Icon name="plus" size={18} /> Add Item
             </button>
           </div>
@@ -309,7 +355,11 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
   const [matchResults, setMatchResults] = useState([])
   const [matchSearching, setMatchSearching] = useState(false)
   const [matching, setMatching] = useState(null)
+  const [error, setError] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
   const matchDebounce = useRef(null)
+  const dialogRef = useRef(null)
+  useModalFocus(open, onClose, dialogRef)
 
   useEffect(() => {
     if (item) {
@@ -328,6 +378,8 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
       setMatchQuery(item.title || '')
       setMatchResults([])
       setMatching(null)
+      setError('')
+      setDeleteConfirm(false)
     }
   }, [item])
 
@@ -351,6 +403,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
   }, [matchQuery, matchType, tab])
 
   const applyMatch = async (result) => {
+    setError('')
     setMatching(result.title)
     try {
       await apiFetch(`/media/${item.id}/match`, {
@@ -364,11 +417,12 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
       })
       onSave()
       onClose()
-    } catch (e) { alert(e.message) }
+    } catch (e) { setError(e.message || 'The catalog match could not be applied.') }
     finally { setMatching(null) }
   }
 
   const save = async () => {
+    setError('')
     setSaving(true)
     try {
       const body = {
@@ -388,18 +442,19 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
       await apiFetch(`/media/${item.id}`, { method: 'PATCH', body: JSON.stringify(body) })
       onSave()
       onClose()
-    } catch (e) { alert(e.message) }
+    } catch (e) { setError(e.message || 'The record could not be saved.') }
     finally { setSaving(false) }
   }
 
   const remove = async () => {
-    if (!confirm('Delete this item?')) return
+    if (!deleteConfirm) { setDeleteConfirm(true); return }
+    setError('')
     setDeleting(true)
     try {
       await apiFetch(`/media/${item.id}`, { method: 'DELETE' })
       onDelete()
       onClose()
-    } catch (e) { alert(e.message) }
+    } catch (e) { setError(e.message || 'The record could not be deleted.') }
     finally { setDeleting(false) }
   }
 
@@ -414,10 +469,10 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
 
   return createPortal(
     <div className="media-modal-overlay" onClick={onClose}>
-      <div className="media-modal media-modal-edit" onClick={e => e.stopPropagation()}>
+      <div ref={dialogRef} className="media-modal media-modal-edit" role="dialog" aria-modal="true" aria-labelledby="edit-series-title" onClick={e => e.stopPropagation()}>
         <div className="media-modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Icon name={typeMeta.icon || 'film'} size={20} style={{ color: typeMeta.color }} />
+          <h3 id="edit-series-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Icon name={typeMeta.icon || 'film'} size={20} />
             {item.title}
           </h3>
           <button className="media-modal-close" aria-label={`Close ${item.title}`} onClick={onClose}>
@@ -434,6 +489,8 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
             <Icon name="link" size={16} /> Match
           </button>
         </div>
+
+        {error && <div className="media-modal-error" role="alert">{error}</div>}
 
         {tab === 'edit' ? (
           <>
@@ -485,7 +542,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                 {genres.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
                     {genres.map((g, i) => (
-                      <span key={i} style={{ padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full, 999px)', background: `${typeMeta.color}22`, color: typeMeta.color, fontSize: '0.7rem', fontWeight: 600 }}>{String(g)}</span>
+                      <span key={i} className="media-genre">{String(g)}</span>
                     ))}
                   </div>
                 )}
@@ -494,10 +551,18 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
             </div>
 
             <div className="media-modal-actions">
-              <button className="btn media-delete-btn" onClick={remove} disabled={deleting}>
-                <Icon name="trash-2" size={16} /> Delete
-              </button>
-              <button className="btn" onClick={save} disabled={saving} style={{ background: MEDIA_COLOR, color: '#000' }}>
+              {deleteConfirm ? (
+                <div className="media-delete-confirm" role="alert">
+                  <span>Delete this record permanently?</span>
+                  <button className="btn subtle" onClick={() => setDeleteConfirm(false)} disabled={deleting}>Cancel</button>
+                  <button className="btn danger" onClick={remove} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete'}</button>
+                </div>
+              ) : (
+                <button className="btn media-delete-btn" onClick={remove} disabled={deleting}>
+                  <Icon name="trash-2" size={16} /> Delete
+                </button>
+              )}
+              <button className="btn primary" onClick={save} disabled={saving || deleteConfirm}>
                 <Icon name="check" size={16} /> {saving ? 'Saving...' : 'Save'}
               </button>
             </div>
@@ -549,7 +614,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                     <div className="media-search-result-info">
                       <div className="media-search-result-title">{result.title}</div>
                       <div className="media-search-result-meta">
-                        <span style={{ color: meta.color }}>{meta.label}</span>
+                        <span>{meta.label}</span>
                         {result.year && <span>{result.year}</span>}
                         {result.metadata?.mediaFormat && <span style={{ opacity: 0.7 }}>{result.metadata.mediaFormat}</span>}
                       </div>
@@ -585,6 +650,7 @@ export default function Media() {
   const [stats, setStats] = useState(null)
   const [catalogs, setCatalogs] = useState({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [search, setSearch] = useState('')
@@ -600,6 +666,7 @@ export default function Media() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const params = new URLSearchParams()
       if (filterType) params.set('type', filterType)
@@ -611,9 +678,10 @@ export default function Media() {
         apiFetch('/media/catalog/summaries'),
       ])
       if (dataResult.status === 'fulfilled') setItems(normalizeSeriesCollection(dataResult.value))
+      else setLoadError(dataResult.reason?.message || 'The series library could not be refreshed.')
       if (statsResult.status === 'fulfilled') setStats(statsResult.value)
       if (catalogsResult.status === 'fulfilled') setCatalogs(catalogsResult.value || {})
-    } catch { }
+    } catch (error) { setLoadError(error.message || 'The series library could not be refreshed.') }
     finally { setLoading(false) }
   }, [filterType, filterStatus, search])
 
@@ -721,23 +789,22 @@ export default function Media() {
 
   return (
     <div className="series-register" data-testid="series-register">
-      <header className="series-register__header">
-        <div>
-          <span className="series-register__eyebrow">Watch and reading register</span>
-          <h1>Series</h1>
-          <p>Update progress where you left off. Your source records remain editable.</p>
-        </div>
-        <button className="series-register__add" onClick={() => setAddOpen(true)}>
-          <Icon name="plus" size={17} /> Add title
-        </button>
-      </header>
+      <PageHeading
+        eyebrow="Watch and reading record"
+        title="Series"
+        description="Continue at the exact season, episode, chapter, or release where you stopped."
+        meta={`${stats?.total ?? items.length} titles · ${activeCount} active`}
+        actions={<button className="record-button record-button--primary" onClick={() => setAddOpen(true)}><Icon name="plus" size={16} /> Add title</button>}
+      />
 
-      <dl className="series-register__summary" aria-label="Series library summary">
-        <div><dt>Total</dt><dd>{loading ? '--' : stats?.total ?? items.length}</dd></div>
-        <div><dt>In progress</dt><dd>{loading ? '--' : activeCount}</dd></div>
-        <div><dt>Completed</dt><dd>{loading ? '--' : completedCount}</dd></div>
-        <div><dt>Average score</dt><dd>{loading ? '--' : avgRating != null ? avgRating.toFixed(1) : '--'}</dd></div>
-      </dl>
+      <SummaryStrip>
+        <SummaryItem label="Library" value={loading ? '—' : stats?.total ?? items.length} />
+        <SummaryItem label="In progress" value={loading ? '—' : activeCount} />
+        <SummaryItem label="Completed" value={loading ? '—' : completedCount} />
+        <SummaryItem label="Average score" value={loading || avgRating == null ? '—' : Number(avgRating).toFixed(1)} />
+      </SummaryStrip>
+
+      {loadError && <StatePanel kind="offline" title="Using the last series record" detail={loadError} action={<button className="record-button record-button--compact" onClick={load}>Retry</button>} />}
 
       {completionPrompt && (
         <section className="series-completion" role="status">
@@ -752,44 +819,8 @@ export default function Media() {
         </section>
       )}
 
-      <div className="series-status-tabs" aria-label="Filter by status">
-        <button type="button" className={!filterStatus ? 'is-active' : ''} aria-pressed={!filterStatus} onClick={() => setFilterStatus('')}>All</button>
-        {Object.entries(STATUS_META).map(([key, meta]) => (
-          <button type="button" key={key} className={filterStatus === key ? 'is-active' : ''} aria-pressed={filterStatus === key} onClick={() => setFilterStatus(filterStatus === key ? '' : key)}>
-            {meta.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Type chips */}
-      <div className="media-type-chips">
-        <button
-          className={`media-chip ${!filterType ? 'active' : ''}`}
-          onClick={() => setFilterType('')}
-          aria-pressed={!filterType}
-          style={!filterType ? { background: MEDIA_COLOR, color: '#000' } : {}}
-        >
-          All
-        </button>
-        {Object.entries(TYPE_META).map(([key, meta]) => (
-          <button
-            key={key}
-            className={`media-chip ${filterType === key ? 'active' : ''}`}
-            onClick={() => setFilterType(filterType === key ? '' : key)}
-            aria-pressed={filterType === key}
-            style={filterType === key ? { background: meta.color, color: '#000' } : {}}
-          >
-            <Icon name={meta.icon} size={14} />
-            {meta.label}
-            {stats?.byType?.[key] != null && (
-              <span className="media-chip-count">{stats.byType[key]}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      <div className="media-toolbar">
-        <div className="media-search-input-wrap" style={{ flex: 1, maxWidth: 320 }}>
+      <section className="record-series-filters" aria-label="Filter series library">
+        <div className="record-series-filters__search">
           <Icon name="search" size={16} className="media-search-icon" />
           <input
             type="text"
@@ -799,23 +830,32 @@ export default function Media() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-      </div>
+        <div className="record-series-filters__row">
+          <span>Status</span>
+          <div className="record-segmented record-segmented--compact">
+            <button type="button" className={!filterStatus ? 'is-active' : ''} aria-pressed={!filterStatus} onClick={() => setFilterStatus('')}>All</button>
+            {Object.entries(STATUS_META).map(([key, meta]) => (
+              <button type="button" key={key} className={filterStatus === key ? 'is-active' : ''} aria-pressed={filterStatus === key} onClick={() => setFilterStatus(filterStatus === key ? '' : key)}>{meta.label}</button>
+            ))}
+          </div>
+        </div>
+        <div className="record-series-filters__row">
+          <span>Format</span>
+          <div className="record-segmented record-segmented--compact">
+            <button className={!filterType ? 'is-active' : ''} onClick={() => setFilterType('')} aria-pressed={!filterType}>All</button>
+            {Object.entries(TYPE_META).map(([key, meta]) => (
+              <button key={key} className={filterType === key ? 'is-active' : ''} onClick={() => setFilterType(filterType === key ? '' : key)} aria-pressed={filterType === key}>
+                {meta.label}{stats?.byType?.[key] != null && <span>{stats.byType[key]}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {loading ? (
-        <div className="series-register__loading">
-          {[...Array(5)].map((_, i) => <SkeletonCard key={i} style={{ height: 92 }} />)}
-        </div>
+        <StatePanel kind="loading" title="Opening the series record" detail="Season catalogs and continuity are checked without hiding saved titles." />
       ) : items.length === 0 ? (
-        <div className="series-register__empty">
-          <Icon name="clapperboard" size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', display: 'block' }} />
-          <h2>No titles recorded yet</h2>
-          <p>
-            Search for anime, movies, TV shows, manga, or books to start tracking.
-          </p>
-          <button className="series-register__add" onClick={() => setAddOpen(true)}>
-            <Icon name="plus" size={18} /> Add your first title
-          </button>
-        </div>
+        <StatePanel kind="empty" title="No titles in this view" detail="Change the filters or add an anime release, television series, film, manga, or book." action={<button className="record-button record-button--primary" onClick={() => setAddOpen(true)}>Add first title</button>} />
       ) : (
         <div className="series-groups">
           {groups.map(group => (

@@ -17,11 +17,11 @@ const SURFACES = [
   { match: /^\/media\/(import|settings)/, domain: 'series', eyebrow: 'Series', title: 'Series setup' },
   { match: /^\/media/, domain: 'series', eyebrow: 'Series', title: 'My list' },
   { match: /^\/chat/, domain: 'assistant', eyebrow: 'Assistant', title: 'Record analysis' },
-  { match: /^\/menu/, domain: 'today', eyebrow: 'Personal Record', title: 'Apps' },
-  { match: /^\/settings/, domain: 'assistant', eyebrow: 'Personal Record', title: 'You' },
+  { match: /^\/menu/, domain: 'today', eyebrow: 'Record', title: 'Records' },
+  { match: /^\/settings/, domain: 'assistant', eyebrow: 'Record', title: 'Settings' },
 ]
 
-const DEFAULT_SURFACE = Object.freeze({ domain: 'today', eyebrow: 'Personal Record', title: 'Your records' })
+const DEFAULT_SURFACE = Object.freeze({ domain: 'today', eyebrow: 'Record', title: 'Your records' })
 
 export function getProductHeader(pathname = '') {
   const surface = SURFACES.find((item) => item.match.test(pathname)) || DEFAULT_SURFACE

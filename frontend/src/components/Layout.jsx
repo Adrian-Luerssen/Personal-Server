@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import ApiStatus from './ApiStatus'
@@ -31,8 +31,6 @@ import {
   syncLiveStepSnapshot,
 } from '../nativeHealth.mjs'
 import { getNativeBackDestination } from '../nativeNavigation.mjs'
-
-const ChatPanel = lazy(() => import('./ChatPanel'))
 
 function NativeUpdatePrompt() {
   const [update, setUpdate] = useState(null)
@@ -258,14 +256,14 @@ export default function Layout() {
   }, [location.pathname, location.search, navigate, nativeApp])
 
   return (
-    <div className={"layout product-shell" + (collapsed ? ' sidebar-collapsed' : '')}>
+    <div className={"record-shell" + (collapsed ? ' record-shell--collapsed' : '')}>
       {nativeApp && <ProductHeader native onCapture={() => setCaptureOpen(true)} />}
       {!nativeApp && <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />}
-      <main className="content">
+      <main className="record-shell__main">
         {!nativeApp && <ProductHeader onCapture={() => setCaptureOpen(true)} />}
-        <div className="content-shell">
+        <div className="record-shell__content">
           <DomainNav />
-          <div className="content-shell__frame">
+          <div className="record-shell__frame">
             <PageTransition>
               <RouteErrorBoundary key={location.pathname}>
                 {routeDisabled ? (
@@ -292,7 +290,6 @@ export default function Layout() {
           }}
         />
       )}
-      {!nativeApp && <Suspense fallback={null}><ChatPanel /></Suspense>}
       {!nativeApp && <PWAInstallPrompt />}
     </div>
   )

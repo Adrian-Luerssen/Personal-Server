@@ -196,7 +196,7 @@ test.describe('Habits Page', () => {
       .poll(() => requests.find((r) => r.method === 'POST' && r.path === '/habits')?.body)
       .toEqual({
         name: 'Read before bed',
-        color: '#a78bfa',
+        color: '#7c5cff',
         iconName: 'circle-check',
         trackingType: 'boolean',
         frequencyType: 'daily',

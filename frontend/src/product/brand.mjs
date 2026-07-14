@@ -1,16 +1,16 @@
 export const PRODUCT = Object.freeze({
   repositoryName: 'Personal Server',
-  displayName: 'Personal Record',
+  displayName: 'Record',
   shortName: 'Record',
-  promise: 'Everything you are, in context.',
+  promise: 'Keep the life you live useful.',
 })
 
 export const DOMAINS = Object.freeze({
-  today: Object.freeze({ label: 'Today', tone: 'today', color: '#3b82f6' }),
-  gym: Object.freeze({ label: 'Gym', tone: 'gym', color: '#f97316' }),
-  habits: Object.freeze({ label: 'Habits', tone: 'habits', color: '#14b8a6' }),
-  cash: Object.freeze({ label: 'Cash', tone: 'cash', color: '#22c55e' }),
-  spotify: Object.freeze({ label: 'Spotify', tone: 'music', color: '#ec4899' }),
-  series: Object.freeze({ label: 'Series', tone: 'series', color: '#f59e0b' }),
-  assistant: Object.freeze({ label: 'Assistant', tone: 'assistant', color: '#8b5cf6' }),
+  today: Object.freeze({ label: 'Today' }),
+  gym: Object.freeze({ label: 'Gym' }),
+  habits: Object.freeze({ label: 'Habits' }),
+  cash: Object.freeze({ label: 'Cash' }),
+  spotify: Object.freeze({ label: 'Spotify' }),
+  series: Object.freeze({ label: 'Series' }),
+  assistant: Object.freeze({ label: 'Assistant' }),
 })

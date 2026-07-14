@@ -158,7 +158,7 @@ export function normalizeVersionPolicy(policy) {
     versionStatus: policy.updateRequired ? 'required' : 'newer',
     required: policy.updateRequired === true,
     reason: policy.reason || '',
-    name: latest.releaseName || `Personal Server Android v${latest.version}`,
+    name: latest.releaseName || `Record Android v${latest.version}`,
     publishedAt: latest.publishedAt,
     apkUrl: latest.apkUrl || ANDROID_APK_URL,
     changelog: normalizeChangelog(policy.changelog || latest.changelog),

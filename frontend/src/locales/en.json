@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Personal Record",
+    "appName": "Record",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
@@ -72,7 +72,7 @@
     "registeredSuccess": "Account created successfully"
   },
   "landing": {
-    "title": "Personal Record",
+    "title": "Record",
     "subtitle": "Your personal data hub",
     "getStarted": "Get Started",
     "learnMore": "Learn More"

@@ -3,6 +3,7 @@ import { api } from '../../api'
 import { Modal } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
+import InlineConfirmation from '../../components/record/InlineConfirmation'
 
 export default function WorkoutExercises() {
   const [exercises, setExercises] = useState([])
@@ -19,6 +20,7 @@ export default function WorkoutExercises() {
 
   const [searchTerm, setSearchTerm] = useState('')
   const [collapsedCategories, setCollapsedCategories] = useState({})
+  const [pendingDelete, setPendingDelete] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -49,9 +51,8 @@ export default function WorkoutExercises() {
   }
 
   async function deleteExercise(exercise) {
-    if (!window.confirm(`Delete "${exercise.name}"? This cannot be undone.`)) return
     setError('')
-    try { await api.delete(`/workout/exercises/${exercise.id}`); setExercises(exercises.filter(e => e.id !== exercise.id)) }
+    try { await api.delete(`/workout/exercises/${exercise.id}`); setExercises(exercises.filter(e => e.id !== exercise.id)); setPendingDelete(null) }
     catch (e) { setError(e.message || 'Failed to delete exercise') }
   }
 
@@ -73,9 +74,8 @@ export default function WorkoutExercises() {
   }
 
   async function deleteCategory(category) {
-    if (!window.confirm(`Delete "${category.name}"? This cannot be undone.`)) return
     setError('')
-    try { await api.delete(`/workout/categories/${category.id}`); setCategories(categories.filter(c => c.id !== category.id)) }
+    try { await api.delete(`/workout/categories/${category.id}`); setCategories(categories.filter(c => c.id !== category.id)); setPendingDelete(null) }
     catch (e) { setError(e.message || 'Failed to delete category') }
   }
 
@@ -95,9 +95,18 @@ export default function WorkoutExercises() {
 
   return (
     <>
-      <PageHeader icon="list" title="Exercises" accentColor="#4ade80" />
+      <PageHeader title="Exercises" />
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+
+      {pendingDelete && (
+        <InlineConfirmation
+          message={`Delete ${pendingDelete.name}? This cannot be undone.`}
+          confirmLabel={`Delete ${pendingDelete.type}`}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => pendingDelete.type === 'exercise' ? deleteExercise(pendingDelete.item) : deleteCategory(pendingDelete.item)}
+        />
+      )}
 
       <div className="tab-group" style={{ marginBottom: '1.5rem' }}>
         <button className={`tab-btn${tab === 'exercises' ? ' active' : ''}`} onClick={() => setTab('exercises')}>Exercises ({exercises.length})</button>
@@ -195,7 +204,7 @@ export default function WorkoutExercises() {
                                   </div>
                                   <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
                                     <button className="btn small" aria-label={`Edit exercise ${exercise.name}`} onClick={() => openExerciseModal(exercise)}><Icon name="pencil" size={18} /></button>
-                                    <button className="btn small btn-danger" aria-label={`Delete exercise ${exercise.name}`} onClick={() => deleteExercise(exercise)}><Icon name="trash-2" size={18} /></button>
+                                    <button className="btn small btn-danger" aria-label={`Delete exercise ${exercise.name}`} onClick={() => setPendingDelete({ type: 'exercise', name: `exercise “${exercise.name}”`, item: exercise })}><Icon name="trash-2" size={18} /></button>
                                   </div>
                                 </div>
                               </div>
@@ -231,7 +240,7 @@ export default function WorkoutExercises() {
                         </div>
                         <div style={{ display: 'flex', gap: '.5rem', marginLeft: '.5rem' }}>
                           <button className="btn small" aria-label={`Edit category ${category.name}`} onClick={() => openCategoryModal(category)}><Icon name="pencil" size={18} /></button>
-                          <button className="btn small btn-danger" aria-label={`Delete category ${category.name}`} onClick={() => deleteCategory(category)}><Icon name="trash-2" size={18} /></button>
+                          <button className="btn small btn-danger" aria-label={`Delete category ${category.name}`} onClick={() => setPendingDelete({ type: 'category', name: `category “${category.name}”`, item: category })}><Icon name="trash-2" size={18} /></button>
                         </div>
                       </div>
                     </div>

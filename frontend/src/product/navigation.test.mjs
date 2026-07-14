@@ -6,10 +6,17 @@ import { GLOBAL_DESTINATIONS, getDomainNavigation } from './navigation.mjs'
 test('native shell always exposes five stable global destinations', () => {
   assert.deepEqual(GLOBAL_DESTINATIONS.map((item) => item.id), [
     'today',
-    'apps',
+    'records',
     'capture',
     'assistant',
     'you',
+  ])
+  assert.deepEqual(GLOBAL_DESTINATIONS.map((item) => item.label), [
+    'Today',
+    'Records',
+    'Capture',
+    'Assistant',
+    'You',
   ])
 })
 

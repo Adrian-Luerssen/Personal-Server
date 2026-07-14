@@ -11,7 +11,7 @@ import {
 const PreferencesContext = createContext()
 
 const DEFAULTS = {
-  accentColor: '#7dd3fc',
+  accentColor: '#7c5cff',
   themeMode: 'dark',
   background: null,
   sidebarPosition: 'left',
@@ -29,51 +29,25 @@ function normalizePreferences(input = {}) {
   return {
     ...merged,
     ...getFeatureModulePreferences(merged),
+    accentColor: '#7c5cff',
+    themeMode: 'dark',
+    background: null,
+    sidebarPosition: 'left',
+    customCss: null,
   }
 }
 
 function applyPreferences(prefs) {
   const root = document.documentElement
 
-  // Theme
-  const effectiveTheme = prefs.themeMode === 'auto'
-    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    : prefs.themeMode
-  root.dataset.theme = effectiveTheme
+  root.dataset.theme = 'dark'
 
   // Density
   root.dataset.density = prefs.density
 
   // Sidebar position
-  root.dataset.sidebarPosition = prefs.sidebarPosition
-
-  // Accent color - inject CSS variable overrides
-  const accentStyle = document.getElementById('user-accent-style') || (() => {
-    const el = document.createElement('style')
-    el.id = 'user-accent-style'
-    document.head.appendChild(el)
-    return el
-  })()
-
-  let css = `:root { --color-accent: ${prefs.accentColor}; --color-accent-hover: ${prefs.accentColor}dd; --color-accent-muted: ${prefs.accentColor}22; }`
-
-  // Background
-  if (prefs.background) {
-    if (prefs.background.type === 'solid') {
-      css += ` :root { --color-bg-base: ${prefs.background.value}; }`
-    } else if (prefs.background.type === 'gradient') {
-      css += ` body { background: ${prefs.background.value} !important; }`
-    } else if (prefs.background.type === 'image') {
-      css += ` body { background: url(${prefs.background.value}) center/cover fixed !important; }`
-    }
-  }
-
-  // Custom CSS
-  if (prefs.customCss) {
-    css += `\n${prefs.customCss}`
-  }
-
-  accentStyle.textContent = css
+  root.dataset.sidebarPosition = 'left'
+  document.getElementById('user-accent-style')?.remove()
 }
 
 export function PreferencesProvider({ children }) {

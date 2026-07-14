@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from '../../components/icons/Icon'
 import AnimeContinuity from './AnimeContinuity'
@@ -20,6 +20,7 @@ export default function SeriesDetail({
   onEdit,
   busyEpisodeId,
 }) {
+  const dialogRef = useRef(null)
   const firstRegularSeason = catalog?.seasons?.find((season) => season.number > 0)?.number
   const [selectedSeason, setSelectedSeason] = useState(firstRegularSeason ?? catalog?.seasons?.[0]?.number ?? 0)
   const metadata = useMemo(() => summarizeSeriesMetadata(item), [item])
@@ -31,9 +32,24 @@ export default function SeriesDetail({
 
   useEffect(() => {
     if (!item) return undefined
-    const closeOnEscape = (event) => event.key === 'Escape' && onClose()
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
+    const previous = document.activeElement
+    const focusDialog = window.requestAnimationFrame(() => dialogRef.current?.querySelector('button')?.focus())
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); onClose(); return }
+      if (event.key !== 'Tab' || !dialogRef.current) return
+      const focusable = [...dialogRef.current.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.cancelAnimationFrame(focusDialog)
+      window.removeEventListener('keydown', handleKeyDown)
+      if (previous instanceof HTMLElement) previous.focus()
+    }
   }, [item, onClose])
 
   if (!item) return null
@@ -41,6 +57,7 @@ export default function SeriesDetail({
   return createPortal(
     <div className="series-detail-overlay" onMouseDown={onClose}>
       <section
+        ref={dialogRef}
         className="series-detail"
         role="dialog"
         aria-modal="true"

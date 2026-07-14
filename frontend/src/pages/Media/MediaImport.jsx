@@ -9,7 +9,7 @@ import { getImportAccept, getImportFileDescription } from '../../importFileTypes
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { streamImportProgress } from '../../importProgress.mjs'
 
-const MEDIA_COLOR = '#f472b6'
+const MEDIA_COLOR = '#7c5cff'
 
 const SOURCES = [
   { id: 'mal-anime',  label: 'MyAnimeList (Anime)', icon: 'tv',        endpoint: '/media/import/mal/anime/preview', fileType: 'mal', desc: 'Export from MAL Settings > Account > Export' },
@@ -411,7 +411,7 @@ export default function MediaImport() {
 
   return (
     <>
-      <PageHeader icon="download" title="Import Media" accentColor={MEDIA_COLOR} />
+      <PageHeader title="Import Media" />
       <StepIndicator current={step} steps={STEPS} />
 
       {step === 1 && <SourceStep source={source} setSource={setSource} file={file} setFile={setFile} onNext={handlePreview} />}

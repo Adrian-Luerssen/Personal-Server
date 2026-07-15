@@ -27,3 +27,26 @@ export function deriveTransactionDefaults({ merchant, history = [] } = {}) {
     source: 'merchant-history',
   }
 }
+
+export function resolvePaymentSuggestion(suggestions = [], requestedId = '') {
+  const requested = String(requestedId || '').trim()
+  if (!requested) return null
+  return suggestions.find((suggestion) => {
+    const id = String(suggestion?.id || '')
+    const eventHash = String(suggestion?.eventHash || '')
+    return id === requested || eventHash === requested || eventHash.startsWith(requested)
+  }) || null
+}
+
+export function validateRememberedDefaults(defaults, wallets = [], categories = []) {
+  if (!defaults || defaults.source !== 'merchant-history') return null
+  const walletId = wallets.some((wallet) => wallet.id === defaults.walletId) ? defaults.walletId : ''
+  const categoryId = categories.some((category) => category.id === defaults.categoryId) ? defaults.categoryId : ''
+  return {
+    name: String(defaults.name || '').trim(),
+    walletId,
+    categoryId,
+    note: defaults.note ?? null,
+    source: 'merchant-history',
+  }
+}

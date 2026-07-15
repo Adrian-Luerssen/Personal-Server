@@ -89,6 +89,53 @@ describe('TransactionSuggestionsService', () => {
     expect(result.duplicate).toBe(false);
   });
 
+  it('prefills pending payments from the newest confirmed transaction for the same merchant', async () => {
+    repo.find
+      .mockResolvedValueOnce([{
+        id: 'pending-1', accountId: account.id, merchantNormalized: 'mercadona',
+        merchantRaw: 'MERCADONA', status: TransactionSuggestionStatus.PENDING,
+      }])
+      .mockResolvedValueOnce([{
+        id: 'accepted-2', accountId: account.id, merchantNormalized: 'mercadona',
+        status: TransactionSuggestionStatus.ACCEPTED,
+        matchedTransaction: {
+          id: 'transaction-2', name: 'Mercadona', walletId: 'wallet-1',
+          categoryId: 'food', note: 'Weekly shop',
+        },
+      }]);
+
+    const result = await service.findAll(account);
+
+    expect(result[0]).toEqual(expect.objectContaining({
+      id: 'pending-1',
+      rememberedDefaults: {
+        name: 'Mercadona', walletId: 'wallet-1', categoryId: 'food',
+        note: 'Weekly shop', source: 'merchant-history',
+      },
+    }));
+    expect(repo.find).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ accountId: account.id, status: TransactionSuggestionStatus.ACCEPTED }),
+      relations: ['matchedTransaction'],
+      order: { decidedAt: 'DESC', createdAt: 'DESC' },
+    }));
+  });
+
+  it('does not invent remembered defaults when merchant history has no linked transaction', async () => {
+    repo.find
+      .mockResolvedValueOnce([{
+        id: 'pending-1', accountId: account.id, merchantNormalized: 'coffee shop',
+        status: TransactionSuggestionStatus.PENDING,
+      }])
+      .mockResolvedValueOnce([{
+        id: 'accepted-1', accountId: account.id, merchantNormalized: 'coffee shop',
+        status: TransactionSuggestionStatus.ACCEPTED, matchedTransaction: null,
+      }]);
+
+    const result = await service.findAll(account);
+
+    expect((result[0] as any).rememberedDefaults).toBeUndefined();
+  });
+
   it('returns an existing suggestion instead of duplicating the same notification event', async () => {
     const existing = {
       id: 'suggestion-existing',

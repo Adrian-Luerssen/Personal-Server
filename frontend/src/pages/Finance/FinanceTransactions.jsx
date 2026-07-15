@@ -11,7 +11,7 @@ import { formatDate } from '../../components/shared'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { syncNativePaymentSuggestions } from '../../nativePayments.mjs'
 import { cleanDetectedMerchantName } from '../../paymentCapture.mjs'
-import { groupTransactionsByDate } from './financeViewModel.mjs'
+import { groupTransactionsByDate, resolvePaymentSuggestion, validateRememberedDefaults } from './financeViewModel.mjs'
 
 const TYPE_META = Object.freeze({
   income: { icon: 'arrow-down', label: 'Income' },
@@ -87,6 +87,7 @@ export default function FinanceTransactions() {
   const [selectedSuggestion, setSelectedSuggestion] = useState(null)
   const [captureBusy, setCaptureBusy] = useState(false)
   const [captureError, setCaptureError] = useState('')
+  const [reviewNotice, setReviewNotice] = useState('')
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState({ walletId: '', categoryId: '', transactionType: '', search: '' })
   const [txFormData, setTxFormData] = useState(null)
@@ -156,16 +157,26 @@ export default function FinanceTransactions() {
   useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
-    if (selectedSuggestion || !suggestions.length) return
+    if (loading || selectedSuggestion) return
     const requestedId = searchParams.get('paymentSuggestionId')
     const requested = requestedId
-      ? suggestions.find((suggestion) => suggestion.id === requestedId || suggestion.eventHash === requestedId || suggestion.eventHash?.startsWith(requestedId))
+      ? resolvePaymentSuggestion(suggestions, requestedId)
       : searchParams.get('review') === 'pending' ? suggestions[0] : null
     if (requested) {
       setCaptureError('')
+      setReviewNotice('')
       setSelectedSuggestion(requested)
+    } else if (requestedId) {
+      setReviewNotice('That payment is no longer waiting for review.')
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current)
+        next.delete('paymentSuggestionId')
+        next.delete('captureAction')
+        next.delete('review')
+        return next
+      }, { replace: true })
     }
-  }, [searchParams, selectedSuggestion, suggestions])
+  }, [loading, searchParams, selectedSuggestion, setSearchParams, suggestions])
 
   function handleFilterChange(key, value) {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -253,6 +264,7 @@ export default function FinanceTransactions() {
         totalPages={totalPages}
         totalCount={totalCount}
         suggestions={suggestions}
+        reviewNotice={reviewNotice}
         onFilterChange={handleFilterChange}
         onClearFilters={clearFilters}
         onMonthChange={handleMonthChange}
@@ -277,6 +289,7 @@ export default function FinanceTransactions() {
       {selectedSuggestion && (
         <PaymentCaptureSheet
           suggestion={selectedSuggestion}
+          rememberedDefaults={validateRememberedDefaults(selectedSuggestion.rememberedDefaults, wallets, categories)}
           wallets={wallets}
           categories={categories}
           busy={captureBusy}
@@ -292,7 +305,7 @@ export default function FinanceTransactions() {
 
 function CashLedger({
   loading, loadError, transactions, wallets, categories, filters, navYear, navMonth,
-  monthIncome, monthExpense, monthNet, page, totalPages, totalCount, suggestions,
+  monthIncome, monthExpense, monthNet, page, totalPages, totalCount, suggestions, reviewNotice,
   onFilterChange, onClearFilters, onMonthChange, onPageChange, onAddTransaction,
   onEditTransaction, onReviewSuggestion, onRejectSuggestion, onRetry, navigate,
 }) {
@@ -350,8 +363,9 @@ function CashLedger({
         <SummaryItem label="Visible records" value={String(transactions.length)} detail={activeFilterCount ? `${activeFilterCount} filters active` : 'No filters'} />
       </SummaryStrip>
 
-      {suggestions.length > 0 && (
+      {(suggestions.length > 0 || reviewNotice) && (
         <Register title="Payments to review" description="Detected locally and not yet added" className="record-cash__reviews" action={<button type="button" className="record-register-action" onClick={() => navigate('/settings?section=integrations')}>Capture settings</button>}>
+          {reviewNotice && <div className="record-cash__review-notice" role="status">{reviewNotice}</div>}
           {suggestions.map((suggestion) => (
             <RegisterRow
               key={suggestion.id}

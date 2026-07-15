@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 // Profile merged into Settings > Account tab
 import withRefreshGuard from './withRefreshGuard'
 import Layout from './components/Layout'
@@ -119,6 +119,28 @@ function NativeNotificationPermissionBoot({ nativeApp }) {
   return null
 }
 
+function NativePaymentReviewBridge({ nativeApp }) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!nativeApp) return undefined
+
+    window.personalServerOpenPaymentReview = (route) => {
+      if (typeof route !== 'string' || !route.startsWith('/finance/transactions?')) {
+        return false
+      }
+      navigate(route)
+      return true
+    }
+
+    return () => {
+      delete window.personalServerOpenPaymentReview
+    }
+  }, [nativeApp, navigate])
+
+  return null
+}
+
 export default function AppRouter() {
   const nativeApp = isNativeMobileApp()
   const [mobileBlocked, setMobileBlocked] = useState(false)
@@ -139,6 +161,7 @@ export default function AppRouter() {
     <PreferencesProvider>
       <BrowserRouter>
         <ProductAnalytics nativeApp={nativeApp} />
+        <NativePaymentReviewBridge nativeApp={nativeApp} />
         <div className="app">
           <NativeNotificationPermissionBoot nativeApp={nativeApp} />
           <NativeUpdateGate nativeApp={nativeApp} />

@@ -7,7 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Cache } from 'cache-manager';
 import { Account } from '../../system/accounts/account.entity';
 import { SyncOperation } from '../../sync/sync-event.entity';
@@ -49,10 +49,50 @@ export class TransactionSuggestionsService {
   ) {}
 
   async findAll(account: Account, status: TransactionSuggestionStatus = TransactionSuggestionStatus.PENDING) {
-    return this.repo.find({
+    const suggestions = await this.repo.find({
       where: { accountId: account.id, status },
       order: { occurredAt: 'DESC', createdAt: 'DESC' },
       take: 50,
+    });
+    if (status !== TransactionSuggestionStatus.PENDING || suggestions.length === 0) return suggestions;
+
+    const merchants = [...new Set(suggestions
+      .map((suggestion) => this.normalizedMerchant(suggestion.merchantNormalized || suggestion.merchantRaw))
+      .filter(Boolean))];
+    if (merchants.length === 0) return suggestions;
+
+    const accepted = await this.repo.find({
+      where: {
+        accountId: account.id,
+        status: TransactionSuggestionStatus.ACCEPTED,
+        merchantNormalized: In(merchants),
+      },
+      relations: ['matchedTransaction'],
+      order: { decidedAt: 'DESC', createdAt: 'DESC' },
+    });
+    const rememberedByMerchant = new Map<string, FinanceTransactionSuggestion>();
+    for (const candidate of accepted) {
+      const key = this.normalizedMerchant(candidate.merchantNormalized || candidate.merchantRaw);
+      if (key && candidate.matchedTransaction && !rememberedByMerchant.has(key)) {
+        rememberedByMerchant.set(key, candidate);
+      }
+    }
+
+    return suggestions.map((suggestion) => {
+      const remembered = rememberedByMerchant.get(
+        this.normalizedMerchant(suggestion.merchantNormalized || suggestion.merchantRaw),
+      )?.matchedTransaction;
+      if (!remembered) return suggestion;
+      return {
+        ...suggestion,
+        rememberedDefaults: {
+          name: remembered.name || this.titleFromMerchant(suggestion.merchantRaw),
+          walletId: remembered.walletId || null,
+          categoryId: remembered.categoryId || null,
+          note: remembered.note || null,
+          source: 'merchant-history' as const,
+        },
+      };
     });
   }
 
@@ -181,6 +221,10 @@ export class TransactionSuggestionsService {
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ') || 'Detected payment';
+  }
+
+  private normalizedMerchant(value?: string | null) {
+    return String(value || '').trim().toLocaleLowerCase('en');
   }
 
   private async recordSync(

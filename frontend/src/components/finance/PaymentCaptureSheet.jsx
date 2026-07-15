@@ -9,12 +9,14 @@ function toLocalDateTime(value) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
 }
 
-export default function PaymentCaptureSheet({ suggestion, wallets = [], categories = [], busy = false, error = '', onClose, onConfirm, onIgnore }) {
-  const [merchant, setMerchant] = useState(cleanDetectedMerchantName(suggestion?.merchantRaw))
+export default function PaymentCaptureSheet({ suggestion, rememberedDefaults = null, wallets = [], categories = [], busy = false, error = '', onClose, onConfirm, onIgnore }) {
+  const source = suggestion?.sourceAppLabel || suggestion?.sourcePackage || 'your phone'
+  const [merchant, setMerchant] = useState(rememberedDefaults?.name || cleanDetectedMerchantName(suggestion?.merchantRaw))
   const [amount, setAmount] = useState(String(suggestion?.amount || ''))
   const [occurredAt, setOccurredAt] = useState(toLocalDateTime(suggestion?.occurredAt))
-  const [walletId, setWalletId] = useState(suggestion?.walletId || '')
-  const [categoryId, setCategoryId] = useState(suggestion?.categoryId || '')
+  const [walletId, setWalletId] = useState(rememberedDefaults?.walletId || suggestion?.walletId || '')
+  const [categoryId, setCategoryId] = useState(rememberedDefaults?.categoryId || suggestion?.categoryId || '')
+  const [note, setNote] = useState(rememberedDefaults?.note || `Reviewed from ${source} payment notification.`)
   const duplicateCandidate = suggestion?.potentialDuplicate || suggestion?.duplicateCandidate || null
   const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(!duplicateCandidate)
   const merchantRef = useRef(null)
@@ -40,7 +42,6 @@ export default function PaymentCaptureSheet({ suggestion, wallets = [], categori
     }
   }, [busy, onClose])
 
-  const source = suggestion?.sourceAppLabel || suggestion?.sourcePackage || 'your phone'
   const confidenceLabel = useMemo(() => {
     const confidence = Number(suggestion?.confidence || 0)
     if (confidence >= 0.85) return 'High-confidence detection'
@@ -54,7 +55,7 @@ export default function PaymentCaptureSheet({ suggestion, wallets = [], categori
     if (!canConfirm || busy) return
     onConfirm(suggestion, {
       name: merchant.trim(), amount: Number(amount), occurredAt: new Date(occurredAt).toISOString(),
-      walletId, categoryId, note: `Reviewed from ${source} payment notification.`,
+      walletId, categoryId, note: note.trim() || null,
     })
   }
 
@@ -69,6 +70,12 @@ export default function PaymentCaptureSheet({ suggestion, wallets = [], categori
           <Icon name="smartphone" size={17} />
           <div><strong>{confidenceLabel}</strong><span>Captured locally from {source}; notification text is not uploaded.</span></div>
         </div>
+        {rememberedDefaults && (
+          <div className="payment-capture-sheet__remembered" role="status">
+            <Icon name="history" size={17} />
+            <div><strong>Remembered from your last confirmed payment here</strong><span>Merchant, wallet, category, and note remain editable before you confirm.</span></div>
+          </div>
+        )}
         {duplicateCandidate && (
           <div className="payment-capture-sheet__duplicate" role="alert">
             <Icon name="copy" size={17} />
@@ -81,6 +88,7 @@ export default function PaymentCaptureSheet({ suggestion, wallets = [], categori
           <label className="payment-capture-field"><span>Wallet</span><select value={walletId} onChange={event => setWalletId(event.target.value)} required><option value="">Choose wallet</option>{wallets.map(wallet => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}</select></label>
           <label className="payment-capture-field"><span>Category</span><select value={categoryId} onChange={event => setCategoryId(event.target.value)} required><option value="">Choose category</option>{categories.filter(category => category.isIncome !== true).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label className="payment-capture-field payment-capture-field--wide"><span>Date and time</span><input type="datetime-local" value={occurredAt} onChange={event => setOccurredAt(event.target.value)} required /></label>
+          <label className="payment-capture-field payment-capture-field--wide"><span>Note</span><textarea value={note} onChange={event => setNote(event.target.value)} rows="2" placeholder="Optional note" /></label>
           {duplicateCandidate && <label className="payment-capture-duplicate-check"><input type="checkbox" checked={duplicateAcknowledged} onChange={event => setDuplicateAcknowledged(event.target.checked)} /><span>I checked the existing record and still want to add this payment.</span></label>}
           {error && <div className="payment-capture-sheet__error" role="alert"><Icon name="alert-triangle" size={16} />{error}</div>}
           <footer className="payment-capture-sheet__actions">

@@ -38,6 +38,7 @@ const paymentActionReceiverPath = resolve(
   process.cwd(),
   'android/app/src/main/java/com/adrianluerssen/personalserver/payments/PaymentSuggestionActionReceiver.java',
 )
+const appRouter = readFileSync(resolve(process.cwd(), 'src/App.jsx'), 'utf8')
 
 test('native Android activity colors system bars to match the app shell', () => {
   assert.match(mainActivity, /setStatusBarColor/)
@@ -104,7 +105,12 @@ test('detected payments stay normalized locally and offer review actions', () =>
   assert.match(paymentListener, /"Ignore"/)
   assert.match(paymentActions, /PaymentSuggestionStore\.clearSuggestion/)
   assert.match(paymentActions, /captureAction/)
+  assert.match(paymentListener, /putExtra\(PaymentSuggestionActionReceiver\.EXTRA_SUGGESTION_ID, suggestionId\)/)
+  assert.match(paymentActions, /putExtra\(EXTRA_SUGGESTION_ID, id\)/)
+  assert.match(mainActivity, /personalServerOpenPaymentReview/)
   assert.match(mainActivity, /paymentSuggestionId/)
+  assert.match(appRouter, /window\.personalServerOpenPaymentReview/)
+  assert.match(appRouter, /navigate\(route\)/)
   assert.match(manifest, /PaymentSuggestionActionReceiver/)
 })
 

@@ -20,6 +20,7 @@ import com.adrianluerssen.personalserver.widgets.PersonalServerWidgetsPlugin;
 
 public class MainActivity extends BridgeActivity {
     private static final int NATIVE_SHELL_COLOR = Color.rgb(5, 6, 7);
+    private static final int PAYMENT_ROUTE_RETRY_LIMIT = 20;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -49,10 +50,17 @@ public class MainActivity extends BridgeActivity {
             + "&captureAction=" + Uri.encode(action == null ? "edit" : action);
         WebView webView = getBridge() != null ? getBridge().getWebView() : null;
         if (webView == null) return;
-        webView.postDelayed(() -> webView.evaluateJavascript(
-            "window.history.pushState({},''," + org.json.JSONObject.quote(route) + ");window.dispatchEvent(new PopStateEvent('popstate'));",
-            null
-        ), 700);
+        dispatchPaymentReview(webView, route, 0);
+    }
+
+    private void dispatchPaymentReview(WebView webView, String route, int attempt) {
+        String script = "(function(){if(typeof window.personalServerOpenPaymentReview==='function'){"
+            + "return window.personalServerOpenPaymentReview(" + org.json.JSONObject.quote(route) + ");}"
+            + "return false;})()";
+        webView.evaluateJavascript(script, handled -> {
+            if ("true".equals(handled) || attempt >= PAYMENT_ROUTE_RETRY_LIMIT) return;
+            webView.postDelayed(() -> dispatchPaymentReview(webView, route, attempt + 1), 250);
+        });
     }
 
     private void configureSystemBars() {

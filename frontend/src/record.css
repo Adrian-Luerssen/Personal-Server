@@ -608,6 +608,7 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .record-cash__period > span { padding-left: 8px; border-left: 1px solid var(--record-line); color: var(--record-quiet); font: 10px var(--record-font-data); }
 .record-cash > .record-summary { margin-bottom: 0; }
 .record-cash__reviews { border-color: rgba(247, 185, 85, .35); }
+.record-cash__review-notice { padding: 10px 16px; border-bottom: 1px solid var(--record-line); color: var(--record-muted); font-size: 12px; }
 .record-cash__row-icon { display: grid; width: 34px; height: 34px; place-items: center; background: var(--record-control); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-muted); }
 .record-cash__row-icon--review { background: var(--record-warning-soft); border-color: rgba(247, 185, 85, .3); color: var(--record-warning); }
 .record-cash__review-actions { display: flex; gap: 6px; }
@@ -663,9 +664,10 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .payment-capture-sheet__header h2 { margin-top: 4px; font-size: 20px; letter-spacing: -.035em; }
 .payment-capture-sheet__header p { margin-top: 4px; color: var(--record-muted); font-size: 12px; }
 .payment-capture-sheet__close { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; padding: 0; background: transparent; border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-muted); }
-.payment-capture-sheet__provenance, .payment-capture-sheet__duplicate, .payment-capture-sheet__error { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; margin: 14px 18px 0; padding: 12px; background: var(--record-canvas); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-muted); }
-.payment-capture-sheet__provenance strong, .payment-capture-sheet__duplicate strong { display: block; color: var(--record-text); font-size: 12px; }
-.payment-capture-sheet__provenance span, .payment-capture-sheet__duplicate span { display: block; margin-top: 2px; color: var(--record-quiet); font-size: 11px; }
+.payment-capture-sheet__provenance, .payment-capture-sheet__remembered, .payment-capture-sheet__duplicate, .payment-capture-sheet__error { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; margin: 14px 18px 0; padding: 12px; background: var(--record-canvas); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-muted); }
+.payment-capture-sheet__remembered { border-color: color-mix(in srgb, var(--record-accent) 44%, var(--record-line)); background: color-mix(in srgb, var(--record-accent) 8%, var(--record-canvas)); }
+.payment-capture-sheet__provenance strong, .payment-capture-sheet__remembered strong, .payment-capture-sheet__duplicate strong { display: block; color: var(--record-text); font-size: 12px; }
+.payment-capture-sheet__provenance span, .payment-capture-sheet__remembered span, .payment-capture-sheet__duplicate span { display: block; margin-top: 2px; color: var(--record-quiet); font-size: 11px; }
 .payment-capture-sheet__duplicate { background: var(--record-warning-soft); border-color: rgba(247, 185, 85, .35); color: var(--record-warning); }
 .payment-capture-sheet__error { background: var(--record-danger-soft); border-color: rgba(249, 112, 102, .35); color: var(--record-danger); font-size: 12px; }
 .payment-capture-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 18px; }

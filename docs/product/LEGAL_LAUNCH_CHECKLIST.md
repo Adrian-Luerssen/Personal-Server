@@ -16,7 +16,7 @@ This is an operational checklist, not legal advice. Counsel must approve the lic
 
 ## Trademark and brand
 
-- [ ] Clear “Personal Record,” “Record,” the mark, relevant domains, and App Store names in launch markets.
+- [ ] Clear “Record,” “Bookplate R,” the mark, relevant domains, and App Store names in launch markets.
 - [ ] Register core word and design marks where commercially justified.
 - [ ] Publish a trademark policy allowing factual repository references while prohibiting confusing hosted services.
 - [ ] Reserve names and handles before announcing the brand.

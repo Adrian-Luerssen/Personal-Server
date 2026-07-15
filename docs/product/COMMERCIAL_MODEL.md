@@ -4,7 +4,7 @@ Status: pricing and cost hypotheses for validation, not public commitments.
 
 ## Product split
 
-The source repository remains available for personal self-hosting. The commercial product is the managed **Personal Record** service: provisioning, updates, backups, monitoring, mobile connectivity, and support without requiring the customer to operate a server.
+The source repository remains available for personal self-hosting. The commercial product is the managed **Record** service: provisioning, updates, backups, monitoring, mobile connectivity, and support without requiring the customer to operate a server.
 
 Preventing third parties from monetizing the code is incompatible with an OSI-approved open-source license. The intended model is therefore **source-available**: noncommercial self-hosting under a noncommercial license plus a separate paid commercial license. Legal text must be approved before release.
 

@@ -8,7 +8,7 @@ Record is a private system for the records that make up daily life. It connects 
 
 ## Identity
 
-The mark is an indexed spine: offset rails, record ticks, and one active position. Use it in one color in navigation and at app-icon scale.
+The mark is **Bookplate R**: a book spine and index tabs forming an `R`. It represents ownership and continuity across a personal archive. Use the same recognizable geometry in navigation, loading, the browser favicon, PWA assets, and Android adaptive/legacy launcher resources. Do not use the retired turquoise hexagon or earlier indexed-rail experiments.
 
 The interface feels like a precise, calm instrument. The reference boards set the finish bar: confident dark composition, compact navigation, crisp data typography, selective color, and high information density. Record deliberately avoids their synthetic life scores, rainbow domain skins, equal-weight bento walls, and decorative sci-fi effects.
 

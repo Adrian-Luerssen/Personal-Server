@@ -14,6 +14,7 @@ This guide covers setting up the development environment, code conventions, and 
 - [Adding New Modules](#adding-new-modules)
 - [Database Migrations](#database-migrations)
 - [Testing](#testing)
+- [Android Development and Releases](#android-development-and-releases)
 - [Debugging](#debugging)
 - [Common Issues](#common-issues)
 
@@ -620,6 +621,20 @@ describe('MyService', () => {
 ```
 
 ---
+
+## Android Development and Releases
+
+The Android client lives in `frontend/android` and consumes the same React bundle through Capacitor.
+
+```powershell
+cd frontend
+npm run android:prepare
+.\android\gradlew.bat -p android assembleDebug
+```
+
+`android:prepare` performs a production Vite build and Capacitor sync before Gradle compiles the app. Run it whenever web assets, native configuration, plugins, icons, or the manifest change.
+
+Customer releases are built only by `.github/workflows/android-release.yml`, which signs the APK, verifies it, publishes versioned release assets, and updates the backend release policy. See [Android releases and in-app updates](ANDROID_RELEASES.md) for the complete contract and launcher-icon requirements.
 
 ## Debugging
 

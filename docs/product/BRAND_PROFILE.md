@@ -11,7 +11,7 @@ Category: private personal record system.
 
 Record is calm, exact, private, and capable. It helps a person capture, continue, inspect, and correct the facts of daily life. It is neither a motivational coach nor a generic “life operating system.”
 
-The brand’s organizing metaphor is the register: a dependable sequence of records with visible source, time, state, and next action. The indexed-spine mark carries that idea into the app icon and navigation.
+The brand’s organizing metaphor is the register: a dependable sequence of records with visible source, time, state, and next action. **Bookplate R** carries that idea into the browser, installable web app, Android launcher, loading state, and product navigation. Its book spine, index tabs, and `R` communicate a personal archive rather than a generic analytics dashboard.
 
 ## Voice
 
@@ -31,6 +31,12 @@ Graphite planes, cool lines, Sora interface type, JetBrains Mono data, and one e
 The register is the core composition. Rows, dividers, timelines, and focused workbenches are preferred to walls of floating cards. Artwork and charts appear when they carry information. Shadows belong to overlays; normal hierarchy comes from spacing, planes, and rules.
 
 Imagery shows the real product: a transaction under review, a workout set, a habit decision, an artist ranking, or a season and episode row. Do not use stock lifestyle photography, abstract AI meshes, decorative orbits, fake life scores, glassmorphism, or fabricated customer activity presented as real.
+
+## Mark continuity
+
+Bookplate R is the single customer-facing mark. Web favicons use `record-bookplate-r.svg`; PWA/touch assets use the matching raster artwork; Android uses dedicated `record_bookplate_r` adaptive, round, and legacy-density resources. The dedicated names are part of the release contract because reusing the retired launcher resource identity allowed device launchers to retain stale artwork across upgrades.
+
+Do not use retired legacy marks or earlier identity experiments in current product surfaces or documentation.
 
 ## Portfolio
 

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="frontend/public/logo.svg" width="80" alt="Personal Record mark" />
+  <img src="frontend/public/logo-dark.svg" width="80" alt="Record Bookplate R mark" />
 </p>
 
-<h1 align="center">Personal Record</h1>
+<h1 align="center">Record</h1>
 
 <p align="center">
   Your records, kept useful. Managed for convenience or self-hosted for control.
@@ -115,6 +115,14 @@ npm run dev
 docker-compose up -d
 ```
 
+### Android app
+
+Every push to `main` runs the signed Android release workflow. Successful runs publish a versioned release (`android-v...`) containing `personal-server.apk` and `personal-server-release.json`, then synchronize that release with the update API used by the app.
+
+In the Android app, open **You → Updates**, check for an update, and install the offered APK. Android updates are signed with the same release key and use an increasing `versionCode`, so they install over the existing app without removing local state.
+
+The customer-facing launcher icon is **Bookplate R**. Its adaptive, round, and legacy-density resources use dedicated `record_bookplate_r` resource names so Android launchers refresh the icon during upgrades instead of retaining the retired icon cache. See the [Android release guide](docs/ANDROID_RELEASES.md).
+
 ### Product analytics
 
 The React web client includes Vercel Web Analytics through `@vercel/analytics/react`. Enable Web Analytics for the Vercel project and redeploy the frontend; hosted web page views then use Vercel's automatically injected analytics routes. Query strings and URL fragments are removed before events are sent.
@@ -180,6 +188,8 @@ Copy `backend/.env.example` to `backend/.env` and fill in:
 - [Architecture](docs/ARCHITECTURE.md)
 - [API Reference](docs/API.md)
 - [Development Guide](docs/DEVELOPMENT.md)
+- [Android releases and updates](docs/ANDROID_RELEASES.md)
+- [Brand guidelines](docs/BRAND.md)
 - [Brand profile](docs/product/BRAND_PROFILE.md)
 - [Commercial model](docs/product/COMMERCIAL_MODEL.md)
 - [Integration roadmap](docs/product/INTEGRATION_ROADMAP.md)
@@ -195,4 +205,4 @@ The intended launch model is source-available personal self-hosting under a coun
 
 ---
 
-`Personal Server` remains the repository and self-host deployment name. `Personal Record` is the provisional customer brand and still requires trademark clearance.
+`Personal Server` remains the repository and self-host deployment name. `Record` is the provisional customer brand and still requires trademark clearance.

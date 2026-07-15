@@ -6,7 +6,7 @@ This is the current interface source of truth. The customer product is **Record*
 
 ## Direction
 
-Record is one private record system, not a collection of themed mini-apps. Every route uses the same graphite canvas, Sora and JetBrains Mono type system, indexed-spine mark, violet action color, register rows, explicit source states, and restrained semantic colors.
+Record is one private record system, not a collection of themed mini-apps. Every route uses the same graphite canvas, Sora and JetBrains Mono type system, Bookplate R mark, violet action color, register rows, explicit source states, and restrained semantic colors.
 
 The reference products informed interaction decisions rather than surface imitation:
 

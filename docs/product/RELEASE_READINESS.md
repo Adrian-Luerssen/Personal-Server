@@ -31,6 +31,8 @@ The legacy authenticated desktop Playwright files require a running API at `loca
 
 ## Android artifact
 
+The current customer launcher identity is Bookplate R. The manifest references dedicated `record_bookplate_r` adaptive, round, and legacy-density resources so an installed-app upgrade changes the launcher resource identity and invalidates stale device icon caches. Release `android-v0.0.1.39` is the first published APK with that cache-busting contract; its signed build, tests, metadata synchronization, and GitHub Release publication completed successfully.
+
 The local release build produced `frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk` (5,696,809 bytes; SHA-256 `24F738C0B3E0E61A235BB475ABCA49A44D17B19FD4516D902675EDBB556E6DFF`). It is compile evidence, not a distributable artifact. The GitHub release workflow refuses unsigned publication, verifies the signed APK with `apksigner`, generates SHA-256 metadata, and uploads both the APK and release metadata.
 
 Required CI secrets:
@@ -44,7 +46,7 @@ Required CI secrets:
 
 ## App-store and customer launch gates
 
-- Complete trademark, domain, social handle, and store-name clearance for Personal Record / Record.
+- Complete trademark, domain, social handle, and store-name clearance for Record and Bookplate R.
 - Have counsel approve a source-available noncommercial license, commercial license, contributor terms, privacy notice, consumer terms, and launch jurisdictions.
 - Publish support, privacy, terms, and account-deletion URLs and connect them to store listings.
 - Complete Google Data Safety and Apple privacy labels against actual runtime collection and processors.

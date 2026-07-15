@@ -116,6 +116,6 @@ Run the focused Jest service suite, relevant Node contract suites, frontend prod
 
 Replace each unchecked box with `[x]` only after its associated command succeeds.
 
-- [ ] **Step 3: Commit and push**
+- [x] **Step 3: Commit and push**
 
 Commit the implementation with a conventional `feat:` message, push `main`, and monitor the Android APK release workflow through signed publication.

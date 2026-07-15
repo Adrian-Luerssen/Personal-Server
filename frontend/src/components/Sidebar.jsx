@@ -1,11 +1,11 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
-import { clearApiCache } from '../api'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { isFeatureEnabled } from '../modulePreferences.mjs'
 import { isNativeMobileApp } from '../mobilePlatform'
 import { PRODUCT } from '../product/brand.mjs'
+import { signOut } from '../session.js'
 import BrandMark from './product/BrandMark'
 import Icon from './icons/Icon'
 
@@ -37,9 +37,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const records = RECORD_LINKS.filter((item) => isFeatureEnabled(prefs, item.id))
 
   function logout() {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    clearApiCache()
+    signOut()
     navigate(isNativeMobileApp() ? '/login' : '/', { replace: true })
   }
 

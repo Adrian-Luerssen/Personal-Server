@@ -1163,6 +1163,23 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('link', { name: /import gym records/i })).toBeVisible()
   })
 
+  test('signs out from the native account screen and clears the device session', async ({ page }) => {
+    await enableNativeSession(page)
+    await page.goto('/settings?section=account')
+
+    const signOut = page.getByRole('button', { name: /^sign out$/i })
+    await expect(signOut).toBeVisible()
+    await expect(signOut).toHaveCSS('min-height', '44px')
+    await signOut.click()
+
+    await expect(page).toHaveURL(/\/login$/)
+    const tokens = await page.evaluate(() => ({
+      accessToken: localStorage.getItem('accessToken'),
+      refreshToken: localStorage.getItem('refreshToken'),
+    }))
+    expect(tokens).toEqual({ accessToken: null, refreshToken: null })
+  })
+
   test('keeps native notification switches inside their settings rows', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {

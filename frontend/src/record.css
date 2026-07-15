@@ -1194,6 +1194,11 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .settings-password-help { margin-top: 5px; }
 .settings-password-form { display: grid; max-width: 680px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 9px; margin-top: 13px; }
 .settings-password-form > button { grid-column: 1; justify-self: start; }
+.account-session-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.account-session-card__copy span { color: var(--record-danger); font: 650 8px var(--record-font-data); letter-spacing: .1em; text-transform: uppercase; }
+.account-session-card__copy h2 { margin-top: 5px; }
+.account-session-card__copy p { margin-top: 5px; }
+.account-session-card__action { flex: 0 0 auto; }
 .settings-version-card { display: grid; grid-template-columns: repeat(2, 1fr); margin-top: 12px; border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); }
 .settings-version-card > div { display: grid; min-height: 72px; align-content: center; gap: 4px; padding: 12px; border-right: 1px solid var(--record-line); }
 .settings-version-card > div:last-child { border-right: 0; }
@@ -1232,6 +1237,8 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
   .record-settings-workspace { grid-template-columns: 210px minmax(0, 1fr); }
   .settings-password-form { grid-template-columns: 1fr; }
   .settings-password-form > button { grid-column: auto; }
+  .account-session-card { align-items: stretch; flex-direction: column; }
+  .account-session-card__action { width: 100%; min-height: var(--record-touch); }
   .record-density-options { grid-template-columns: 1fr; }
   .record-density-options button { border-right: 0; border-bottom: 1px solid var(--record-line); }
   .record-density-options button:last-child { border-bottom: 0; }

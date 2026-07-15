@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../api'
 import { Modal } from '../../components/shared'
 import { Icon } from '../../components/icons'
+import { signOut } from '../../session.js'
 
 export default function Account() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -177,6 +180,11 @@ export default function Account() {
     setMfaCode('')
   }
 
+  function logout() {
+    signOut()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <>
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
@@ -284,6 +292,18 @@ export default function Account() {
             </div>
           </div>
         ) : null}
+      </div>
+
+      <div className="card section account-session-card">
+        <div className="account-session-card__copy">
+          <span>Session</span>
+          <h2>Sign out of Record</h2>
+          <p>Remove this account session and its locally cached records from this device.</p>
+        </div>
+        <button type="button" className="btn btn-danger account-session-card__action" onClick={logout}>
+          <Icon name="log-out" size={17} />
+          Sign out
+        </button>
       </div>
     </>
   )

@@ -45,8 +45,9 @@ test('Bookplate R is the browser, installable web, and native launcher identity'
   const viteConfig = read('vite.config.mjs')
   const nativeMark = read('android/app/src/main/res/drawable/ps_launcher_foreground.xml')
 
-  assert.match(html, /favicon\.svg\?v=bookplate-r/)
-  assert.match(html, /favicon-32\.png\?v=bookplate-r/)
+  assert.match(html, /rel="icon"[^>]+record-bookplate-r\.svg/)
+  assert.match(html, /rel="shortcut icon"[^>]+record-bookplate-r\.svg/)
+  assert.doesNotMatch(html, /href="\/favicon(?:\.svg|-32\.png)/)
   assert.match(html, /apple-touch-icon\.png\?v=bookplate-r/)
   assert.match(viteConfig, /pwa-maskable-512\.png\?v=bookplate-r/)
   assert.match(nativeMark, /#A999FF/i)
@@ -54,7 +55,7 @@ test('Bookplate R is the browser, installable web, and native launcher identity'
   assert.doesNotMatch(nativeMark, /#7DD3FC|#34D399/i)
 
   for (const asset of [
-    'public/favicon-32.png',
+    'public/record-bookplate-r.svg',
     'public/apple-touch-icon.png',
     'public/pwa-192.png',
     'public/pwa-512.png',

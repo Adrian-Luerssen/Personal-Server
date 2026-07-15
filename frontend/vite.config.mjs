@@ -19,7 +19,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png', 'logo.svg', 'logo-dark.svg', 'pwa-192.png', 'pwa-512.png', 'pwa-maskable-512.png'],
+      includeAssets: ['record-bookplate-r.svg', 'apple-touch-icon.png', 'logo.svg', 'logo-dark.svg', 'pwa-192.png', 'pwa-512.png', 'pwa-maskable-512.png'],
       manifest: {
         name: 'Record',
         short_name: 'Record',

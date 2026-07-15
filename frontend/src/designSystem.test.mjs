@@ -44,6 +44,7 @@ test('Bookplate R is the browser, installable web, and native launcher identity'
   const html = read('index.html')
   const viteConfig = read('vite.config.mjs')
   const nativeMark = read('android/app/src/main/res/drawable/ps_launcher_foreground.xml')
+  const nativeManifest = read('android/app/src/main/AndroidManifest.xml')
 
   assert.match(html, /rel="icon"[^>]+record-bookplate-r\.svg/)
   assert.match(html, /rel="shortcut icon"[^>]+record-bookplate-r\.svg/)
@@ -53,6 +54,8 @@ test('Bookplate R is the browser, installable web, and native launcher identity'
   assert.match(nativeMark, /#A999FF/i)
   assert.match(nativeMark, /#7C5CFF/i)
   assert.doesNotMatch(nativeMark, /#7DD3FC|#34D399/i)
+  assert.match(nativeManifest, /android:icon="@mipmap\/record_bookplate_r"/)
+  assert.match(nativeManifest, /android:roundIcon="@mipmap\/record_bookplate_r_round"/)
 
   for (const asset of [
     'public/record-bookplate-r.svg',
@@ -62,6 +65,9 @@ test('Bookplate R is the browser, installable web, and native launcher identity'
     'public/pwa-maskable-512.png',
     'android/app/src/main/res/mipmap-mdpi/ic_launcher.png',
     'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
+    'android/app/src/main/res/mipmap-xxxhdpi/record_bookplate_r.png',
+    'android/app/src/main/res/mipmap-anydpi-v26/record_bookplate_r.xml',
+    'android/app/src/main/res/mipmap-anydpi-v26/record_bookplate_r_round.xml',
   ]) {
     assert.equal(existsSync(resolve(process.cwd(), asset)), true, `${asset} must exist`)
   }

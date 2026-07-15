@@ -1,5 +1,7 @@
 import { getApiBase } from "./config.js";
 
+let authGeneration = 0;
+
 export function getTokens() {
   return {
     accessToken: localStorage.getItem("accessToken"),
@@ -13,6 +15,7 @@ export function setTokens({ accessToken, refreshToken }) {
 }
 
 export function clearTokens() {
+  authGeneration += 1;
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
 }
@@ -20,6 +23,7 @@ export function clearTokens() {
 export async function refreshIfPossible() {
   const { refreshToken } = getTokens();
   if (!refreshToken) return false;
+  const generationAtStart = authGeneration;
   try {
     const res = await fetch(getApiBase() + "/auth/refresh", {
       method: "POST",
@@ -28,6 +32,10 @@ export async function refreshIfPossible() {
     });
     if (!res.ok) return false;
     const data = await res.json();
+    if (
+      generationAtStart !== authGeneration ||
+      getTokens().refreshToken !== refreshToken
+    ) return false;
     setTokens({
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,

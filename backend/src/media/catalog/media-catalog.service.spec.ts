@@ -137,6 +137,57 @@ describe("MediaCatalogService", () => {
     expect(item.coverUrl).toBe("https://img.example/first-season.jpg");
   });
 
+  it("falls back to AniList when Jikan rejects the deployed server", async () => {
+    const item = {
+      id: "anime-fallback",
+      accountId: account.id,
+      title: "Attack on Titan Final Chapters",
+      type: MediaType.ANIME,
+      externalIds: { malId: 51535 },
+      metadata: {},
+    } as any;
+    mediaRepo.rows.push(item);
+    mockedAxios.get.mockRejectedValueOnce({ response: { status: 403 } });
+    mockedAxios.post.mockResolvedValueOnce({ data: { data: { Media: {
+      idMal: 51535,
+      title: { romaji: "Shingeki no Kyojin: The Final Season - Kanketsu-hen" },
+      description: "The conclusion.",
+      episodes: 2,
+      format: "SPECIAL",
+      status: "FINISHED",
+      averageScore: 88,
+      startDate: { year: 2023, month: 3, day: 4 },
+      endDate: { year: 2023, month: 11, day: 5 },
+      coverImage: { extraLarge: "https://img.example/aot.jpg" },
+      genres: ["Action", "Drama"],
+      studios: { nodes: [{ name: "MAPPA" }] },
+      relations: { edges: [{
+        relationType: "PREQUEL",
+        node: { idMal: 48583, type: "ANIME", title: { romaji: "Attack on Titan Final Season Part 2" }, coverImage: { large: "https://img.example/prequel.jpg" }, startDate: { year: 2022 } },
+      }] },
+    } } } } as any);
+
+    const view = await service.syncItem(account, item);
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "https://graphql.anilist.co",
+      expect.objectContaining({ variables: { malId: 51535 } }),
+      expect.objectContaining({ timeout: 15000 }),
+    );
+    expect(item.coverUrl).toBe("https://img.example/aot.jpg");
+    expect(item.metadata).toMatchObject({
+      catalogSyncState: "ready",
+      episodes: 2,
+      studios: ["MAPPA"],
+      genres: ["Action", "Drama"],
+      releaseStartDate: "2023-03-04",
+      releaseEndDate: "2023-11-05",
+    });
+    expect(view.relations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ relationType: "prequel", targetMalId: 48583 }),
+    ]));
+  });
+
   it("synchronizes eligible imported titles and reports progress without failing the import", async () => {
     const anime = {
       id: "anime-1", accountId: account.id, type: MediaType.ANIME,

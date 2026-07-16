@@ -421,7 +421,102 @@ export class MediaCatalogService {
         await this.pause(retryAfter > 0 ? retryAfter * 1000 : 500 * (attempt + 1));
       }
     }
-    throw lastError;
+    try {
+      return await this.fetchAnimeFromAniList(malId);
+    } catch {
+      throw lastError;
+    }
+  }
+
+  private async fetchAnimeFromAniList(malId: number): Promise<any> {
+    const query = `
+      query AnimeByMalId($malId: Int) {
+        Media(idMal: $malId, type: ANIME) {
+          idMal
+          title { romaji english }
+          description
+          episodes
+          format
+          status
+          averageScore
+          startDate { year month day }
+          endDate { year month day }
+          coverImage { extraLarge large }
+          genres
+          studios(isMain: true) { nodes { name } }
+          relations {
+            edges {
+              relationType
+              node {
+                idMal
+                type
+                title { romaji english }
+                coverImage { large }
+                startDate { year }
+              }
+            }
+          }
+        }
+      }
+    `;
+    const response = await axios.post(
+      "https://graphql.anilist.co",
+      { query, variables: { malId } },
+      { timeout: 15000 },
+    );
+    const media = response.data?.data?.Media;
+    if (!media?.idMal) throw new Error("AniList anime was not found");
+
+    const relations = (media.relations?.edges || [])
+      .filter((edge: any) => edge?.node?.type === "ANIME" && edge.node.idMal)
+      .map((edge: any) => ({
+        relation: edge.relationType,
+        entry: [{
+          mal_id: Number(edge.node.idMal),
+          type: "anime",
+          name: edge.node.title?.english || edge.node.title?.romaji || "Related anime",
+        }],
+      }));
+
+    return {
+      mal_id: Number(media.idMal),
+      title: media.title?.english || media.title?.romaji,
+      synopsis: this.stripProviderHtml(media.description),
+      episodes: media.episodes ?? null,
+      type: media.format || null,
+      status: media.status || null,
+      score: media.averageScore != null && Number.isFinite(Number(media.averageScore))
+        ? Number(media.averageScore) / 10
+        : null,
+      aired: {
+        from: this.anilistDate(media.startDate),
+        to: this.anilistDate(media.endDate),
+      },
+      images: { jpg: {
+        large_image_url: media.coverImage?.extraLarge || media.coverImage?.large || null,
+      } },
+      studios: (media.studios?.nodes || []).map((studio: any) => ({ name: studio.name })),
+      genres: (media.genres || []).map((name: string) => ({ name })),
+      relations,
+    };
+  }
+
+  private anilistDate(value: any): string | null {
+    const year = Number(value?.year);
+    const month = Number(value?.month);
+    const day = Number(value?.day);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  private stripProviderHtml(value: unknown): string {
+    return String(value || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
   }
 
   private pause(milliseconds: number): Promise<void> {

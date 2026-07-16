@@ -6,8 +6,8 @@ import { PageHeading, StatePanel, SummaryItem, SummaryStrip } from '../../compon
 import {
   getNextProgressUpdate,
   getSeriesProgress,
-  groupSeriesByStatus,
   normalizeSeriesCollection,
+  paginateSeriesLibrary,
 } from './seriesViewModel.mjs'
 import {
   getCatalogProgressLabel,
@@ -33,6 +33,33 @@ const STATUS_META = {
   completed: { label: 'Completed' },
   paused:    { label: 'Paused' },
   dropped:   { label: 'Dropped' },
+}
+
+const MEDIA_PAGE_SIZE = 24
+
+function SeriesPagination({ pagination, onPageChange }) {
+  if (pagination.totalPages <= 1) return null
+  return (
+    <nav className="series-pagination" aria-label="Media library pages">
+      <span className="series-pagination__count">{pagination.start}–{pagination.end} of {pagination.totalItems} titles</span>
+      <div className="series-pagination__controls">
+        <button type="button" className="record-button record-button--compact" disabled={pagination.page <= 1} onClick={() => onPageChange(pagination.page - 1)}>
+          <Icon name="chevron-left" size={14} />Previous
+        </button>
+        <label>
+          <span className="sr-only">Media page</span>
+          <select aria-label="Media page" value={pagination.page} onChange={(event) => onPageChange(Number(event.target.value))}>
+            {Array.from({ length: pagination.totalPages }, (_, index) => index + 1).map(page => (
+              <option key={page} value={page}>Page {page} of {pagination.totalPages}</option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="record-button record-button--compact" disabled={pagination.page >= pagination.totalPages} onClick={() => onPageChange(pagination.page + 1)}>
+          Next<Icon name="chevron-right" size={14} />
+        </button>
+      </div>
+    </nav>
+  )
 }
 
 function useModalFocus(open, onClose, dialogRef) {
@@ -645,6 +672,8 @@ export default function Media() {
   const [detailError, setDetailError] = useState('')
   const [busyEpisodeId, setBusyEpisodeId] = useState(null)
   const [busyItemId, setBusyItemId] = useState(null)
+  const [page, setPage] = useState(1)
+  const listTopRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -668,11 +697,18 @@ export default function Media() {
   }, [filterType, filterStatus, search])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { setPage(1) }, [filterType, filterStatus, search])
 
   const activeCount = items.filter(i => ['watching', 'reading'].includes(i.status)).length
   const completedCount = stats?.completed ?? 0
   const avgRating = stats?.averageRating
-  const groups = groupSeriesByStatus(items)
+  const pagination = paginateSeriesLibrary(items, page, MEDIA_PAGE_SIZE)
+  const groups = pagination.groups
+
+  const changePage = (nextPage) => {
+    setPage(Math.min(pagination.totalPages, Math.max(1, nextPage)))
+    requestAnimationFrame(() => listTopRef.current?.scrollIntoView({ block: 'start' }))
+  }
 
   const applyCatalogView = (view) => {
     if (!view?.item?.id) return
@@ -855,28 +891,32 @@ export default function Media() {
       ) : items.length === 0 ? (
         <StatePanel kind="empty" title="No titles in this view" detail="Change the filters or add an anime release, television series, film, manga, or book." action={<button className="record-button record-button--primary" onClick={() => setAddOpen(true)}>Add first title</button>} />
       ) : (
-        <div className="series-groups">
-          {groups.map(group => (
-            <section className="series-group" key={group.status}>
-              <div className="series-group__heading">
-                <h2>{STATUS_META[group.status]?.label || group.status}</h2>
-                <span>{group.items.length}</span>
-              </div>
-              <div className="series-list">
-                {group.items.map(item => (
-                  <SeriesRow
-                    key={item.id}
-                    item={item}
-                    catalog={catalogs[item.id]}
-                    onOpen={openDetail}
-                    onIncrement={incrementProgress}
-                    onWatchEpisode={(entry, episodeId) => toggleEpisode(entry, { id: episodeId }, true)}
-                    busy={busyItemId === item.id || busyEpisodeId === catalogs[item.id]?.nextEpisode?.id}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="series-library-page" ref={listTopRef}>
+          <SeriesPagination pagination={pagination} onPageChange={changePage} />
+          <div className="series-groups" aria-live="polite">
+            {groups.map(group => (
+              <section className="series-group" key={group.status}>
+                <div className="series-group__heading">
+                  <h2>{STATUS_META[group.status]?.label || group.status}</h2>
+                  <span>{group.items.length === group.totalCount ? group.totalCount : `${group.items.length} shown · ${group.totalCount} total`}</span>
+                </div>
+                <div className="series-list">
+                  {group.items.map(item => (
+                    <SeriesRow
+                      key={item.id}
+                      item={item}
+                      catalog={catalogs[item.id]}
+                      onOpen={openDetail}
+                      onIncrement={incrementProgress}
+                      onWatchEpisode={(entry, episodeId) => toggleEpisode(entry, { id: episodeId }, true)}
+                      busy={busyItemId === item.id || busyEpisodeId === catalogs[item.id]?.nextEpisode?.id}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+          <SeriesPagination pagination={pagination} onPageChange={changePage} />
         </div>
       )}
 

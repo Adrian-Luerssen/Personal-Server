@@ -939,7 +939,14 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .series-completion > div:last-child { display: flex; gap: 7px; }
 .series-completion button { min-height: 36px; padding: 0 10px; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-text); font-size: 10px; }
 .series-completion button:first-child { background: var(--record-accent); border-color: var(--record-accent); color: #fff; }
+.series-library-page { scroll-margin-top: 16px; }
 .series-groups { display: grid; gap: 18px; }
+.series-pagination { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 12px; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius); }
+.series-pagination:first-child { margin-bottom: 12px; }
+.series-pagination:last-child { margin-top: 12px; }
+.series-pagination__count { color: var(--record-quiet); font: 10px var(--record-font-data); }
+.series-pagination__controls { display: flex; align-items: center; gap: 7px; }
+.series-pagination__controls select { min-height: 34px; padding: 0 28px 0 10px; background: var(--record-control); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-text); font: 10px var(--record-font-data); }
 .series-group { overflow: hidden; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius); }
 .series-group__heading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; padding: 0 14px; background: var(--record-raised); border-bottom: 1px solid var(--record-line); }
 .series-group__heading h2 { font-size: 13px; letter-spacing: -.01em; }
@@ -1701,6 +1708,10 @@ tbody tr:hover { background: var(--record-raised); }
   .record-series-filters__row { align-items: stretch; grid-template-columns: 1fr; gap: 5px; }
   .record-series-filters__row .record-segmented { width: 100%; }
   .series-completion { align-items: stretch; flex-direction: column; }
+  .series-pagination { align-items: stretch; flex-direction: column; }
+  .series-pagination__count { text-align: center; }
+  .series-pagination__controls { display: grid; grid-template-columns: 1fr auto 1fr; }
+  .series-pagination__controls .record-button { justify-content: center; }
   .series-row { grid-template-columns: 44px minmax(0, 1fr); gap: 9px; padding: 10px; }
   .series-row__cover { width: 42px; height: 63px; }
   .series-row__actions { grid-column: 2; justify-content: flex-start; }

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean; paymentSuggestions?: any[] } = {}) {
+async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean; paymentSuggestions?: any[]; mediaItems?: any[] } = {}) {
   await page.addInitScript(() => {
     ;(window as any).__NATIVE_APP__ = true
     ;(window as any).__API_BASE__ = 'http://localhost:4051'
@@ -481,11 +481,12 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
     }
 
     if (path === '/media') {
+      const items = options.mediaItems || [tvItem, animeItem]
       return route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify({
-          items: [tvItem, animeItem],
-          total: 2,
+          items,
+          total: items.length,
         }),
       })
     }
@@ -1161,6 +1162,41 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('link', { name: /import habits/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /cash settings/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /import gym records/i })).toBeVisible()
+  })
+
+  test('paginates the native media library without horizontal overflow', async ({ page }) => {
+    const mediaItems = Array.from({ length: 30 }, (_, index) => ({
+      id: `paged-${index + 1}`,
+      title: `Paged title ${String(index + 1).padStart(2, '0')}`,
+      type: 'anime',
+      status: 'planning',
+      coverUrl: '',
+      metadata: { episodes: 12, episodesWatched: 0 },
+      externalIds: { malId: 1000 + index },
+    }))
+    await mockNativeApi(page, { mediaItems })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/media')
+
+    await expect(page.locator('.series-row')).toHaveCount(24)
+    await expect(page.getByText('Paged title 01')).toBeVisible()
+    await expect(page.getByText('Paged title 25')).toHaveCount(0)
+    await expect(page.getByText('1–24 of 30 titles').first()).toBeVisible()
+
+    await page.getByLabel('Media page').first().selectOption('2')
+    await expect(page.locator('.series-row')).toHaveCount(6)
+    await expect(page.getByText('Paged title 25')).toBeVisible()
+    await expect(page.getByText('Paged title 01')).toHaveCount(0)
+
+    await page.setViewportSize({ width: 320, height: 568 })
+    const overflow = await getHorizontalOverflowReport(page)
+    expect(overflow.documentScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
+    expect(overflow.bodyScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
   })
 
   test('signs out from the native account screen and clears the device session', async ({ page }) => {

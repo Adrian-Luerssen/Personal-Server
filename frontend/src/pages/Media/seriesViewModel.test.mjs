@@ -5,6 +5,7 @@ import {
   getNextProgressUpdate,
   groupSeriesByStatus,
   normalizeSeriesCollection,
+  paginateSeriesLibrary,
 } from './seriesViewModel.mjs'
 
 test('normalizes both array and paginated series responses', () => {
@@ -41,4 +42,35 @@ test('series are grouped in action-first status order', () => {
   ])
 
   assert.deepEqual(groups.map(({ status }) => status), ['watching', 'paused', 'planning', 'completed'])
+})
+
+test('media pagination keeps status order and reports full group counts', () => {
+  const items = [
+    { id: 'done-1', status: 'completed' },
+    { id: 'plan-1', status: 'planning' },
+    { id: 'watch-1', status: 'watching' },
+    { id: 'watch-2', status: 'watching' },
+    { id: 'watch-3', status: 'watching' },
+  ]
+
+  const first = paginateSeriesLibrary(items, 1, 2)
+  assert.deepEqual(first.groups.map(group => ({
+    status: group.status,
+    ids: group.items.map(item => item.id),
+    totalCount: group.totalCount,
+  })), [{ status: 'watching', ids: ['watch-1', 'watch-2'], totalCount: 3 }])
+  assert.deepEqual(first, {
+    ...first,
+    page: 1,
+    pageSize: 2,
+    totalItems: 5,
+    totalPages: 3,
+    start: 1,
+    end: 2,
+  })
+
+  const last = paginateSeriesLibrary(items, 99, 2)
+  assert.equal(last.page, 3)
+  assert.deepEqual(last.groups.map(group => group.status), ['completed'])
+  assert.deepEqual(last.groups[0].items.map(item => item.id), ['done-1'])
 })

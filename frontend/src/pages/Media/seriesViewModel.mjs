@@ -58,3 +58,29 @@ export function groupSeriesByStatus(items) {
     })
     .map(([status, groupedItems]) => ({ status, items: groupedItems }))
 }
+
+export function paginateSeriesLibrary(items, requestedPage = 1, pageSize = 24) {
+  const groups = groupSeriesByStatus(items)
+  const orderedItems = groups.flatMap(group => group.items)
+  const safePageSize = Math.max(1, Number(pageSize) || 24)
+  const totalItems = orderedItems.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / safePageSize))
+  const page = Math.min(totalPages, Math.max(1, Number(requestedPage) || 1))
+  const offset = (page - 1) * safePageSize
+  const pageItems = orderedItems.slice(offset, offset + safePageSize)
+  const totalsByStatus = new Map(groups.map(group => [group.status, group.items.length]))
+  const pagedGroups = groupSeriesByStatus(pageItems).map(group => ({
+    ...group,
+    totalCount: totalsByStatus.get(group.status) || group.items.length,
+  }))
+
+  return {
+    groups: pagedGroups,
+    page,
+    pageSize: safePageSize,
+    totalItems,
+    totalPages,
+    start: totalItems === 0 ? 0 : offset + 1,
+    end: Math.min(offset + safePageSize, totalItems),
+  }
+}

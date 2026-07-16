@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean; paymentSuggestions?: any[]; mediaItems?: any[] } = {}) {
+async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean; paymentSuggestions?: any[]; mediaItems?: any[]; mediaSearchResults?: any[] } = {}) {
   await page.addInitScript(() => {
     ;(window as any).__NATIVE_APP__ = true
     ;(window as any).__API_BASE__ = 'http://localhost:4051'
@@ -478,6 +478,15 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
 
     if (path === '/spotify/linked') {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ linked: true }) })
+    }
+
+    if (path === '/media/search') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(options.mediaSearchResults || []) })
+    }
+
+    if (path === '/media' && method === 'POST') {
+      const body = JSON.parse(route.request().postData() || '{}')
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'new-media-item', ...body }) })
     }
 
     if (path === '/media') {
@@ -1162,6 +1171,40 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('link', { name: /import habits/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /cash settings/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /import gym records/i })).toBeVisible()
+  })
+
+  test('opens a searchable media discovery page and adds a catalog result', async ({ page }) => {
+    await mockNativeApi(page, {
+      mediaSearchResults: [{
+        title: 'Frieren: Beyond Journey\'s End',
+        type: 'anime',
+        coverUrl: 'https://example.test/frieren.jpg',
+        year: 2023,
+        description: 'An elf mage retraces the journey she once shared with her companions.',
+        externalIds: { malId: 52991 },
+        metadata: { episodes: 28, genres: ['Adventure', 'Fantasy'] },
+      }],
+    })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/media')
+    await page.getByRole('navigation', { name: 'Section navigation' }).getByRole('link', { name: 'Discover' }).click()
+
+    await expect(page).toHaveURL(/\/media\?view=discover/)
+    await expect(page.getByRole('heading', { name: 'Discover' })).toBeVisible()
+    const search = page.getByRole('searchbox', { name: 'Search the media catalog' })
+    await search.fill('Frieren')
+    await page.getByRole('button', { name: 'Search catalog' }).click()
+
+    const result = page.getByRole('article', { name: /Frieren: Beyond Journey's End/ })
+    await expect(result).toContainText('2023')
+    await expect(result).toContainText('28 episodes')
+    await result.getByRole('button', { name: 'Add to my list' }).click()
+    await expect(result.getByRole('button', { name: 'In my list' })).toBeDisabled()
   })
 
   test('paginates the native media library without horizontal overflow', async ({ page }) => {

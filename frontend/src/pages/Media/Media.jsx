@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../api'
 import Icon from '../../components/icons/Icon'
 import { PageHeading, StatePanel, SummaryItem, SummaryStrip } from '../../components/record'
@@ -17,6 +18,7 @@ import {
 } from './seriesCatalogModel.mjs'
 import SeriesDetail from './SeriesDetail'
 import IconInput from '../../components/product/IconInput'
+import MediaDiscover from './MediaDiscover'
 
 const TYPE_META = {
   anime:  { icon: 'tv',           label: 'Anime' },
@@ -656,6 +658,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
 }
 
 export default function Media() {
+  const [searchParams] = useSearchParams()
   const [items, setItems] = useState([])
   const [stats, setStats] = useState(null)
   const [catalogs, setCatalogs] = useState({})
@@ -708,6 +711,10 @@ export default function Media() {
   const changePage = (nextPage) => {
     setPage(Math.min(pagination.totalPages, Math.max(1, nextPage)))
     requestAnimationFrame(() => listTopRef.current?.scrollIntoView({ block: 'start' }))
+  }
+
+  if (searchParams.get('view') === 'discover') {
+    return <MediaDiscover libraryItems={items} onAdded={load} />
   }
 
   const applyCatalogView = (view) => {

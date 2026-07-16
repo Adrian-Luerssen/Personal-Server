@@ -501,7 +501,23 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
     }
 
     if (path === '/media/stats') {
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ total: 2, byStatus: { watching: 2 }, byType: { tv: 1, anime: 1 } }) })
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+        total: 2,
+        completed: 1,
+        averageRating: 8,
+        byStatus: { watching: 1, completed: 1 },
+        byType: { tv: 1, anime: 1 },
+        consumption: {
+          watchMinutes: 1605,
+          exactWatchMinutes: 45,
+          estimatedWatchMinutes: 1560,
+          episodesWatched: 56,
+          chaptersRead: 120,
+          pagesRead: 840,
+          completionRate: 50,
+        },
+        topGenres: [{ name: 'Drama', count: 2 }, { name: 'Action', count: 1 }],
+      }) })
     }
 
     if (path === '/media/catalog/summaries') {
@@ -1171,6 +1187,30 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('link', { name: /import habits/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /cash settings/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /import gym records/i })).toBeVisible()
+  })
+
+  test('shows meaningful media consumption statistics', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/media')
+
+    const consumption = page.getByRole('region', { name: 'Series consumption' })
+    await expect(consumption.getByText('1d 2h 45m')).toBeVisible()
+    await expect(consumption.getByText('Includes 1d 2h estimated')).toBeVisible()
+    await expect(consumption.getByText('56')).toBeVisible()
+    await expect(consumption.getByText('120')).toBeVisible()
+    await expect(consumption.getByText('840')).toBeVisible()
+    await expect(consumption.getByRole('progressbar')).toHaveAttribute('value', '50')
+    await expect(consumption.getByText('Drama')).toBeVisible()
+    const overflow = await getHorizontalOverflowReport(page)
+    expect(overflow.documentScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
+    expect(overflow.bodyScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
   })
 
   test('opens a searchable media discovery page and adds a catalog result', async ({ page }) => {

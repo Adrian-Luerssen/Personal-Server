@@ -940,6 +940,27 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .series-completion button { min-height: 36px; padding: 0 10px; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-text); font-size: 10px; }
 .series-completion button:first-child { background: var(--record-accent); border-color: var(--record-accent); color: #fff; }
 .series-library-page { scroll-margin-top: 16px; }
+.series-consumption { display: grid; grid-template-columns: minmax(190px, .8fr) minmax(300px, 1.35fr) minmax(240px, 1fr); overflow: hidden; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius); }
+.series-consumption > * { min-width: 0; padding: 16px; }
+.series-consumption > * + * { border-left: 1px solid var(--record-line); }
+.series-consumption__watch { display: flex; flex-direction: column; justify-content: center; }
+.series-consumption__watch strong { margin-top: 6px; font: 600 28px/1 var(--record-font-data); letter-spacing: -.05em; }
+.series-consumption__watch small { margin-top: 8px; color: var(--record-quiet); font-size: 9px; }
+.series-consumption__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; }
+.series-consumption__metrics div { display: flex; min-width: 0; flex-direction: column-reverse; justify-content: center; gap: 5px; padding: 16px 12px; }
+.series-consumption__metrics div + div { border-left: 1px solid var(--record-line); }
+.series-consumption__metrics dt { color: var(--record-quiet); font-size: 8px; }
+.series-consumption__metrics dd { margin: 0; font: 600 18px/1 var(--record-font-data); }
+.series-consumption__completion { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.series-consumption__completion > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; color: var(--record-muted); font-size: 9px; }
+.series-consumption__completion > div:first-child strong { color: var(--record-text); font: 600 15px var(--record-font-data); }
+.series-consumption__completion progress { width: 100%; height: 5px; overflow: hidden; appearance: none; border: 0; border-radius: 99px; background: var(--record-raised); }
+.series-consumption__completion progress::-webkit-progress-bar { background: var(--record-raised); }
+.series-consumption__completion progress::-webkit-progress-value { background: var(--record-accent); border-radius: 99px; }
+.series-consumption__completion progress::-moz-progress-bar { background: var(--record-accent); border-radius: 99px; }
+.series-consumption__genres { display: flex; flex-wrap: wrap; gap: 5px; }
+.series-consumption__genres > span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px; background: var(--record-raised); color: var(--record-muted); font-size: 8px; }
+.series-consumption__genres small { color: var(--record-quiet); font: 7px var(--record-font-data); }
 .series-groups { display: grid; gap: 18px; }
 .series-pagination { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 12px; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius); }
 .series-pagination:first-child { margin-bottom: 12px; }
@@ -1737,6 +1758,10 @@ tbody tr:hover { background: var(--record-raised); }
   .series-pagination__count { text-align: center; }
   .series-pagination__controls { display: grid; grid-template-columns: 1fr auto 1fr; }
   .series-pagination__controls .record-button { justify-content: center; }
+  .series-consumption { grid-template-columns: 1fr; }
+  .series-consumption > * + * { border-top: 1px solid var(--record-line); border-left: 0; }
+  .series-consumption__watch { min-height: 112px; }
+  .series-consumption__completion { min-height: 116px; }
   .series-discover-search { grid-template-columns: 1fr; align-items: stretch; }
   .series-discover-search .record-button { min-height: 44px; justify-content: center; }
   .series-discover-grid { grid-template-columns: 1fr; }

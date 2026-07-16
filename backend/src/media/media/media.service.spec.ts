@@ -4,11 +4,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { MediaService } from './media.service';
 import { MediaItem, MediaType, MediaStatus } from '../entities/media-item.entity';
+import { MediaEpisode } from '../entities/media-episode.entity';
 
 describe('MediaService', () => {
   let service: MediaService;
   let mockQueryBuilder: any;
   let mockRepo: any;
+  let mockEpisodeRepo: any;
   let mockCacheManager: any;
 
   const mockAccount = { id: 'acc-123' } as any;
@@ -35,10 +37,15 @@ describe('MediaService', () => {
       reset: jest.fn(),
     };
 
+    mockEpisodeRepo = {
+      find: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MediaService,
         { provide: getRepositoryToken(MediaItem), useValue: mockRepo },
+        { provide: getRepositoryToken(MediaEpisode), useValue: mockEpisodeRepo },
         { provide: CACHE_MANAGER, useValue: mockCacheManager },
       ],
     }).compile();
@@ -285,6 +292,41 @@ describe('MediaService', () => {
       const stats = await service.getStats(mockAccount);
 
       expect(stats.ratingsDistribution).toEqual({ '7': 2, '9': 1 });
+    });
+
+    it('should aggregate exact and estimated consumption progress', async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([
+        { id: 'tv-1', type: 'tv', status: 'watching', rating: 8, metadata: { episodesWatched: 2, runtime: 50, genres: ['Drama'] } },
+        { id: 'anime-1', type: 'anime', status: 'watching', rating: 9, metadata: { episodesWatched: 3, duration: '24 min per ep', genres: ['Fantasy', 'Adventure'] } },
+        { id: 'movie-1', type: 'movie', status: 'completed', rating: 8.5, metadata: { runtime: 120, genres: ['Fantasy'] } },
+        { id: 'manga-1', type: 'manga', status: 'completed', rating: 8, metadata: { chaptersRead: 40, genres: ['Adventure'] } },
+        { id: 'book-1', type: 'book', status: 'reading', rating: null, metadata: { pagesRead: 300, genres: ['History'] } },
+      ]);
+      mockEpisodeRepo.find.mockResolvedValue([
+        { mediaItemId: 'tv-1', watched: true, runtime: 30 },
+        { mediaItemId: 'tv-1', watched: true, runtime: 32 },
+      ]);
+
+      const stats: any = await service.getStats(mockAccount);
+
+      expect(stats.consumption).toEqual({
+        watchMinutes: 254,
+        exactWatchMinutes: 62,
+        estimatedWatchMinutes: 192,
+        episodesWatched: 5,
+        chaptersRead: 40,
+        pagesRead: 300,
+        completionRate: 40,
+      });
+      expect(stats.topGenres).toEqual([
+        { name: 'Adventure', count: 2 },
+        { name: 'Fantasy', count: 2 },
+        { name: 'Drama', count: 1 },
+        { name: 'History', count: 1 },
+      ]);
+      expect(mockEpisodeRepo.find).toHaveBeenCalledWith({
+        where: { accountId: 'acc-123', watched: true },
+      });
     });
   });
 

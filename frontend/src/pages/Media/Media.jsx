@@ -39,6 +39,48 @@ const STATUS_META = {
 
 const MEDIA_PAGE_SIZE = 24
 
+function formatMediaDuration(value) {
+  const totalMinutes = Math.max(0, Math.round(Number(value) || 0))
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  const parts = []
+  if (days) parts.push(`${days}d`)
+  if (hours) parts.push(`${hours}h`)
+  if (minutes || parts.length === 0) parts.push(`${minutes}m`)
+  return parts.join(' ')
+}
+
+function SeriesConsumption({ stats }) {
+  const consumption = stats?.consumption
+  if (!consumption) return null
+  const estimated = Number(consumption.estimatedWatchMinutes) || 0
+  const genres = Array.isArray(stats.topGenres) ? stats.topGenres : []
+  return (
+    <section className="series-consumption" aria-label="Series consumption">
+      <div className="series-consumption__watch">
+        <span className="record-kicker">Consumption</span>
+        <strong>{formatMediaDuration(consumption.watchMinutes)}</strong>
+        <small>{estimated > 0 ? `Includes ${formatMediaDuration(estimated)} estimated` : 'Calculated from watched episode runtimes'}</small>
+      </div>
+      <dl className="series-consumption__metrics">
+        <div><dt>Episodes watched</dt><dd>{Number(consumption.episodesWatched || 0).toLocaleString()}</dd></div>
+        <div><dt>Chapters read</dt><dd>{Number(consumption.chaptersRead || 0).toLocaleString()}</dd></div>
+        <div><dt>Pages read</dt><dd>{Number(consumption.pagesRead || 0).toLocaleString()}</dd></div>
+      </dl>
+      <div className="series-consumption__completion">
+        <div><span>Completion rate</span><strong>{consumption.completionRate || 0}%</strong></div>
+        <progress max="100" value={consumption.completionRate || 0}>{consumption.completionRate || 0}%</progress>
+        {genres.length > 0 && (
+          <div className="series-consumption__genres" aria-label="Leading genres">
+            {genres.map(genre => <span key={genre.name}>{genre.name}<small>{genre.count}</small></span>)}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function SeriesPagination({ pagination, onPageChange }) {
   if (pagination.totalPages <= 1) return null
   return (
@@ -866,6 +908,8 @@ export default function Media() {
         <SummaryItem label="Completed" value={loading ? '—' : completedCount} />
         <SummaryItem label="Average score" value={loading || avgRating == null ? '—' : Number(avgRating).toFixed(1)} />
       </SummaryStrip>
+
+      <SeriesConsumption stats={stats} />
 
       {loadError && <StatePanel kind="offline" title="Using the last series record" detail={loadError} action={<button className="record-button record-button--compact" onClick={load}>Retry</button>} />}
 

@@ -17,6 +17,7 @@ import { Cache } from "cache-manager";
 import { SyncOperation } from "../../sync/sync-event.entity";
 import { SyncService } from "../../sync/sync.service";
 import { randomUUID } from "crypto";
+import { MediaEpisode } from "../entities/media-episode.entity";
 
 export interface MediaStats {
   total: number;
@@ -27,6 +28,16 @@ export interface MediaStats {
   rated: number;
   completed: number;
   ratingsDistribution: Record<string, number>;
+  consumption: {
+    watchMinutes: number;
+    exactWatchMinutes: number;
+    estimatedWatchMinutes: number;
+    episodesWatched: number;
+    chaptersRead: number;
+    pagesRead: number;
+    completionRate: number;
+  };
+  topGenres: Array<{ name: string; count: number }>;
 }
 
 const MEDIA_BULK_INSERT_CHUNK_SIZE = 500;
@@ -36,6 +47,8 @@ export class MediaService {
   constructor(
     @InjectRepository(MediaItem)
     private readonly mediaRepo: Repository<MediaItem>,
+    @InjectRepository(MediaEpisode)
+    private readonly episodeRepo: Repository<MediaEpisode>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     @Optional()
     private readonly syncService?: SyncService
@@ -186,6 +199,9 @@ export class MediaService {
     }
 
     const items = await query.getMany();
+    const watchedEpisodes = await this.episodeRepo.find({
+      where: { accountId: account.id, watched: true },
+    });
 
     const byType: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
@@ -193,6 +209,20 @@ export class MediaService {
     let ratingSum = 0;
     let rated = 0;
     let completed = 0;
+    let exactWatchMinutes = 0;
+    let estimatedWatchMinutes = 0;
+    let episodesWatched = 0;
+    let chaptersRead = 0;
+    let pagesRead = 0;
+    const genreCounts = new Map<string, number>();
+    const itemIds = new Set(items.map((item) => item.id));
+    const episodesByItem = new Map<string, MediaEpisode[]>();
+    for (const episode of watchedEpisodes) {
+      if (!itemIds.has(episode.mediaItemId)) continue;
+      const current = episodesByItem.get(episode.mediaItemId) || [];
+      current.push(episode);
+      episodesByItem.set(episode.mediaItemId, current);
+    }
 
     const byTag: Record<string, number> = {};
 
@@ -207,6 +237,34 @@ export class MediaService {
       }
 
       if (item.status === MediaStatus.COMPLETED) completed++;
+
+      const metadata = item.metadata || {};
+      const itemEpisodes = episodesByItem.get(item.id) || [];
+      if (item.type === MediaType.TV || item.type === MediaType.ANIME) {
+        const fallbackRuntime = this.mediaRuntimeMinutes(item);
+        if (itemEpisodes.length) {
+          episodesWatched += itemEpisodes.length;
+          for (const episode of itemEpisodes) {
+            const runtime = this.positiveNumber(episode.runtime);
+            if (runtime) exactWatchMinutes += runtime;
+            else estimatedWatchMinutes += fallbackRuntime;
+          }
+        } else {
+          const aggregateWatched = Math.max(0, Number(metadata.episodesWatched) || 0);
+          episodesWatched += aggregateWatched;
+          estimatedWatchMinutes += aggregateWatched * fallbackRuntime;
+        }
+      } else if (item.type === MediaType.MOVIE && item.status === MediaStatus.COMPLETED) {
+        estimatedWatchMinutes += this.mediaRuntimeMinutes(item);
+      }
+      chaptersRead += Math.max(0, Number(metadata.chaptersRead) || 0);
+      pagesRead += Math.max(0, Number(metadata.pagesRead) || 0);
+
+      const genres = Array.isArray(metadata.genres) ? metadata.genres : [];
+      for (const rawGenre of genres) {
+        const genre = String(rawGenre || "").trim();
+        if (genre) genreCounts.set(genre, (genreCounts.get(genre) || 0) + 1);
+      }
 
       if (item.rating != null) {
         const r = Number(item.rating);
@@ -226,7 +284,41 @@ export class MediaService {
       rated,
       completed,
       ratingsDistribution,
+      consumption: {
+        watchMinutes: exactWatchMinutes + estimatedWatchMinutes,
+        exactWatchMinutes,
+        estimatedWatchMinutes,
+        episodesWatched,
+        chaptersRead,
+        pagesRead,
+        completionRate: items.length ? Math.round((completed / items.length) * 100) : 0,
+      },
+      topGenres: [...genreCounts.entries()]
+        .map(([name, count]) => ({ name, count }))
+        .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+        .slice(0, 5),
     };
+  }
+
+  private mediaRuntimeMinutes(item: MediaItem): number {
+    const metadata = item.metadata || {};
+    const numericRuntime = this.positiveNumber(metadata.runtime);
+    if (numericRuntime) return numericRuntime;
+
+    const duration = String(metadata.duration || "").toLowerCase();
+    const hours = Number(duration.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr|h)\b/)?.[1] || 0);
+    const minutes = Number(duration.match(/(\d+(?:\.\d+)?)\s*(?:minutes?|mins?|min|m)\b/)?.[1] || 0);
+    const parsedDuration = Math.round(hours * 60 + minutes);
+    if (parsedDuration > 0) return parsedDuration;
+
+    if (item.type === MediaType.ANIME) return 24;
+    if (item.type === MediaType.TV) return 45;
+    return 110;
+  }
+
+  private positiveNumber(value: unknown): number | null {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 
   // ========== RESET CLASSIFICATION ==========

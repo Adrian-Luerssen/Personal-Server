@@ -10,7 +10,7 @@ import Icon from '../../components/icons/Icon'
 import { PageHeading } from '../../components/record'
 import { APP_BUILD_TIME, APP_VERSION, formatBuildTime } from '../../appVersion.mjs'
 import { isNativeMobileApp } from '../../mobilePlatform'
-import { checkDataValidity, clearApiCache } from '../../api'
+import { api, checkDataValidity, clearApiCache } from '../../api'
 import {
   deliverCustomNotification,
   getNativeNotificationStatus,
@@ -55,7 +55,7 @@ import {
   isFeatureEnabled,
 } from '../../modulePreferences.mjs'
 
-const SETTINGS_TABS = new Set(['account', 'connections', 'agent-keys', 'appearance', 'preferences', 'modules', 'data'])
+const SETTINGS_TABS = new Set(['account', 'connections', 'agent-keys', 'appearance', 'preferences', 'modules', 'data', 'admin'])
 
 const WEB_SETTINGS_SECTIONS = [
   { key: 'account', group: 'Ownership', label: 'Account', description: 'Profile, password, and MFA', icon: 'shield-check' },
@@ -65,6 +65,7 @@ const WEB_SETTINGS_SECTIONS = [
   { key: 'modules', group: 'Experience', label: 'Modules', description: 'Visible records and Home', icon: 'layout-grid' },
   { key: 'data', group: 'Data and access', label: 'Data', description: 'Import, export, and deletion', icon: 'database' },
   { key: 'agent-keys', group: 'Data and access', label: 'Developer access', description: 'Scoped keys for trusted tools', icon: 'key-round' },
+  { key: 'admin', group: 'Administration', label: 'Admin access', description: 'Service recovery and maintenance', icon: 'shield-check' },
 ]
 
 const NATIVE_SETTINGS_SECTIONS = [
@@ -77,6 +78,7 @@ const NATIVE_SETTINGS_SECTIONS = [
   { key: 'data', label: 'Data', description: 'Imports, export, and reset tools', icon: 'database' },
   { key: 'updates', label: 'Updates', description: 'Installed version, release, and Android package', icon: 'smartphone' },
   { key: 'developer', label: 'Developer access', description: 'Scoped keys for your own agents and tools', icon: 'key-round' },
+  { key: 'admin', label: 'Admin access', description: 'Service recovery and maintenance', icon: 'shield-check' },
 ]
 
 const NATIVE_SECTION_ALIASES = {
@@ -87,16 +89,18 @@ const NATIVE_SECTION_ALIASES = {
   'agent-keys': 'developer',
 }
 
-function normalizeNativeSection(section) {
+function normalizeNativeSection(section, isAdmin = false) {
   const normalized = NATIVE_SECTION_ALIASES[section] || section || ''
+  if (normalized === 'admin' && !isAdmin) return ''
   return NATIVE_SETTINGS_SECTIONS.some((item) => item.key === normalized) ? normalized : ''
 }
 
-function normalizeTab(tab) {
+function normalizeTab(tab, isAdmin = false) {
+  if (tab === 'admin' && !isAdmin) return 'account'
   return SETTINGS_TABS.has(tab) ? tab : 'account'
 }
 
-function NativeSettingsIndex({ onSelect }) {
+function NativeSettingsIndex({ onSelect, isAdmin }) {
   return (
     <div className="native-settings-page">
       <section className="native-settings-hero">
@@ -106,7 +110,7 @@ function NativeSettingsIndex({ onSelect }) {
       </section>
 
       <section className="native-settings-list" aria-label="Settings sections">
-        {NATIVE_SETTINGS_SECTIONS.map((item) => (
+        {NATIVE_SETTINGS_SECTIONS.filter((item) => item.key !== 'admin' || isAdmin).map((item) => (
           <button
             key={item.key}
             type="button"
@@ -935,9 +939,53 @@ function NativePreferencesSection({ currentLanguage, changeLanguage, t }) {
   )
 }
 
-function NativeSettings({ activeSection, setActiveSection, spotifyError, currentLanguage, changeLanguage, t }) {
+function AdminSettingsSection() {
+  const [syncing, setSyncing] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+
+  async function syncRemainingShows() {
+    setSyncing(true)
+    setResult(null)
+    setError('')
+    try {
+      const next = await api.post('/media/catalog/sync-remaining')
+      setResult(next)
+    } catch (syncError) {
+      setError(syncError.message || 'The remaining shows could not be synchronized.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  return (
+    <section className="record-settings-card admin-settings-card">
+      <header>
+        <div><span>Catalog recovery</span><h2>Series maintenance</h2></div>
+        <small>Retries only TV and anime records that have not completed catalog synchronization.</small>
+      </header>
+      <div className="admin-settings-card__body">
+        <p>Use this after an import or provider outage leaves shows without complete artwork, metadata, seasons, or related releases.</p>
+        <button type="button" className="btn" onClick={syncRemainingShows} disabled={syncing}>
+          <Icon name="refresh-cw" size={16} />
+          {syncing ? 'Syncing remaining shows…' : 'Sync remaining shows'}
+        </button>
+        {syncing && <div className="alert-warning" role="status">Catalog providers are being checked. Large libraries can take several minutes.</div>}
+        {error && <div className="alert-error" role="alert">{error}</div>}
+        {result && (
+          <div className={result.failed ? 'alert-warning' : 'alert-success'} role="status">
+            Checked {result.eligible} remaining {result.eligible === 1 ? 'show' : 'shows'}: {result.synced} synchronized
+            {result.failed ? <>, {result.failed} still need attention</> : '.'}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function NativeSettings({ activeSection, setActiveSection, spotifyError, currentLanguage, changeLanguage, t, isAdmin }) {
   const back = () => setActiveSection('')
-  if (!activeSection) return <NativeSettingsIndex onSelect={setActiveSection} />
+  if (!activeSection) return <NativeSettingsIndex onSelect={setActiveSection} isAdmin={isAdmin} />
 
   const meta = NATIVE_SETTINGS_SECTIONS.find((item) => item.key === activeSection) || NATIVE_SETTINGS_SECTIONS[0]
 
@@ -952,6 +1000,7 @@ function NativeSettings({ activeSection, setActiveSection, spotifyError, current
       {activeSection === 'appearance' && <><Appearance /><ModuleSettingsSection /><NativeWidgetsSection /><NativePreferencesSection currentLanguage={currentLanguage} changeLanguage={changeLanguage} t={t} /></>}
       {activeSection === 'data' && <DataManagement />}
       {activeSection === 'developer' && <AgentApiKeys />}
+      {activeSection === 'admin' && isAdmin && <AdminSettingsSection />}
     </NativeSettingsShell>
   )
 }
@@ -963,6 +1012,8 @@ export default function Settings() {
   const requestedSection = searchParams.get('section')
   const spotifyError = searchParams.get('spotify_error') || ''
   const nativeApp = isNativeMobileApp()
+  const [accountRole, setAccountRole] = useState('regular')
+  const isAdmin = accountRole === 'admin'
   const [activeTab, setActiveTab] = useState(
     spotifyError ? 'connections' : normalizeTab(requestedTab)
   )
@@ -971,14 +1022,20 @@ export default function Settings() {
   )
 
   useEffect(() => {
+    api.get('/accounts', { force: true })
+      .then((account) => setAccountRole(account?.role || 'regular'))
+      .catch(() => setAccountRole('regular'))
+  }, [])
+
+  useEffect(() => {
     if (spotifyError) {
       setActiveTab('connections')
       setActiveNativeSection('connections')
       return
     }
-    if (requestedTab) setActiveTab(normalizeTab(requestedTab))
-    setActiveNativeSection(normalizeNativeSection(requestedSection))
-  }, [requestedTab, requestedSection, spotifyError])
+    if (requestedTab) setActiveTab(normalizeTab(requestedTab, isAdmin))
+    setActiveNativeSection(normalizeNativeSection(requestedSection, isAdmin))
+  }, [requestedTab, requestedSection, spotifyError, isAdmin])
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng)
@@ -987,7 +1044,7 @@ export default function Settings() {
   const currentLanguage = i18n.language
 
   function setNativeSection(section) {
-    const normalized = normalizeNativeSection(section)
+    const normalized = normalizeNativeSection(section, isAdmin)
     setActiveNativeSection(normalized)
     if (normalized) setSearchParams({ section: normalized })
     else setSearchParams({})
@@ -1002,6 +1059,7 @@ export default function Settings() {
         currentLanguage={currentLanguage}
         changeLanguage={changeLanguage}
         t={t}
+        isAdmin={isAdmin}
       />
     )
   }
@@ -1011,8 +1069,9 @@ export default function Settings() {
     setSearchParams({ tab })
   }
 
-  const activeMeta = WEB_SETTINGS_SECTIONS.find((section) => section.key === activeTab) || WEB_SETTINGS_SECTIONS[0]
-  const groups = [...new Set(WEB_SETTINGS_SECTIONS.map((section) => section.group))]
+  const visibleWebSections = WEB_SETTINGS_SECTIONS.filter((section) => section.key !== 'admin' || isAdmin)
+  const activeMeta = visibleWebSections.find((section) => section.key === activeTab) || visibleWebSections[0]
+  const groups = [...new Set(visibleWebSections.map((section) => section.group))]
 
   return (
     <div className="record-settings-page">
@@ -1025,7 +1084,7 @@ export default function Settings() {
           {groups.map((group) => (
             <div className="record-settings-nav__group" key={group}>
               <span>{group}</span>
-              {WEB_SETTINGS_SECTIONS.filter((section) => section.group === group).map((section) => (
+              {visibleWebSections.filter((section) => section.group === group).map((section) => (
                 <button
                   type="button"
                   key={section.key}
@@ -1056,6 +1115,7 @@ export default function Settings() {
             {activeTab === 'appearance' && <Appearance />}
             {activeTab === 'data' && <DataManagement />}
             {activeTab === 'modules' && <ModuleSettingsSection />}
+            {activeTab === 'admin' && isAdmin && <AdminSettingsSection />}
             {activeTab === 'preferences' && (
               <>
                 <section className="record-settings-card">

@@ -11,7 +11,11 @@ import axios from "axios";
 import { Repository } from "typeorm";
 import { Account } from "../../system/accounts/account.entity";
 import { MediaEpisode } from "../entities/media-episode.entity";
-import { MediaItem, MediaStatus, MediaType } from "../entities/media-item.entity";
+import {
+  MediaItem,
+  MediaStatus,
+  MediaType,
+} from "../entities/media-item.entity";
 import {
   MediaRelation,
   MediaRelationType,
@@ -46,6 +50,7 @@ export interface ImportedCatalogSyncProgress {
 export class MediaCatalogService {
   private readonly logger = new Logger(MediaCatalogService.name);
   private airingRefreshRunning = false;
+  private readonly remainingSyncAccounts = new Set<string>();
   constructor(
     @InjectRepository(MediaItem)
     private readonly mediaRepo: Repository<MediaItem>,
@@ -54,12 +59,14 @@ export class MediaCatalogService {
     @InjectRepository(MediaEpisode)
     private readonly episodeRepo: Repository<MediaEpisode>,
     @InjectRepository(MediaRelation)
-    private readonly relationRepo: Repository<MediaRelation>,
+    private readonly relationRepo: Repository<MediaRelation>
   ) {}
 
   async syncItem(account: Account, item: MediaItem): Promise<MediaCatalogView> {
     if (item.accountId !== account.id) {
-      throw new BadRequestException("The media item does not belong to this account");
+      throw new BadRequestException(
+        "The media item does not belong to this account"
+      );
     }
 
     try {
@@ -68,7 +75,9 @@ export class MediaCatalogService {
       } else if (item.type === MediaType.ANIME) {
         await this.syncAnimeRelations(account, item);
       } else {
-        throw new BadRequestException("Structured catalog sync supports TV and anime titles");
+        throw new BadRequestException(
+          "Structured catalog sync supports TV and anime titles"
+        );
       }
 
       item.metadata = {
@@ -88,7 +97,7 @@ export class MediaCatalogService {
       };
       await this.mediaRepo.save(item);
       throw new ServiceUnavailableException(
-        "Catalog synchronization failed. Existing progress is still available.",
+        "Catalog synchronization failed. Existing progress is still available."
       );
     }
   }
@@ -96,11 +105,13 @@ export class MediaCatalogService {
   async syncImportedItems(
     account: Account,
     items: MediaItem[],
-    onProgress?: (progress: ImportedCatalogSyncProgress) => void,
+    onProgress?: (progress: ImportedCatalogSyncProgress) => void
   ): Promise<{ eligible: number; synced: number; failed: number }> {
-    const eligible = items.filter((item) =>
-      (item.type === MediaType.ANIME && Number(item.externalIds?.malId) > 0) ||
-      (item.type === MediaType.TV && Number(item.externalIds?.tmdbId) > 0),
+    const eligible = items.filter(
+      (item) =>
+        (item.type === MediaType.ANIME &&
+          Number(item.externalIds?.malId) > 0) ||
+        (item.type === MediaType.TV && Number(item.externalIds?.tmdbId) > 0)
     );
     let synced = 0;
     let failed = 0;
@@ -128,15 +139,47 @@ export class MediaCatalogService {
           failed++;
         }
         completed++;
-        onProgress?.({ current: completed, total: eligible.length, synced, failed, item });
+        onProgress?.({
+          current: completed,
+          total: eligible.length,
+          synced,
+          failed,
+          item,
+        });
       }
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(4, eligible.length) }, () => worker()),
+      Array.from({ length: Math.min(4, eligible.length) }, () => worker())
     );
 
     return { eligible: eligible.length, synced, failed };
+  }
+
+  async syncRemainingItems(
+    account: Account
+  ): Promise<{ eligible: number; synced: number; failed: number }> {
+    if (this.remainingSyncAccounts.has(account.id)) {
+      throw new BadRequestException(
+        "A remaining-show synchronization is already running"
+      );
+    }
+    this.remainingSyncAccounts.add(account.id);
+    try {
+      const accountItems = await this.mediaRepo.find({
+        where: { accountId: account.id },
+      });
+      const remaining = accountItems.filter((item) => {
+        const eligible =
+          (item.type === MediaType.ANIME &&
+            Number(item.externalIds?.malId) > 0) ||
+          (item.type === MediaType.TV && Number(item.externalIds?.tmdbId) > 0);
+        return eligible && item.metadata?.catalogSyncState !== "ready";
+      });
+      return await this.syncImportedItems(account, remaining);
+    } finally {
+      this.remainingSyncAccounts.delete(account.id);
+    }
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_5AM)
@@ -158,30 +201,58 @@ export class MediaCatalogService {
         byAccount.set(item.accountId, accountItems);
       }
       for (const [accountId, accountItems] of byAccount) {
-        const result = await this.syncImportedItems({ id: accountId } as Account, accountItems);
-        this.logger.log(`Daily airing refresh for ${accountId}: ${result.synced} synced, ${result.failed} failed`);
+        const result = await this.syncImportedItems(
+          { id: accountId } as Account,
+          accountItems
+        );
+        this.logger.log(
+          `Daily airing refresh for ${accountId}: ${result.synced} synced, ${result.failed} failed`
+        );
       }
     } catch (error) {
-      this.logger.error(`Daily airing refresh failed: ${error instanceof Error ? error.message : error}`);
+      this.logger.error(
+        `Daily airing refresh failed: ${
+          error instanceof Error ? error.message : error
+        }`
+      );
     } finally {
       this.airingRefreshRunning = false;
     }
   }
 
   private isAiringStatus(value: unknown): boolean {
-    const status = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
-    return ["currently airing", "releasing", "returning series", "in production"].includes(status);
+    const status = String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, " ");
+    return [
+      "currently airing",
+      "releasing",
+      "returning series",
+      "in production",
+    ].includes(status);
   }
 
-  async getCatalog(account: Account, item: MediaItem): Promise<MediaCatalogView> {
+  async getCatalog(
+    account: Account,
+    item: MediaItem
+  ): Promise<MediaCatalogView> {
     if (item.accountId !== account.id) {
-      throw new BadRequestException("The media item does not belong to this account");
+      throw new BadRequestException(
+        "The media item does not belong to this account"
+      );
     }
 
     const [seasons, episodes, relations] = await Promise.all([
-      this.seasonRepo.find({ where: { accountId: account.id, mediaItemId: item.id } }),
-      this.episodeRepo.find({ where: { accountId: account.id, mediaItemId: item.id } }),
-      this.relationRepo.find({ where: { accountId: account.id, sourceMediaItemId: item.id } }),
+      this.seasonRepo.find({
+        where: { accountId: account.id, mediaItemId: item.id },
+      }),
+      this.episodeRepo.find({
+        where: { accountId: account.id, mediaItemId: item.id },
+      }),
+      this.relationRepo.find({
+        where: { accountId: account.id, sourceMediaItemId: item.id },
+      }),
     ]);
 
     return this.buildCatalogView(item, seasons, episodes, relations);
@@ -189,7 +260,7 @@ export class MediaCatalogService {
 
   async getCatalogSummaries(
     account: Account,
-    items: MediaItem[],
+    items: MediaItem[]
   ): Promise<Record<string, MediaCatalogView>> {
     if (!items.length) return {};
     const [allSeasons, allEpisodes, allRelations] = await Promise.all([
@@ -197,25 +268,31 @@ export class MediaCatalogService {
       this.episodeRepo.find({ where: { accountId: account.id } }),
       this.relationRepo.find({ where: { accountId: account.id } }),
     ]);
-    return Object.fromEntries(items.map((item) => {
-      const catalog = this.buildCatalogView(
-        item,
-        allSeasons.filter((season) => season.mediaItemId === item.id),
-        allEpisodes.filter((episode) => episode.mediaItemId === item.id),
-        allRelations.filter((relation) => relation.sourceMediaItemId === item.id),
-      );
-      return [item.id, { ...catalog, seasons: [], relations: [] }];
-    }));
+    return Object.fromEntries(
+      items.map((item) => {
+        const catalog = this.buildCatalogView(
+          item,
+          allSeasons.filter((season) => season.mediaItemId === item.id),
+          allEpisodes.filter((episode) => episode.mediaItemId === item.id),
+          allRelations.filter(
+            (relation) => relation.sourceMediaItemId === item.id
+          )
+        );
+        return [item.id, { ...catalog, seasons: [], relations: [] }];
+      })
+    );
   }
 
   async setEpisodeWatched(
     account: Account,
     item: MediaItem,
     episodeId: string,
-    watched: boolean,
+    watched: boolean
   ): Promise<MediaCatalogView> {
     if (item.accountId !== account.id) {
-      throw new BadRequestException("The media item does not belong to this account");
+      throw new BadRequestException(
+        "The media item does not belong to this account"
+      );
     }
     const episode = await this.episodeRepo.findOne({
       where: {
@@ -236,7 +313,9 @@ export class MediaCatalogService {
       where: { accountId: account.id, mediaItemId: item.id },
     });
     const regularEpisodes = episodes.filter((entry) => entry.seasonNumber > 0);
-    const watchedCount = regularEpisodes.filter((entry) => entry.watched).length;
+    const watchedCount = regularEpisodes.filter(
+      (entry) => entry.watched
+    ).length;
     const today = new Date().toISOString().slice(0, 10);
     item.metadata = {
       ...(item.metadata || {}),
@@ -253,13 +332,17 @@ export class MediaCatalogService {
       item.status === MediaStatus.WATCHING ||
       item.metadata?.trackingStatusSource === "episode-progress";
     if (statusCanFollowProgress) {
-      const allWatched = regularEpisodes.length > 0 && watchedCount === regularEpisodes.length;
+      const allWatched =
+        regularEpisodes.length > 0 && watchedCount === regularEpisodes.length;
       item.status = allWatched ? MediaStatus.COMPLETED : MediaStatus.WATCHING;
       item.metadata.trackingStatusSource = "episode-progress";
       if (allWatched && !item.endDate) {
         item.endDate = today;
         item.metadata.endDateSource = "episode-progress";
-      } else if (!allWatched && item.metadata.endDateSource === "episode-progress") {
+      } else if (
+        !allWatched &&
+        item.metadata.endDateSource === "episode-progress"
+      ) {
         item.endDate = null;
         delete item.metadata.endDateSource;
       }
@@ -268,18 +351,28 @@ export class MediaCatalogService {
     return this.getCatalog(account, item);
   }
 
-  private async syncTmdbSeries(account: Account, item: MediaItem): Promise<void> {
+  private async syncTmdbSeries(
+    account: Account,
+    item: MediaItem
+  ): Promise<void> {
     const tmdbKey = process.env.TMDB_API_KEY;
     const tmdbId = item.externalIds?.tmdbId;
-    if (!tmdbKey) throw new ServiceUnavailableException("TMDB is not configured");
-    if (!tmdbId) throw new BadRequestException("This TV title is not matched to TMDB");
+    if (!tmdbKey)
+      throw new ServiceUnavailableException("TMDB is not configured");
+    if (!tmdbId)
+      throw new BadRequestException("This TV title is not matched to TMDB");
 
-    const response = await axios.get(`https://api.themoviedb.org/3/tv/${tmdbId}`, {
-      params: { api_key: tmdbKey },
-      timeout: 10000,
-    });
+    const response = await axios.get(
+      `https://api.themoviedb.org/3/tv/${tmdbId}`,
+      {
+        params: { api_key: tmdbKey },
+        timeout: 10000,
+      }
+    );
     const details = response.data || {};
-    const providerSeasons = Array.isArray(details.seasons) ? details.seasons : [];
+    const providerSeasons = Array.isArray(details.seasons)
+      ? details.seasons
+      : [];
     const firstStructuredSync = !item.metadata?.catalogSyncedAt;
 
     for (const providerSeason of providerSeasons) {
@@ -296,10 +389,15 @@ export class MediaCatalogService {
         number,
       });
       Object.assign(season, {
-        providerSeasonId: providerSeason.id != null ? String(providerSeason.id) : undefined,
-        name: providerSeason.name || (number === 0 ? "Specials" : `Season ${number}`),
+        providerSeasonId:
+          providerSeason.id != null ? String(providerSeason.id) : undefined,
+        name:
+          providerSeason.name ||
+          (number === 0 ? "Specials" : `Season ${number}`),
         overview: providerSeason.overview || null,
-        posterUrl: providerSeason.poster_path ? `${TMDB_IMAGE_ROOT}${providerSeason.poster_path}` : null,
+        posterUrl: providerSeason.poster_path
+          ? `${TMDB_IMAGE_ROOT}${providerSeason.poster_path}`
+          : null,
         airDate: providerSeason.air_date || null,
         episodeCount: providerSeason.episode_count ?? null,
       });
@@ -307,7 +405,7 @@ export class MediaCatalogService {
 
       const seasonResponse = await axios.get(
         `https://api.themoviedb.org/3/tv/${tmdbId}/season/${number}`,
-        { params: { api_key: tmdbKey }, timeout: 10000 },
+        { params: { api_key: tmdbKey }, timeout: 10000 }
       );
       const providerEpisodes = Array.isArray(seasonResponse.data?.episodes)
         ? seasonResponse.data.episodes
@@ -337,13 +435,16 @@ export class MediaCatalogService {
           watched: false,
         });
         Object.assign(episode, {
-          providerEpisodeId: providerEpisode.id != null ? String(providerEpisode.id) : undefined,
+          providerEpisodeId:
+            providerEpisode.id != null ? String(providerEpisode.id) : undefined,
           seasonNumber: number,
           title: providerEpisode.name || `Episode ${episodeNumber}`,
           overview: providerEpisode.overview || null,
           airDate: providerEpisode.air_date || null,
           runtime: providerEpisode.runtime ?? null,
-          imageUrl: providerEpisode.still_path ? `${TMDB_IMAGE_ROOT}${providerEpisode.still_path}` : null,
+          imageUrl: providerEpisode.still_path
+            ? `${TMDB_IMAGE_ROOT}${providerEpisode.still_path}`
+            : null,
           watched: existingWatched,
           watchedAt: existingWatchedAt,
         });
@@ -352,14 +453,18 @@ export class MediaCatalogService {
     }
 
     if (firstStructuredSync) {
-      const legacyCount = Math.max(0, Number(item.metadata?.episodesWatched) || 0);
+      const legacyCount = Math.max(
+        0,
+        Number(item.metadata?.episodesWatched) || 0
+      );
       const episodes = await this.episodeRepo.find({
         where: { accountId: account.id, mediaItemId: item.id },
       });
       const regularEpisodes = episodes
         .filter((episode) => episode.seasonNumber > 0)
-        .sort((left, right) =>
-          left.seasonNumber - right.seasonNumber || left.number - right.number,
+        .sort(
+          (left, right) =>
+            left.seasonNumber - right.seasonNumber || left.number - right.number
         );
       for (const episode of regularEpisodes.slice(0, legacyCount)) {
         if (!episode.watched) {
@@ -373,33 +478,47 @@ export class MediaCatalogService {
     const allEpisodes = await this.episodeRepo.find({
       where: { accountId: account.id, mediaItemId: item.id },
     });
-    const regularEpisodes = allEpisodes.filter((episode) => episode.seasonNumber > 0);
-    const regularSeasonCount = providerSeasons.filter((season) => Number(season.season_number) > 0).length;
+    const regularEpisodes = allEpisodes.filter(
+      (episode) => episode.seasonNumber > 0
+    );
+    const regularSeasonCount = providerSeasons.filter(
+      (season) => Number(season.season_number) > 0
+    ).length;
     item.metadata = {
       ...(item.metadata || {}),
       synopsis: details.overview || item.metadata?.synopsis,
       airingStatus: details.status || item.metadata?.airingStatus,
       seasons: regularSeasonCount,
       episodes: regularEpisodes.length,
-      episodesWatched: regularEpisodes.filter((episode) => episode.watched).length,
+      episodesWatched: regularEpisodes.filter((episode) => episode.watched)
+        .length,
     };
   }
 
-  private async syncAnimeRelations(account: Account, item: MediaItem): Promise<void> {
+  private async syncAnimeRelations(
+    account: Account,
+    item: MediaItem
+  ): Promise<void> {
     const malId = item.externalIds?.malId;
-    if (!malId) throw new BadRequestException("This anime title is not matched to MyAnimeList");
+    if (!malId)
+      throw new BadRequestException(
+        "This anime title is not matched to MyAnimeList"
+      );
 
     const details = await this.fetchAnimeFull(Number(malId));
-    const localItems = await this.mediaRepo.find({ where: { accountId: account.id } });
+    const localItems = await this.mediaRepo.find({
+      where: { accountId: account.id },
+    });
     let sortOrder = 0;
 
     for (const relationGroup of details.relations || []) {
       const relationType = this.normalizeRelationType(relationGroup.relation);
       for (const target of relationGroup.entry || []) {
-        if (String(target.type).toLowerCase() !== "anime" || !target.mal_id) continue;
+        if (String(target.type).toLowerCase() !== "anime" || !target.mal_id)
+          continue;
         const targetMalId = Number(target.mal_id);
-        const localTarget = localItems.find((candidate) =>
-          Number(candidate.externalIds?.malId) === targetMalId,
+        const localTarget = localItems.find(
+          (candidate) => Number(candidate.externalIds?.malId) === targetMalId
         );
         let relation = await this.relationRepo.findOne({
           where: {
@@ -440,10 +559,14 @@ export class MediaCatalogService {
       episodes: details.episodes ?? item.metadata?.episodes ?? null,
       studios: (details.studios || []).map((studio: any) => studio.name),
       genres: (details.genres || []).map((genre: any) => genre.name),
-      releaseStartDate: this.providerDate(details.aired?.from) || item.metadata?.releaseStartDate,
-      releaseEndDate: this.providerDate(details.aired?.to) || item.metadata?.releaseEndDate,
+      releaseStartDate:
+        this.providerDate(details.aired?.from) ||
+        item.metadata?.releaseStartDate,
+      releaseEndDate:
+        this.providerDate(details.aired?.to) || item.metadata?.releaseEndDate,
     };
-    item.coverUrl = details.images?.jpg?.large_image_url ||
+    item.coverUrl =
+      details.images?.jpg?.large_image_url ||
       details.images?.jpg?.image_url ||
       item.coverUrl ||
       null;
@@ -453,18 +576,26 @@ export class MediaCatalogService {
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const response = await axios.get(`https://api.jikan.moe/v4/anime/${malId}/full`, {
-          timeout: 15000,
-        });
-        if (!response.data?.data?.mal_id) throw new Error("MAL anime was not found");
+        const response = await axios.get(
+          `https://api.jikan.moe/v4/anime/${malId}/full`,
+          {
+            timeout: 15000,
+          }
+        );
+        if (!response.data?.data?.mal_id)
+          throw new Error("MAL anime was not found");
         return response.data.data;
       } catch (error: any) {
         lastError = error;
         const status = Number(error?.response?.status || 0);
         const retryable = status === 429 || status >= 500 || status === 0;
         if (!retryable || attempt === 2) break;
-        const retryAfter = Number(error?.response?.headers?.["retry-after"] || 0);
-        await this.pause(retryAfter > 0 ? retryAfter * 1000 : 500 * (attempt + 1));
+        const retryAfter = Number(
+          error?.response?.headers?.["retry-after"] || 0
+        );
+        await this.pause(
+          retryAfter > 0 ? retryAfter * 1000 : 500 * (attempt + 1)
+        );
       }
     }
     try {
@@ -508,7 +639,7 @@ export class MediaCatalogService {
     const response = await axios.post(
       "https://graphql.anilist.co",
       { query, variables: { malId } },
-      { timeout: 15000 },
+      { timeout: 15000 }
     );
     const media = response.data?.data?.Media;
     if (!media?.idMal) throw new Error("AniList anime was not found");
@@ -517,11 +648,16 @@ export class MediaCatalogService {
       .filter((edge: any) => edge?.node?.type === "ANIME" && edge.node.idMal)
       .map((edge: any) => ({
         relation: edge.relationType,
-        entry: [{
-          mal_id: Number(edge.node.idMal),
-          type: "anime",
-          name: edge.node.title?.english || edge.node.title?.romaji || "Related anime",
-        }],
+        entry: [
+          {
+            mal_id: Number(edge.node.idMal),
+            type: "anime",
+            name:
+              edge.node.title?.english ||
+              edge.node.title?.romaji ||
+              "Related anime",
+          },
+        ],
       }));
 
     return {
@@ -531,17 +667,24 @@ export class MediaCatalogService {
       episodes: media.episodes ?? null,
       type: media.format || null,
       status: media.status || null,
-      score: media.averageScore != null && Number.isFinite(Number(media.averageScore))
-        ? Number(media.averageScore) / 10
-        : null,
+      score:
+        media.averageScore != null &&
+        Number.isFinite(Number(media.averageScore))
+          ? Number(media.averageScore) / 10
+          : null,
       aired: {
         from: this.anilistDate(media.startDate),
         to: this.anilistDate(media.endDate),
       },
-      images: { jpg: {
-        large_image_url: media.coverImage?.extraLarge || media.coverImage?.large || null,
-      } },
-      studios: (media.studios?.nodes || []).map((studio: any) => ({ name: studio.name })),
+      images: {
+        jpg: {
+          large_image_url:
+            media.coverImage?.extraLarge || media.coverImage?.large || null,
+        },
+      },
+      studios: (media.studios?.nodes || []).map((studio: any) => ({
+        name: studio.name,
+      })),
       genres: (media.genres || []).map((name: string) => ({ name })),
       relations,
     };
@@ -551,8 +694,16 @@ export class MediaCatalogService {
     const year = Number(value?.year);
     const month = Number(value?.month);
     const day = Number(value?.day);
-    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
-    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    if (
+      !Number.isInteger(year) ||
+      !Number.isInteger(month) ||
+      !Number.isInteger(day)
+    )
+      return null;
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(
+      2,
+      "0"
+    )}-${String(day).padStart(2, "0")}`;
   }
 
   private stripProviderHtml(value: unknown): string {
@@ -569,19 +720,27 @@ export class MediaCatalogService {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
 
-  async getAnimePreview(malId: number): Promise<{ item: Partial<MediaItem>; relations: any[] }> {
+  async getAnimePreview(
+    malId: number
+  ): Promise<{ item: Partial<MediaItem>; relations: any[] }> {
     if (!Number.isInteger(malId) || malId <= 0) {
       throw new BadRequestException("A valid MAL anime id is required");
     }
     try {
-      const response = await axios.get(`https://api.jikan.moe/v4/anime/${malId}/full`, {
-        timeout: 10000,
-      });
+      const response = await axios.get(
+        `https://api.jikan.moe/v4/anime/${malId}/full`,
+        {
+          timeout: 10000,
+        }
+      );
       const details = response.data?.data;
       if (!details?.mal_id) throw new Error("MAL anime was not found");
       const relations = (details.relations || []).flatMap((group: any) =>
         (group.entry || [])
-          .filter((target: any) => String(target.type).toLowerCase() === "anime" && target.mal_id)
+          .filter(
+            (target: any) =>
+              String(target.type).toLowerCase() === "anime" && target.mal_id
+          )
           .map((target: any, index: number) => ({
             id: `mal-${target.mal_id}`,
             relationType: this.normalizeRelationType(group.relation),
@@ -592,7 +751,7 @@ export class MediaCatalogService {
             targetCoverUrl: null,
             targetYear: null,
             sortOrder: index,
-          })),
+          }))
       );
       return {
         item: {
@@ -600,7 +759,10 @@ export class MediaCatalogService {
           type: MediaType.ANIME,
           status: MediaStatus.PLANNING,
           rating: null,
-          coverUrl: details.images?.jpg?.large_image_url || details.images?.jpg?.image_url || null,
+          coverUrl:
+            details.images?.jpg?.large_image_url ||
+            details.images?.jpg?.image_url ||
+            null,
           externalIds: { malId: Number(details.mal_id) },
           metadata: {
             synopsis: details.synopsis || "",
@@ -631,10 +793,12 @@ export class MediaCatalogService {
   }
 
   private normalizeRelationType(value: unknown): MediaRelationType {
-    const normalized = String(value || "").toLowerCase().replace(/[\s-]+/g, "_");
+    const normalized = String(value || "")
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
     const supported = new Set(Object.values(MediaRelationType));
     return supported.has(normalized as MediaRelationType)
-      ? normalized as MediaRelationType
+      ? (normalized as MediaRelationType)
       : MediaRelationType.OTHER;
   }
 
@@ -642,28 +806,41 @@ export class MediaCatalogService {
     item: MediaItem,
     seasons: MediaSeason[],
     episodes: MediaEpisode[],
-    relations: MediaRelation[],
+    relations: MediaRelation[]
   ): MediaCatalogView {
     seasons.sort((left, right) => left.number - right.number);
-    episodes.sort((left, right) =>
-      left.seasonNumber - right.seasonNumber || left.number - right.number,
+    episodes.sort(
+      (left, right) =>
+        left.seasonNumber - right.seasonNumber || left.number - right.number
     );
-    relations.sort((left, right) =>
-      left.sortOrder - right.sortOrder || left.targetTitle.localeCompare(right.targetTitle),
+    relations.sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder ||
+        left.targetTitle.localeCompare(right.targetTitle)
     );
-    const regularEpisodes = episodes.filter((episode) => episode.seasonNumber > 0);
-    const watchedEpisodes = regularEpisodes.filter((episode) => episode.watched);
+    const regularEpisodes = episodes.filter(
+      (episode) => episode.seasonNumber > 0
+    );
+    const watchedEpisodes = regularEpisodes.filter(
+      (episode) => episode.watched
+    );
     const lastWatched = watchedEpisodes[watchedEpisodes.length - 1] || null;
     const today = new Date().toISOString().slice(0, 10);
-    const nextEpisode = regularEpisodes.find((episode) =>
-      !episode.watched && (!episode.airDate || episode.airDate <= today),
-    ) || null;
-    const upcomingEpisode = regularEpisodes.find((episode) =>
-      !episode.watched && !!episode.airDate && episode.airDate > today,
-    ) || null;
-    const nestedSeasons = seasons.map((season) => Object.assign(season, {
-      episodes: episodes.filter((episode) => episode.seasonId === season.id),
-    }));
+    const nextEpisode =
+      regularEpisodes.find(
+        (episode) =>
+          !episode.watched && (!episode.airDate || episode.airDate <= today)
+      ) || null;
+    const upcomingEpisode =
+      regularEpisodes.find(
+        (episode) =>
+          !episode.watched && !!episode.airDate && episode.airDate > today
+      ) || null;
+    const nestedSeasons = seasons.map((season) =>
+      Object.assign(season, {
+        episodes: episodes.filter((episode) => episode.seasonId === season.id),
+      })
+    );
     return {
       item,
       seasons: nestedSeasons,

@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common";
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { RefreshTokenService } from "./refreshToken.service";
 import { Account } from "../accounts/account.entity";
@@ -11,10 +16,14 @@ export class AuthTokenGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const noAuth = this.reflector.get<boolean>("no-auth", context.getHandler());
-    const apiKeyAuth = this.reflector.get<boolean>(
+    const targets = [context.getHandler(), context.getClass()];
+    const noAuth = this.reflector.getAllAndOverride<boolean>(
+      "no-auth",
+      targets
+    );
+    const apiKeyAuth = this.reflector.getAllAndOverride<boolean>(
       "apikey-auth",
-      context.getHandler()
+      targets
     );
 
     const request = context.switchToHttp().getRequest();
@@ -41,6 +50,11 @@ export class AuthTokenGuard implements CanActivate {
     }
 
     request.account = account;
+    const roles =
+      this.reflector.getAllAndOverride<string[]>("roles", targets) || [];
+    if (roles.length && !roles.includes(account.role)) {
+      throw new ForbiddenException("This action requires administrator access");
+    }
     return true;
   }
 }

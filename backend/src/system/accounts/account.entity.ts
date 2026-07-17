@@ -1,8 +1,16 @@
 import { Column, Entity } from "typeorm";
 import { AbstractEntity } from "../common/AbstractEntity";
 
+export enum AccountRole {
+  REGULAR = "regular",
+  ADMIN = "admin",
+}
+
 @Entity()
 export class Account extends AbstractEntity {
+  @Column({ type: "varchar", default: AccountRole.REGULAR })
+  role: AccountRole;
+
   @Column({
     nullable: false,
     unique: true,

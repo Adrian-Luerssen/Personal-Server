@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { CrudController } from "@nestjsx/crud";
 
-import { Account } from "./account.entity";
+import { Account, AccountRole } from "./account.entity";
 import { AccountsService } from "./accounts.service";
 import { CrudEntity } from "../common/CrudEntity.decorator";
 import { ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
@@ -34,12 +34,12 @@ export class AccountsController implements CrudController<Account> {
   @ApiOperation({ summary: "Get current account details" })
   async getAccount(
     @ReqUser() user: any
-  ): Promise<{ name: string; email: string }> {
+  ): Promise<{ name: string; email: string; role: AccountRole }> {
     const account = await this.service.getAccountInfo(user.id);
     if (!account) {
       throw new HttpException("Account not found", 404);
     }
-    return { name: account.name, email: account.email };
+    return { name: account.name, email: account.email, role: account.role };
   }
 
   @Post("/change-password")

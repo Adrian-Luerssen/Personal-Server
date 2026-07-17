@@ -26,6 +26,8 @@ import { ReqUser } from "../../system/auth/auth.decorator";
 import { Account } from "../../system/accounts/account.entity";
 import { MediaType, MediaStatus } from "../entities/media-item.entity";
 import { MediaCatalogService } from "../catalog/media-catalog.service";
+import { Roles } from "../../system/auth/roles.decorator";
+import { AccountRole } from "../../system/accounts/account.entity";
 
 @ApiTags("Media")
 @ApiBearerAuth("access-token")
@@ -33,7 +35,7 @@ import { MediaCatalogService } from "../catalog/media-catalog.service";
 export class MediaController {
   constructor(
     private readonly mediaService: MediaService,
-    private readonly mediaCatalogService: MediaCatalogService,
+    private readonly mediaCatalogService: MediaCatalogService
   ) {}
 
   // ========== LIST & FILTER ==========
@@ -41,7 +43,11 @@ export class MediaController {
   @Get()
   @ApiOperation({ summary: "List all media items with optional filters" })
   @ApiQuery({ name: "type", required: false, enum: MediaType })
-  @ApiQuery({ name: "tag", required: false, description: "Filter by tag (anime, manga, tv, movie, book)" })
+  @ApiQuery({
+    name: "tag",
+    required: false,
+    description: "Filter by tag (anime, manga, tv, movie, book)",
+  })
   @ApiQuery({ name: "status", required: false, enum: MediaStatus })
   @ApiQuery({ name: "search", required: false, description: "Title search" })
   async findAll(
@@ -70,18 +76,26 @@ export class MediaController {
     enum: MediaType,
     description: "Filter stats to a specific media type",
   })
-  async getStats(
-    @ReqUser() account: Account,
-    @Query("type") type?: MediaType
-  ) {
+  async getStats(@ReqUser() account: Account, @Query("type") type?: MediaType) {
     return this.mediaService.getStats(account, type);
   }
 
   @Get("catalog/summaries")
-  @ApiOperation({ summary: "Get structured progress summaries for the library" })
+  @ApiOperation({
+    summary: "Get structured progress summaries for the library",
+  })
   async getCatalogSummaries(@ReqUser() account: Account) {
     const items = await this.mediaService.findAll(account);
     return this.mediaCatalogService.getCatalogSummaries(account, items);
+  }
+
+  @Post("catalog/sync-remaining")
+  @Roles(AccountRole.ADMIN)
+  @ApiOperation({
+    summary: "Force synchronization of unfinished show catalogs",
+  })
+  async syncRemainingCatalogs(@ReqUser() account: Account) {
+    return this.mediaCatalogService.syncRemainingItems(account);
   }
 
   @Get("catalog/anime/:malId")
@@ -102,20 +116,24 @@ export class MediaController {
   }
 
   @Get(":id/catalog")
-  @ApiOperation({ summary: "Get structured seasons, episodes, and anime relations" })
+  @ApiOperation({
+    summary: "Get structured seasons, episodes, and anime relations",
+  })
   async getCatalog(
     @ReqUser() account: Account,
-    @Param("id", ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string
   ) {
     const item = await this.mediaService.findOne(account, id);
     return this.mediaCatalogService.getCatalog(account, item);
   }
 
   @Post(":id/catalog/sync")
-  @ApiOperation({ summary: "Synchronize seasons, episodes, or anime continuity" })
+  @ApiOperation({
+    summary: "Synchronize seasons, episodes, or anime continuity",
+  })
   async syncCatalog(
     @ReqUser() account: Account,
-    @Param("id", ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string
   ) {
     const item = await this.mediaService.findOne(account, id);
     return this.mediaCatalogService.syncItem(account, item);
@@ -127,13 +145,18 @@ export class MediaController {
     @ReqUser() account: Account,
     @Param("id", ParseUUIDPipe) id: string,
     @Param("episodeId", ParseUUIDPipe) episodeId: string,
-    @Body() body: { watched: boolean },
+    @Body() body: { watched: boolean }
   ) {
     if (typeof body?.watched !== "boolean") {
       throw new BadRequestException("watched must be a boolean");
     }
     const item = await this.mediaService.findOne(account, id);
-    return this.mediaCatalogService.setEpisodeWatched(account, item, episodeId, body.watched);
+    return this.mediaCatalogService.setEpisodeWatched(
+      account,
+      item,
+      episodeId,
+      body.watched
+    );
   }
 
   // ========== CREATE ==========
@@ -200,7 +223,8 @@ export class MediaController {
   @Patch(":id/match")
   @ApiOperation({
     summary: "Override item with data from an external search result",
-    description: "Applies type, cover, metadata, externalIds, and tags from a search result to an existing item.",
+    description:
+      "Applies type, cover, metadata, externalIds, and tags from a search result to an existing item.",
   })
   async matchItem(
     @ReqUser() account: Account,
@@ -218,8 +242,8 @@ export class MediaController {
     // Build tags from type + metadata format
     const tags: string[] = [body.type];
     const format = body.metadata?.mediaFormat?.toLowerCase();
-    if (body.type === 'anime' && format === 'movie') tags.push('movie');
-    if (body.type === 'movie' && body.metadata?.mediaFormat) {
+    if (body.type === "anime" && format === "movie") tags.push("movie");
+    if (body.type === "movie" && body.metadata?.mediaFormat) {
       // already tagged as movie
     }
 
@@ -246,8 +270,10 @@ export class MediaController {
 
   @Post("reclassify")
   @ApiOperation({
-    summary: "Reset classification on all items so enrichment re-processes them",
-    description: "Clears reclassified flag and resets wrongly-classified items back to their original type.",
+    summary:
+      "Reset classification on all items so enrichment re-processes them",
+    description:
+      "Clears reclassified flag and resets wrongly-classified items back to their original type.",
   })
   async reclassify(@ReqUser() account: Account) {
     return this.mediaService.resetClassification(account);

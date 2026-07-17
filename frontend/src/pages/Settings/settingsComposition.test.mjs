@@ -19,3 +19,11 @@ test('appearance protects the Record identity from per-page theme drift', () => 
   assert.match(appearance, /Density/)
   assert.doesNotMatch(appearance, /PRESET_COLORS|GRADIENT_DIRECTIONS|customCss|background image/i)
 })
+
+test('Settings exposes catalog recovery only inside role-gated admin access', () => {
+  assert.match(settings, /accountRole === 'admin'/)
+  assert.match(settings, /Sync remaining shows/)
+  assert.match(settings, /\/media\/catalog\/sync-remaining/)
+  assert.match(settings, /activeTab === 'admin'/)
+  assert.match(settings, /activeSection === 'admin'/)
+})

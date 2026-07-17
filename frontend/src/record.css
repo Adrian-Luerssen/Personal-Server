@@ -1273,6 +1273,9 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .record-settings-card > header h2 { margin-top: 3px; }
 .record-settings-card > header small { max-width: 300px; color: var(--record-quiet); font-size: 9px; text-align: right; }
 .record-settings-card--note { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 14px; color: var(--record-accent-hover); }
+.admin-settings-card__body { display: grid; justify-items: start; gap: 12px; padding: 16px; }
+.admin-settings-card__body .btn { display: inline-flex; align-items: center; gap: 7px; }
+.admin-settings-card__body .alert-error, .admin-settings-card__body .alert-success, .admin-settings-card__body .alert-warning { width: 100%; }
 .record-settings-card--note p { margin-top: 3px; }
 .record-appearance { display: grid; gap: 12px; }
 .record-appearance__identity { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 14px; align-items: center; padding: 18px; background: var(--record-canvas); border: 1px solid var(--record-line); border-radius: var(--record-radius); }

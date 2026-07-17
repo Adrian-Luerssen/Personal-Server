@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { INestApplication, Logger } from "@nestjs/common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { Account } from "./system/accounts/account.entity";
+import { Account, AccountRole } from "./system/accounts/account.entity";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AbstractAccountOwnedEntity } from "./system/common/AbstractAccountOwnedEntity";
 import { AbstractEntity } from "./system/common/AbstractEntity";
@@ -23,14 +23,18 @@ async function setupInitialData(app: INestApplication) {
     where: { email: "root@gmail.com" }, // new typeORM expects either FindOneOptions<Account> or that <--
   });
   if (!rootAccount) {
-    const hashRounds = parseInt(configService.get("AUTH_HASH_ROUNDS") || "10", 10);
+    const hashRounds = parseInt(
+      configService.get("AUTH_HASH_ROUNDS") || "10",
+      10
+    );
     const plainPassword = configService.get("USER_ROOT_CREDENTIALS");
     const hashedPassword = await bcrypt.hash(plainPassword, hashRounds);
-    
+
     rootAccount = new Account();
     rootAccount.email = "root@gmail.com";
     rootAccount.password = hashedPassword;
     rootAccount.name = "root";
+    rootAccount.role = AccountRole.ADMIN;
     rootAccount = await accountRepository.save(rootAccount);
   }
 }
@@ -86,12 +90,15 @@ async function bootstrap() {
   // Guard against Node.js v22 ERR_INTERNAL_ASSERTION in ServerResponse.detachSocket
   // This is a known Node bug triggered by compression + keep-alive edge cases.
   // Logging instead of crashing keeps the server alive.
-  process.on('uncaughtException', (err) => {
-    if (err && (err as any).code === 'ERR_INTERNAL_ASSERTION') {
-      Logger.warn(`Suppressed Node.js internal assertion (non-fatal): ${err.message}`, 'Process');
+  process.on("uncaughtException", (err) => {
+    if (err && (err as any).code === "ERR_INTERNAL_ASSERTION") {
+      Logger.warn(
+        `Suppressed Node.js internal assertion (non-fatal): ${err.message}`,
+        "Process"
+      );
       return;
     }
-    Logger.error(`Uncaught exception: ${err.message}`, err.stack, 'Process');
+    Logger.error(`Uncaught exception: ${err.message}`, err.stack, "Process");
     process.exit(1);
   });
 

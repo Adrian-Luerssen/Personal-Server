@@ -59,9 +59,30 @@ export function groupSeriesByStatus(items) {
     .map(([status, groupedItems]) => ({ status, items: groupedItems }))
 }
 
-export function paginateSeriesLibrary(items, requestedPage = 1, pageSize = 24) {
+export function sortSeriesLibrary(items, order = 'status') {
+  const values = [...(items || [])]
+  const compareTitle = (left, right) => String(left?.title || '').localeCompare(String(right?.title || ''), undefined, { sensitivity: 'base' })
+  if (order === 'title-asc') return values.sort(compareTitle)
+  if (order === 'title-desc') return values.sort((left, right) => compareTitle(right, left))
+  if (order === 'rating-desc' || order === 'rating-asc') {
+    const direction = order === 'rating-desc' ? -1 : 1
+    return values.sort((left, right) => {
+      const leftRating = left?.rating == null ? null : Number(left.rating)
+      const rightRating = right?.rating == null ? null : Number(right.rating)
+      if (!Number.isFinite(leftRating)) return Number.isFinite(rightRating) ? 1 : compareTitle(left, right)
+      if (!Number.isFinite(rightRating)) return -1
+      return direction * (leftRating - rightRating) || compareTitle(left, right)
+    })
+  }
+  if (order === 'updated-desc') {
+    return values.sort((left, right) => Date.parse(right?.updatedAt || 0) - Date.parse(left?.updatedAt || 0) || compareTitle(left, right))
+  }
+  return values
+}
+
+export function paginateSeriesLibrary(items, requestedPage = 1, pageSize = 24, preserveInputOrder = false) {
   const groups = groupSeriesByStatus(items)
-  const orderedItems = groups.flatMap(group => group.items)
+  const orderedItems = preserveInputOrder ? [...(items || [])] : groups.flatMap(group => group.items)
   const safePageSize = Math.max(1, Number(pageSize) || 24)
   const totalItems = orderedItems.length
   const totalPages = Math.max(1, Math.ceil(totalItems / safePageSize))
@@ -69,10 +90,12 @@ export function paginateSeriesLibrary(items, requestedPage = 1, pageSize = 24) {
   const offset = (page - 1) * safePageSize
   const pageItems = orderedItems.slice(offset, offset + safePageSize)
   const totalsByStatus = new Map(groups.map(group => [group.status, group.items.length]))
-  const pagedGroups = groupSeriesByStatus(pageItems).map(group => ({
-    ...group,
-    totalCount: totalsByStatus.get(group.status) || group.items.length,
-  }))
+  const pagedGroups = preserveInputOrder
+    ? [{ status: 'ordered', items: pageItems, totalCount: totalItems }]
+    : groupSeriesByStatus(pageItems).map(group => ({
+      ...group,
+      totalCount: totalsByStatus.get(group.status) || group.items.length,
+    }))
 
   return {
     groups: pagedGroups,

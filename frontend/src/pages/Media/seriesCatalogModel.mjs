@@ -44,6 +44,24 @@ export function getNextEpisodeAction(catalog) {
   }
 }
 
+export function isSeriesAiring(item) {
+  const status = String(item?.metadata?.airingStatus || '').trim().toLowerCase().replace(/[_-]+/g, ' ')
+  return ['currently airing', 'releasing', 'returning series', 'in production'].includes(status)
+}
+
+export function getSeriesRowAction(item, catalog) {
+  if (item?.status === 'completed') {
+    const rating = Number(item?.rating)
+    return {
+      kind: 'score',
+      label: Number.isFinite(rating) && item?.rating != null ? `${rating.toFixed(1)} / 10` : 'Add score',
+      needsScore: !(Number.isFinite(rating) && item?.rating != null),
+    }
+  }
+  const episode = getNextEpisodeAction(catalog)
+  return episode ? { kind: 'episode', ...episode } : null
+}
+
 export function buildContinuity(item, relations = []) {
   const entries = relations.map((relation) => ({
     id: relation.targetMediaItemId || `mal-${relation.targetMalId || relation.id}`,

@@ -927,12 +927,13 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .series-register { display: grid; gap: 16px; }
 .series-register .record-page-heading { margin-bottom: 4px; }
 .record-series-filters { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1fr); gap: 0; overflow: hidden; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius); }
-.record-series-filters__search { grid-row: span 2; margin: 14px; }
+.record-series-filters__search { grid-row: span 3; margin: 14px; }
 .record-series-filters__row { display: grid; min-width: 0; grid-template-columns: 62px minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px 12px; }
 .record-series-filters__row + .record-series-filters__row { border-top: 1px solid var(--record-line); }
 .record-series-filters__row > span { color: var(--record-quiet); font: 600 9px var(--record-font-data); letter-spacing: .07em; text-transform: uppercase; }
 .record-series-filters__row .record-segmented { border: 0; background: transparent; }
 .record-series-filters__row .record-segmented button > span { margin-left: 5px; color: var(--record-quiet); font-family: var(--record-font-data); }
+.record-series-sort select { min-height: 34px; padding: 0 30px 0 10px; background: var(--record-control); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-text); font: 10px var(--record-font-ui); }
 .series-completion { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 14px; background: var(--record-accent-soft); border: 1px solid rgba(124,92,255,.3); border-radius: var(--record-radius); }
 .series-completion strong, .series-completion span { display: block; }
 .series-completion span { margin-top: 3px; color: var(--record-muted); font-size: 10px; }
@@ -1010,9 +1011,14 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .series-row__meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--record-quiet); font-size: 9px; }
 .series-row__meta span + span::before { margin-right: 10px; color: var(--record-line-strong); content: "·"; }
 .series-row__status { color: var(--record-muted); }
+.series-row__airing { display: inline-flex; align-items: center; gap: 5px; color: #54d6a0; font-weight: 650; }
+.series-row__airing i { width: 5px; height: 5px; background: currentColor; border-radius: 50%; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent); }
 .series-row__scope { color: var(--record-muted); font-size: 10px; }
 .series-row__progress { display: flex; max-width: 430px; align-items: center; gap: 10px; color: var(--record-quiet); font: 9px var(--record-font-data); }
 .series-row__progress progress { width: min(190px, 32vw); height: 3px; overflow: hidden; background: var(--record-line); border: 0; accent-color: var(--record-accent); }
+.series-row[data-status="completed"] .series-row__progress progress { accent-color: #9b7cff; }
+.series-row[data-status="completed"] .series-row__progress progress::-webkit-progress-value { background: #9b7cff; }
+.series-row[data-status="completed"] .series-row__progress progress::-moz-progress-bar { background: #9b7cff; }
 .series-row__actions { display: flex; align-items: center; gap: 3px; }
 .series-row__actions button { display: inline-flex; min-width: 40px; min-height: 40px; align-items: center; justify-content: center; gap: 3px; padding: 0 9px; background: transparent; border: 1px solid transparent; border-radius: var(--record-radius-sm); color: var(--record-muted); }
 .series-row__actions button:hover { background: var(--record-control); border-color: var(--record-line); color: var(--record-text); }
@@ -1020,6 +1026,8 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .series-row__increment { font: 650 10px var(--record-font-data); }
 .series-row__increment span { color: var(--record-quiet); font-size: 8px; text-transform: uppercase; }
 .series-row__episode-action { color: var(--record-accent-hover) !important; }
+.series-row__score { min-width: 74px !important; color: #b8a6ff !important; font: 650 9px var(--record-font-data); }
+.series-row__score.needs-score { border-color: color-mix(in srgb, var(--record-accent) 45%, transparent); }
 
 .media-modal-overlay, .series-detail-overlay { position: fixed; z-index: 110; inset: 0; background: rgba(3,4,8,.78); backdrop-filter: blur(8px); }
 .media-modal-overlay { display: grid; place-items: center; padding: 18px; }

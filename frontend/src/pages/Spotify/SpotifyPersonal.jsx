@@ -30,6 +30,7 @@ import {
   formatNumberShort,
 } from '../../components/shared'
 import { getListeningArtworkUrl, getRankMovement, normalizeSpotifyTimeframe } from '../../spotifyRanking.mjs'
+import { normalizeListeningCollection } from './spotifyResponseModel.mjs'
 
 ChartJS.register(
   CategoryScale,
@@ -194,21 +195,25 @@ export default function SpotifyPersonal() {
       ])
       if (loadRequestIdRef.current !== myId) return
       setProfile(me)
-      setTopTracks(topTracksData)
-      setTopAlbums(topAlbumsData)
-      setTopArtists(topArtistsData)
-      setTopPlaylists(topPlaylistsData)
+      const tracks = normalizeListeningCollection(topTracksData)
+      const albums = normalizeListeningCollection(topAlbumsData)
+      const artists = normalizeListeningCollection(topArtistsData)
+      const playlists = normalizeListeningCollection(topPlaylistsData)
+      setTopTracks(tracks)
+      setTopAlbums(albums)
+      setTopArtists(artists)
+      setTopPlaylists(playlists)
       setStats(statsData)
-      setHistory(Array.isArray(historyData.items) ? historyData.items : historyData)
-      setPerDay(perDayData)
-      setPerHour(perHourData)
+      setHistory(normalizeListeningCollection(historyData))
+      setPerDay(normalizeListeningCollection(perDayData))
+      setPerHour(normalizeListeningCollection(perHourData))
       setMoodData(moodResult)
 
       const [trackDetails, albumDetails, artistDetails, playlistDetails] = await Promise.all([
-        Promise.all((topTracksData || []).map(t => api.get(`/tracks/${t.trackId}`))),
-        Promise.all((topAlbumsData || []).map(a => api.get(`/albums/${a.albumId}`))),
-        Promise.all((topArtistsData || []).map(a => api.get(`/artists/${a.artistId}`))),
-        Promise.all((topPlaylistsData || []).map(p => api.get(`/playlists/${p.playlistId}`)))
+        Promise.all(tracks.map(t => api.get(`/tracks/${t.trackId}`))),
+        Promise.all(albums.map(a => api.get(`/albums/${a.albumId}`))),
+        Promise.all(artists.map(a => api.get(`/artists/${a.artistId}`))),
+        Promise.all(playlists.map(p => api.get(`/playlists/${p.playlistId}`)))
       ])
       if (loadRequestIdRef.current !== myId) return
       setTopTrackDetails(trackDetails)

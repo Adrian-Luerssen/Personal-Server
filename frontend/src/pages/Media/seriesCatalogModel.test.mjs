@@ -7,12 +7,30 @@ import {
   getCatalogProgressLabel,
   getContinuityTarget,
   getNextEpisodeAction,
+  getSeriesRowAction,
+  isSeriesAiring,
   summarizeSeriesMetadata,
 } from './seriesCatalogModel.mjs'
 
 test('formats concrete season and episode positions', () => {
   assert.equal(formatEpisodeCode({ seasonNumber: 3, number: 7 }), 'S03E07')
   assert.equal(formatEpisodeCode({ seasonNumber: 0, number: 2 }), 'Special 2')
+})
+
+test('completed titles ask for a score instead of offering another episode', () => {
+  assert.deepEqual(getSeriesRowAction({ status: 'completed', rating: 8 }, { nextEpisode: { id: 'ep' } }), {
+    kind: 'score', label: '8.0 / 10', needsScore: false,
+  })
+  assert.deepEqual(getSeriesRowAction({ status: 'completed', rating: null }, { nextEpisode: { id: 'ep' } }), {
+    kind: 'score', label: 'Add score', needsScore: true,
+  })
+})
+
+test('recognizes active provider statuses across MAL, AniList, and TMDB', () => {
+  for (const status of ['Currently Airing', 'RELEASING', 'Returning Series', 'In Production']) {
+    assert.equal(isSeriesAiring({ metadata: { airingStatus: status } }), true)
+  }
+  assert.equal(isSeriesAiring({ metadata: { airingStatus: 'Finished Airing' } }), false)
 })
 
 test('describes structured progress before falling back to aggregate counts', () => {

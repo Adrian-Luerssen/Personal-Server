@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; budgetStatus?: any[]; activeWorkout?: boolean; paymentSuggestions?: any[]; mediaItems?: any[]; mediaSearchResults?: any[] } = {}) {
+async function mockNativeApi(page, options: { emptyTransactions?: boolean; malformedWorkoutPrs?: boolean; malformedMusicCollections?: boolean; budgetStatus?: any[]; activeWorkout?: boolean; paymentSuggestions?: any[]; mediaItems?: any[]; mediaSearchResults?: any[] } = {}) {
   await page.addInitScript(() => {
     ;(window as any).__NATIVE_APP__ = true
     ;(window as any).__API_BASE__ = 'http://localhost:4051'
@@ -478,6 +478,13 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
 
     if (path === '/spotify/linked') {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ linked: true }) })
+    }
+
+    if (options.malformedMusicCollections && [
+      '/streams/top', '/albums/top-albums', '/artists/top-artists', '/playlists/top-playlists',
+      '/streams/history', '/streams/per-day', '/streams/per-hour',
+    ].some(prefix => path.startsWith(prefix))) {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ message: 'temporary shape mismatch' }) })
     }
 
     if (path === '/media/search') {
@@ -1303,6 +1310,54 @@ test.describe('Native Android app shell', () => {
     const overflow = await getHorizontalOverflowReport(page)
     expect(overflow.documentScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
     expect(overflow.bodyScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
+  })
+
+  test('orders series by personal score and distinguishes airing and completed titles', async ({ page }) => {
+    const mediaItems = [
+      {
+        id: 'completed-unrated', title: 'Finished Unrated', type: 'anime', status: 'completed', rating: null,
+        coverUrl: '', metadata: { episodes: 12, episodesWatched: 12, airingStatus: 'Finished Airing' }, externalIds: { malId: 1 },
+      },
+      {
+        id: 'completed-rated', title: 'Finished Nine', type: 'anime', status: 'completed', rating: 9,
+        coverUrl: '', metadata: { episodes: 24, episodesWatched: 24, airingStatus: 'Finished Airing' }, externalIds: { malId: 2 },
+      },
+      {
+        id: 'airing', title: 'Airing Seven', type: 'anime', status: 'watching', rating: 7,
+        coverUrl: '', metadata: { episodes: 12, episodesWatched: 4, airingStatus: 'Currently Airing' }, externalIds: { malId: 3 },
+      },
+    ]
+    await mockNativeApi(page, { mediaItems })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-series-lifecycle')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+    await page.goto('/media')
+
+    await expect(page.getByText('Airing now')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add score for Finished Unrated' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Edit score for Finished Nine' })).toHaveText('9.0 / 10')
+    await expect(page.getByRole('button', { name: 'Log next episode for Finished Nine' })).toHaveCount(0)
+
+    await page.getByLabel('Order series library').selectOption('rating-desc')
+    const titles = await page.locator('.series-row__title-button').allTextContents()
+    expect(titles).toEqual(['Finished Nine', 'Airing Seven', 'Finished Unrated'])
+    await expect(page.getByRole('progressbar', { name: 'Finished Nine: 24 of 24 episodes' })).toHaveCSS('accent-color', 'rgb(155, 124, 255)')
+  })
+
+  test('keeps the listening page available when a collection response has a transient shape', async ({ page }) => {
+    await mockNativeApi(page, { malformedMusicCollections: true })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-music-shape')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/spotify')
+
+    await expect(page.getByRole('heading', { name: 'Listening' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Section unavailable' })).toHaveCount(0)
   })
 
   test('signs out from the native account screen and clears the device session', async ({ page }) => {

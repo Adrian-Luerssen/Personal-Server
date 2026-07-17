@@ -22,6 +22,23 @@ describe("prepareSseResponse", () => {
     );
     expect(res.flush).toHaveBeenCalled();
   });
+
+  it("does not write after the browser has disconnected", () => {
+    const res = {
+      setHeader: jest.fn(),
+      flushHeaders: jest.fn(),
+      write: jest.fn(),
+      flush: jest.fn(),
+      destroyed: true,
+      writableEnded: false,
+    } as any;
+
+    const send = prepareSseResponse(res);
+    send({ stage: "catalog", progress: 50 });
+
+    expect(res.write).not.toHaveBeenCalled();
+    expect(res.flush).not.toHaveBeenCalled();
+  });
 });
 
 describe("createImportProgressSender", () => {

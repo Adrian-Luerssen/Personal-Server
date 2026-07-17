@@ -9,11 +9,14 @@ import {
   getSeriesProgress,
   normalizeSeriesCollection,
   paginateSeriesLibrary,
+  sortSeriesLibrary,
 } from './seriesViewModel.mjs'
 import {
   getCatalogProgressLabel,
   getContinuityTarget,
   getNextEpisodeAction,
+  getSeriesRowAction,
+  isSeriesAiring,
   summarizeSeriesMetadata,
 } from './seriesCatalogModel.mjs'
 import SeriesDetail from './SeriesDetail'
@@ -141,13 +144,15 @@ function useModalFocus(open, onClose, dialogRef) {
   }, [open, dialogRef])
 }
 
-function SeriesRow({ item, catalog, onOpen, onIncrement, onWatchEpisode, busy }) {
+function SeriesRow({ item, catalog, onOpen, onScore, onIncrement, onWatchEpisode, busy }) {
   const typeMeta = TYPE_META[item.type] || {}
   const statusMeta = STATUS_META[item.status] || {}
   const progress = getSeriesProgress(item)
   const nextProgress = getNextProgressUpdate(item)
   const metadata = summarizeSeriesMetadata(item)
   const nextAction = getNextEpisodeAction(catalog)
+  const rowAction = getSeriesRowAction(item, catalog)
+  const airing = isSeriesAiring(item)
   const seasonCount = catalog?.seasons?.filter((season) => Number(season.number) > 0).length || Number(item.metadata?.seasonCount) || 0
   const relatedCount = catalog?.relations?.length || 0
   const scopeLabel = item.type === 'tv'
@@ -182,6 +187,7 @@ function SeriesRow({ item, catalog, onOpen, onIncrement, onWatchEpisode, busy })
           {metadata.studio && <span>{metadata.studio}</span>}
           {item.rating != null && <span>{Number(item.rating).toFixed(1)} / 10</span>}
           <span className="series-row__status">{statusMeta.label || item.status}</span>
+          {airing && <span className="series-row__airing"><i aria-hidden="true" /> Airing now</span>}
         </span>
         <span className="series-row__scope">{scopeLabel}</span>
         {progressLabel && (
@@ -192,7 +198,16 @@ function SeriesRow({ item, catalog, onOpen, onIncrement, onWatchEpisode, busy })
         )}
       </div>
       <div className="series-row__actions">
-        {nextAction && !nextAction.upcoming ? (
+        {rowAction?.kind === 'score' ? (
+          <button
+            type="button"
+            className={`series-row__score${rowAction.needsScore ? ' needs-score' : ''}`}
+            aria-label={`${rowAction.needsScore ? 'Add score for' : 'Edit score for'} ${item.title}`}
+            onClick={() => onScore(item)}
+          >
+            {rowAction.label}
+          </button>
+        ) : nextAction && !nextAction.upcoming ? (
           <button
             type="button"
             className="series-row__increment series-row__episode-action"
@@ -718,6 +733,7 @@ export default function Media() {
   const [busyEpisodeId, setBusyEpisodeId] = useState(null)
   const [busyItemId, setBusyItemId] = useState(null)
   const [page, setPage] = useState(1)
+  const [sortOrder, setSortOrder] = useState('status')
   const listTopRef = useRef(null)
 
   const load = useCallback(async () => {
@@ -742,12 +758,13 @@ export default function Media() {
   }, [filterType, filterStatus, search])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { setPage(1) }, [filterType, filterStatus, search])
+  useEffect(() => { setPage(1) }, [filterType, filterStatus, search, sortOrder])
 
   const activeCount = items.filter(i => ['watching', 'reading'].includes(i.status)).length
   const completedCount = stats?.completed ?? 0
   const avgRating = stats?.averageRating
-  const pagination = paginateSeriesLibrary(items, page, MEDIA_PAGE_SIZE)
+  const sortedItems = sortSeriesLibrary(items, sortOrder)
+  const pagination = paginateSeriesLibrary(sortedItems, page, MEDIA_PAGE_SIZE, sortOrder !== 'status')
   const groups = pagination.groups
 
   const changePage = (nextPage) => {
@@ -915,6 +932,17 @@ export default function Media() {
 
       <section className="record-series-filters" aria-label="Filter series library">
         <IconInput className="record-series-filters__search" aria-label="Search media library" placeholder="Search library..." value={search} onChange={e => setSearch(e.target.value)} />
+        <label className="record-series-filters__row record-series-sort">
+          <span>Order</span>
+          <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} aria-label="Order series library">
+            <option value="status">Status and activity</option>
+            <option value="rating-desc">My score: highest</option>
+            <option value="rating-asc">My score: lowest</option>
+            <option value="title-asc">Title: A to Z</option>
+            <option value="title-desc">Title: Z to A</option>
+            <option value="updated-desc">Recently updated</option>
+          </select>
+        </label>
         <div className="record-series-filters__row">
           <span>Status</span>
           <div className="record-segmented record-segmented--compact">
@@ -948,7 +976,7 @@ export default function Media() {
             {groups.map(group => (
               <section className="series-group" key={group.status}>
                 <div className="series-group__heading">
-                  <h2>{STATUS_META[group.status]?.label || group.status}</h2>
+                  <h2>{group.status === 'ordered' ? 'Sorted titles' : STATUS_META[group.status]?.label || group.status}</h2>
                   <span>{group.items.length === group.totalCount ? group.totalCount : `${group.items.length} shown · ${group.totalCount} total`}</span>
                 </div>
                 <div className="series-list">
@@ -958,6 +986,7 @@ export default function Media() {
                       item={item}
                       catalog={catalogs[item.id]}
                       onOpen={openDetail}
+                      onScore={setEditItem}
                       onIncrement={incrementProgress}
                       onWatchEpisode={(entry, episodeId) => toggleEpisode(entry, { id: episodeId }, true)}
                       busy={busyItemId === item.id || busyEpisodeId === catalogs[item.id]?.nextEpisode?.id}

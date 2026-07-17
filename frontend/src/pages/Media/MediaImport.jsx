@@ -171,7 +171,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
           <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Icon name="copy" size={20} style={{ color: '#fbbf24' }} />
             Already in Library
-            <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>({duplicates.length})</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>({preview.duplicateCount ?? duplicates.length})</span>
           </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
             These titles already exist. Choose to <strong>skip</strong> (keep existing) or <strong>replace</strong> (overwrite with imported data) for each.

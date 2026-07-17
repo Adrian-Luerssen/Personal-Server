@@ -6,6 +6,7 @@ import {
   groupSeriesByStatus,
   normalizeSeriesCollection,
   paginateSeriesLibrary,
+  sortSeriesLibrary,
 } from './seriesViewModel.mjs'
 
 test('normalizes both array and paginated series responses', () => {
@@ -73,4 +74,15 @@ test('media pagination keeps status order and reports full group counts', () => 
   assert.equal(last.page, 3)
   assert.deepEqual(last.groups.map(group => group.status), ['completed'])
   assert.deepEqual(last.groups[0].items.map(item => item.id), ['done-1'])
+})
+
+test('series can be ordered by personal score while unrated titles remain last', () => {
+  const items = [
+    { id: 'unrated', title: 'Unrated', rating: null },
+    { id: 'seven', title: 'Seven', rating: 7 },
+    { id: 'nine', title: 'Nine', rating: 9 },
+  ]
+
+  assert.deepEqual(sortSeriesLibrary(items, 'rating-desc').map(item => item.id), ['nine', 'seven', 'unrated'])
+  assert.deepEqual(sortSeriesLibrary(items, 'rating-asc').map(item => item.id), ['seven', 'nine', 'unrated'])
 })

@@ -355,7 +355,7 @@ export class MediaImportController {
       duplicateCount: duplicates.length,
       totalItems: items.length,
       items: newItems.slice(0, 30),
-      duplicates: duplicates.slice(0, 50),
+      duplicates,
     };
   }
 

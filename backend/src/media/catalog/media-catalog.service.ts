@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import axios from "axios";
 import { Repository } from "typeorm";
@@ -42,6 +44,8 @@ export interface ImportedCatalogSyncProgress {
 
 @Injectable()
 export class MediaCatalogService {
+  private readonly logger = new Logger(MediaCatalogService.name);
+  private airingRefreshRunning = false;
   constructor(
     @InjectRepository(MediaItem)
     private readonly mediaRepo: Repository<MediaItem>,
@@ -100,31 +104,73 @@ export class MediaCatalogService {
     );
     let synced = 0;
     let failed = 0;
+    let completed = 0;
+    let nextIndex = 0;
+    let nextAnimeStart = 0;
 
-    for (let index = 0; index < eligible.length; index++) {
-      const item = eligible[index];
-      try {
-        await this.syncItem(account, item);
-        synced++;
-      } catch {
-        failed++;
+    const takeNext = () => {
+      const index = nextIndex++;
+      return index < eligible.length ? eligible[index] : null;
+    };
+    const waitForAnimeSlot = async () => {
+      const now = Date.now();
+      const wait = Math.max(0, nextAnimeStart - now);
+      nextAnimeStart = Math.max(now, nextAnimeStart) + 375;
+      if (wait) await this.pause(wait);
+    };
+    const worker = async () => {
+      for (let item = takeNext(); item; item = takeNext()) {
+        if (item.type === MediaType.ANIME) await waitForAnimeSlot();
+        try {
+          await this.syncItem(account, item);
+          synced++;
+        } catch {
+          failed++;
+        }
+        completed++;
+        onProgress?.({ current: completed, total: eligible.length, synced, failed, item });
       }
-      onProgress?.({
-        current: index + 1,
-        total: eligible.length,
-        synced,
-        failed,
-        item,
-      });
+    };
 
-      // Jikan's public API is deliberately rate limited. Keeping MAL imports
-      // sequential prevents a large upload from turning into a burst of 429s.
-      if (item.type === MediaType.ANIME && index < eligible.length - 1) {
-        await this.pause(375);
-      }
-    }
+    await Promise.all(
+      Array.from({ length: Math.min(4, eligible.length) }, () => worker()),
+    );
 
     return { eligible: eligible.length, synced, failed };
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_5AM)
+  async refreshAiringCatalogs(): Promise<void> {
+    if (this.airingRefreshRunning) return;
+    this.airingRefreshRunning = true;
+    try {
+      const items = await this.mediaRepo.find();
+      const staleBefore = Date.now() - 20 * 60 * 60 * 1000;
+      const staleAiring = items.filter((item) => {
+        if (!this.isAiringStatus(item.metadata?.airingStatus)) return false;
+        const syncedAt = Date.parse(item.metadata?.catalogSyncedAt || "");
+        return !Number.isFinite(syncedAt) || syncedAt < staleBefore;
+      });
+      const byAccount = new Map<string, MediaItem[]>();
+      for (const item of staleAiring) {
+        const accountItems = byAccount.get(item.accountId) || [];
+        accountItems.push(item);
+        byAccount.set(item.accountId, accountItems);
+      }
+      for (const [accountId, accountItems] of byAccount) {
+        const result = await this.syncImportedItems({ id: accountId } as Account, accountItems);
+        this.logger.log(`Daily airing refresh for ${accountId}: ${result.synced} synced, ${result.failed} failed`);
+      }
+    } catch (error) {
+      this.logger.error(`Daily airing refresh failed: ${error instanceof Error ? error.message : error}`);
+    } finally {
+      this.airingRefreshRunning = false;
+    }
+  }
+
+  private isAiringStatus(value: unknown): boolean {
+    const status = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+    return ["currently airing", "releasing", "returning series", "in production"].includes(status);
   }
 
   async getCatalog(account: Account, item: MediaItem): Promise<MediaCatalogView> {

@@ -207,6 +207,58 @@ describe("MediaCatalogService", () => {
     expect(progress).toHaveBeenCalledWith({ current: 1, total: 1, synced: 1, failed: 0, item: anime });
   });
 
+  it("synchronizes large imports with bounded parallelism", async () => {
+    const items = Array.from({ length: 8 }, (_, index) => ({
+      id: `anime-${index}`,
+      accountId: account.id,
+      title: `Anime ${index}`,
+      type: MediaType.TV,
+      externalIds: { tmdbId: index + 1 },
+      metadata: {},
+    })) as any[];
+    let active = 0;
+    let peak = 0;
+    jest.spyOn(service, "syncItem").mockImplementation(async () => {
+      active++;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      active--;
+      return {} as any;
+    });
+
+    const result = await service.syncImportedItems(account, items);
+
+    expect(result).toEqual({ eligible: 8, synced: 8, failed: 0 });
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(4);
+  });
+
+  it("refreshes stale currently-airing titles and ignores finished titles", async () => {
+    mediaRepo.rows.push(
+      {
+        id: "airing-stale", accountId: "account-1", type: MediaType.ANIME,
+        externalIds: { malId: 1 },
+        metadata: { airingStatus: "Currently Airing", catalogSyncedAt: "2026-01-01T00:00:00.000Z" },
+      },
+      {
+        id: "airing-fresh", accountId: "account-1", type: MediaType.ANIME,
+        externalIds: { malId: 2 },
+        metadata: { airingStatus: "Currently Airing", catalogSyncedAt: new Date().toISOString() },
+      },
+      {
+        id: "finished", accountId: "account-1", type: MediaType.ANIME,
+        externalIds: { malId: 3 }, metadata: { airingStatus: "Finished Airing" },
+      },
+    );
+    const sync = jest.spyOn(service, "syncImportedItems").mockResolvedValue({ eligible: 1, synced: 1, failed: 0 });
+
+    await service.refreshAiringCatalogs();
+
+    expect(sync).toHaveBeenCalledTimes(1);
+    expect(sync.mock.calls[0][0]).toMatchObject({ id: "account-1" });
+    expect(sync.mock.calls[0][1].map((item) => item.id)).toEqual(["airing-stale"]);
+  });
+
   it("preserves concrete watch state during an idempotent refresh", async () => {
     const item = {
       id: "tv-1",

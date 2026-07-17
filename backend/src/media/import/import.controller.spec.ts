@@ -17,7 +17,7 @@ describe("MediaImportController preview", () => {
     const mediaService = { findAll: jest.fn().mockResolvedValue(existing) };
     const controller = new MediaImportController(
       {} as any,
-      {} as any,
+      { resolveExistingAnime: jest.fn().mockResolvedValue(undefined) } as any,
       {} as any,
       mediaService as any,
       {} as any,
@@ -35,6 +35,38 @@ describe("MediaImportController preview", () => {
     expect(preview.duplicateCount).toBe(411);
     expect(preview.duplicates).toHaveLength(411);
     expect(preview.newCount).toBe(0);
+  });
+
+  it("recognizes normalized aliases as duplicates instead of creating a second title", async () => {
+    const existing = [{
+      id: "existing-1",
+      title: "Boku no Hero Academia",
+      type: "anime",
+      status: "completed",
+      externalIds: { malId: 31964 },
+      metadata: { alternativeTitles: ["My Hero Academia"] },
+    }];
+    const mediaService = { findAll: jest.fn().mockResolvedValue(existing) };
+    const controller = new MediaImportController(
+      {} as any,
+      { resolveExistingAnime: jest.fn().mockResolvedValue(undefined) } as any,
+      {} as any,
+      mediaService as any,
+      {} as any,
+    );
+    const incoming = [{
+      title: "My Hero Academia",
+      type: "tv",
+      status: "watching",
+      externalIds: { tvdbId: 305074 },
+      metadata: { importSource: "tvtime" },
+    }];
+
+    const preview = await (controller as any).storePreviewWithDedup({ id: "account-1" }, incoming);
+
+    expect(preview.newCount).toBe(0);
+    expect(preview.duplicateCount).toBe(1);
+    expect(preview.duplicates[0].existing.id).toBe("existing-1");
   });
 
   it("updates replaced duplicates once before continuing to catalog synchronization", async () => {

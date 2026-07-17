@@ -322,18 +322,34 @@ export class MediaImportController {
   private async storePreviewWithDedup(account: Account, items: any[]) {
     // Load all existing media for this account
     const existing = await this.mediaService.findAll(account);
+    if (items.some((item) => item.metadata?.importSource === "tvtime")) {
+      await this.tvTimeImport.resolveExistingAnime(items, existing);
+    }
+
     const existingMap = new Map<string, any>();
+    const existingById = new Map(existing.map((item) => [item.id, item]));
+    const existingByProviderId = new Map<string, any>();
     for (const e of existing) {
-      // Key by lowercase title for fuzzy matching
-      existingMap.set(e.title.toLowerCase().trim(), e);
+      for (const title of this.mediaTitles(e)) {
+        const normalized = this.normalizeTitle(title);
+        if (normalized && !existingMap.has(normalized)) existingMap.set(normalized, e);
+      }
+      for (const identity of this.providerIdentities(e)) {
+        existingByProviderId.set(identity, e);
+      }
     }
 
     const newItems: any[] = [];
     const duplicates: Array<{ incoming: any; existing: any }> = [];
 
     for (const item of items) {
-      const key = item.title.toLowerCase().trim();
-      const match = existingMap.get(key);
+      const matchedExistingId = item.metadata?.matchedExistingId;
+      const match =
+        (matchedExistingId ? existingById.get(matchedExistingId) : undefined) ||
+        this.providerIdentities(item).map((identity) => existingByProviderId.get(identity)).find(Boolean) ||
+        this.mediaTitles(item)
+          .map((title) => existingMap.get(this.normalizeTitle(title)))
+          .find(Boolean);
       if (match) {
         duplicates.push({
           incoming: item,
@@ -369,6 +385,42 @@ export class MediaImportController {
       items: newItems.slice(0, 30),
       duplicates,
     };
+  }
+
+  private normalizeTitle(title: string): string {
+    return title
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/\(\d{4}\)\s*$/, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  private mediaTitles(item: any): string[] {
+    const metadata = item?.metadata || {};
+    const values = [
+      item?.title,
+      metadata.titleEnglish,
+      metadata.englishTitle,
+      metadata.titleJapanese,
+      metadata.titleRomaji,
+      ...(Array.isArray(metadata.alternativeTitles) ? metadata.alternativeTitles : []),
+      ...(Array.isArray(metadata.titleSynonyms) ? metadata.titleSynonyms : []),
+      ...(Array.isArray(metadata.synonyms) ? metadata.synonyms : []),
+    ];
+    return [...new Set(values.filter((value): value is string => typeof value === "string" && !!value.trim()))];
+  }
+
+  private providerIdentities(item: any): string[] {
+    return ["malId", "tmdbId", "tvdbId"]
+      .map((key) => {
+        const value = Number(item?.externalIds?.[key]);
+        return Number.isInteger(value) && value > 0 ? `${key}:${value}` : null;
+      })
+      .filter((value): value is string => !!value);
   }
 
   private catalogIdentity(item: any): string | null {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import axios from "axios";
 import { MediaType, MediaStatus } from "../entities/media-item.entity";
 import { ImportPreviewItem } from "./mal-import.service";
 
@@ -74,12 +75,96 @@ export class TvTimeImportService {
     return items;
   }
 
+  /**
+   * TV Time exports TVDB identities, while MAL imports use MAL identities and
+   * frequently a Japanese/romanized title. AniList exposes both identities and
+   * title aliases, so it can safely bridge an incoming TV Time row to an anime
+   * that already exists in this account. A result is only accepted when its MAL
+   * id is already in the library and the searched title is one of its aliases.
+   */
+  async resolveExistingAnime(items: ImportPreviewItem[], existing: any[]): Promise<void> {
+    const existingByMalId = new Map<number, any>();
+    for (const item of existing) {
+      const malId = Number(item?.externalIds?.malId);
+      if (Number.isInteger(malId) && malId > 0) existingByMalId.set(malId, item);
+    }
+    if (existingByMalId.size === 0) return;
+
+    const unresolved = items.filter(
+      (item) => item.metadata?.importSource === "tvtime" && !item.metadata?.matchedExistingId,
+    );
+
+    for (let offset = 0; offset < unresolved.length; offset += 20) {
+      const batch = unresolved.slice(offset, offset + 20);
+      const variables: Record<string, string> = {};
+      const fields = batch.map((item, index) => {
+        variables[`search${index}`] = item.title;
+        return `media${index}: Media(search: $search${index}, type: ANIME) {
+          idMal
+          title { romaji english native }
+          synonyms
+        }`;
+      });
+      const declarations = batch.map((_, index) => `$search${index}: String`).join(", ");
+
+      try {
+        const response = await axios.post(
+          "https://graphql.anilist.co",
+          {
+            query: `query (${declarations}) { ${fields.join("\n")} }`,
+            variables,
+          },
+          { timeout: 15000 },
+        );
+        const results = response.data?.data || {};
+
+        batch.forEach((item, index) => {
+          const result = results[`media${index}`];
+          const malId = Number(result?.idMal);
+          const match = existingByMalId.get(malId);
+          if (!match) return;
+
+          const aliases = this.uniqueTitles([
+            result?.title?.romaji,
+            result?.title?.english,
+            result?.title?.native,
+            ...(Array.isArray(result?.synonyms) ? result.synonyms : []),
+          ]);
+          const incomingTitle = this.normalizeTitle(item.title);
+          if (!aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)) return;
+
+          item.type = MediaType.ANIME;
+          item.externalIds = { ...item.externalIds, malId };
+          item.metadata = {
+            ...item.metadata,
+            sourceType: "anime",
+            tags: ["anime", "tv"],
+            matchedExistingId: match.id,
+            alternativeTitles: aliases,
+          };
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Could not resolve TV Time anime aliases: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+
   private mapStatus(
     raw: string,
     upToDate: boolean,
     seen: number,
     aired: number | null
   ): MediaStatus {
+    const relationship = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (relationship === "up_to_date") return MediaStatus.COMPLETED;
+    if (relationship === "continuing") return MediaStatus.WATCHING;
+    if (relationship === "stopped" || relationship === "on_hold") return MediaStatus.PAUSED;
+    if (relationship === "dropped") return MediaStatus.DROPPED;
+    if (relationship === "not_started_yet" || relationship === "watch_later") {
+      return MediaStatus.PLANNING;
+    }
     // If ended and all episodes seen
     if (raw.includes("ended") && aired && seen >= aired) return MediaStatus.COMPLETED;
     // Up to date on a continuing show
@@ -91,6 +176,22 @@ export class TvTimeImportService {
     // No episodes seen
     if (seen === 0) return MediaStatus.PLANNING;
     return MediaStatus.WATCHING;
+  }
+
+  private normalizeTitle(title: string): string {
+    return title
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/\(\d{4}\)\s*$/, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  private uniqueTitles(titles: unknown[]): string[] {
+    return [...new Set(titles.filter((title): title is string => typeof title === "string" && !!title.trim()))];
   }
 
   private findColumn(headers: string[], candidates: string[]): number {

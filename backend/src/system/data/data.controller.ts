@@ -50,4 +50,11 @@ export class DataController {
   async deleteChat(@ReqUser() account: Account) {
     return this.dataService.deleteChatData(account.id);
   }
+
+  @ApiOperation({ summary: 'Delete all series data (titles, seasons, episodes, and relations)' })
+  @Delete('media')
+  @HttpCode(HttpStatus.OK)
+  async deleteMedia(@ReqUser() account: Account) {
+    return this.dataService.deleteMediaData(account.id);
+  }
 }

@@ -1189,6 +1189,29 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('link', { name: /import gym records/i })).toBeVisible()
   })
 
+  test('deletes all series data from account data settings', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/settings')
+    await page.getByRole('button', { name: /^data/i }).click()
+
+    const seriesRow = page.getByRole('group', { name: 'Series data' })
+    await expect(seriesRow.getByRole('button', { name: /delete all/i })).toBeVisible()
+    await seriesRow.getByRole('button', { name: /delete all/i }).click()
+
+    const dialog = page.getByRole('dialog', { name: 'Delete All Series Data' })
+    await dialog.getByLabel('Confirm delete series data').fill('delete media')
+    const deletion = page.waitForRequest(request => request.url().endsWith('/api/data/media') && request.method() === 'DELETE')
+    await dialog.getByRole('button', { name: 'Delete All Series Data', exact: true }).click()
+    await deletion
+    await expect(seriesRow.getByText('Deleted')).toBeVisible()
+  })
+
   test('shows meaningful media consumption statistics', async ({ page }) => {
     await mockNativeApi(page)
     await page.setViewportSize({ width: 320, height: 568 })

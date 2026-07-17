@@ -121,4 +121,25 @@ export class DataService {
       await qr.release();
     }
   }
+
+  async deleteMediaData(accountId: string) {
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      await qr.query(`DELETE FROM app_media_episode WHERE "accountId" = $1`, [accountId]);
+      await qr.query(`DELETE FROM app_media_relation WHERE "accountId" = $1`, [accountId]);
+      await qr.query(`DELETE FROM app_media_season WHERE "accountId" = $1`, [accountId]);
+      await qr.query(`DELETE FROM app_media_item WHERE "accountId" = $1`, [accountId]);
+      await qr.commitTransaction();
+      await this.cacheManager.reset();
+      this.logger.log(`Deleted all media data for account ${accountId}`);
+      return { success: true, module: 'media' };
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+  }
 }

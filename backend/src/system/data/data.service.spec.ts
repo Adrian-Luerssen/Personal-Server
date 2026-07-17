@@ -198,4 +198,31 @@ describe('DataService', () => {
       expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
     });
   });
+
+  describe('deleteMediaData', () => {
+    const accountId = 'test-account-id';
+
+    it('should delete structured catalog data before media titles', async () => {
+      const result = await service.deleteMediaData(accountId);
+
+      expect(result).toEqual({ success: true, module: 'media' });
+      const queryCalls = mockQueryRunner.query.mock.calls;
+      expect(queryCalls).toHaveLength(4);
+      expect(queryCalls[0][0]).toContain('app_media_episode');
+      expect(queryCalls[1][0]).toContain('app_media_relation');
+      expect(queryCalls[2][0]).toContain('app_media_season');
+      expect(queryCalls[3][0]).toContain('app_media_item');
+      queryCalls.forEach(call => expect(call[1]).toEqual([accountId]));
+      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      expect(mockCacheManager.reset).toHaveBeenCalled();
+    });
+
+    it('should rollback the complete media deletion on failure', async () => {
+      mockQueryRunner.query.mockRejectedValueOnce(new Error('db error'));
+
+      await expect(service.deleteMediaData(accountId)).rejects.toThrow('db error');
+      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.commitTransaction).not.toHaveBeenCalled();
+    });
+  });
 });

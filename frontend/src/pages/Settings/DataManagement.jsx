@@ -39,6 +39,14 @@ const DATA_MODULES = [
     endpoint: '/data/music',
   },
   {
+    key: 'media',
+    label: 'Series',
+    icon: 'clapperboard',
+    color: '#f472b6',
+    description: 'Titles, ratings, progress, seasons, episodes, and catalog relations',
+    endpoint: '/data/media',
+  },
+  {
     key: 'chat',
     label: 'Chat',
     icon: 'message-circle',
@@ -233,6 +241,8 @@ export default function DataManagement() {
         {DATA_MODULES.map(mod => (
           <div
             key={mod.key}
+            role="group"
+            aria-label={`${mod.label} data`}
             style={{
               display: 'flex',
               alignItems: 'center',

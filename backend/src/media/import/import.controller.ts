@@ -215,6 +215,7 @@ export class MediaImportController {
         const { incoming, existingId } = toReplace[i];
         try {
           await this.mediaService.update(account, existingId, {
+            type: incoming.type,
             status: incoming.status,
             rating: incoming.rating ?? undefined,
             startDate: incoming.startDate ?? undefined,
@@ -244,6 +245,8 @@ export class MediaImportController {
       // duplicate. Skip protects personal tracking fields; it should not leave
       // an existing title disconnected from its MAL/TMDB catalog record.
       for (const duplicate of preview.duplicates) {
+        const action = actions[duplicate.incoming.title] || "skip";
+        if (action === "replace") continue;
         const incoming = duplicate.incoming;
         if (!this.catalogIdentity(incoming)) continue;
         await this.mediaService.update(account, duplicate.existing.id, {
@@ -265,6 +268,15 @@ export class MediaImportController {
       const catalogCandidates = library.filter((item) =>
         catalogIdentities.has(this.catalogIdentity(item)),
       );
+      send({
+        stage: "catalog",
+        progress: 60,
+        current: 0,
+        total: catalogCandidates.length,
+        message: catalogCandidates.length
+          ? `Preparing catalog synchronization (0/${catalogCandidates.length})`
+          : "No catalog records need synchronization",
+      });
       const catalog = await this.mediaCatalogService.syncImportedItems(
         account,
         catalogCandidates,

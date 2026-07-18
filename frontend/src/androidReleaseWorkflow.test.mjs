@@ -21,6 +21,8 @@ test('android release workflow creates versioned push releases instead of reusin
   assert.doesNotMatch(workflow, /else\s*\n\s+release_tag="android-latest"/)
   assert.match(workflow, /echo "stable_tag=android-latest" >> "\$GITHUB_OUTPUT"/)
   assert.match(workflow, /Move stable android-latest pointer/)
+  assert.match(workflow, /Publish stable android-latest assets/)
+  assert.match(workflow, /gh release upload "\$STABLE_TAG" personal-server\.apk personal-server-release\.json --clobber/)
 })
 
 test('android release workflow injects the generated release version into the APK and notes', () => {

@@ -110,20 +110,20 @@ describe('TvTimeImportService', () => {
   });
 
   it('starts independent title-resolution batches without waiting for the previous provider request', async () => {
-    const incoming = Array.from({ length: 41 }, (_, index) => ({
-      title: `Unmatched title ${index}`,
+    const incoming = [{
+      title: 'Unmatched TV Time title',
       type: MediaType.TV,
       status: MediaStatus.PLANNING,
-      externalIds: { tvdbId: index + 1 },
+      externalIds: { tvdbId: 1 },
       metadata: { importSource: 'tvtime', tags: ['tv'] },
-    })) as any[];
-    const existing = [{
-      id: 'mal-existing',
-      title: 'Existing anime',
-      type: MediaType.ANIME,
-      externalIds: { malId: 1 },
-      metadata: {},
     }] as any[];
+    const existing = Array.from({ length: 41 }, (_, index) => ({
+      id: `mal-existing-${index}`,
+      title: `Existing anime ${index}`,
+      type: MediaType.ANIME,
+      externalIds: { malId: index + 1 },
+      metadata: {},
+    })) as any[];
     const pending: Array<(value: any) => void> = [];
     mockedAxios.post.mockImplementation(() => new Promise((resolve) => pending.push(resolve)) as any);
 
@@ -221,5 +221,50 @@ describe('TvTimeImportService', () => {
       'mal-food-wars',
     ]);
     expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+  });
+
+  it('isolates an invalid MAL identity without discarding valid aliases from the same batch', async () => {
+    const incoming = [{
+      title: 'The Promised Neverland',
+      type: MediaType.TV,
+      status: MediaStatus.PAUSED,
+      externalIds: { tvdbId: 348002 },
+      metadata: { importSource: 'tvtime', tags: ['tv'] },
+    }] as any[];
+    const existing = [
+      {
+        id: 'mal-promised-neverland',
+        title: 'Yakusoku no Neverland',
+        type: MediaType.ANIME,
+        externalIds: { malId: 37779 },
+        metadata: {},
+      },
+      {
+        id: 'mal-invalid',
+        title: 'Unavailable MAL record',
+        type: MediaType.ANIME,
+        externalIds: { malId: 999999999 },
+        metadata: {},
+      },
+    ] as any[];
+    mockedAxios.post
+      .mockRejectedValueOnce({ response: { status: 404 } })
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            media0: {
+              idMal: 37779,
+              title: { romaji: 'Yakusoku no Neverland', english: 'The Promised Neverland' },
+              synonyms: [],
+            },
+          },
+        },
+      } as any)
+      .mockRejectedValueOnce({ response: { status: 404 } });
+
+    await service.resolveExistingAnime(incoming, existing);
+
+    expect(incoming[0].metadata.matchedExistingId).toBe('mal-promised-neverland');
+    expect(mockedAxios.post).toHaveBeenCalledTimes(3);
   });
 });

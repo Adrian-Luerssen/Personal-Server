@@ -83,12 +83,12 @@ export class TvTimeImportService {
    * id is already in the library and the searched title is one of its aliases.
    */
   async resolveExistingAnime(items: ImportPreviewItem[], existing: any[]): Promise<void> {
-    const existingByMalId = new Map<number, any>();
     const existingByAlias = new Map<string, { item: any; aliases: string[] }>();
+    const existingAnime: Array<{ item: any; malId: number }> = [];
     for (const item of existing) {
       const malId = Number(item?.externalIds?.malId);
       if (!Number.isInteger(malId) || malId <= 0) continue;
-      existingByMalId.set(malId, item);
+      existingAnime.push({ item, malId });
       const aliases = this.uniqueTitles([
         item.title,
         item.metadata?.titleEnglish,
@@ -106,7 +106,7 @@ export class TvTimeImportService {
         }
       }
     }
-    if (existingByMalId.size === 0) return;
+    if (existingAnime.length === 0) return;
 
     let unresolved = items.filter(
       (item) => item.metadata?.importSource === "tvtime" && !item.metadata?.matchedExistingId,
@@ -116,37 +116,43 @@ export class TvTimeImportService {
       if (localMatch) this.applyAnimeMatch(item, localMatch.item, localMatch.aliases);
     }
     unresolved = unresolved.filter((item) => !item.metadata?.matchedExistingId);
+    if (unresolved.length === 0) return;
 
-    const batches: ImportPreviewItem[][] = [];
-    for (let offset = 0; offset < unresolved.length; offset += 20) {
-      batches.push(unresolved.slice(offset, offset + 20));
+    const batches: Array<Array<{ item: any; malId: number }>> = [];
+    for (let offset = 0; offset < existingAnime.length; offset += 20) {
+      batches.push(existingAnime.slice(offset, offset + 20));
     }
     let nextBatch = 0;
     const worker = async () => {
       while (nextBatch < batches.length) {
         const batch = batches[nextBatch++];
-        await this.resolveAnimeBatch(batch, existingByMalId);
+        await this.hydrateAnimeAliasBatch(batch, existingByAlias);
       }
     };
     await Promise.all(
       Array.from({ length: Math.min(3, batches.length) }, () => worker()),
     );
+
+    for (const item of unresolved) {
+      const match = existingByAlias.get(this.normalizeTitle(item.title));
+      if (match) this.applyAnimeMatch(item, match.item, match.aliases);
+    }
   }
 
-  private async resolveAnimeBatch(
-    batch: ImportPreviewItem[],
-    existingByMalId: Map<number, any>,
+  private async hydrateAnimeAliasBatch(
+    batch: Array<{ item: any; malId: number }>,
+    existingByAlias: Map<string, { item: any; aliases: string[] }>,
   ): Promise<void> {
-    const variables: Record<string, string> = {};
-    const fields = batch.map((item, index) => {
-      variables[`search${index}`] = item.title;
-      return `media${index}: Media(search: $search${index}, type: ANIME) {
+    const variables: Record<string, number> = {};
+    const fields = batch.map(({ malId }, index) => {
+      variables[`malId${index}`] = malId;
+      return `media${index}: Media(idMal: $malId${index}, type: ANIME) {
           idMal
           title { romaji english native }
           synonyms
         }`;
     });
-    const declarations = batch.map((_, index) => `$search${index}: String`).join(", ");
+    const declarations = batch.map((_, index) => `$malId${index}: Int`).join(", ");
 
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -164,27 +170,40 @@ export class TvTimeImportService {
         }
         const results = response.data.data;
 
-        batch.forEach((item, index) => {
+        batch.forEach(({ item, malId }, index) => {
           const result = results[`media${index}`];
-          const malId = Number(result?.idMal);
-          const match = existingByMalId.get(malId);
-          if (!match) return;
+          if (Number(result?.idMal) !== malId) return;
 
           const aliases = this.uniqueTitles([
+            item.title,
             result?.title?.romaji,
             result?.title?.english,
             result?.title?.native,
             ...(Array.isArray(result?.synonyms) ? result.synonyms : []),
           ]);
-          const incomingTitle = this.normalizeTitle(item.title);
-          if (!aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)) return;
-
-          this.applyAnimeMatch(item, match, aliases);
+          for (const alias of aliases) {
+            const normalized = this.normalizeTitle(alias);
+            if (normalized && !existingByAlias.has(normalized)) {
+              existingByAlias.set(normalized, { item, aliases });
+            }
+          }
         });
         return;
       } catch (error: any) {
         lastError = error;
         const status = Number(error?.response?.status || 0);
+        if (status === 404) {
+          if (batch.length === 1) {
+            this.logger.warn(`MAL title aliases were unavailable for id ${batch[0].malId}`);
+            return;
+          }
+          const middle = Math.ceil(batch.length / 2);
+          await Promise.all([
+            this.hydrateAnimeAliasBatch(batch.slice(0, middle), existingByAlias),
+            this.hydrateAnimeAliasBatch(batch.slice(middle), existingByAlias),
+          ]);
+          return;
+        }
         const retryable = status === 0 || status === 429 || status >= 500;
         if (!retryable || attempt === 2) break;
         const retryAfter = Number(error?.response?.headers?.["retry-after"] || 0);

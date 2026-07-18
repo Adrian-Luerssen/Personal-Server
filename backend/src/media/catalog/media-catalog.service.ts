@@ -72,11 +72,13 @@ export class MediaCatalogService {
     try {
       if (item.type === MediaType.TV) {
         await this.syncTmdbSeries(account, item);
+      } else if (item.type === MediaType.MOVIE) {
+        await this.syncTmdbMovie(item);
       } else if (item.type === MediaType.ANIME) {
         await this.syncAnimeRelations(account, item);
       } else {
         throw new BadRequestException(
-          "Structured catalog sync supports TV and anime titles"
+          "Structured catalog sync supports TV, movie, and anime titles"
         );
       }
 
@@ -111,7 +113,8 @@ export class MediaCatalogService {
       (item) =>
         (item.type === MediaType.ANIME &&
           Number(item.externalIds?.malId) > 0) ||
-        (item.type === MediaType.TV && Number(item.externalIds?.tmdbId) > 0)
+        ([MediaType.TV, MediaType.MOVIE].includes(item.type) &&
+          Number(item.externalIds?.tmdbId) > 0)
     );
     let synced = 0;
     let failed = 0;
@@ -173,7 +176,8 @@ export class MediaCatalogService {
         const eligible =
           (item.type === MediaType.ANIME &&
             Number(item.externalIds?.malId) > 0) ||
-          (item.type === MediaType.TV && Number(item.externalIds?.tmdbId) > 0);
+          ([MediaType.TV, MediaType.MOVIE].includes(item.type) &&
+            Number(item.externalIds?.tmdbId) > 0);
         return eligible && item.metadata?.catalogSyncState !== "ready";
       });
       return await this.syncImportedItems(account, remaining);
@@ -356,9 +360,12 @@ export class MediaCatalogService {
     item: MediaItem
   ): Promise<void> {
     const tmdbKey = process.env.TMDB_API_KEY;
-    const tmdbId = item.externalIds?.tmdbId;
+    let tmdbId = item.externalIds?.tmdbId;
     if (!tmdbKey)
       throw new ServiceUnavailableException("TMDB is not configured");
+    if (!tmdbId) {
+      tmdbId = await this.matchTmdbTitle(item, tmdbKey, "tv");
+    }
     if (!tmdbId)
       throw new BadRequestException("This TV title is not matched to TMDB");
 
@@ -493,6 +500,107 @@ export class MediaCatalogService {
       episodesWatched: regularEpisodes.filter((episode) => episode.watched)
         .length,
     };
+  }
+
+  private async syncTmdbMovie(item: MediaItem): Promise<void> {
+    const tmdbKey = process.env.TMDB_API_KEY;
+    if (!tmdbKey)
+      throw new ServiceUnavailableException("TMDB is not configured");
+    let tmdbId = item.externalIds?.tmdbId;
+    if (!tmdbId) {
+      tmdbId = await this.matchTmdbTitle(item, tmdbKey, "movie");
+    }
+    if (!tmdbId)
+      throw new BadRequestException("This movie is not matched to TMDB");
+
+    const response = await axios.get(
+      `https://api.themoviedb.org/3/movie/${tmdbId}`,
+      { params: { api_key: tmdbKey }, timeout: 10000 }
+    );
+    const details = response.data || {};
+    const releaseYear = Number(String(details.release_date || "").slice(0, 4));
+    item.coverUrl = details.poster_path
+      ? `${TMDB_IMAGE_ROOT}${details.poster_path}`
+      : item.coverUrl;
+    item.metadata = {
+      ...(item.metadata || {}),
+      synopsis: details.overview || item.metadata?.synopsis,
+      airingStatus: details.status || item.metadata?.airingStatus,
+      year: Number.isInteger(releaseYear) && releaseYear > 0
+        ? releaseYear
+        : item.metadata?.year,
+      runtime: Number(details.runtime) || item.metadata?.runtime,
+      tmdbScore: Number(details.vote_average) || item.metadata?.tmdbScore,
+    };
+  }
+
+  private async matchTmdbTitle(
+    item: MediaItem,
+    tmdbKey: string,
+    tmdbType: "tv" | "movie"
+  ): Promise<number | null> {
+    const title = String(item.title || "").trim();
+    const trailingYear = title.match(/\s*[\[(]((?:19|20)\d{2})[\])]\s*$/);
+    const year = trailingYear
+      ? Number(trailingYear[1])
+      : Number(item.metadata?.year) || null;
+    const query = trailingYear
+      ? title.slice(0, trailingYear.index).trim()
+      : title;
+    if (!query) return null;
+
+    const response = await axios.get(
+      `https://api.themoviedb.org/3/search/${tmdbType}`,
+      {
+        params: {
+          api_key: tmdbKey,
+          query,
+          page: 1,
+          ...(year
+            ? tmdbType === "tv"
+              ? { first_air_date_year: year }
+              : { primary_release_year: year }
+            : {}),
+        },
+        timeout: 10000,
+      }
+    );
+    const results = Array.isArray(response.data?.results)
+      ? response.data.results
+      : [];
+    const normalizedQuery = this.normalizeCatalogTitle(query);
+    const exactMatches = results.filter((candidate: any) =>
+      tmdbType === "tv"
+        ? [candidate?.name, candidate?.original_name]
+        : [candidate?.title, candidate?.original_title]
+        .map((value) => this.normalizeCatalogTitle(value))
+        .includes(normalizedQuery)
+    );
+    const match =
+      exactMatches.find((candidate: any) =>
+        !year || Number(String(
+          tmdbType === "tv" ? candidate?.first_air_date : candidate?.release_date
+        ).slice(0, 4)) === year
+      ) || exactMatches[0] || results[0];
+    const matchedId = Number(match?.id);
+    if (!Number.isInteger(matchedId) || matchedId <= 0) return null;
+
+    item.externalIds = { ...(item.externalIds || {}), tmdbId: matchedId };
+    item.metadata = {
+      ...(item.metadata || {}),
+      enrichmentStatus: "tmdb_matched",
+    };
+    await this.mediaRepo.save(item);
+    return matchedId;
+  }
+
+  private normalizeCatalogTitle(value: unknown): string {
+    return String(value || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
   }
 
   private async syncAnimeRelations(

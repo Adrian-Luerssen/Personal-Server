@@ -453,7 +453,7 @@ export class MediaImportController {
       return `mal:${malId}`;
     }
     const tmdbId = Number(item?.externalIds?.tmdbId);
-    if (item?.type === "tv" && Number.isInteger(tmdbId) && tmdbId > 0) {
+    if (["tv", "movie"].includes(item?.type) && Number.isInteger(tmdbId) && tmdbId > 0) {
       return `tmdb:${tmdbId}`;
     }
     return null;

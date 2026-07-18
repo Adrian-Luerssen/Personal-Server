@@ -19,6 +19,9 @@ export function formatEpisodeCode(episode) {
 }
 
 export function getCatalogProgressLabel(catalog, item) {
+  if (item?.type === 'movie') {
+    return item?.status === 'completed' ? 'Watched' : 'Movie'
+  }
   const progress = catalog?.progress
   if (progress && Number(progress.total) > 0) {
     const position = progress.seasonNumber && progress.episodeNumber
@@ -101,7 +104,7 @@ export function summarizeSeriesMetadata(item) {
   const providerScore = Number(metadata.malScore ?? metadata.tmdbScore)
   return {
     year: Number(metadata.year) || null,
-    format: metadata.mediaFormat || (item?.type === 'tv' ? 'TV series' : null),
+    format: metadata.mediaFormat || (item?.type === 'tv' ? 'TV series' : item?.type === 'movie' ? 'Movie' : null),
     airingStatus: metadata.airingStatus || null,
     studio: Array.isArray(metadata.studios) ? metadata.studios[0] || null : null,
     genres: Array.isArray(metadata.genres) ? metadata.genres.slice(0, 4) : [],

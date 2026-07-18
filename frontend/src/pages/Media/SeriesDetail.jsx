@@ -30,6 +30,7 @@ export default function SeriesDetail({
   const [ratingSaving, setRatingSaving] = useState(false)
   const metadata = useMemo(() => summarizeSeriesMetadata(item), [item])
   const nextAction = getNextEpisodeAction(catalog)
+  const isMovie = item?.type === 'movie'
 
   useEffect(() => {
     setSelectedSeason(firstRegularSeason ?? catalog?.seasons?.[0]?.number ?? 0)
@@ -89,7 +90,7 @@ export default function SeriesDetail({
             {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <Icon name="clapperboard" size={30} />}
           </div>
           <div className="series-detail__intro">
-            <span className="series-detail__kicker">{item.type === 'anime' ? 'Anime release' : 'Television series'}</span>
+            <span className="series-detail__kicker">{item.type === 'anime' ? 'Anime release' : isMovie ? 'Film' : 'Television series'}</span>
             <h2 id="series-detail-title">{item.title}</h2>
             <div className="series-detail__facts" aria-label="Title facts">
               {metadata.year && <span>{metadata.year}</span>}
@@ -98,7 +99,7 @@ export default function SeriesDetail({
               {metadata.providerScore != null && <span>{metadata.providerScore} provider score</span>}
               {metadata.airingStatus && <span>{metadata.airingStatus}</span>}
             </div>
-            <strong className="series-detail__progress">{getCatalogProgressLabel(catalog, item)}</strong>
+            {!isMovie && <strong className="series-detail__progress">{getCatalogProgressLabel(catalog, item)}</strong>}
             {!item.isCatalogPreview && (
               <label className="series-detail__rating">
                 <span>Your rating</span>
@@ -149,7 +150,7 @@ export default function SeriesDetail({
             </button>
           ) : <>
             <button type="button" onClick={onRefresh} disabled={loading}>
-              <Icon name="refresh-cw" size={16} /> {loading ? 'Syncing…' : 'Refresh catalog'}
+              <Icon name="refresh-cw" size={16} /> {loading ? 'Syncing…' : isMovie ? 'Refresh details' : 'Refresh catalog'}
             </button>
             <button type="button" onClick={() => onEdit(item)}>
               <Icon name="pen" size={16} /> Edit record

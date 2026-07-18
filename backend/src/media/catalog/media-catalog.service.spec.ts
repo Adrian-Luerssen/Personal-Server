@@ -152,6 +152,111 @@ describe("MediaCatalogService", () => {
     });
   });
 
+  it("matches a TV title with a trailing year before synchronizing TMDB", async () => {
+    const item = {
+      id: "tv-grand-tour",
+      accountId: account.id,
+      title: "The Grand Tour (2016)",
+      type: MediaType.TV,
+      externalIds: {},
+      metadata: {},
+    } as any;
+    mediaRepo.rows.push(item);
+
+    mockedAxios.get
+      .mockResolvedValueOnce({
+        data: {
+          results: [{
+            id: 67557,
+            name: "The Grand Tour",
+            original_name: "The Grand Tour",
+            first_air_date: "2016-11-17",
+          }],
+        },
+      } as any)
+      .mockResolvedValueOnce({
+        data: {
+          id: 67557,
+          name: "The Grand Tour",
+          status: "Ended",
+          seasons: [],
+        },
+      } as any);
+
+    await service.syncItem(account, item);
+
+    expect(mockedAxios.get).toHaveBeenNthCalledWith(
+      1,
+      "https://api.themoviedb.org/3/search/tv",
+      expect.objectContaining({
+        params: expect.objectContaining({
+          query: "The Grand Tour",
+          first_air_date_year: 2016,
+        }),
+      }),
+    );
+    expect(item.externalIds.tmdbId).toBe(67557);
+    expect(item.metadata).toMatchObject({ catalogSyncState: "ready" });
+  });
+
+  it("matches and enriches a movie without creating an episode catalog", async () => {
+    const item = {
+      id: "movie-1",
+      accountId: account.id,
+      title: "Arrival (2016)",
+      type: MediaType.MOVIE,
+      externalIds: {},
+      metadata: {},
+    } as any;
+    mediaRepo.rows.push(item);
+
+    mockedAxios.get
+      .mockResolvedValueOnce({
+        data: {
+          results: [{
+            id: 329865,
+            title: "Arrival",
+            original_title: "Arrival",
+            release_date: "2016-11-10",
+          }],
+        },
+      } as any)
+      .mockResolvedValueOnce({
+        data: {
+          id: 329865,
+          title: "Arrival",
+          overview: "A linguist works with the military after alien contact.",
+          release_date: "2016-11-10",
+          runtime: 116,
+          status: "Released",
+          poster_path: "/arrival.jpg",
+        },
+      } as any);
+
+    const view = await service.syncItem(account, item);
+
+    expect(mockedAxios.get).toHaveBeenNthCalledWith(
+      1,
+      "https://api.themoviedb.org/3/search/movie",
+      expect.objectContaining({
+        params: expect.objectContaining({
+          query: "Arrival",
+          primary_release_year: 2016,
+        }),
+      }),
+    );
+    expect(item.externalIds.tmdbId).toBe(329865);
+    expect(item.coverUrl).toBe("https://image.tmdb.org/t/p/w500/arrival.jpg");
+    expect(item.metadata).toMatchObject({
+      synopsis: "A linguist works with the military after alien contact.",
+      year: 2016,
+      runtime: 116,
+      catalogSyncState: "ready",
+    });
+    expect(view.seasons).toEqual([]);
+    expect(view.nextEpisode).toBeNull();
+  });
+
   it("keeps anime releases separate while connecting provider-supplied continuity", async () => {
     const item = {
       id: "anime-1",

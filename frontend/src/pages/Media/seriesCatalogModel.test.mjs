@@ -41,6 +41,12 @@ test('describes structured progress before falling back to aggregate counts', ()
   assert.equal(getCatalogProgressLabel(null, { metadata: { episodesWatched: 8, episodes: 12 } }), '8 of 12 episodes')
 })
 
+test('describes movies without inventing episode progress', () => {
+  const movie = { type: 'movie', status: 'completed', metadata: { year: 2016 } }
+  assert.equal(getCatalogProgressLabel(null, movie), 'Watched')
+  assert.equal(summarizeSeriesMetadata(movie).format, 'Movie')
+})
+
 test('builds a useful next episode action and identifies upcoming episodes', () => {
   assert.deepEqual(getNextEpisodeAction({
     nextEpisode: { id: 'ep-8', seasonNumber: 2, number: 7, title: 'A New Start' },

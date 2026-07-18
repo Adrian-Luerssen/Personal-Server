@@ -751,7 +751,11 @@ export class FitNotesImportService {
           })
         : [];
     const existingByDate = new Map(existingEntries.map((entry) => [entry.date, entry]));
-    const entriesToUpsert: AnyObject[] = [];
+    // FitNotes may contain multiple measurements on the same day. The database
+    // conflict key is account + date, so keep only the last source row for each
+    // date before issuing a bulk upsert. PostgreSQL cannot update the same
+    // conflict target twice within one INSERT statement.
+    const entryToUpsertByDate = new Map<string, AnyObject>();
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -765,19 +769,23 @@ export class FitNotesImportService {
 
       const existing = existingByDate.get(date);
       if (!existing || Number(existing.weightKg) !== weight || existing.note !== (row.comments || null)) {
-        entriesToUpsert.push({
+        entryToUpsertByDate.set(date, {
           accountId: account.id,
           account,
           date,
           weightKg: weight,
           note: row.comments || null,
         });
+      } else {
+        // The last FitNotes value for this date already matches the database.
+        entryToUpsertByDate.delete(date);
       }
       if ((i + 1) % BULK_INSERT_CHUNK_SIZE === 0 || i + 1 === rows.length) {
         onProgress(i + 1, rows.length);
       }
     }
 
+    const entriesToUpsert = [...entryToUpsertByDate.values()];
     for (let i = 0; i < entriesToUpsert.length; i += BULK_INSERT_CHUNK_SIZE) {
       await manager.upsert(
         BodyWeightEntry,

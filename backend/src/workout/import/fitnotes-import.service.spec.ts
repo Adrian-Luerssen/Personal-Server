@@ -2,6 +2,7 @@ import { FitNotesImportService } from "./fitnotes-import.service";
 import { WorkoutExercise } from "../exercises/exercise.entity";
 import { WorkoutSession } from "../sessions/session.entity";
 import { WorkoutSet } from "../sets/set.entity";
+import { BodyWeightEntry } from "../bodyweight/bodyweight.entity";
 
 describe("FitNotesImportService", () => {
   const account = { id: "account-1" } as any;
@@ -84,5 +85,43 @@ describe("FitNotesImportService", () => {
       .filter(([entity]) => entity === WorkoutSet)
       .flatMap((call) => call[1]);
     expect(insertedSetRows).toHaveLength(75);
+  });
+
+  it("deduplicates bodyweight measurements by account and date before upserting", async () => {
+    const service = makeService();
+    const manager = {
+      find: jest.fn(async () => []),
+      upsert: jest.fn(async () => ({})),
+    };
+    const queryRunner = { manager };
+    const db = {
+      prepare: jest.fn(() => ({
+        all: () => [
+          { date: "2026-07-18 08:00:00", body_weight_metric: 80, comments: "morning" },
+          { date: "2026-07-18 20:00:00", body_weight_metric: 79.4, comments: "evening" },
+        ],
+      })),
+    };
+
+    await (service as any).importBodyWeightWithRunner(
+      account,
+      db,
+      ["BodyWeight"],
+      queryRunner,
+      jest.fn(),
+    );
+
+    expect(manager.upsert).toHaveBeenCalledTimes(1);
+    expect(manager.upsert).toHaveBeenCalledWith(
+      BodyWeightEntry,
+      [{
+        accountId: account.id,
+        account,
+        date: "2026-07-18",
+        weightKg: 79.4,
+        note: "evening",
+      }],
+      ["accountId", "date"],
+    );
   });
 });

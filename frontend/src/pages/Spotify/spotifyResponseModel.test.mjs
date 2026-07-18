@@ -11,3 +11,16 @@ test('normalizes transient and paginated listening responses before rendering', 
   assert.deepEqual(normalizeListeningCollection({ message: 'temporarily unavailable' }), [])
   assert.deepEqual(normalizeListeningCollection(null), [])
 })
+
+test('discards malformed collection rows received during cached page transitions', () => {
+  const validRows = [{ id: 'one' }, { id: 'two' }]
+
+  assert.deepEqual(
+    normalizeListeningCollection([validRows[0], null, undefined, 'stale', 42, [], validRows[1]]),
+    validRows,
+  )
+  assert.deepEqual(
+    normalizeListeningCollection({ items: [null, validRows[0]] }),
+    [validRows[0]],
+  )
+})

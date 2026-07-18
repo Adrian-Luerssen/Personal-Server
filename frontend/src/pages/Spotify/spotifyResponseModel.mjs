@@ -1,6 +1,15 @@
 export function normalizeListeningCollection(value) {
-  if (Array.isArray(value)) return value
-  if (Array.isArray(value?.items)) return value.items
-  if (Array.isArray(value?.data)) return value.data
-  return []
+  const collection = Array.isArray(value)
+    ? value
+    : Array.isArray(value?.items)
+      ? value.items
+      : Array.isArray(value?.data)
+        ? value.data
+        : []
+
+  return collection.filter(item => (
+    item !== null
+    && typeof item === 'object'
+    && !Array.isArray(item)
+  ))
 }

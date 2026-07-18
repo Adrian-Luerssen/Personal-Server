@@ -484,7 +484,10 @@ async function mockNativeApi(page, options: { emptyTransactions?: boolean; malfo
       '/streams/top', '/albums/top-albums', '/artists/top-artists', '/playlists/top-playlists',
       '/streams/history', '/streams/per-day', '/streams/per-hour',
     ].some(prefix => path.startsWith(prefix))) {
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ message: 'temporary shape mismatch' }) })
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify([null, 'stale cache row', [], {}]),
+      })
     }
 
     if (path === '/media/search') {
@@ -1346,7 +1349,7 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('progressbar', { name: 'Finished Nine: 24 of 24 episodes' })).toHaveCSS('accent-color', 'rgb(155, 124, 255)')
   })
 
-  test('keeps the listening page available when a collection response has a transient shape', async ({ page }) => {
+  test('keeps the listening page available when cached collections contain malformed rows', async ({ page }) => {
     await mockNativeApi(page, { malformedMusicCollections: true })
     await page.addInitScript(() => {
       ;(window as any).Capacitor = { isNativePlatform: () => true }

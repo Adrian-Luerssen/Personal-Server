@@ -7,6 +7,7 @@ import { Register, RegisterRow } from '../../components/record/Register'
 import { Icon } from '../../components/icons'
 import { formatDuration, formatNumberShort } from '../../components/shared'
 import { getListeningArtworkUrl } from '../../spotifyRanking.mjs'
+import { normalizeListeningCollection } from './spotifyResponseModel.mjs'
 
 function itemIdentity(type, data, details) {
   const artwork = getListeningArtworkUrl(details)
@@ -86,15 +87,18 @@ export default function SpotifyGlobal() {
       apiFetch('/artists/global-top-artists?platform=spotify&limit=10', { signal: controller.signal }),
     ]).then(async ([stats, tracks, albums, artists]) => {
       if (controller.signal.aborted) return
-      setGlobalStats(stats)
-      setGlobalTopTracks(tracks || [])
-      setGlobalTopAlbums(albums || [])
-      setGlobalTopArtists(artists || [])
+      const safeTracks = normalizeListeningCollection(tracks).filter(item => item.trackId)
+      const safeAlbums = normalizeListeningCollection(albums).filter(item => item.albumId)
+      const safeArtists = normalizeListeningCollection(artists).filter(item => item.artistId)
+      setGlobalStats(stats && typeof stats === 'object' && !Array.isArray(stats) ? stats : null)
+      setGlobalTopTracks(safeTracks)
+      setGlobalTopAlbums(safeAlbums)
+      setGlobalTopArtists(safeArtists)
 
       const [trackDetails, albumDetails, artistDetails] = await Promise.all([
-        Promise.all((tracks || []).map(item => apiFetch(`/tracks/${item.trackId}`, { signal: controller.signal }).catch(() => null))),
-        Promise.all((albums || []).map(item => apiFetch(`/albums/${item.albumId}`, { signal: controller.signal }).catch(() => null))),
-        Promise.all((artists || []).map(item => apiFetch(`/artists/${item.artistId}`, { signal: controller.signal }).catch(() => null))),
+        Promise.all(safeTracks.map(item => apiFetch(`/tracks/${item.trackId}`, { signal: controller.signal }).catch(() => null))),
+        Promise.all(safeAlbums.map(item => apiFetch(`/albums/${item.albumId}`, { signal: controller.signal }).catch(() => null))),
+        Promise.all(safeArtists.map(item => apiFetch(`/artists/${item.artistId}`, { signal: controller.signal }).catch(() => null))),
       ])
       if (controller.signal.aborted) return
       setGlobalTopTrackDetails(trackDetails)

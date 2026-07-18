@@ -195,25 +195,25 @@ export default function SpotifyPersonal() {
       ])
       if (loadRequestIdRef.current !== myId) return
       setProfile(me)
-      const tracks = normalizeListeningCollection(topTracksData)
-      const albums = normalizeListeningCollection(topAlbumsData)
-      const artists = normalizeListeningCollection(topArtistsData)
-      const playlists = normalizeListeningCollection(topPlaylistsData)
+      const tracks = normalizeListeningCollection(topTracksData).filter(item => item.trackId)
+      const albums = normalizeListeningCollection(topAlbumsData).filter(item => item.albumId)
+      const artists = normalizeListeningCollection(topArtistsData).filter(item => item.artistId)
+      const playlists = normalizeListeningCollection(topPlaylistsData).filter(item => item.playlistId)
       setTopTracks(tracks)
       setTopAlbums(albums)
       setTopArtists(artists)
       setTopPlaylists(playlists)
       setStats(statsData)
       setHistory(normalizeListeningCollection(historyData))
-      setPerDay(normalizeListeningCollection(perDayData))
-      setPerHour(normalizeListeningCollection(perHourData))
-      setMoodData(moodResult)
+      setPerDay(normalizeListeningCollection(perDayData).filter(item => item.date))
+      setPerHour(normalizeListeningCollection(perHourData).filter(item => Number.isFinite(Number(item.hour))))
+      setMoodData(moodResult && typeof moodResult === 'object' && !Array.isArray(moodResult) ? moodResult : null)
 
       const [trackDetails, albumDetails, artistDetails, playlistDetails] = await Promise.all([
-        Promise.all(tracks.map(t => api.get(`/tracks/${t.trackId}`))),
-        Promise.all(albums.map(a => api.get(`/albums/${a.albumId}`))),
-        Promise.all(artists.map(a => api.get(`/artists/${a.artistId}`))),
-        Promise.all(playlists.map(p => api.get(`/playlists/${p.playlistId}`)))
+        Promise.all(tracks.map(t => api.get(`/tracks/${t.trackId}`).catch(() => null))),
+        Promise.all(albums.map(a => api.get(`/albums/${a.albumId}`).catch(() => null))),
+        Promise.all(artists.map(a => api.get(`/artists/${a.artistId}`).catch(() => null))),
+        Promise.all(playlists.map(p => api.get(`/playlists/${p.playlistId}`).catch(() => null)))
       ])
       if (loadRequestIdRef.current !== myId) return
       setTopTrackDetails(trackDetails)

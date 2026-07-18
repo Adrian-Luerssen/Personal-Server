@@ -10,6 +10,7 @@ import {
 } from '../../components/shared'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { getRankMovement, getSpotifyProfileImageUrl, normalizeSpotifyTimeframe } from '../../spotifyRanking.mjs'
+import { normalizeListeningCollection } from './spotifyResponseModel.mjs'
 
 const TIMEFRAMES = [
   { label: 'Day', value: 'today' },
@@ -171,7 +172,7 @@ export default function SpotifyRanking() {
     return () => { ignore = true }
   }, [timeframe])
 
-  const rows = ranking?.items || []
+  const rows = normalizeListeningCollection(ranking)
   const topThree = rows.slice(0, 3)
   const totals = useMemo(() => {
     return rows.reduce((acc, row) => {

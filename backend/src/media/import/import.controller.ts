@@ -249,6 +249,7 @@ export class MediaImportController {
         if (action === "replace") continue;
         const incoming = duplicate.incoming;
         if (!this.catalogIdentity(incoming)) continue;
+        if (!this.needsIdentityUpdate(duplicate.existing, incoming)) continue;
         await this.mediaService.update(account, duplicate.existing.id, {
           type: incoming.type,
           externalIds: incoming.externalIds || {},
@@ -256,6 +257,7 @@ export class MediaImportController {
             importSource: incoming.metadata?.importSource,
             sourceType: incoming.metadata?.sourceType,
             tags: incoming.metadata?.tags,
+            catalogSyncState: "pending",
           },
         });
       }
@@ -265,8 +267,10 @@ export class MediaImportController {
         importedItems.map((item) => this.catalogIdentity(item)).filter(Boolean),
       );
       const library = await this.mediaService.findAll(account);
-      const catalogCandidates = library.filter((item) =>
-        catalogIdentities.has(this.catalogIdentity(item)),
+      const catalogCandidates = library.filter(
+        (item) =>
+          catalogIdentities.has(this.catalogIdentity(item)) &&
+          item.metadata?.catalogSyncState !== "ready",
       );
       send({
         stage: "catalog",
@@ -361,6 +365,7 @@ export class MediaImportController {
             rating: match.rating != null ? Number(match.rating) : null,
             coverUrl: match.coverUrl,
             metadata: match.metadata,
+            externalIds: match.externalIds,
           },
         });
       } else {
@@ -421,6 +426,25 @@ export class MediaImportController {
         return Number.isInteger(value) && value > 0 ? `${key}:${value}` : null;
       })
       .filter((value): value is string => !!value);
+  }
+
+  private needsIdentityUpdate(existing: any, incoming: any): boolean {
+    if (existing.type !== incoming.type) return true;
+    const existingIdentities = new Set(this.providerIdentities(existing));
+    if (
+      this.providerIdentities(incoming).some(
+        (identity) => !existingIdentities.has(identity),
+      )
+    ) {
+      return true;
+    }
+    const existingTags = new Set(
+      Array.isArray(existing.metadata?.tags) ? existing.metadata.tags : [],
+    );
+    const incomingTags = Array.isArray(incoming.metadata?.tags)
+      ? incoming.metadata.tags
+      : [];
+    return incomingTags.some((tag: string) => !existingTags.has(tag));
   }
 
   private catalogIdentity(item: any): string | null {

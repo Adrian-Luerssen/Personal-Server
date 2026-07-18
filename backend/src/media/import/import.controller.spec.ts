@@ -139,4 +139,64 @@ describe("MediaImportController preview", () => {
     expect(writes.some((chunk) => chunk.includes('"stage":"complete"'))).toBe(true);
     expect(response.end).toHaveBeenCalledTimes(1);
   });
+
+  it("does not rewrite or resynchronize an unchanged ready duplicate", async () => {
+    const existing = {
+      id: "existing-1",
+      title: "Naruto",
+      type: "anime",
+      status: "completed",
+      rating: 9,
+      metadata: {
+        importSource: "mal",
+        sourceType: "anime",
+        tags: ["anime"],
+        catalogSyncState: "ready",
+      },
+      externalIds: { malId: 20 },
+    };
+    const mediaService = {
+      findAll: jest.fn().mockResolvedValue([existing]),
+      update: jest.fn().mockResolvedValue(existing),
+    };
+    const mediaCatalogService = {
+      syncImportedItems: jest.fn().mockResolvedValue({ eligible: 0, synced: 0, failed: 0 }),
+    };
+    const controller = new MediaImportController(
+      {} as any,
+      {} as any,
+      {} as any,
+      mediaService as any,
+      mediaCatalogService as any,
+    );
+    const account = { id: "account-1" } as any;
+    const preview = await (controller as any).storePreviewWithDedup(account, [{
+      title: "Naruto",
+      type: "anime",
+      status: "completed",
+      rating: 9,
+      metadata: { importSource: "mal", sourceType: "anime", tags: ["anime"] },
+      externalIds: { malId: 20 },
+    }]);
+    const writes: string[] = [];
+    const response = {
+      destroyed: false,
+      writableEnded: false,
+      setHeader: jest.fn(),
+      flushHeaders: jest.fn(),
+      on: jest.fn(),
+      write: jest.fn((chunk: string) => writes.push(chunk)),
+      end: jest.fn(),
+    } as any;
+
+    await controller.executeImportSSE(account, preview.previewId, response);
+
+    expect(mediaService.update).not.toHaveBeenCalled();
+    expect(mediaCatalogService.syncImportedItems).toHaveBeenCalledWith(
+      account,
+      [],
+      expect.any(Function),
+    );
+    expect(writes.some((chunk) => chunk.includes('"stage":"complete"'))).toBe(true);
+  });
 });

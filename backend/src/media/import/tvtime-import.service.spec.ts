@@ -108,4 +108,56 @@ describe('TvTimeImportService', () => {
     });
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
   });
+
+  it('starts independent title-resolution batches without waiting for the previous provider request', async () => {
+    const incoming = Array.from({ length: 41 }, (_, index) => ({
+      title: `Unmatched title ${index}`,
+      type: MediaType.TV,
+      status: MediaStatus.PLANNING,
+      externalIds: { tvdbId: index + 1 },
+      metadata: { importSource: 'tvtime', tags: ['tv'] },
+    })) as any[];
+    const existing = [{
+      id: 'mal-existing',
+      title: 'Existing anime',
+      type: MediaType.ANIME,
+      externalIds: { malId: 1 },
+      metadata: {},
+    }] as any[];
+    const pending: Array<(value: any) => void> = [];
+    mockedAxios.post.mockImplementation(() => new Promise((resolve) => pending.push(resolve)) as any);
+
+    const resolution = service.resolveExistingAnime(incoming, existing);
+    await Promise.resolve();
+
+    expect(mockedAxios.post).toHaveBeenCalledTimes(3);
+    pending.forEach((resolve) => resolve({ data: { data: {} } }));
+    await resolution;
+  });
+
+  it('uses existing title aliases without making a provider request', async () => {
+    const incoming = [{
+      title: 'My Hero Academia',
+      type: MediaType.TV,
+      status: MediaStatus.COMPLETED,
+      externalIds: { tvdbId: 305074 },
+      metadata: { importSource: 'tvtime', tags: ['tv'] },
+    }] as any[];
+    const existing = [{
+      id: 'mal-mha',
+      title: 'Boku no Hero Academia',
+      type: MediaType.ANIME,
+      externalIds: { malId: 31964 },
+      metadata: { alternativeTitles: ['My Hero Academia'] },
+    }] as any[];
+
+    await service.resolveExistingAnime(incoming, existing);
+
+    expect(incoming[0]).toMatchObject({
+      type: MediaType.ANIME,
+      externalIds: { tvdbId: 305074, malId: 31964 },
+      metadata: { matchedExistingId: 'mal-mha' },
+    });
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
 });

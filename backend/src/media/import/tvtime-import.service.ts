@@ -84,71 +84,107 @@ export class TvTimeImportService {
    */
   async resolveExistingAnime(items: ImportPreviewItem[], existing: any[]): Promise<void> {
     const existingByMalId = new Map<number, any>();
+    const existingByAlias = new Map<string, { item: any; aliases: string[] }>();
     for (const item of existing) {
       const malId = Number(item?.externalIds?.malId);
-      if (Number.isInteger(malId) && malId > 0) existingByMalId.set(malId, item);
+      if (!Number.isInteger(malId) || malId <= 0) continue;
+      existingByMalId.set(malId, item);
+      const aliases = this.uniqueTitles([
+        item.title,
+        item.metadata?.titleEnglish,
+        item.metadata?.englishTitle,
+        item.metadata?.titleJapanese,
+        item.metadata?.titleRomaji,
+        ...(Array.isArray(item.metadata?.alternativeTitles) ? item.metadata.alternativeTitles : []),
+        ...(Array.isArray(item.metadata?.titleSynonyms) ? item.metadata.titleSynonyms : []),
+        ...(Array.isArray(item.metadata?.synonyms) ? item.metadata.synonyms : []),
+      ]);
+      for (const alias of aliases) {
+        const normalized = this.normalizeTitle(alias);
+        if (normalized && !existingByAlias.has(normalized)) {
+          existingByAlias.set(normalized, { item, aliases });
+        }
+      }
     }
     if (existingByMalId.size === 0) return;
 
-    const unresolved = items.filter(
+    let unresolved = items.filter(
       (item) => item.metadata?.importSource === "tvtime" && !item.metadata?.matchedExistingId,
     );
+    for (const item of unresolved) {
+      const localMatch = existingByAlias.get(this.normalizeTitle(item.title));
+      if (localMatch) this.applyAnimeMatch(item, localMatch.item, localMatch.aliases);
+    }
+    unresolved = unresolved.filter((item) => !item.metadata?.matchedExistingId);
 
+    const batches: ImportPreviewItem[][] = [];
     for (let offset = 0; offset < unresolved.length; offset += 20) {
-      const batch = unresolved.slice(offset, offset + 20);
-      const variables: Record<string, string> = {};
-      const fields = batch.map((item, index) => {
-        variables[`search${index}`] = item.title;
-        return `media${index}: Media(search: $search${index}, type: ANIME) {
+      batches.push(unresolved.slice(offset, offset + 20));
+    }
+    await Promise.all(batches.map((batch) => this.resolveAnimeBatch(batch, existingByMalId)));
+  }
+
+  private async resolveAnimeBatch(
+    batch: ImportPreviewItem[],
+    existingByMalId: Map<number, any>,
+  ): Promise<void> {
+    const variables: Record<string, string> = {};
+    const fields = batch.map((item, index) => {
+      variables[`search${index}`] = item.title;
+      return `media${index}: Media(search: $search${index}, type: ANIME) {
           idMal
           title { romaji english native }
           synonyms
         }`;
+    });
+    const declarations = batch.map((_, index) => `$search${index}: String`).join(", ");
+
+    try {
+      const response = await axios.post(
+        "https://graphql.anilist.co",
+        {
+          query: `query (${declarations}) { ${fields.join("\n")} }`,
+          variables,
+        },
+        { timeout: 15000 },
+      );
+      const results = response.data?.data || {};
+
+      batch.forEach((item, index) => {
+        const result = results[`media${index}`];
+        const malId = Number(result?.idMal);
+        const match = existingByMalId.get(malId);
+        if (!match) return;
+
+        const aliases = this.uniqueTitles([
+          result?.title?.romaji,
+          result?.title?.english,
+          result?.title?.native,
+          ...(Array.isArray(result?.synonyms) ? result.synonyms : []),
+        ]);
+        const incomingTitle = this.normalizeTitle(item.title);
+        if (!aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)) return;
+
+        this.applyAnimeMatch(item, match, aliases);
       });
-      const declarations = batch.map((_, index) => `$search${index}: String`).join(", ");
-
-      try {
-        const response = await axios.post(
-          "https://graphql.anilist.co",
-          {
-            query: `query (${declarations}) { ${fields.join("\n")} }`,
-            variables,
-          },
-          { timeout: 15000 },
-        );
-        const results = response.data?.data || {};
-
-        batch.forEach((item, index) => {
-          const result = results[`media${index}`];
-          const malId = Number(result?.idMal);
-          const match = existingByMalId.get(malId);
-          if (!match) return;
-
-          const aliases = this.uniqueTitles([
-            result?.title?.romaji,
-            result?.title?.english,
-            result?.title?.native,
-            ...(Array.isArray(result?.synonyms) ? result.synonyms : []),
-          ]);
-          const incomingTitle = this.normalizeTitle(item.title);
-          if (!aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)) return;
-
-          item.type = MediaType.ANIME;
-          item.externalIds = { ...item.externalIds, malId };
-          item.metadata = {
-            ...item.metadata,
-            sourceType: "anime",
-            tags: ["anime", "tv"],
-            matchedExistingId: match.id,
-            alternativeTitles: aliases,
-          };
-        });
-      } catch (error) {
-        this.logger.warn(
-          `Could not resolve TV Time anime aliases: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
+    } catch (error) {
+      this.logger.warn(
+        `Could not resolve TV Time anime aliases: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
+  }
+
+  private applyAnimeMatch(item: ImportPreviewItem, match: any, aliases: string[]): void {
+    const malId = Number(match?.externalIds?.malId);
+    item.type = MediaType.ANIME;
+    item.externalIds = { ...item.externalIds, malId };
+    item.metadata = {
+      ...item.metadata,
+      sourceType: "anime",
+      tags: ["anime", "tv"],
+      matchedExistingId: match.id,
+      alternativeTitles: aliases,
+    };
   }
 
   private mapStatus(

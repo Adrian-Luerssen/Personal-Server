@@ -78,6 +78,10 @@ test('native Android back gesture navigates WebView history before backgrounding
   assert.match(mainActivity, /handleOnBackPressed/)
   assert.match(mainActivity, /webView\.canGoBack\(\)/)
   assert.match(mainActivity, /webView\.goBack\(\)/)
+  assert.ok(
+    mainActivity.indexOf('webView.canGoBack()') < mainActivity.indexOf('window.personalServerHandleNativeBack'),
+    'Android back must consume the actual WebView history before using route fallbacks',
+  )
   assert.match(mainActivity, /moveTaskToBack\(true\)/)
 })
 

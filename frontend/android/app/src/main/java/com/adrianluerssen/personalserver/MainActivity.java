@@ -123,14 +123,15 @@ public class MainActivity extends BridgeActivity {
                     return;
                 }
 
+                if (webView.canGoBack()) {
+                    webView.goBack();
+                    return;
+                }
+
                 webView.evaluateJavascript(
                     "(function(){return window.personalServerHandleNativeBack ? window.personalServerHandleNativeBack() : false;})()",
                     handled -> {
                         if ("true".equals(handled)) {
-                            return;
-                        }
-                        if (webView.canGoBack()) {
-                            webView.goBack();
                             return;
                         }
                         moveTaskToBack(true);

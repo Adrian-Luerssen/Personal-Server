@@ -1390,6 +1390,42 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('dialog', { name: 'The Bear' })).toHaveCount(0)
   })
 
+  test('keeps series details inside Android system bar safe areas', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-series-safe-area')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/media')
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--native-safe-top', '32px')
+      document.documentElement.style.setProperty('--native-safe-bottom', '24px')
+    })
+    await page.locator('.series-row').filter({ hasText: 'The Bear' }).locator('.series-row__scope').click()
+
+    const geometry = await page.getByRole('dialog', { name: 'The Bear' }).evaluate((dialog) => {
+      const overlay = dialog.parentElement?.getBoundingClientRect()
+      const sheet = dialog.getBoundingClientRect()
+      const close = dialog.querySelector('.series-detail__close')?.getBoundingClientRect()
+      return {
+        viewportHeight: window.innerHeight,
+        overlayTop: overlay?.top,
+        overlayBottom: overlay?.bottom,
+        sheetTop: sheet.top,
+        sheetBottom: sheet.bottom,
+        closeTop: close?.top,
+      }
+    })
+
+    expect(geometry.overlayTop).toBe(0)
+    expect(geometry.overlayBottom).toBe(geometry.viewportHeight)
+    expect(geometry.sheetTop).toBeGreaterThanOrEqual(32)
+    expect(geometry.closeTop).toBeGreaterThanOrEqual(32)
+    expect(geometry.sheetBottom).toBeLessThanOrEqual(geometry.viewportHeight - 24)
+  })
+
   test('orders series by personal score and distinguishes airing and completed titles', async ({ page }) => {
     const mediaItems = [
       {

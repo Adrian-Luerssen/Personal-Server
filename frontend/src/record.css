@@ -92,6 +92,8 @@
   --sidebar-width: var(--record-rail);
   --sidebar-width-collapsed: var(--record-rail-collapsed);
   --native-shell-bg: var(--record-canvas);
+  --native-safe-top: env(safe-area-inset-top, 0px);
+  --native-safe-bottom: env(safe-area-inset-bottom, 0px);
   --native-surface: var(--record-surface);
   --native-surface-strong: var(--record-raised);
   --native-border: var(--record-line);
@@ -1956,6 +1958,7 @@ tbody tr:hover { background: var(--record-raised); }
   .media-modal { width: 100%; max-height: 92dvh; border-right: 0; border-bottom: 0; border-left: 0; border-radius: var(--record-radius-lg) var(--record-radius-lg) 0 0; }
   .media-edit-layout { grid-template-columns: 82px minmax(0, 1fr); gap: 12px; padding: 12px; }
   .media-edit-cover { width: 82px; }
+  .native-mobile-app .series-detail-overlay { padding-top: var(--native-safe-top); padding-bottom: var(--native-safe-bottom); }
   .series-detail { width: 100%; border-left: 0; }
   .series-detail__hero { min-height: 160px; grid-template-columns: 74px minmax(0, 1fr) 38px; gap: 12px; padding: 14px; }
   .series-detail__cover { width: 74px; }

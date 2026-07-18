@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   isPromptableNotificationPermission,
+  getNotificationActionRoute,
   NOTIFICATION_PERMISSION_AUTO_REQUEST_KEY,
   normalizeNativeNotificationCapability,
   shouldAutoRequestNativeNotificationPermission,
@@ -126,4 +127,10 @@ test('native notification capability separates display permission from exact rem
       exactAlarmBlocked: true,
     },
   )
+})
+
+test('notification taps only navigate to safe internal app routes', () => {
+  assert.equal(getNotificationActionRoute({ notification: { extra: { actionUrl: '/finance/transactions' } } }), '/finance/transactions')
+  assert.equal(getNotificationActionRoute({ notification: { extra: { actionUrl: 'https://evil.test' } } }), null)
+  assert.equal(getNotificationActionRoute({ notification: { extra: { actionUrl: '//evil.test' } } }), null)
 })

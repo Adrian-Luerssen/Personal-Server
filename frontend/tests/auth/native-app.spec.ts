@@ -1364,8 +1364,26 @@ test.describe('Native Android app shell', () => {
   })
 
   test('signs out from the native account screen and clears the device session', async ({ page }) => {
-    await enableNativeSession(page)
-    await page.goto('/settings?section=account')
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).__nativeCredentialsCleared = false
+      ;(window as any).Capacitor = {
+        isNativePlatform: () => true,
+        Plugins: {
+          PersonalServerHealth: {
+            clearStepSyncCredentials: async () => {
+              ;(window as any).__nativeCredentialsCleared = true
+            },
+          },
+        },
+      }
+      localStorage.setItem('accessToken', 'native-access')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+    await page.goto('/home')
+    await page.getByRole('link', { name: 'You' }).click()
+    await expect(page).toHaveURL(/\/settings/)
+    await page.getByRole('button', { name: /Account Profile, password/i }).click()
 
     const signOut = page.getByRole('button', { name: /^sign out$/i })
     await expect(signOut).toBeVisible()
@@ -1378,6 +1396,9 @@ test.describe('Native Android app shell', () => {
       refreshToken: localStorage.getItem('refreshToken'),
     }))
     expect(tokens).toEqual({ accessToken: null, refreshToken: null })
+    await expect.poll(() => page.evaluate(() => (window as any).__nativeCredentialsCleared)).toBe(true)
+    await page.reload()
+    await expect(page).toHaveURL(/\/login$/)
   })
 
   test('keeps native notification switches inside their settings rows', async ({ page }) => {

@@ -77,6 +77,15 @@ object StepSyncStore {
         editor.apply()
     }
 
+    fun clearCredentials(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_ENABLED, false)
+            .remove(KEY_ACCESS_TOKEN)
+            .remove(KEY_REFRESH_TOKEN)
+            .apply()
+    }
+
     fun recordSuccess(context: Context, imported: Int, syncedAt: String) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()

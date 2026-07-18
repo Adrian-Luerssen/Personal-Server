@@ -7,7 +7,7 @@ import {
   installAndroidUpdate,
   writeSeenAppVersion,
 } from '../appUpdate'
-import { APP_VERSION } from '../appVersion.mjs'
+import { APP_VERSION, normalizeAppVersion } from '../appVersion.mjs'
 import Icon from './icons/Icon'
 
 function ChangelogList({ changelog }) {
@@ -37,14 +37,15 @@ function ChangelogList({ changelog }) {
 export default function NativeUpdateGate({ nativeApp }) {
   const [update, setUpdate] = useState(null)
   const [announcement, setAnnouncement] = useState(null)
-  const [status, setStatus] = useState('Ready')
+  const [status, setStatus] = useState('')
+  const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
     if (!nativeApp) return
     let cancelled = false
 
     async function check() {
-      const nextUpdate = await checkForAndroidUpdate({ force: true })
+      const nextUpdate = await checkForAndroidUpdate({ force: false })
       if (cancelled) return
       if (nextUpdate) {
         setUpdate(nextUpdate)
@@ -69,17 +70,20 @@ export default function NativeUpdateGate({ nativeApp }) {
   if (!nativeApp) return null
 
   async function install() {
-    if (!update) return
+    if (!update || installing) return
+    setInstalling(true)
     setStatus('Preparing APK installer...')
     const result = await installAndroidUpdate(update).catch((error) => ({
       started: false,
       message: error.message || 'Could not start installer.',
     }))
     if (result?.needsPermission) {
-      setStatus('Allow Record to install unknown apps, then try again.')
+      setStatus('Allow Record to install unknown apps, return here, then tap Install update again.')
+      setInstalling(false)
       return
     }
     setStatus(result?.started === false ? (result?.message || 'Installer could not start.') : 'Android installer opened. Complete the update prompt.')
+    setInstalling(false)
   }
 
   function dismiss() {
@@ -103,15 +107,15 @@ export default function NativeUpdateGate({ nativeApp }) {
           </span>
           <h2>{update.required ? 'Update required' : 'Update available'}</h2>
           <p>
-            Installed v{update.currentVersion}. Latest {update.version}.
+            Installed v{normalizeAppVersion(update.currentVersion)}. Latest v{normalizeAppVersion(update.version)}.
             {update.required ? ' This version is no longer supported by the API.' : ''}
           </p>
           <ChangelogList changelog={update.changelog} />
-          <div className="native-update-gate__status">{status}</div>
+          {status && <div className="native-update-gate__status" role="status">{status}</div>}
           <div className="native-update-gate__actions">
-            <button type="button" className="native-primary-button" onClick={install}>
+            <button type="button" className="native-primary-button" onClick={install} disabled={installing}>
               <Icon name="download" size={18} />
-              Install update
+              {installing ? 'Preparing update…' : 'Install update'}
             </button>
             {!update.required && (
               <button type="button" className="native-secondary-button" onClick={dismiss}>

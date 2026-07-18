@@ -10,17 +10,14 @@ export default function AuthGuard({ children }) {
   useEffect(() => {
     (async () => {
       const { accessToken, refreshToken } = getTokens()
-      if (accessToken && refreshToken) {
-        const ok = await refreshIfPossible()
-        if (ok) {
-          setChecking(false)
-        } else {
-          nav('/login', { replace: true })
-        }
-      } else {
+      if (accessToken) {
+        setChecking(false)
+      } else if (refreshToken) {
         const ok = await refreshIfPossible()
         if (ok) setChecking(false)
         else nav('/login', { replace: true })
+      } else {
+        nav('/login', { replace: true })
       }
     })()
   }, [nav])

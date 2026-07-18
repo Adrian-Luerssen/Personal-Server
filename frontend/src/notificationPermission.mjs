@@ -5,6 +5,14 @@ export function isPromptableNotificationPermission(permission) {
   return typeof permission === 'string' && permission.startsWith('prompt')
 }
 
+export function getNotificationActionRoute(event) {
+  const extra = event?.notification?.extra || event?.notification?.data || event?.extra || {}
+  const route = extra.actionUrl
+  return typeof route === 'string' && route.startsWith('/') && !route.startsWith('//')
+    ? route
+    : null
+}
+
 export function shouldAutoRequestNativeNotificationPermission({
   nativeApp,
   alreadyAsked,

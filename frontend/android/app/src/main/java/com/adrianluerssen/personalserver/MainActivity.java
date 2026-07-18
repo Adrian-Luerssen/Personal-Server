@@ -1,5 +1,6 @@
 package com.adrianluerssen.personalserver;
 
+import android.app.NotificationManager;
 import android.graphics.Color;
 import android.content.Intent;
 import android.net.Uri;
@@ -15,6 +16,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import com.adrianluerssen.personalserver.health.PersonalServerHealthPlugin;
 import com.adrianluerssen.personalserver.payments.PersonalServerPaymentsPlugin;
+import com.adrianluerssen.personalserver.payments.PaymentNotificationListenerService;
 import com.adrianluerssen.personalserver.updates.PersonalServerUpdatePlugin;
 import com.adrianluerssen.personalserver.widgets.PersonalServerWidgetsPlugin;
 
@@ -45,6 +47,10 @@ public class MainActivity extends BridgeActivity {
         if (intent == null) return;
         String suggestionId = intent.getStringExtra("paymentSuggestionId");
         if (suggestionId == null || suggestionId.trim().length() == 0) return;
+        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.cancel(PaymentNotificationListenerService.notificationIdForSuggestionId(suggestionId));
+        }
         String action = intent.getStringExtra("captureAction");
         String route = "/finance/transactions?paymentSuggestionId=" + Uri.encode(suggestionId)
             + "&captureAction=" + Uri.encode(action == null ? "edit" : action);

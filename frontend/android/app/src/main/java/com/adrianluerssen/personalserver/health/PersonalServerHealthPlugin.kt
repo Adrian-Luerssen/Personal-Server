@@ -151,6 +151,13 @@ class PersonalServerHealthPlugin : Plugin(), SensorEventListener {
         call.resolve(stepSyncStatus(StepSyncStore.read(context)))
     }
 
+    @PluginMethod
+    fun clearStepSyncCredentials(call: PluginCall) {
+        StepSyncStore.clearCredentials(context)
+        WorkManager.getInstance(context).cancelUniqueWork(stepSyncWorkName)
+        call.resolve(stepSyncStatus(StepSyncStore.read(context)))
+    }
+
     @PermissionCallback
     private fun activityRecognitionPermissionResult(call: PluginCall) {
         if (hasActivityRecognitionPermission()) {

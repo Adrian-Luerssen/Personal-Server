@@ -8,6 +8,17 @@ const LAST_CHECK_KEY = 'personal-server:update:last-check'
 const DISMISSED_KEY = 'personal-server:update:dismissed-id'
 const SEEN_VERSION_KEY = 'personal-server:update:seen-version'
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+const UPDATE_CHECK_TIMEOUT_MS = 10_000
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), UPDATE_CHECK_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 function getStorage(storage) {
   if (storage) return storage
@@ -202,7 +213,7 @@ export async function getAndroidVersionPolicy({ installedVersion = APP_VERSION }
       platform: 'android',
       installedVersion,
     })
-    const response = await fetch(`${base}${VERSION_POLICY_URL}?${params.toString()}`, {
+    const response = await fetchWithTimeout(`${base}${VERSION_POLICY_URL}?${params.toString()}`, {
       headers: { Accept: 'application/json' },
     })
     if (!response.ok) return null
@@ -230,7 +241,7 @@ export async function checkForAndroidUpdate({ force = false } = {}) {
   }
 
   try {
-    const response = await fetch(RELEASE_API_URL, {
+    const response = await fetchWithTimeout(RELEASE_API_URL, {
       headers: { Accept: 'application/vnd.github+json' },
     })
     if (!response.ok) return null

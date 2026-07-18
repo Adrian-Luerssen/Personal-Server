@@ -2,11 +2,22 @@ import { isNativeMobileApp } from './mobilePlatform'
 import {
   isPromptableNotificationPermission,
   normalizeNativeNotificationCapability,
+  getNotificationActionRoute,
 } from './notificationPermission.mjs'
 import { isNotificationPreferenceEnabled } from './notificationPreferences.mjs'
 
 export const REMINDER_NOTIFICATION_CHANNEL_ID = 'personal-server-reminders'
 export const AI_NOTIFICATION_CHANNEL_ID = 'personal-server-ai'
+
+export async function addNotificationActionListener(handler) {
+  const LocalNotifications = await getLocalNotifications()
+  if (!LocalNotifications?.addListener) return () => {}
+  const handle = await LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+    const route = getNotificationActionRoute(event)
+    if (route) handler(route, event)
+  })
+  return () => handle?.remove?.()
+}
 
 async function getLocalNotifications() {
   if (!isNativeMobileApp()) return null

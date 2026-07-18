@@ -108,9 +108,9 @@ public class PaymentNotificationListenerService extends NotificationListenerServ
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .addAction(0, "Confirm", actionIntent(PaymentSuggestionActionReceiver.ACTION_CONFIRM, suggestionId, 1))
-            .addAction(0, "Edit", actionIntent(PaymentSuggestionActionReceiver.ACTION_EDIT, suggestionId, 2))
-            .addAction(0, "Ignore", actionIntent(PaymentSuggestionActionReceiver.ACTION_IGNORE, suggestionId, 3));
+            .addAction(0, "Confirm", reviewActionIntent("confirm", suggestionId, 1))
+            .addAction(0, "Edit", reviewActionIntent("edit", suggestionId, 2))
+            .addAction(0, "Ignore", ignoreActionIntent(suggestionId, 3));
 
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager != null) {
@@ -118,9 +118,22 @@ public class PaymentNotificationListenerService extends NotificationListenerServ
         }
     }
 
-    private PendingIntent actionIntent(String action, String suggestionId, int actionCode) {
+    private PendingIntent reviewActionIntent(String action, String suggestionId, int actionCode) {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.putExtra(PaymentSuggestionActionReceiver.EXTRA_SUGGESTION_ID, suggestionId);
+        intent.putExtra("captureAction", action);
+        return PendingIntent.getActivity(
+            this,
+            suggestionId.hashCode() * 10 + actionCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
+    private PendingIntent ignoreActionIntent(String suggestionId, int actionCode) {
         Intent intent = new Intent(this, PaymentSuggestionActionReceiver.class);
-        intent.setAction(action);
+        intent.setAction(PaymentSuggestionActionReceiver.ACTION_IGNORE);
         intent.putExtra(PaymentSuggestionActionReceiver.EXTRA_SUGGESTION_ID, suggestionId);
         return PendingIntent.getBroadcast(
             this,

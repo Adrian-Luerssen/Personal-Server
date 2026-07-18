@@ -6,10 +6,10 @@
     </queries>
 
     <application
-        android:allowBackup="true"
-        android:icon="@mipmap/record_bookplate_r"
+        android:allowBackup="false"
+        android:icon="@mipmap/record_bookplate_r_v2"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/record_bookplate_r_round"
+        android:roundIcon="@mipmap/record_bookplate_r_v2_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 

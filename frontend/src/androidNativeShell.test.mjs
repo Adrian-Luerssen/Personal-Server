@@ -39,6 +39,15 @@ const paymentActionReceiverPath = resolve(
   'android/app/src/main/java/com/adrianluerssen/personalserver/payments/PaymentSuggestionActionReceiver.java',
 )
 const appRouter = readFileSync(resolve(process.cwd(), 'src/App.jsx'), 'utf8')
+const sessionSource = readFileSync(resolve(process.cwd(), 'src/session.js'), 'utf8')
+const healthPlugin = readFileSync(resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/health/PersonalServerHealthPlugin.kt',
+), 'utf8')
+const stepSyncStore = readFileSync(resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/health/StepSyncStore.kt',
+), 'utf8')
 
 test('native Android activity colors system bars to match the app shell', () => {
   assert.match(mainActivity, /setStatusBarColor/)
@@ -104,14 +113,30 @@ test('detected payments stay normalized locally and offer review actions', () =>
   assert.match(paymentListener, /"Edit"/)
   assert.match(paymentListener, /"Ignore"/)
   assert.match(paymentActions, /PaymentSuggestionStore\.clearSuggestion/)
-  assert.match(paymentActions, /captureAction/)
+  assert.match(paymentListener, /captureAction/)
   assert.match(paymentListener, /putExtra\(PaymentSuggestionActionReceiver\.EXTRA_SUGGESTION_ID, suggestionId\)/)
-  assert.match(paymentActions, /putExtra\(EXTRA_SUGGESTION_ID, id\)/)
+  assert.doesNotMatch(paymentActions, /startActivity/)
+  assert.match(paymentListener, /PendingIntent\.getActivity/)
   assert.match(mainActivity, /personalServerOpenPaymentReview/)
   assert.match(mainActivity, /paymentSuggestionId/)
   assert.match(appRouter, /window\.personalServerOpenPaymentReview/)
   assert.match(appRouter, /navigate\(route\)/)
   assert.match(manifest, /PaymentSuggestionActionReceiver/)
+})
+
+test('Android launcher uses the versioned Bookplate R icon to invalidate stale launcher caches', () => {
+  assert.match(manifest, /android:icon="@mipmap\/record_bookplate_r_v2"/)
+  assert.match(manifest, /android:roundIcon="@mipmap\/record_bookplate_r_v2_round"/)
+  assert.match(manifest, /android:allowBackup="false"/)
+})
+
+test('native sign out removes background refresh credentials and scheduled sync', () => {
+  assert.match(sessionSource, /clearStepSyncCredentials/)
+  assert.match(healthPlugin, /clearStepSyncCredentials/)
+  assert.match(healthPlugin, /cancelUniqueWork\(stepSyncWorkName\)/)
+  assert.match(stepSyncStore, /fun clearCredentials/)
+  assert.match(stepSyncStore, /remove\(KEY_ACCESS_TOKEN\)/)
+  assert.match(stepSyncStore, /remove\(KEY_REFRESH_TOKEN\)/)
 })
 
 test('native payment bridge purges self-generated payment loop suggestions', () => {

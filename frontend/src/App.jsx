@@ -13,7 +13,9 @@ import { getTokens } from './auth'
 import {
   getNotificationPermissionStatus,
   initializeNativeNotifications,
+  addNotificationActionListener,
 } from './notifications'
+import { pollPendingAiNotifications } from './aiNotifications.mjs'
 import {
   NOTIFICATION_PERMISSION_AUTO_REQUEST_KEY,
   shouldAutoRequestNativeNotificationPermission,
@@ -80,10 +82,18 @@ function NativeEntryRedirect() {
 }
 
 function NativeNotificationPermissionBoot({ nativeApp }) {
+  const navigate = useNavigate()
   useEffect(() => {
     if (!nativeApp) return
 
     let cancelled = false
+    let removeActionListener = () => {}
+    let pollTimer
+
+    const pollNotifications = () => {
+      if (!getTokens().accessToken) return
+      pollPendingAiNotifications().catch(() => {})
+    }
 
     async function bootNotifications() {
       const permission = await getNotificationPermissionStatus()
@@ -110,11 +120,24 @@ function NativeNotificationPermissionBoot({ nativeApp }) {
     }
 
     bootNotifications().catch(() => {})
+    addNotificationActionListener((route) => navigate(route)).then((remove) => {
+      if (cancelled) remove()
+      else removeActionListener = remove
+    }).catch(() => {})
+    pollNotifications()
+    pollTimer = window.setInterval(pollNotifications, 60_000)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') pollNotifications()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
       cancelled = true
+      window.clearInterval(pollTimer)
+      document.removeEventListener('visibilitychange', onVisibility)
+      removeActionListener()
     }
-  }, [nativeApp])
+  }, [nativeApp, navigate])
 
   return null
 }

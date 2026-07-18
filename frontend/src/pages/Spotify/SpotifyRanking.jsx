@@ -93,34 +93,34 @@ function UserAvatar({ user, size = 34 }) {
 function RankingPodiumCard({ user }) {
   const medals = ['#fbbf24', '#cbd5e1', '#f97316']
   return (
-    <div className="card" style={{ display: 'grid', gap: '0.75rem', minHeight: 170 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-          <UserAvatar user={user} size={44} />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '0.8rem', color: medals[user.rank - 1], fontWeight: 800 }}>
+    <article className={`card ranking-podium-card is-rank-${user.rank}`}>
+      <div className="ranking-podium-card__identity">
+        <div className="ranking-podium-card__person">
+          <UserAvatar user={user} size={user.rank === 1 ? 44 : 36} />
+          <div className="ranking-podium-card__copy">
+            <div className="ranking-podium-card__rank" style={{ color: medals[user.rank - 1] }}>
               #{user.rank}
             </div>
-            <div style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="ranking-podium-card__name">
               {user.displayName}
             </div>
           </div>
         </div>
         <Icon name="trophy" size={22} style={{ color: medals[user.rank - 1] }} />
       </div>
-      <div>
-        <div style={{ fontSize: '2rem', fontWeight: 900, lineHeight: 1 }}>
+      <div className="ranking-podium-card__total">
+        <div>
           {formatNumberShort(user.streamCount)}
         </div>
-        <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+        <span>
           streams
-        </div>
+        </span>
       </div>
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>
+      <div className="ranking-podium-card__meta">
         <span>{formatNumberShort(user.uniqueTracks)} tracks</span>
         <span>{formatDuration(user.msListened)}</span>
       </div>
-    </div>
+    </article>
   )
 }
 
@@ -190,8 +190,11 @@ export default function SpotifyRanking() {
         <p>Compare listening time and movement for the same selected period.</p>
       </header>
 
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className={nativeApp ? 'native-ranking-timeframes' : 'tab-group'}>
+      <div className={nativeApp ? 'native-ranking-filter' : 'card'} style={nativeApp ? undefined : { marginBottom: '1rem' }}>
+        <div
+          className={nativeApp ? 'native-ranking-timeframes' : 'tab-group'}
+          aria-label="Ranking period"
+        >
           {TIMEFRAMES.map(option => (
             <button
               key={option.value}
@@ -214,7 +217,7 @@ export default function SpotifyRanking() {
       </SummaryStrip>
 
       <div className="section">
-        <h3>Top Listeners</h3>
+        <h2 className="native-ranking-section-title">Top listeners</h2>
         {loading ? (
           <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             {Array.from({ length: 3 }).map((_, i) => (
@@ -228,7 +231,7 @@ export default function SpotifyRanking() {
         ) : topThree.length === 0 ? (
           <div className="empty-state">No Spotify streams for this period.</div>
         ) : (
-          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className="ranking-podium-grid">
             {topThree.map(user => <RankingPodiumCard key={user.accountId} user={user} />)}
           </div>
         )}
@@ -237,7 +240,7 @@ export default function SpotifyRanking() {
       <div className="section">
         {nativeApp ? (
           <div className="card native-ranking-card">
-            <h3 style={{ marginTop: 0 }}>Full Ranking</h3>
+            <h2 className="native-ranking-section-title">Full ranking</h2>
             {loading ? (
               <div style={{ display: 'grid', gap: '0.75rem' }}>
                 {Array.from({ length: 6 }).map((_, i) => <LoadingLine key={i} width="100%" />)}

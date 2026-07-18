@@ -970,6 +970,74 @@ label { color: var(--record-muted); font-size: 12px; font-weight: 600; }
 .listening-rank-row__plays strong { font: 650 12px var(--record-font-data); }
 .listening-rank-row__plays span { margin-top: 2px; color: var(--record-quiet); font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
 
+.listening-ranking-header { display: grid; gap: 5px; margin-bottom: 16px; }
+.listening-ranking-header > span { color: var(--record-accent-hover); font: 600 9px var(--record-font-data); letter-spacing: .1em; text-transform: uppercase; }
+.listening-ranking-header h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.08; letter-spacing: -.045em; }
+.listening-ranking-header p { max-width: 620px; color: var(--record-muted); font-size: 12px; }
+.ranking-podium-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.ranking-podium-card { display: grid; min-width: 0; min-height: 154px; align-content: space-between; gap: 12px; }
+.ranking-podium-card__identity, .ranking-podium-card__person { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.ranking-podium-card__identity { justify-content: space-between; }
+.ranking-podium-card__copy { min-width: 0; }
+.ranking-podium-card__rank { font: 700 10px var(--record-font-data); }
+.ranking-podium-card__name { overflow: hidden; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.ranking-podium-card__total > div { font: 650 30px/1 var(--record-font-data); letter-spacing: -.06em; }
+.ranking-podium-card__total > span { display: block; margin-top: 4px; color: var(--record-muted); font-size: 11px; }
+.ranking-podium-card__meta { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--record-muted); font: 9px var(--record-font-data); }
+
+.native-spotify-ranking { display: grid; min-width: 0; gap: 14px; }
+.native-spotify-ranking .listening-ranking-header { margin: 0; }
+.native-ranking-filter { padding: 4px; background: var(--record-surface); border: 1px solid var(--record-line); border-radius: var(--record-radius); }
+.native-ranking-timeframes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+.native-ranking-timeframes button {
+  min-width: 0;
+  min-height: var(--record-touch);
+  padding: 0 6px;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  border-radius: var(--record-radius-sm);
+  color: var(--record-muted);
+  font-size: 10px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.native-ranking-timeframes button.is-active { background: var(--record-accent-soft); color: var(--record-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--record-accent) 38%, transparent); }
+.native-ranking-timeframes button:active { background: var(--record-control); }
+.native-spotify-ranking > .record-summary { margin: 0; }
+.native-spotify-ranking > .section { display: grid; gap: 10px; padding: 0; background: transparent; border: 0; border-radius: 0; }
+.native-ranking-section-title { font-size: 14px; line-height: 1.25; letter-spacing: -.025em; }
+.native-spotify-ranking .ranking-podium-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.native-spotify-ranking .ranking-podium-card { min-height: 132px; padding: 12px; gap: 10px; }
+.native-spotify-ranking .ranking-podium-card.is-rank-1 { grid-column: 1 / -1; min-height: 144px; }
+.native-spotify-ranking .ranking-podium-card:last-child:nth-child(2) { grid-column: 1 / -1; }
+.native-spotify-ranking .ranking-podium-card:not(.is-rank-1) .ranking-podium-card__identity > svg { display: none; }
+.native-spotify-ranking .ranking-podium-card:not(.is-rank-1) .ranking-podium-card__person { gap: 8px; }
+.native-spotify-ranking .ranking-podium-card:not(.is-rank-1) .ranking-podium-card__total > div { font-size: 23px; }
+.native-ranking-card { overflow: hidden; padding: 0; }
+.native-ranking-card > .native-ranking-section-title { min-height: 44px; padding: 13px 14px 11px; border-bottom: 1px solid var(--record-line); }
+.native-ranking-list { display: grid; }
+.native-ranking-row {
+  display: grid;
+  min-width: 0;
+  min-height: 76px;
+  grid-template-columns: 24px 40px minmax(0, 1fr) minmax(70px, auto);
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+}
+.native-ranking-row + .native-ranking-row { border-top: 1px solid var(--record-line); }
+.native-ranking-row__rank { color: var(--record-quiet); font: 650 10px var(--record-font-data); }
+.native-ranking-row__copy, .native-ranking-row__stats { display: grid; min-width: 0; gap: 2px; }
+.native-ranking-row__copy strong, .native-ranking-row__copy span, .native-ranking-row__copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.native-ranking-row__copy strong { font-size: 11px; }
+.native-ranking-row__copy span { color: var(--record-muted); font-size: 9px; }
+.native-ranking-row__copy small { color: var(--record-quiet); font: 8px var(--record-font-data); }
+.native-ranking-row__stats { justify-items: end; text-align: right; }
+.native-ranking-row__stats strong { font: 650 13px var(--record-font-data); }
+.native-ranking-row__stats span { color: var(--record-muted); font-size: 8px; white-space: nowrap; }
+
 @media (max-width: 1180px) {
   .record-music-pattern__grid { grid-template-columns: minmax(0, 1.45fr) minmax(210px, .55fr); }
   .record-music-sound { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--record-line); }

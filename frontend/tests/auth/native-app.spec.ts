@@ -1174,6 +1174,62 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('button', { name: 'Month', exact: true })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  test('keeps the native listening ranking controls and rows legible at phone width', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-ranking-layout')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/spotify/ranking')
+
+    const periodControl = page.locator('.native-ranking-timeframes')
+    await expect(periodControl).toBeVisible()
+    const periodMetrics = await periodControl.evaluate((control) => {
+      const container = control.getBoundingClientRect()
+      const buttons = [...control.querySelectorAll('button')].map((button) => button.getBoundingClientRect())
+      return {
+        controlWidth: container.width,
+        controlScrollWidth: control.scrollWidth,
+        buttonMinHeight: Math.min(...buttons.map((box) => box.height)),
+        allButtonsContained: buttons.every((box) => box.left >= container.left - 1 && box.right <= container.right + 1),
+      }
+    })
+    expect(periodMetrics.controlScrollWidth).toBeLessThanOrEqual(periodMetrics.controlWidth + 1)
+    expect(periodMetrics.buttonMinHeight).toBeGreaterThanOrEqual(44)
+    expect(periodMetrics.allButtonsContained).toBe(true)
+
+    const rows = page.locator('.native-ranking-row')
+    await expect(rows).toHaveCount(2)
+    await page.locator('.native-ranking-card').scrollIntoViewIfNeeded()
+    const rowMetrics = await rows.evaluateAll((items) => items.map((item) => {
+      const row = item.getBoundingClientRect()
+      const rank = item.querySelector('.native-ranking-row__rank')?.getBoundingClientRect()
+      const avatar = item.children[1]?.getBoundingClientRect()
+      const copy = item.querySelector('.native-ranking-row__copy')?.getBoundingClientRect()
+      const stats = item.querySelector('.native-ranking-row__stats')?.getBoundingClientRect()
+      return {
+        height: row.height,
+        contained: [rank, avatar, copy, stats].every((box) => box && box.left >= row.left - 1 && box.right <= row.right + 1),
+        columnsDoNotOverlap: Boolean(rank && avatar && copy && stats
+          && rank.right <= avatar.left + 1
+          && avatar.right <= copy.left + 1
+          && copy.right <= stats.left + 1),
+      }
+    }))
+    for (const row of rowMetrics) {
+      expect(row.height).toBeGreaterThanOrEqual(68)
+      expect(row.contained).toBe(true)
+      expect(row.columnsDoNotOverlap).toBe(true)
+    }
+
+    const overflow = await getHorizontalOverflowReport(page)
+    expect(overflow.documentScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
+    expect(overflow.bodyScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
+  })
+
   test('shows native settings sections for notifications sync and updates', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {

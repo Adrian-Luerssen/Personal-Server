@@ -4,8 +4,6 @@ import {
   LoadingSpinner,
   LoadingLine,
   SessionCard,
-  SetRow,
-  StatCard,
   Modal,
   SkeletonSessionCard,
   formatDate,
@@ -37,6 +35,10 @@ export default function WorkoutHistory() {
   const [showDetail, setShowDetail] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [exercises, setExercises] = useState([])
+  const [editingSet, setEditingSet] = useState(null)
+  const [setForm, setSetForm] = useState({})
+  const [savingSet, setSavingSet] = useState(false)
+  const [editSetError, setEditSetError] = useState('')
 
   const [dateFilter, setDateFilter] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -94,7 +96,39 @@ export default function WorkoutHistory() {
   }
 
   function openDetail(session) { setSelectedSession(session); setShowDetail(true) }
-  function closeDetail() { setShowDetail(false); setSelectedSession(null); setConfirmingDelete(false) }
+  function closeDetail() { setShowDetail(false); setSelectedSession(null); setConfirmingDelete(false); setEditingSet(null) }
+
+  function openSetEditor(set, exercise, displayOrder) {
+    setEditingSet({ ...set, exercise, displayOrder })
+    setSetForm({
+      weight: set.weight ?? '', reps: set.reps ?? '', distance: set.distance ?? '',
+      durationSec: set.durationSec ?? '', rpe: set.rpe ?? '', notes: set.notes ?? '',
+    })
+    setEditSetError('')
+  }
+
+  async function saveSet(event) {
+    event.preventDefault()
+    if (!editingSet || savingSet) return
+    setSavingSet(true)
+    setEditSetError('')
+    const numberOrNull = (value) => value === '' ? null : Number(value)
+    try {
+      const updated = await api.patch(`/workout/sets/${editingSet.id}`, {
+        weight: numberOrNull(setForm.weight), reps: numberOrNull(setForm.reps),
+        distance: numberOrNull(setForm.distance), durationSec: numberOrNull(setForm.durationSec),
+        rpe: numberOrNull(setForm.rpe), notes: String(setForm.notes || '').trim() || null,
+      })
+      const merge = (session) => ({ ...session, sets: (session.sets || []).map((set) => set.id === updated.id ? { ...set, ...updated } : set) })
+      setSelectedSession((session) => merge(session))
+      setSessions((items) => items.map((session) => session.id === selectedSession.id ? merge(session) : session))
+      setEditingSet(null)
+    } catch (e) {
+      setEditSetError(e.message || 'Could not save this set')
+    } finally {
+      setSavingSet(false)
+    }
+  }
 
   async function deleteSession(sessionId) {
     setError('')
@@ -221,10 +255,10 @@ export default function WorkoutHistory() {
                 {selectedSession.endAt ? formatSessionDuration(selectedSession.startAt, selectedSession.endAt) : 'In Progress'}
               </div>
             </div>
-            <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-              <StatCard label="Sets" value={(selectedSession.sets || []).length} />
-              <StatCard label="Exercises" value={new Set((selectedSession.sets || []).filter(s => s.exerciseId).map(s => s.exerciseId)).size} />
-              <StatCard label="Volume" value={calculateVolume(selectedSession.sets || []) > 0 ? `${calculateVolume(selectedSession.sets || []).toFixed(0)} kg` : '—'} />
+            <div className="workout-detail-summary" aria-label="Workout totals">
+              <div><span>Sets</span><strong>{(selectedSession.sets || []).length}</strong></div>
+              <div><span>Exercises</span><strong>{new Set((selectedSession.sets || []).filter(s => s.exerciseId).map(s => s.exerciseId)).size}</strong></div>
+              <div><span>Volume</span><strong>{calculateVolume(selectedSession.sets || []) > 0 ? `${calculateVolume(selectedSession.sets || []).toFixed(0)} kg` : '—'}</strong></div>
             </div>
             {selectedSession.notes && (
               <div className="card" style={{ background: 'var(--color-accent-muted)', padding: '1rem' }}>
@@ -232,12 +266,12 @@ export default function WorkoutHistory() {
                 <div style={{ fontSize: '.95rem' }}>{selectedSession.notes}</div>
               </div>
             )}
-            <div>
-              <h4 style={{ marginBottom: '.75rem' }}>Sets</h4>
+            <div className="workout-detail-ledger">
+              <h4>Exercises</h4>
               {(selectedSession.sets || []).length === 0 ? (
                 <div className="empty-state">No sets recorded</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="workout-detail-exercises">
                   {(() => {
                     const sortedSets = [...(selectedSession.sets || [])].sort((a, b) => a.order - b.order)
                     const grouped = sortedSets.reduce((acc, set) => { const id = set.exerciseId || 'unknown'; if (!acc[id]) acc[id] = []; acc[id].push(set); return acc }, {})
@@ -245,18 +279,26 @@ export default function WorkoutHistory() {
                       const exercise = exercises.find(e => e.id === exerciseId) || sets[0]?.exercise
                       const category = exercise?.category || sets[0]?.category
                       return (
-                        <div key={exerciseId} className="card" style={{ padding: '1rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', marginBottom: '.75rem', paddingBottom: '.75rem', borderBottom: '1px solid var(--glass-border)' }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{exercise?.name || (exerciseId !== 'unknown' ? `Exercise ${exerciseId.slice(0, 8)}` : 'Unknown Exercise')}</div>
-                              {category && <span className="badge" style={{ marginTop: '0.25rem', background: category.color ? `${category.color}20` : 'var(--color-accent-muted)', color: category.color || 'var(--color-accent)', border: `1px solid ${category.color || 'var(--color-accent)'}40` }}>{category.name}</span>}
+                        <section key={exerciseId} className="workout-exercise-ledger">
+                          <header>
+                            <div>
+                              <h5>{exercise?.name || (exerciseId !== 'unknown' ? `Exercise ${exerciseId.slice(0, 8)}` : 'Unknown Exercise')}</h5>
+                              <span>{category?.name || 'Exercise'}</span>
                             </div>
-                            <div style={{ fontSize: '.85rem', color: 'var(--color-text-muted)' }}>{sets.length} {sets.length === 1 ? 'set' : 'sets'}</div>
+                            <small>{sets.length} {sets.length === 1 ? 'set' : 'sets'}</small>
+                          </header>
+                          <div className="workout-set-ledger__head" aria-hidden="true"><span>Set</span><span>Weight</span><span>Reps</span><span /></div>
+                          <div className="workout-set-ledger">
+                            {sets.map((set, idx) => (
+                              <button type="button" className="workout-set-row" key={set.id} onClick={() => openSetEditor(set, exercise, idx + 1)} aria-label={`Edit ${exercise?.name || 'exercise'} set ${idx + 1}`}>
+                                <span>{idx + 1}</span>
+                                <strong>{set.weight != null ? `${set.weight} kg` : set.distance != null ? `${set.distance} m` : '—'}</strong>
+                                <strong>{set.reps != null ? set.reps : set.durationSec != null ? `${set.durationSec}s` : '—'}</strong>
+                                <Icon name="pencil" size={14} />
+                              </button>
+                            ))}
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
-                            {sets.map((set, idx) => <SetRow key={set.id} set={{ ...set, order: idx + 1 }} exercise={exercise} showOrder />)}
-                          </div>
-                        </div>
+                        </section>
                       )
                     })
                   })()}
@@ -277,6 +319,22 @@ export default function WorkoutHistory() {
               </div>
             )}
           </div>
+        </Modal>
+      )}
+
+      {editingSet && (
+        <Modal title={`Edit set ${editingSet.displayOrder}`} onClose={() => setEditingSet(null)}>
+          <form className="workout-set-editor" onSubmit={saveSet}>
+            <div className="workout-set-editor__exercise"><span>Exercise</span><strong>{editingSet.exercise?.name || 'Unknown exercise'}</strong></div>
+            <label>Weight (kg)<input className="input" type="number" min="0" step="0.01" inputMode="decimal" value={setForm.weight} onChange={(e) => setSetForm({ ...setForm, weight: e.target.value })} /></label>
+            <label>Reps<input className="input" type="number" min="0" step="1" inputMode="numeric" value={setForm.reps} onChange={(e) => setSetForm({ ...setForm, reps: e.target.value })} /></label>
+            <label>Distance (m)<input className="input" type="number" min="0" step="0.01" inputMode="decimal" value={setForm.distance} onChange={(e) => setSetForm({ ...setForm, distance: e.target.value })} /></label>
+            <label>Duration (seconds)<input className="input" type="number" min="0" step="1" inputMode="numeric" value={setForm.durationSec} onChange={(e) => setSetForm({ ...setForm, durationSec: e.target.value })} /></label>
+            <label>RPE<input className="input" type="number" min="0" max="10" step="0.5" inputMode="decimal" value={setForm.rpe} onChange={(e) => setSetForm({ ...setForm, rpe: e.target.value })} /></label>
+            <label className="workout-set-editor__notes">Notes<textarea className="input" rows="3" value={setForm.notes} onChange={(e) => setSetForm({ ...setForm, notes: e.target.value })} /></label>
+            {editSetError && <div className="alert-error workout-set-editor__error" role="alert">{editSetError}</div>}
+            <div className="record-modal-actions workout-set-editor__actions"><button type="button" className="btn subtle" onClick={() => setEditingSet(null)}>Cancel</button><button type="submit" className="btn primary" disabled={savingSet}>{savingSet ? 'Saving…' : 'Save set'}</button></div>
+          </form>
         </Modal>
       )}
     </>

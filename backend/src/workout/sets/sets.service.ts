@@ -120,6 +120,28 @@ export class WorkoutSetsService extends TypeOrmCrudService<WorkoutSet> {
     return { success: true };
   }
 
+  async updateSet(
+    account: Account,
+    setId: string,
+    body: Partial<Pick<WorkoutSet, "reps" | "weight" | "distance" | "durationSec" | "rpe" | "notes">>
+  ) {
+    const set = await this.repo.findOne({ where: { id: setId } });
+    if (!set) throw new BadRequestException("Set not found");
+    if (set.accountId !== account.id)
+      throw new ForbiddenException("Not your set");
+
+    if (body.reps !== undefined) set.reps = body.reps;
+    if (body.weight !== undefined) set.weight = body.weight;
+    if (body.distance !== undefined) set.distance = body.distance;
+    if (body.durationSec !== undefined) set.durationSec = body.durationSec;
+    if (body.rpe !== undefined) set.rpe = body.rpe;
+    if (body.notes !== undefined) set.notes = body.notes;
+
+    const saved = await this.repo.save(set);
+    await this.recordSync(account.id, saved, SyncOperation.UPSERT);
+    return saved;
+  }
+
   private async recordSync(
     accountId: string,
     set: WorkoutSet,

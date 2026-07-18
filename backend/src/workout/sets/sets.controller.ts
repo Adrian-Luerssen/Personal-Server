@@ -44,6 +44,22 @@ export class WorkoutSetsController implements CrudController<WorkoutSet> {
     return this.service.reorderSets(account, sessionId, body.order);
   }
 
+  @Patch(":setId")
+  async updateSet(
+    @ReqUser() account: Account,
+    @Param("setId") setId: string,
+    @Body() body: {
+      reps?: number | null;
+      weight?: number | null;
+      distance?: number | null;
+      durationSec?: number | null;
+      rpe?: number | null;
+      notes?: string | null;
+    }
+  ) {
+    return this.service.updateSet(account, setId, body);
+  }
+
   @Delete(":setId")
   async deleteSet(@ReqUser() account: Account, @Param("setId") setId: string) {
     return this.service.deleteSet(account, setId);

@@ -22,6 +22,7 @@ import {
 import SeriesDetail from './SeriesDetail'
 import IconInput from '../../components/product/IconInput'
 import MediaDiscover from './MediaDiscover'
+import { isNativeMobileApp } from '../../mobilePlatform'
 
 const TYPE_META = {
   anime:  { icon: 'tv',           label: 'Anime' },
@@ -144,7 +145,7 @@ function useModalFocus(open, onClose, dialogRef) {
   }, [open, dialogRef])
 }
 
-function SeriesRow({ item, catalog, onOpen, onScore, onIncrement, onWatchEpisode, busy }) {
+function SeriesRow({ item, catalog, onOpen, onScore, onIncrement, onWatchEpisode, busy, openOnRowClick = false }) {
   const typeMeta = TYPE_META[item.type] || {}
   const statusMeta = STATUS_META[item.status] || {}
   const progress = getSeriesProgress(item)
@@ -166,8 +167,17 @@ function SeriesRow({ item, catalog, onOpen, onScore, onIncrement, onWatchEpisode
       ? `${progress.value} / ${progress.total ?? 'unknown'} ${progress.unit}${progress.value === 1 ? '' : 's'}`
       : null
 
+  const handleRowClick = (event) => {
+    if (!openOnRowClick || event.target.closest('button, a, input, select, textarea')) return
+    onOpen(item)
+  }
+
   return (
-    <article className="series-row" data-status={item.status || 'planning'}>
+    <article
+      className={`series-row${openOnRowClick ? ' series-row--tap' : ''}`}
+      data-status={item.status || 'planning'}
+      onClick={handleRowClick}
+    >
       <div className="series-row__cover">
         {item.coverUrl && item.coverUrl.length > 1 ? (
           <img src={item.coverUrl} alt={item.title} loading="lazy" />
@@ -716,6 +726,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
 
 export default function Media() {
   const [searchParams] = useSearchParams()
+  const nativeApp = isNativeMobileApp()
   const [items, setItems] = useState([])
   const [stats, setStats] = useState(null)
   const [catalogs, setCatalogs] = useState({})
@@ -990,6 +1001,7 @@ export default function Media() {
                       onIncrement={incrementProgress}
                       onWatchEpisode={(entry, episodeId) => toggleEpisode(entry, { id: episodeId }, true)}
                       busy={busyItemId === item.id || busyEpisodeId === catalogs[item.id]?.nextEpisode?.id}
+                      openOnRowClick={nativeApp}
                     />
                   ))}
                 </div>

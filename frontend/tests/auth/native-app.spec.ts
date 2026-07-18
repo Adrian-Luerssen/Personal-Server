@@ -1371,6 +1371,25 @@ test.describe('Native Android app shell', () => {
     expect(overflow.bodyScrollWidth).toBeLessThanOrEqual(overflow.viewportWidth + 1)
   })
 
+  test('opens a show from the mobile row while keeping progress actions independent', async ({ page }) => {
+    await mockNativeApi(page)
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-series-row')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/media')
+
+    const show = page.locator('.series-row').filter({ hasText: 'The Bear' })
+    await show.locator('.series-row__scope').click()
+    await expect(page.getByRole('dialog', { name: 'The Bear' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Close The Bear' }).click()
+    await show.getByRole('button', { name: /The Bear/ }).filter({ hasText: /S01E02/ }).click()
+    await expect(page.getByRole('dialog', { name: 'The Bear' })).toHaveCount(0)
+  })
+
   test('orders series by personal score and distinguishes airing and completed titles', async ({ page }) => {
     const mediaItems = [
       {

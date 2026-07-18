@@ -1948,6 +1948,8 @@ tbody tr:hover { background: var(--record-raised); }
   .series-discover-grid { grid-template-columns: 1fr; }
   .series-discover-card:nth-child(odd) { border-right: 0; }
   .series-row { grid-template-columns: 44px minmax(0, 1fr); gap: 9px; padding: 10px; }
+  .series-row--tap { cursor: pointer; touch-action: manipulation; transition: background-color var(--record-fast) var(--record-ease); }
+  .series-row--tap:active { background: var(--record-control); }
   .series-row__cover { width: 42px; height: 63px; }
   .series-row__actions { grid-column: 2; justify-content: flex-start; }
   .media-modal-overlay { place-items: end center; padding: 0; }

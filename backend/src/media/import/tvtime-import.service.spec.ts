@@ -131,7 +131,17 @@ describe('TvTimeImportService', () => {
     await Promise.resolve();
 
     expect(mockedAxios.post).toHaveBeenCalledTimes(3);
-    pending.forEach((resolve) => resolve({ data: { data: {} } }));
+    pending.forEach((resolve) => resolve({
+      data: {
+        data: {
+          media0: {
+            idMal: 1,
+            title: { romaji: 'Existing anime 0', english: 'Unmatched TV Time title' },
+            synonyms: [],
+          },
+        },
+      },
+    }));
     await resolution;
   });
 
@@ -266,5 +276,79 @@ describe('TvTimeImportService', () => {
 
     expect(incoming[0].metadata.matchedExistingId).toBe('mal-promised-neverland');
     expect(mockedAxios.post).toHaveBeenCalledTimes(3);
+  });
+
+  it('classifies new TV Time anime while leaving ordinary television as TV', async () => {
+    const incoming = [
+      {
+        title: 'The Promised Neverland',
+        type: MediaType.TV,
+        status: MediaStatus.PAUSED,
+        externalIds: { tvdbId: 348002 },
+        metadata: { importSource: 'tvtime', tags: ['tv'] },
+      },
+      {
+        title: 'Money Heist',
+        type: MediaType.TV,
+        status: MediaStatus.PAUSED,
+        externalIds: { tvdbId: 327417 },
+        metadata: { importSource: 'tvtime', sourceType: 'tv', tags: ['tv'] },
+      },
+    ] as any[];
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        data: {
+          page0: {
+            media: [{
+              idMal: 37779,
+              title: { romaji: 'Yakusoku no Neverland', english: 'The Promised Neverland' },
+              synonyms: [],
+            }],
+          },
+          page1: { media: [] },
+        },
+      },
+    } as any);
+
+    await service.resolveExistingAnime(incoming, []);
+
+    expect(incoming[0]).toMatchObject({
+      type: MediaType.ANIME,
+      externalIds: { tvdbId: 348002, malId: 37779 },
+      metadata: { sourceType: 'anime', tags: ['anime', 'tv'] },
+    });
+    expect(incoming[1]).toMatchObject({
+      type: MediaType.TV,
+      externalIds: { tvdbId: 327417 },
+      metadata: { sourceType: 'tv', tags: ['tv'] },
+    });
+  });
+
+  it('does not classify a fuzzy anime search result unless a returned alias exactly matches', async () => {
+    const incoming = [{
+      title: 'Monster',
+      type: MediaType.TV,
+      status: MediaStatus.PLANNING,
+      externalIds: { tvdbId: 123 },
+      metadata: { importSource: 'tvtime', sourceType: 'tv', tags: ['tv'] },
+    }] as any[];
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        data: {
+          page0: {
+            media: [{
+              idMal: 19,
+              title: { romaji: 'Monster Extra', english: 'Monster Extra' },
+              synonyms: [],
+            }],
+          },
+        },
+      },
+    } as any);
+
+    await service.resolveExistingAnime(incoming, []);
+
+    expect(incoming[0].type).toBe(MediaType.TV);
+    expect(incoming[0].externalIds).toEqual({ tvdbId: 123 });
   });
 });

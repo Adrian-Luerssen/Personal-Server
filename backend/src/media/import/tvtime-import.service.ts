@@ -106,8 +106,6 @@ export class TvTimeImportService {
         }
       }
     }
-    if (existingAnime.length === 0) return;
-
     let unresolved = items.filter(
       (item) => item.metadata?.importSource === "tvtime" && !item.metadata?.matchedExistingId,
     );
@@ -118,25 +116,124 @@ export class TvTimeImportService {
     unresolved = unresolved.filter((item) => !item.metadata?.matchedExistingId);
     if (unresolved.length === 0) return;
 
-    const batches: Array<Array<{ item: any; malId: number }>> = [];
-    for (let offset = 0; offset < existingAnime.length; offset += 20) {
-      batches.push(existingAnime.slice(offset, offset + 20));
+    if (existingAnime.length > 0) {
+      const batches: Array<Array<{ item: any; malId: number }>> = [];
+      for (let offset = 0; offset < existingAnime.length; offset += 20) {
+        batches.push(existingAnime.slice(offset, offset + 20));
+      }
+      await this.runWithConcurrency(batches, 3, (batch) =>
+        this.hydrateAnimeAliasBatch(batch, existingByAlias),
+      );
+
+      for (const item of unresolved) {
+        const match = existingByAlias.get(this.normalizeTitle(item.title));
+        if (match) this.applyAnimeMatch(item, match.item, match.aliases);
+      }
+      unresolved = unresolved.filter((item) => !item.metadata?.matchedExistingId);
     }
+    if (unresolved.length === 0) return;
+
+    const classificationBatches: ImportPreviewItem[][] = [];
+    for (let offset = 0; offset < unresolved.length; offset += 20) {
+      classificationBatches.push(unresolved.slice(offset, offset + 20));
+    }
+    await this.runWithConcurrency(classificationBatches, 3, (batch) =>
+      this.classifyAnimeBatch(batch),
+    );
+  }
+
+  private async runWithConcurrency<T>(
+    batches: T[],
+    concurrency: number,
+    operation: (batch: T) => Promise<void>,
+  ): Promise<void> {
     let nextBatch = 0;
     const worker = async () => {
       while (nextBatch < batches.length) {
         const batch = batches[nextBatch++];
-        await this.hydrateAnimeAliasBatch(batch, existingByAlias);
+        await operation(batch);
       }
     };
     await Promise.all(
-      Array.from({ length: Math.min(3, batches.length) }, () => worker()),
+      Array.from({ length: Math.min(concurrency, batches.length) }, () => worker()),
     );
+  }
 
-    for (const item of unresolved) {
-      const match = existingByAlias.get(this.normalizeTitle(item.title));
-      if (match) this.applyAnimeMatch(item, match.item, match.aliases);
+  private async classifyAnimeBatch(batch: ImportPreviewItem[]): Promise<void> {
+    const variables: Record<string, string> = {};
+    const fields = batch.map((item, index) => {
+      variables[`search${index}`] = item.title;
+      return `page${index}: Page(page: 1, perPage: 1) {
+        media(search: $search${index}, type: ANIME) {
+          idMal
+          title { romaji english native }
+          synonyms
+        }
+      }`;
+    });
+    const declarations = batch.map((_, index) => `$search${index}: String`).join(", ");
+
+    try {
+      const results = await this.fetchAniListData(
+        `query (${declarations}) { ${fields.join("\n")} }`,
+        variables,
+      );
+      batch.forEach((item, index) => {
+        const result = results[`page${index}`]?.media?.[0];
+        const malId = Number(result?.idMal);
+        if (!Number.isInteger(malId) || malId <= 0) return;
+        const aliases = this.uniqueTitles([
+          result?.title?.romaji,
+          result?.title?.english,
+          result?.title?.native,
+          ...(Array.isArray(result?.synonyms) ? result.synonyms : []),
+        ]);
+        const incomingTitle = this.normalizeTitle(item.title);
+        if (!aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)) return;
+        item.type = MediaType.ANIME;
+        item.externalIds = { ...item.externalIds, malId };
+        item.metadata = {
+          ...item.metadata,
+          sourceType: "anime",
+          tags: ["anime", "tv"],
+          alternativeTitles: aliases,
+          animeClassificationSource: "anilist-title-alias",
+        };
+      });
+    } catch (error) {
+      this.logger.warn(
+        `TV Time anime classification was unavailable: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      for (const item of batch) {
+        item.metadata = { ...item.metadata, animeClassificationState: "unavailable" };
+      }
     }
+  }
+
+  private async fetchAniListData(
+    query: string,
+    variables: Record<string, string>,
+  ): Promise<Record<string, any>> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await axios.post(
+          "https://graphql.anilist.co",
+          { query, variables },
+          { timeout: 15000 },
+        );
+        if (!response.data?.data) throw new Error("AniList returned no classification data");
+        return response.data.data;
+      } catch (error: any) {
+        lastError = error;
+        const status = Number(error?.response?.status || 0);
+        const retryable = status === 0 || status === 429 || status >= 500;
+        if (!retryable || attempt === 2) break;
+        const retryAfter = Number(error?.response?.headers?.["retry-after"] || 0);
+        await this.pause(retryAfter > 0 ? retryAfter * 1000 : 100 * (attempt + 1));
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 
   private async hydrateAnimeAliasBatch(

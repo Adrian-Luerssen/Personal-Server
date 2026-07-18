@@ -54,9 +54,9 @@ test('Bookplate R is the browser, installable web, and native launcher identity'
   assert.match(nativeMark, /#A999FF/i)
   assert.match(nativeMark, /#7C5CFF/i)
   assert.doesNotMatch(nativeMark, /#7DD3FC|#34D399/i)
-  assert.match(nativeManifest, /android:icon="@mipmap\/record_bookplate_r_v2"/)
-  assert.match(nativeManifest, /android:roundIcon="@mipmap\/record_bookplate_r_v2_round"/)
-  assert.match(nativeManifest, /android:name="\.RecordLauncherV3"/)
+  assert.match(nativeManifest, /android:icon="@mipmap\/record_bookplate_r_v3"/)
+  assert.match(nativeManifest, /android:roundIcon="@mipmap\/record_bookplate_r_v3_round"/)
+  assert.match(nativeManifest, /android:name="\.RecordLauncherActivity"/)
 
   for (const asset of [
     'public/record-bookplate-r.svg',
@@ -69,6 +69,9 @@ test('Bookplate R is the browser, installable web, and native launcher identity'
     'android/app/src/main/res/mipmap-xxxhdpi/record_bookplate_r.png',
     'android/app/src/main/res/mipmap-anydpi-v26/record_bookplate_r.xml',
     'android/app/src/main/res/mipmap-anydpi-v26/record_bookplate_r_round.xml',
+    'android/app/src/main/res/mipmap-mdpi/record_bookplate_r_v3.png',
+    'android/app/src/main/res/mipmap-xxxhdpi/record_bookplate_r_v3.png',
+    'android/app/src/main/res/mipmap-anydpi-v26/record_bookplate_r_v3.xml',
   ]) {
     assert.equal(existsSync(resolve(process.cwd(), asset)), true, `${asset} must exist`)
   }

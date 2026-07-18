@@ -11,15 +11,19 @@ import { APP_VERSION, normalizeAppVersion } from '../appVersion.mjs'
 import Icon from './icons/Icon'
 
 function ChangelogList({ changelog }) {
+  const isPlaceholder = (item) => /^no .+ (entries|changes) were detected/i.test(String(item || '').trim())
   const sections = [
     ['New', changelog?.features || []],
     ['Fixed', changelog?.fixes || []],
     ['Technical', changelog?.technical || []],
-  ].filter(([, items]) => items.length > 0)
+  ].map(([title, items]) => [title, items.filter((item) => !isPlaceholder(item))])
+    .filter(([, items]) => items.length > 0)
+
+  if (sections.length === 0) return null
 
   return (
-    <div className="native-update-changelog">
-      {changelog?.summary && <p className="native-update-changelog__summary">{changelog.summary}</p>}
+    <details className="native-update-changelog">
+      <summary>What changed</summary>
       {sections.map(([title, items]) => (
         <section key={title} className="native-update-changelog__section" aria-label={`${title} in this update`}>
           <strong>{title}</strong>
@@ -30,7 +34,7 @@ function ChangelogList({ changelog }) {
           </ul>
         </section>
       ))}
-    </div>
+    </details>
   )
 }
 
@@ -105,11 +109,10 @@ export default function NativeUpdateGate({ nativeApp }) {
           <span className="native-update-gate__icon" aria-hidden="true">
             <Icon name="smartphone" size={22} />
           </span>
-          <h2>{update.required ? 'Update required' : 'Update available'}</h2>
-          <p>
-            Installed v{normalizeAppVersion(update.currentVersion)}. Latest v{normalizeAppVersion(update.version)}.
-            {update.required ? ' This version is no longer supported by the API.' : ''}
-          </p>
+          <span className="native-update-gate__eyebrow">Record for Android</span>
+          <h2>{update.required ? 'Update required' : 'A new version is ready'}</h2>
+          <p className="native-update-gate__version">v{normalizeAppVersion(update.currentVersion)} <span aria-hidden="true">→</span> v{normalizeAppVersion(update.version)}</p>
+          <p className="native-update-gate__summary">{update.changelog?.summary || (update.required ? 'Update to keep using Record.' : 'Install the latest improvements when you are ready.')}</p>
           <ChangelogList changelog={update.changelog} />
           {status && <div className="native-update-gate__status" role="status">{status}</div>}
           <div className="native-update-gate__actions">
@@ -119,7 +122,7 @@ export default function NativeUpdateGate({ nativeApp }) {
             </button>
             {!update.required && (
               <button type="button" className="native-secondary-button" onClick={dismiss}>
-                Later
+                Not now
               </button>
             )}
           </div>

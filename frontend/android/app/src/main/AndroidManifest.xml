@@ -7,9 +7,9 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@mipmap/record_bookplate_r_v2"
+        android:icon="@mipmap/record_bookplate_r_v3"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/record_bookplate_r_v2_round"
+        android:roundIcon="@mipmap/record_bookplate_r_v3_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
@@ -19,24 +19,24 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:exported="true">
+            android:enabled="false"
+            android:exported="false">
         </activity>
 
-        <!-- Version the launcher component as well as the drawable. Samsung and
-             other OEM launchers cache icons by component name across updates. -->
-        <activity-alias
-            android:name=".RecordLauncherV3"
-            android:enabled="true"
+        <activity
+            android:name=".RecordLauncherActivity"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:exported="true"
-            android:icon="@mipmap/record_bookplate_r_v2"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/record_bookplate_r_v2_round"
-            android:targetActivity=".MainActivity">
+            android:icon="@mipmap/record_bookplate_r_v3"
+            android:label="@string/title_activity_main"
+            android:launchMode="singleTask"
+            android:roundIcon="@mipmap/record_bookplate_r_v3_round"
+            android:theme="@style/AppTheme.NoActionBarLaunch">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity-alias>
+        </activity>
 
         <activity
             android:name=".health.HealthConnectPermissionActivity"

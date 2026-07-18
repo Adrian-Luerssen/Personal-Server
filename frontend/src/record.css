@@ -1576,6 +1576,47 @@ tbody tr:hover { background: var(--record-raised); }
 .native-primary-button { background: var(--record-accent); border: 1px solid var(--record-accent); color: #fff; }
 .native-secondary-button { background: var(--record-raised); border: 1px solid var(--record-line-strong); color: var(--record-text); }
 .native-primary-button:disabled, .native-secondary-button:disabled { opacity: .4; }
+.native-update-gate {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  background: rgba(2, 4, 8, .72);
+  backdrop-filter: blur(8px);
+}
+.native-update-gate__panel {
+  position: relative;
+  display: grid;
+  width: min(100%, 460px);
+  max-height: min(78dvh, 620px);
+  gap: 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 22px 18px 18px;
+  background: var(--record-raised);
+  border: 1px solid var(--record-line-strong);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .58);
+}
+.native-update-gate__icon { display: grid; width: 40px; height: 40px; place-items: center; background: var(--record-accent-soft); border: 1px solid rgba(124, 92, 255, .35); border-radius: 12px; color: var(--record-accent-hover); }
+.native-update-gate__eyebrow { color: var(--record-accent-hover); font: 600 9px var(--record-font-data); letter-spacing: .1em; text-transform: uppercase; }
+.native-update-gate__panel h2 { margin: 0; font-size: 21px; letter-spacing: -.04em; }
+.native-update-gate__version { margin: 0; color: var(--record-muted); font: 600 11px var(--record-font-data); }
+.native-update-gate__version span { padding-inline: 5px; color: var(--record-accent-hover); }
+.native-update-gate__summary { margin: 0; color: var(--record-muted); font-size: 12px; line-height: 1.55; }
+.native-update-changelog { border-top: 1px solid var(--record-line); border-bottom: 1px solid var(--record-line); }
+.native-update-changelog > summary { min-height: 42px; padding: 13px 2px; color: var(--record-text); font-size: 11px; font-weight: 650; cursor: pointer; }
+.native-update-changelog__section { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; padding: 8px 2px 12px; }
+.native-update-changelog__section strong { color: var(--record-quiet); font: 600 8px var(--record-font-data); letter-spacing: .08em; text-transform: uppercase; }
+.native-update-changelog__section ul { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.native-update-changelog__section li { color: var(--record-muted); font-size: 10px; line-height: 1.45; }
+.native-update-gate__status { padding: 9px 10px; background: var(--record-control); border: 1px solid var(--record-line); border-radius: var(--record-radius-sm); color: var(--record-muted); font-size: 10px; line-height: 1.4; }
+.native-update-gate__actions { position: sticky; bottom: -18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px 0 0; background: var(--record-raised); }
+.native-update-gate__actions .native-primary-button { min-height: 46px; }
+.native-update-gate__actions .native-secondary-button { min-width: 96px; min-height: 46px; }
 .native-status-strip { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 2px; border-bottom: 1px solid var(--record-line); }
 .native-status-strip span { color: var(--record-muted); font-size: 9px; }
 .native-status-strip strong { color: var(--record-text); font: 600 8px var(--record-font-data); text-align: right; }

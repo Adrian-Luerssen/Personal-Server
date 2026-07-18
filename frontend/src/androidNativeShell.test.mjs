@@ -8,6 +8,10 @@ const mainActivityPath = resolve(
   'android/app/src/main/java/com/adrianluerssen/personalserver/MainActivity.java',
 )
 const mainActivity = readFileSync(mainActivityPath, 'utf8')
+const launcherActivity = readFileSync(resolve(
+  process.cwd(),
+  'android/app/src/main/java/com/adrianluerssen/personalserver/RecordLauncherActivity.java',
+), 'utf8')
 const manifestPath = resolve(process.cwd(), 'android/app/src/main/AndroidManifest.xml')
 const manifest = readFileSync(manifestPath, 'utf8')
 const stylesPath = resolve(process.cwd(), 'android/app/src/main/res/values/styles.xml')
@@ -124,12 +128,13 @@ test('detected payments stay normalized locally and offer review actions', () =>
   assert.match(manifest, /PaymentSuggestionActionReceiver/)
 })
 
-test('Android launcher uses the versioned Bookplate R icon to invalidate stale launcher caches', () => {
-  assert.match(manifest, /android:icon="@mipmap\/record_bookplate_r_v2"/)
-  assert.match(manifest, /android:roundIcon="@mipmap\/record_bookplate_r_v2_round"/)
-  assert.match(manifest, /android:name="\.RecordLauncherV3"/)
-  assert.match(manifest, /android:targetActivity="\.MainActivity"/)
-  assert.doesNotMatch(manifest.match(/<activity[\s\S]*?<\/activity>/)?.[0] || '', /android\.intent\.category\.LAUNCHER/)
+test('Android launcher replaces the retired component and every cached icon identity', () => {
+  assert.match(manifest, /android:icon="@mipmap\/record_bookplate_r_v3"/)
+  assert.match(manifest, /android:roundIcon="@mipmap\/record_bookplate_r_v3_round"/)
+  assert.match(manifest, /android:name="\.MainActivity"[\s\S]*?android:enabled="false"/)
+  assert.match(manifest, /android:name="\.RecordLauncherActivity"/)
+  assert.doesNotMatch(manifest, /<activity-alias[\s\S]*?android:name="\.RecordLauncherV3"/)
+  assert.match(launcherActivity, /extends MainActivity/)
   assert.match(manifest, /android:allowBackup="false"/)
 })
 

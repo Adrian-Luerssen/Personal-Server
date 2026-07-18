@@ -175,6 +175,9 @@ describe("MediaCatalogService", () => {
         data: {
           mal_id: 100,
           title: "First Season",
+          title_english: "The First Season",
+          title_japanese: "第一期",
+          title_synonyms: ["Season One"],
           synopsis: "A complete provider synopsis.",
           episodes: 12,
           images: {
@@ -211,6 +214,12 @@ describe("MediaCatalogService", () => {
       episodes: 12,
       releaseStartDate: "2024-04-05",
       releaseEndDate: "2024-06-21",
+      alternativeTitles: [
+        "First Season",
+        "The First Season",
+        "第一期",
+        "Season One",
+      ],
     });
     expect(item.coverUrl).toBe("https://img.example/first-season.jpg");
   });

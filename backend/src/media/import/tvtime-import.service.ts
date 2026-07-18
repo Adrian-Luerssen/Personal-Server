@@ -121,7 +121,16 @@ export class TvTimeImportService {
     for (let offset = 0; offset < unresolved.length; offset += 20) {
       batches.push(unresolved.slice(offset, offset + 20));
     }
-    await Promise.all(batches.map((batch) => this.resolveAnimeBatch(batch, existingByMalId)));
+    let nextBatch = 0;
+    const worker = async () => {
+      while (nextBatch < batches.length) {
+        const batch = batches[nextBatch++];
+        await this.resolveAnimeBatch(batch, existingByMalId);
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(3, batches.length) }, () => worker()),
+    );
   }
 
   private async resolveAnimeBatch(
@@ -139,39 +148,52 @@ export class TvTimeImportService {
     });
     const declarations = batch.map((_, index) => `$search${index}: String`).join(", ");
 
-    try {
-      const response = await axios.post(
-        "https://graphql.anilist.co",
-        {
-          query: `query (${declarations}) { ${fields.join("\n")} }`,
-          variables,
-        },
-        { timeout: 15000 },
-      );
-      const results = response.data?.data || {};
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await axios.post(
+          "https://graphql.anilist.co",
+          {
+            query: `query (${declarations}) { ${fields.join("\n")} }`,
+            variables,
+          },
+          { timeout: 15000 },
+        );
+        if (!response.data?.data) {
+          throw new Error("AniList returned no title-matching data");
+        }
+        const results = response.data.data;
 
-      batch.forEach((item, index) => {
-        const result = results[`media${index}`];
-        const malId = Number(result?.idMal);
-        const match = existingByMalId.get(malId);
-        if (!match) return;
+        batch.forEach((item, index) => {
+          const result = results[`media${index}`];
+          const malId = Number(result?.idMal);
+          const match = existingByMalId.get(malId);
+          if (!match) return;
 
-        const aliases = this.uniqueTitles([
-          result?.title?.romaji,
-          result?.title?.english,
-          result?.title?.native,
-          ...(Array.isArray(result?.synonyms) ? result.synonyms : []),
-        ]);
-        const incomingTitle = this.normalizeTitle(item.title);
-        if (!aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)) return;
+          const aliases = this.uniqueTitles([
+            result?.title?.romaji,
+            result?.title?.english,
+            result?.title?.native,
+            ...(Array.isArray(result?.synonyms) ? result.synonyms : []),
+          ]);
+          const incomingTitle = this.normalizeTitle(item.title);
+          if (!aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)) return;
 
-        this.applyAnimeMatch(item, match, aliases);
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Could not resolve TV Time anime aliases: ${error instanceof Error ? error.message : String(error)}`,
-      );
+          this.applyAnimeMatch(item, match, aliases);
+        });
+        return;
+      } catch (error: any) {
+        lastError = error;
+        const status = Number(error?.response?.status || 0);
+        const retryable = status === 0 || status === 429 || status >= 500;
+        if (!retryable || attempt === 2) break;
+        const retryAfter = Number(error?.response?.headers?.["retry-after"] || 0);
+        await this.pause(retryAfter > 0 ? retryAfter * 1000 : 100 * (attempt + 1));
+      }
     }
+    const reason = lastError instanceof Error ? lastError.message : String(lastError);
+    this.logger.warn(`TV Time title matching failed after retries: ${reason}`);
+    throw new Error("TV Time title matching is temporarily unavailable. Retry the preview.");
   }
 
   private applyAnimeMatch(item: ImportPreviewItem, match: any, aliases: string[]): void {
@@ -228,6 +250,10 @@ export class TvTimeImportService {
 
   private uniqueTitles(titles: unknown[]): string[] {
     return [...new Set(titles.filter((title): title is string => typeof title === "string" && !!title.trim()))];
+  }
+
+  private pause(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
 
   private findColumn(headers: string[], candidates: string[]): number {

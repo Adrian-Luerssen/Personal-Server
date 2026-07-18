@@ -160,4 +160,66 @@ describe('TvTimeImportService', () => {
     });
     expect(mockedAxios.post).not.toHaveBeenCalled();
   });
+
+  it('retries a throttled batch and matches Promised Neverland and Food Wars by MAL identity', async () => {
+    const incoming = [
+      {
+        title: 'The Promised Neverland',
+        type: MediaType.TV,
+        status: MediaStatus.PAUSED,
+        externalIds: { tvdbId: 348002 },
+        metadata: { importSource: 'tvtime', tags: ['tv'] },
+      },
+      {
+        title: 'Food Wars!',
+        type: MediaType.TV,
+        status: MediaStatus.COMPLETED,
+        externalIds: { tvdbId: 289909 },
+        metadata: { importSource: 'tvtime', tags: ['tv'] },
+      },
+    ] as any[];
+    const existing = [
+      {
+        id: 'mal-promised-neverland',
+        title: 'Yakusoku no Neverland',
+        type: MediaType.ANIME,
+        externalIds: { malId: 37779 },
+        metadata: {},
+      },
+      {
+        id: 'mal-food-wars',
+        title: 'Shokugeki no Souma',
+        type: MediaType.ANIME,
+        externalIds: { malId: 28171 },
+        metadata: {},
+      },
+    ] as any[];
+    mockedAxios.post
+      .mockRejectedValueOnce({ response: { status: 429, headers: { 'retry-after': '0' } } })
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            media0: {
+              idMal: 37779,
+              title: { romaji: 'Yakusoku no Neverland', english: 'The Promised Neverland' },
+              synonyms: [],
+            },
+            media1: {
+              idMal: 28171,
+              title: { romaji: 'Shokugeki no Souma', english: 'Food Wars!' },
+              synonyms: ['Food Wars! The First Plate'],
+            },
+          },
+        },
+      } as any);
+
+    const resolution = service.resolveExistingAnime(incoming, existing);
+    await resolution;
+
+    expect(incoming.map((item) => item.metadata.matchedExistingId)).toEqual([
+      'mal-promised-neverland',
+      'mal-food-wars',
+    ]);
+    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+  });
 });

@@ -551,6 +551,17 @@ export class MediaCatalogService {
 
     item.metadata = {
       ...(item.metadata || {}),
+      alternativeTitles: [
+        details.title,
+        details.title_english,
+        details.title_japanese,
+        ...(Array.isArray(details.title_synonyms) ? details.title_synonyms : []),
+      ].filter(
+        (title, index, titles): title is string =>
+          typeof title === "string" &&
+          !!title.trim() &&
+          titles.indexOf(title) === index,
+      ),
       synopsis: details.synopsis || item.metadata?.synopsis,
       year: details.year || item.metadata?.year,
       airingStatus: details.status || item.metadata?.airingStatus,
@@ -610,7 +621,8 @@ export class MediaCatalogService {
       query AnimeByMalId($malId: Int) {
         Media(idMal: $malId, type: ANIME) {
           idMal
-          title { romaji english }
+          title { romaji english native }
+          synonyms
           description
           episodes
           format
@@ -663,6 +675,9 @@ export class MediaCatalogService {
     return {
       mal_id: Number(media.idMal),
       title: media.title?.english || media.title?.romaji,
+      title_english: media.title?.english || null,
+      title_japanese: media.title?.native || null,
+      title_synonyms: Array.isArray(media.synonyms) ? media.synonyms : [],
       synopsis: this.stripProviderHtml(media.description),
       episodes: media.episodes ?? null,
       type: media.format || null,

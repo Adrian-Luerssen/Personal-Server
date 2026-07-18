@@ -848,8 +848,11 @@ export class FitNotesImportService {
       workoutRows = db.prepare(`SELECT * FROM ${workoutTable}`).all();
     }
 
-    let processedSets = 0;
-    const totalSets = rows.length;
+    let persistedSets = 0;
+    const totalSets = Object.values(grouped).reduce(
+      (total, items) => total + items.length,
+      0
+    );
 
     // Session cache to avoid repeated lookups
     const dates = Object.keys(grouped);
@@ -915,7 +918,16 @@ export class FitNotesImportService {
       await manager.save(sessionRowsToUpdate);
     }
 
-    const setRowsToInsert: WorkoutSet[] = [];
+    let pendingSetRows: WorkoutSet[] = [];
+
+    const flushSetRows = async () => {
+      if (pendingSetRows.length === 0) return;
+      const batch = pendingSetRows;
+      pendingSetRows = [];
+      await manager.insert(WorkoutSet, batch);
+      persistedSets += batch.length;
+      onProgress(persistedSets, totalSets);
+    };
 
     for (const [date, items] of Object.entries(grouped)) {
       const session = sessionCache.get(date)!;
@@ -929,7 +941,7 @@ export class FitNotesImportService {
         const distance = this.toNumberOrNull(row.distance);
         const durationSec = this.toNumberOrNull(row.duration_seconds);
 
-        setRowsToInsert.push(
+        pendingSetRows.push(
           manager.create(WorkoutSet, {
             accountId: account.id,
             account,
@@ -945,14 +957,13 @@ export class FitNotesImportService {
           })
         );
         nextOrder++;
-        processedSets++;
-        if (processedSets % BULK_INSERT_CHUNK_SIZE === 0 || processedSets === totalSets) {
-          onProgress(processedSets, totalSets);
+        if (pendingSetRows.length >= BULK_INSERT_CHUNK_SIZE) {
+          await flushSetRows();
         }
       }
     }
 
-    await this.insertInChunks(manager, WorkoutSet, setRowsToInsert);
+    await flushSetRows();
   }
 
   // ============ LEGACY METHOD (for backwards compatibility) ============

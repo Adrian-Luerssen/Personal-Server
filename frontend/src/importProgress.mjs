@@ -32,6 +32,11 @@ export function formatImportDuration(ms = 0) {
   return `${seconds}s`
 }
 
+export function assertImportStreamComplete(lastEvent) {
+  if (lastEvent?.stage === 'complete' || lastEvent?.stage === 'error') return
+  throw new Error('Import connection closed before completion. Retry the import; existing records remain available.')
+}
+
 export async function streamImportProgress({
   url,
   accessToken,
@@ -58,6 +63,12 @@ export async function streamImportProgress({
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let lastEvent = null
+
+  const dispatchEvent = (event) => {
+    lastEvent = event
+    onEvent(event)
+  }
 
   while (true) {
     const { done, value } = await reader.read()
@@ -68,10 +79,11 @@ export async function streamImportProgress({
       decoder.decode(value, { stream: true })
     )
     buffer = parsed.buffer
-    parsed.events.forEach(onEvent)
+    parsed.events.forEach(dispatchEvent)
   }
 
   const tail = decoder.decode()
   const finalParsed = parseImportProgressChunk(buffer, `${tail}\n`)
-  finalParsed.events.forEach(onEvent)
+  finalParsed.events.forEach(dispatchEvent)
+  assertImportStreamComplete(lastEvent)
 }

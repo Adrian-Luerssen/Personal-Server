@@ -19,6 +19,7 @@ describe("FitNotesImportService", () => {
   }
 
   it("imports FitNotes sets in bulk instead of checking each imported set individually", async () => {
+    const persistenceEvents: string[] = [];
     const service = makeService();
     const rows = Array.from({ length: 75 }, (_, i) => ({
       _id: i + 1,
@@ -42,7 +43,10 @@ describe("FitNotesImportService", () => {
       }),
       create: jest.fn((_entity, data) => data),
       save: jest.fn(async (entity) => ({ id: "session-id-1", ...entity })),
-      insert: jest.fn(async () => ({})),
+      insert: jest.fn(async (_entity, insertedRows) => {
+        persistenceEvents.push(`insert:${insertedRows.length}`);
+        return {};
+      }),
       createQueryBuilder: jest.fn(() => ({
         where: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
@@ -68,7 +72,7 @@ describe("FitNotesImportService", () => {
       db,
       ["exercise", "training_log"],
       queryRunner,
-      jest.fn()
+      jest.fn((current, total) => persistenceEvents.push(`progress:${current}/${total}`))
     );
 
     const setFindOneCalls = manager.findOne.mock.calls.filter(
@@ -85,6 +89,7 @@ describe("FitNotesImportService", () => {
       .filter(([entity]) => entity === WorkoutSet)
       .flatMap((call) => call[1]);
     expect(insertedSetRows).toHaveLength(75);
+    expect(persistenceEvents).toEqual(["insert:1", "insert:75", "progress:75/75"]);
   });
 
   it("deduplicates bodyweight measurements by account and date before upserting", async () => {

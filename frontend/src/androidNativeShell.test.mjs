@@ -139,6 +139,9 @@ test('Android launcher replaces the retired component and every cached icon iden
   assert.match(manifest, /android:name="\.RecordLauncherActivity"/)
   assert.doesNotMatch(manifest, /<activity-alias[\s\S]*?android:name="\.RecordLauncherV3"/)
   assert.match(launcherActivity, /extends MainActivity/)
+  assert.match(mainActivity, /setTaskDescription/)
+  assert.match(mainActivity, /R\.mipmap\.record_bookplate_r_v3/)
+  assert.match(mainActivity, /onResume\(\)[\s\S]*?configureTaskIdentity\(\)/)
   assert.match(manifest, /android:allowBackup="false"/)
 })
 

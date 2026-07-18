@@ -1,8 +1,12 @@
 package com.adrianluerssen.personalserver;
 
+import android.app.ActivityManager;
 import android.app.NotificationManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.content.Intent;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -31,9 +35,16 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PersonalServerUpdatePlugin.class);
         registerPlugin(PersonalServerWidgetsPlugin.class);
         super.onCreate(savedInstanceState);
+        configureTaskIdentity();
         configureSystemBars();
         configureBackNavigation();
         openPaymentReview(getIntent());
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        configureTaskIdentity();
     }
 
     @Override
@@ -67,6 +78,42 @@ public class MainActivity extends BridgeActivity {
             if ("true".equals(handled) || attempt >= PAYMENT_ROUTE_RETRY_LIMIT) return;
             webView.postDelayed(() -> dispatchPaymentReview(webView, route, attempt + 1), 250);
         });
+    }
+
+    private void configureTaskIdentity() {
+        String label = getString(R.string.app_name);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setTaskDescription(
+                new ActivityManager.TaskDescription.Builder()
+                    .setLabel(label)
+                    .setIcon(R.mipmap.record_bookplate_r_v3)
+                    .setPrimaryColor(NATIVE_SHELL_COLOR)
+                    .setStatusBarColor(NATIVE_SHELL_COLOR)
+                    .setNavigationBarColor(NATIVE_SHELL_COLOR)
+                    .build()
+            );
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            setTaskDescription(
+                new ActivityManager.TaskDescription(
+                    label,
+                    R.mipmap.record_bookplate_r_v3,
+                    NATIVE_SHELL_COLOR
+                )
+            );
+            return;
+        }
+
+        Drawable drawable = getDrawable(R.mipmap.record_bookplate_r_v3);
+        if (drawable == null) return;
+        int size = Math.max(1, Math.round(108 * getResources().getDisplayMetrics().density));
+        Bitmap icon = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(icon);
+        drawable.setBounds(0, 0, size, size);
+        drawable.draw(canvas);
+        setTaskDescription(new ActivityManager.TaskDescription(label, icon, NATIVE_SHELL_COLOR));
     }
 
     private void configureSystemBars() {

@@ -4,13 +4,13 @@ import Icon from '../../components/icons/Icon'
 import {
   AnimatedNumber,
   LoadingLine,
-  StatCard,
   formatDuration,
   formatNumberShort,
 } from '../../components/shared'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { getRankMovement, getSpotifyProfileImageUrl, normalizeSpotifyTimeframe } from '../../spotifyRanking.mjs'
 import { normalizeListeningCollection } from './spotifyResponseModel.mjs'
+import SummaryStrip, { SummaryItem } from '../../components/record/SummaryStrip'
 
 const TIMEFRAMES = [
   { label: 'Day', value: 'today' },
@@ -207,22 +207,11 @@ export default function SpotifyRanking() {
 
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
-      <div className="section">
-        <div className="stat-grid">
-          <StatCard
-            label="Ranked Users"
-            value={loading ? <LoadingLine width={70} /> : <AnimatedNumber value={rows.length} formatter={formatNumberShort} />}
-          />
-          <StatCard
-            label="Streams"
-            value={loading ? <LoadingLine width={80} /> : <AnimatedNumber value={totals.streams} formatter={formatNumberShort} />}
-          />
-          <StatCard
-            label="Listening Time"
-            value={loading ? <LoadingLine width={100} /> : formatDuration(totals.ms)}
-          />
-        </div>
-      </div>
+      <SummaryStrip className="listening-ranking-summary" aria-label="Listening ranking summary">
+        <SummaryItem label="Ranked users" value={loading ? '—' : <AnimatedNumber value={rows.length} formatter={formatNumberShort} />} />
+        <SummaryItem label="Streams" value={loading ? '—' : <AnimatedNumber value={totals.streams} formatter={formatNumberShort} />} />
+        <SummaryItem label="Listening time" value={loading ? '—' : formatDuration(totals.ms)} />
+      </SummaryStrip>
 
       <div className="section">
         <h3>Top Listeners</h3>

@@ -127,6 +127,9 @@ test('detected payments stay normalized locally and offer review actions', () =>
 test('Android launcher uses the versioned Bookplate R icon to invalidate stale launcher caches', () => {
   assert.match(manifest, /android:icon="@mipmap\/record_bookplate_r_v2"/)
   assert.match(manifest, /android:roundIcon="@mipmap\/record_bookplate_r_v2_round"/)
+  assert.match(manifest, /android:name="\.RecordLauncherV3"/)
+  assert.match(manifest, /android:targetActivity="\.MainActivity"/)
+  assert.doesNotMatch(manifest.match(/<activity[\s\S]*?<\/activity>/)?.[0] || '', /android\.intent\.category\.LAUNCHER/)
   assert.match(manifest, /android:allowBackup="false"/)
 })
 

@@ -1476,6 +1476,18 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByText('No records yet', { exact: true })).toBeVisible()
   })
 
+  test('keeps the workout history summary compact on Android', async ({ page }) => {
+    await enableNativeSession(page)
+    await page.goto('/workout/history')
+
+    const summary = page.locator('.workout-history-summary')
+    await expect(summary).toBeVisible()
+    await expect(summary.locator('.workout-history-summary__primary')).toHaveCount(2)
+    await expect(summary.locator('.workout-history-summary__secondary')).toHaveCount(3)
+    await expect(summary).toContainText('Training time')
+    expect((await summary.boundingBox())?.height).toBeLessThan(190)
+  })
+
   test('keeps native dashboard content clear of the bottom tabbar', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {

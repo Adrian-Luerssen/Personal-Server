@@ -20,13 +20,23 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
+        </activity>
 
+        <!-- Version the launcher component as well as the drawable. Samsung and
+             other OEM launchers cache icons by component name across updates. -->
+        <activity-alias
+            android:name=".RecordLauncherV3"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/record_bookplate_r_v2"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/record_bookplate_r_v2_round"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
-        </activity>
+        </activity-alias>
 
         <activity
             android:name=".health.HealthConnectPermissionActivity"

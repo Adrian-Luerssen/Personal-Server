@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../../api'
 import {
-  StatCard,
   Modal,
   LoadingLine,
-  SkeletonStatCard,
   formatDate,
 } from '../../components/shared'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 import InlineConfirmation from '../../components/record/InlineConfirmation'
+import SummaryStrip, { SummaryItem } from '../../components/record/SummaryStrip'
 
 export default function WorkoutBodyweight() {
   const [entries, setEntries] = useState([])
@@ -86,18 +85,12 @@ export default function WorkoutBodyweight() {
         />
       )}
 
-      <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
-        ) : (
-          <>
-            <StatCard label="Latest Weight" value={latestEntry ? `${latestEntry.weightKg} kg` : '—'} subtitle={latestEntry ? formatDate(latestEntry.date) : ''} />
-            <StatCard label="30-Day Average" value={avg30 ? `${avg30} kg` : '—'} />
-            <StatCard label="Total Change" value={change !== null ? `${change > 0 ? '+' : ''}${change} kg` : '—'} subtitle={oldest && latestEntry ? `since ${formatDate(oldest.date)}` : ''} />
-            <StatCard label="Total Entries" value={entries.length} />
-          </>
-        )}
-      </div>
+      <SummaryStrip aria-label="Bodyweight summary">
+        <SummaryItem label="Latest weight" value={loading ? '—' : latestEntry ? `${latestEntry.weightKg} kg` : '—'} detail={!loading && latestEntry ? formatDate(latestEntry.date) : ''} />
+        <SummaryItem label="30-day average" value={loading ? '—' : avg30 ? `${avg30} kg` : '—'} />
+        <SummaryItem label="Total change" value={loading ? '—' : change !== null ? `${change > 0 ? '+' : ''}${change} kg` : '—'} detail={!loading && oldest && latestEntry ? `Since ${formatDate(oldest.date)}` : ''} />
+        <SummaryItem label="Entries" value={loading ? '—' : entries.length} detail="All recorded" />
+      </SummaryStrip>
 
       <div style={{ marginBottom: '1.5rem' }}>
         <button className="btn" onClick={() => openModal()}>

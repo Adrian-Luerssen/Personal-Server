@@ -2,11 +2,11 @@ import React, { useEffect, useState, useRef } from 'react'
 import { api } from '../../api'
 import {
   LoadingSpinner,
+  LoadingLine,
   SessionCard,
   SetRow,
   StatCard,
   Modal,
-  SkeletonStatCard,
   SkeletonSessionCard,
   formatDate,
   formatDateTime,
@@ -117,19 +117,39 @@ export default function WorkoutHistory() {
       {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
       <ScrollReveal>
-        <div className="stat-grid" style={{ marginBottom: '1.5rem' }}>
+        <dl className="workout-history-summary" aria-label="All-time training summary">
           {loading && page === 1 ? (
-            Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)
+            Array.from({ length: 5 }).map((_, i) => (
+              <div className={i < 2 ? 'workout-history-summary__primary' : 'workout-history-summary__secondary'} key={i}>
+                <LoadingLine width="54%" />
+                <LoadingLine width="72%" />
+              </div>
+            ))
           ) : (
             <>
-              <StatCard label="Total Workouts" value={totalWorkouts} />
-              <StatCard label="Total Sets" value={totalSets} />
-              <StatCard label="Total Reps" value={totalReps} />
-              <StatCard label="Total Volume" value={`${totalVolume} kg`} />
-              <StatCard label="Total Time" value={totalTimeSeconds > 0 ? `${Math.floor(totalTimeSeconds / 3600)}h ${Math.floor((totalTimeSeconds % 3600) / 60)}m` : '—'} />
+              <div className="workout-history-summary__primary">
+                <dt>Workouts</dt>
+                <dd>{totalWorkouts}</dd>
+              </div>
+              <div className="workout-history-summary__primary">
+                <dt>Training time</dt>
+                <dd>{totalTimeSeconds > 0 ? `${Math.floor(totalTimeSeconds / 3600)}h ${Math.floor((totalTimeSeconds % 3600) / 60)}m` : '—'}</dd>
+              </div>
+              <div className="workout-history-summary__secondary">
+                <dt>Sets</dt>
+                <dd>{totalSets}</dd>
+              </div>
+              <div className="workout-history-summary__secondary">
+                <dt>Reps</dt>
+                <dd>{totalReps}</dd>
+              </div>
+              <div className="workout-history-summary__secondary">
+                <dt>Volume</dt>
+                <dd>{totalVolume}<small> kg</small></dd>
+              </div>
             </>
           )}
-        </div>
+        </dl>
       </ScrollReveal>
 
       <ScrollReveal delay={100}>

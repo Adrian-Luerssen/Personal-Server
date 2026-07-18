@@ -54,8 +54,9 @@ test('Bookplate R is the browser, installable web, and native launcher identity'
   assert.match(nativeMark, /#A999FF/i)
   assert.match(nativeMark, /#7C5CFF/i)
   assert.doesNotMatch(nativeMark, /#7DD3FC|#34D399/i)
-  assert.match(nativeManifest, /android:icon="@mipmap\/record_bookplate_r"/)
-  assert.match(nativeManifest, /android:roundIcon="@mipmap\/record_bookplate_r_round"/)
+  assert.match(nativeManifest, /android:icon="@mipmap\/record_bookplate_r_v2"/)
+  assert.match(nativeManifest, /android:roundIcon="@mipmap\/record_bookplate_r_v2_round"/)
+  assert.match(nativeManifest, /android:name="\.RecordLauncherV3"/)
 
   for (const asset of [
     'public/record-bookplate-r.svg',

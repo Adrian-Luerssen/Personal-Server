@@ -9,8 +9,10 @@ test.describe('Workout History', () => {
 
   test('should show the session totals as one summary strip', async ({ authenticatedPage: page }) => {
     await page.goto('/workout/history')
-    await expect(page.locator('.stat-grid').first()).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('.record-summary__item')).toHaveCount(5)
+    await expect(page.locator('.workout-history-summary')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.workout-history-summary__primary')).toHaveCount(2)
+    await expect(page.locator('.workout-history-summary__secondary')).toHaveCount(3)
+    await expect(page.locator('.workout-history-summary')).toContainText('Training time')
   })
 
   test('should show search and date filter inputs', async ({ authenticatedPage: page }) => {

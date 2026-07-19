@@ -1,7 +1,8 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 // Profile merged into Settings > Account tab
 import withRefreshGuard from './withRefreshGuard'
+import lazyRoute from './lazyRoute'
 import Layout from './components/Layout'
 import AuthGuard from './components/AuthGuard'
 import NativeUpdateGate from './components/NativeUpdateGate'
@@ -21,33 +22,33 @@ import {
   shouldAutoRequestNativeNotificationPermission,
 } from './notificationPermission.mjs'
 
-const Login = lazy(() => import('./pages/Auth/Login'))
-const Register = lazy(() => import('./pages/Auth/Register'))
-const Landing = lazy(() => import('./pages/Landing'))
-const Home = lazy(() => import('./pages/Home'))
-const MobileMenu = lazy(() => import('./pages/MobileMenu'))
-const SpotifyPersonal = lazy(() => import('./pages/Spotify/SpotifyPersonal'))
-const SpotifyGlobal = lazy(() => import('./pages/Spotify/SpotifyGlobal'))
-const SpotifyRanking = lazy(() => import('./pages/Spotify/SpotifyRanking'))
-const SpotifyCallback = lazy(() => import('./pages/Spotify/SpotifyCallback'))
-const Workout = lazy(() => import('./pages/Workout/Workout'))
-const WorkoutActive = lazy(() => import('./pages/Workout/WorkoutActive'))
-const WorkoutHistory = lazy(() => import('./pages/Workout/WorkoutHistory'))
-const WorkoutExercises = lazy(() => import('./pages/Workout/WorkoutExercises'))
-const WorkoutBodyweight = lazy(() => import('./pages/Workout/WorkoutBodyweight'))
-const WorkoutImport = lazy(() => import('./pages/Workout/WorkoutImport'))
-const FinanceTransactions = lazy(() => import('./pages/Finance/FinanceTransactions'))
-const FinanceBudgets = lazy(() => import('./pages/Finance/FinanceBudgets'))
-const FinanceTrends = lazy(() => import('./pages/Finance/FinanceTrends'))
-const FinanceImport = lazy(() => import('./pages/Finance/FinanceImport'))
-const FinanceSettings = lazy(() => import('./pages/Finance/FinanceSettings'))
-const Habits = lazy(() => import('./pages/Habits/Habits'))
-const HabitsSettings = lazy(() => import('./pages/Habits/HabitsSettings'))
-const Media = lazy(() => import('./pages/Media/Media'))
-const MediaImport = lazy(() => import('./pages/Media/MediaImport'))
-const MediaSettings = lazy(() => import('./pages/Media/MediaSettings'))
-const ChatPage = lazy(() => import('./pages/Chat/ChatPage'))
-const Settings = lazy(() => import('./pages/Settings/Settings'))
+const Login = lazyRoute(() => import('./pages/Auth/Login'))
+const Register = lazyRoute(() => import('./pages/Auth/Register'))
+const Landing = lazyRoute(() => import('./pages/Landing'))
+const Home = lazyRoute(() => import('./pages/Home'))
+const MobileMenu = lazyRoute(() => import('./pages/MobileMenu'))
+const SpotifyPersonal = lazyRoute(() => import('./pages/Spotify/SpotifyPersonal'))
+const SpotifyGlobal = lazyRoute(() => import('./pages/Spotify/SpotifyGlobal'))
+const SpotifyRanking = lazyRoute(() => import('./pages/Spotify/SpotifyRanking'))
+const SpotifyCallback = lazyRoute(() => import('./pages/Spotify/SpotifyCallback'))
+const Workout = lazyRoute(() => import('./pages/Workout/Workout'))
+const WorkoutActive = lazyRoute(() => import('./pages/Workout/WorkoutActive'))
+const WorkoutHistory = lazyRoute(() => import('./pages/Workout/WorkoutHistory'))
+const WorkoutExercises = lazyRoute(() => import('./pages/Workout/WorkoutExercises'))
+const WorkoutBodyweight = lazyRoute(() => import('./pages/Workout/WorkoutBodyweight'))
+const WorkoutImport = lazyRoute(() => import('./pages/Workout/WorkoutImport'))
+const FinanceTransactions = lazyRoute(() => import('./pages/Finance/FinanceTransactions'))
+const FinanceBudgets = lazyRoute(() => import('./pages/Finance/FinanceBudgets'))
+const FinanceTrends = lazyRoute(() => import('./pages/Finance/FinanceTrends'))
+const FinanceImport = lazyRoute(() => import('./pages/Finance/FinanceImport'))
+const FinanceSettings = lazyRoute(() => import('./pages/Finance/FinanceSettings'))
+const Habits = lazyRoute(() => import('./pages/Habits/Habits'))
+const HabitsSettings = lazyRoute(() => import('./pages/Habits/HabitsSettings'))
+const Media = lazyRoute(() => import('./pages/Media/Media'))
+const MediaImport = lazyRoute(() => import('./pages/Media/MediaImport'))
+const MediaSettings = lazyRoute(() => import('./pages/Media/MediaSettings'))
+const ChatPage = lazyRoute(() => import('./pages/Chat/ChatPage'))
+const Settings = lazyRoute(() => import('./pages/Settings/Settings'))
 
 // BUG FIX B1: Move HOC calls to module scope to prevent unmount/remount on every render
 const GuardedHome = withRefreshGuard(Home)

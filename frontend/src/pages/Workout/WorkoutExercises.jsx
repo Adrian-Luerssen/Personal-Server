@@ -6,6 +6,13 @@ import PageHeader from '../../components/PageHeader'
 import InlineConfirmation from '../../components/record/InlineConfirmation'
 import ColorField from '../../components/product/ColorField'
 
+function toArray(value) {
+  if (Array.isArray(value)) return value
+  if (Array.isArray(value?.items)) return value.items
+  if (Array.isArray(value?.records)) return value.records
+  return []
+}
+
 export default function WorkoutExercises() {
   const [exercises, setExercises] = useState([])
   const [categories, setCategories] = useState([])
@@ -29,7 +36,7 @@ export default function WorkoutExercises() {
     setLoading(true); setError('')
     try {
       const [ex, cat] = await Promise.all([api.get('/workout/exercises'), api.get('/workout/categories')])
-      setExercises(ex || []); setCategories(cat || [])
+      setExercises(toArray(ex)); setCategories(toArray(cat))
     } catch (e) { setError(e.message || 'Failed to load data') }
     finally { setLoading(false) }
   }

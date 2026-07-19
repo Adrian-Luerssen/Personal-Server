@@ -103,16 +103,16 @@ export default function NativeUpdateGate({ nativeApp }) {
   }
 
   if (update) {
-    return (
-      <div className={`native-update-gate ${update.required ? 'is-blocking' : ''}`} role="dialog" aria-modal={update.required ? 'true' : 'false'}>
+    return update.required ? (
+      <div className="native-update-gate is-blocking" role="dialog" aria-modal="true" aria-labelledby="required-update-title">
         <div className="native-update-gate__panel">
           <span className="native-update-gate__icon" aria-hidden="true">
             <Icon name="smartphone" size={22} />
           </span>
           <span className="native-update-gate__eyebrow">Record for Android</span>
-          <h2>{update.required ? 'Update required' : 'A new version is ready'}</h2>
+          <h2 id="required-update-title">Update required</h2>
           <p className="native-update-gate__version">v{normalizeAppVersion(update.currentVersion)} <span aria-hidden="true">→</span> v{normalizeAppVersion(update.version)}</p>
-          <p className="native-update-gate__summary">{update.changelog?.summary || (update.required ? 'Update to keep using Record.' : 'Install the latest improvements when you are ready.')}</p>
+          <p className="native-update-gate__summary">{update.changelog?.summary || 'Update to keep using Record.'}</p>
           <ChangelogList changelog={update.changelog} />
           {status && <div className="native-update-gate__status" role="status">{status}</div>}
           <div className="native-update-gate__actions">
@@ -120,33 +120,39 @@ export default function NativeUpdateGate({ nativeApp }) {
               <Icon name="download" size={18} />
               {installing ? 'Preparing update…' : 'Install update'}
             </button>
-            {!update.required && (
-              <button type="button" className="native-secondary-button" onClick={dismiss}>
-                Not now
-              </button>
-            )}
           </div>
         </div>
       </div>
+    ) : (
+      <aside className="native-update-notice" role="status" aria-label="Android update available">
+        <span className="native-update-notice__icon" aria-hidden="true"><Icon name="download" size={19} /></span>
+        <div className="native-update-notice__copy">
+          <strong>A new version is ready</strong>
+          <span>v{normalizeAppVersion(update.version)} can be installed when convenient.</span>
+        </div>
+        <button type="button" className="native-update-notice__install" onClick={install} disabled={installing}>
+          {installing ? 'Preparingâ€¦' : 'Install'}
+        </button>
+        <button type="button" className="native-update-notice__dismiss" onClick={dismiss} aria-label="Dismiss update notice">
+          <Icon name="x" size={18} />
+        </button>
+        {status && <span className="native-update-notice__status">{status}</span>}
+      </aside>
     )
   }
 
   if (announcement) {
     return (
-      <div className="native-update-gate" role="dialog" aria-modal="false">
-        <div className="native-update-gate__panel">
-          <span className="native-update-gate__icon" aria-hidden="true">
-            <Icon name="sparkles" size={22} />
-          </span>
-          <h2>Updated to v{announcement.version}</h2>
-          <ChangelogList changelog={announcement.changelog} />
-          <div className="native-update-gate__actions">
-            <button type="button" className="native-primary-button" onClick={acknowledgeAnnouncement}>
-              Continue
-            </button>
-          </div>
+      <aside className="native-update-notice is-installed" role="status" aria-label="Record updated">
+        <span className="native-update-notice__icon" aria-hidden="true"><Icon name="check" size={19} /></span>
+        <div className="native-update-notice__copy">
+          <strong>Record updated</strong>
+          <span>Version {announcement.version} is installed.</span>
         </div>
-      </div>
+        <button type="button" className="native-update-notice__dismiss" onClick={acknowledgeAnnouncement} aria-label="Dismiss update confirmation">
+          <Icon name="x" size={18} />
+        </button>
+      </aside>
     )
   }
 

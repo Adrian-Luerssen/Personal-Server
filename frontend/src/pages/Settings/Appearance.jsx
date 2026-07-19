@@ -9,19 +9,19 @@ const DENSITIES = [
   { value: 'spacious', label: 'Spacious', detail: 'More separation between controls.', icon: 'rows-2' },
 ]
 
-export default function Appearance() {
+export default function Appearance({ compact = false }) {
   const { prefs, updatePrefs } = usePreferences()
 
   return (
     <div className="record-appearance">
-      <section className="record-appearance__identity">
+      {!compact && <section className="record-appearance__identity">
         <div className="record-appearance__mark"><BrandMark size={38} /></div>
         <div>
           <span>Record identity</span>
           <h2>One visual language, everywhere.</h2>
           <p>The graphite canvas, indexed-spine mark, and violet action signal stay fixed so Cash, Gym, Habits, Music, and Series always feel like the same product.</p>
         </div>
-      </section>
+      </section>}
 
       <section className="record-settings-card">
         <header><div><span>Interface</span><h2>Density</h2></div><small>Applies across this device</small></header>
@@ -43,10 +43,10 @@ export default function Appearance() {
         </div>
       </section>
 
-      <section className="record-settings-card record-settings-card--note">
+      {!compact && <section className="record-settings-card record-settings-card--note">
         <Icon name="shield-check" size={18} />
         <div><strong>Built for continuity</strong><p>Product colors and navigation placement are intentionally protected from per-page overrides. This keeps screenshots, support guidance, and daily muscle memory consistent.</p></div>
-      </section>
+      </section>}
     </div>
   )
 }

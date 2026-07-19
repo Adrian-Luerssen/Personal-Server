@@ -61,7 +61,7 @@ function UserAvatar({ user, size = 34 }) {
         height: size,
         borderRadius: size >= 44 ? 'var(--radius-md)' : 'var(--radius-sm)',
         background: 'var(--color-accent-muted)',
-        color: 'var(--color-accent)',
+        color: 'var(--record-text)',
         display: 'grid',
         placeItems: 'center',
         fontWeight: 800,
@@ -216,7 +216,7 @@ export default function SpotifyRanking() {
         <SummaryItem label="Listening time" value={loading ? '—' : formatDuration(totals.ms)} />
       </SummaryStrip>
 
-      <div className="section">
+      {!nativeApp && <div className="section">
         <h2 className="native-ranking-section-title">Top listeners</h2>
         {loading ? (
           <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
@@ -235,11 +235,11 @@ export default function SpotifyRanking() {
             {topThree.map(user => <RankingPodiumCard key={user.accountId} user={user} />)}
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="section">
         {nativeApp ? (
-          <div className="card native-ranking-card">
+          <div className="native-ranking-card">
             <h2 className="native-ranking-section-title">Full ranking</h2>
             {loading ? (
               <div style={{ display: 'grid', gap: '0.75rem' }}>

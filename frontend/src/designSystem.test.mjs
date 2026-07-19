@@ -23,7 +23,8 @@ test('the application loads one ordered Record stylesheet instead of inherited t
 
 test('Record uses one brand accent and semantic state colors, not domain page themes', () => {
   const css = read('src/record.css')
-  assert.match(css, /--record-accent:\s*#7c5cff/i)
+  assert.match(css, /--record-accent:\s*#7048e8/i)
+  assert.match(css, /--record-accent-text:\s*#a999ff/i)
   assert.match(css, /--record-canvas:\s*#090e14/i)
   assert.match(css, /--record-line:\s*#233041/i)
   assert.match(css, /--record-success:\s*#32d583/i)

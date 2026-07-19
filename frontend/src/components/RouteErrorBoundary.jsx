@@ -26,10 +26,15 @@ export default class RouteErrorBoundary extends React.Component {
         </div>
         <div>
           <h1>Section unavailable</h1>
-          <p>This page could not render because one response was not in the expected format.</p>
-          <button type="button" className="btn" onClick={() => window.location.reload()}>
-            Reload section
-          </button>
+          <p>This route did not finish opening. Retry it locally or return to the previous screen; saved records are unaffected.</p>
+          <div className="route-error-card__actions">
+            <button type="button" className="btn" onClick={() => this.setState({ error: null })}>
+              Try section again
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => window.history.back()}>
+              Go back
+            </button>
+          </div>
         </div>
       </section>
     )

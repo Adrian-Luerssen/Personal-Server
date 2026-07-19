@@ -8,7 +8,8 @@ const detail = await readFile(new URL('./SeriesDetail.jsx', import.meta.url), 'u
 test('Series is a season-aware library rather than a generic media dashboard', () => {
   assert.match(media, /<PageHeading/)
   assert.match(media, /<SummaryStrip/)
-  assert.match(media, /className="record-series-filters"/)
+  assert.match(media, /record-series-filters/)
+  assert.match(media, /FilterContainer = nativeApp \? 'details' : 'section'/)
   assert.match(media, /series-row__scope/)
   assert.match(media, /related release/)
   assert.match(media, /season/)

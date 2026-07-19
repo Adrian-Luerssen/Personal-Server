@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Icon from '../components/icons/Icon'
-import { NATIVE_APPS } from '../nativeNavigation.mjs'
 import { usePreferences } from '../contexts/PreferencesContext'
-import { filterEnabledNativeApps, isFeatureEnabled } from '../modulePreferences.mjs'
+import { isFeatureEnabled } from '../modulePreferences.mjs'
 
 const MENU_SECTIONS = [
   {
@@ -67,8 +66,6 @@ export default function MobileMenu() {
   const [query, setQuery] = useState('')
   const [searchParams] = useSearchParams()
   const section = searchParams.get('section')
-  const enabledApps = useMemo(() => filterEnabledNativeApps(NATIVE_APPS, prefs), [prefs])
-
   const sections = useMemo(() => {
     const visibleMenuSections = MENU_SECTIONS
       .map((group) => ({
@@ -101,28 +98,18 @@ export default function MobileMenu() {
   return (
     <main className="native-menu-page">
       <section className="native-menu-hero">
-        <span className="native-eyebrow">Record index</span>
         <h1>Records</h1>
-        <p>Open a daily record, review an insight, or manage its source.</p>
-        <div className="native-app-grid" aria-label="App areas">
-          {enabledApps.map((app) => (
-            <Link key={app.id} className={`native-app-card native-app-card--${app.tone}`} to={app.root}>
-              <span aria-hidden="true"><Icon name={app.icon} size={19} /></span>
-              <strong>{app.label}</strong>
-              <small>{app.subtitle}</small>
-            </Link>
-          ))}
-        </div>
+        <p>Open a record or manage where its data comes from.</p>
         <label className="native-menu-search">
           <Icon name="search" size={18} aria-hidden="true" />
-          <span className="sr-only">Search app sections</span>
+          <span className="sr-only">Search records and settings</span>
           <input
             type="search"
             role="searchbox"
-            aria-label="Search app sections"
+            aria-label="Search records and settings"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search app sections"
+            placeholder="Search records and settings"
           />
         </label>
       </section>

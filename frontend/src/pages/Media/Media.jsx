@@ -180,7 +180,7 @@ function SeriesRow({ item, catalog, onOpen, onScore, onIncrement, onWatchEpisode
     >
       <div className="series-row__cover">
         {item.coverUrl && item.coverUrl.length > 1 ? (
-          <img src={item.coverUrl} alt={item.title} loading="lazy" />
+          <img src={item.coverUrl} alt={item.title} loading="lazy" decoding="async" />
         ) : (
           <div className="series-row__cover-placeholder" aria-hidden="true">
             <Icon name={typeMeta.icon || 'film'} size={22} />
@@ -373,7 +373,7 @@ function AddModal({ open, onClose, onSave }) {
                   <div key={i} className="media-search-result">
                     <div className="media-search-result-cover">
                       {item.coverUrl ? (
-                        <img src={item.coverUrl} alt="" />
+                        <img src={item.coverUrl} alt="" loading="lazy" decoding="async" />
                       ) : (
                         <Icon name={meta.icon || 'film'} size={20} />
                       )}
@@ -586,7 +586,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
             <div className="media-edit-layout">
               {item.coverUrl && item.coverUrl.length > 1 && (
                 <div className="media-edit-cover">
-                  <img src={item.coverUrl} alt={item.title} />
+                  <img src={item.coverUrl} alt={item.title} loading="lazy" decoding="async" />
                 </div>
               )}
               <div className="media-edit-fields">
@@ -688,7 +688,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                 return (
                   <div key={i} className="media-search-result">
                     <div className="media-search-result-cover">
-                      {result.coverUrl ? <img src={result.coverUrl} alt="" /> : <Icon name={meta.icon || 'film'} size={20} />}
+                      {result.coverUrl ? <img src={result.coverUrl} alt="" loading="lazy" decoding="async" /> : <Icon name={meta.icon || 'film'} size={20} />}
                     </div>
                     <div className="media-search-result-info">
                       <div className="media-search-result-title">{result.title}</div>
@@ -920,6 +920,19 @@ export default function Media() {
     }
   }
 
+  const libraryInsights = (
+    <>
+      <SummaryStrip>
+        <SummaryItem label="Library" value={loading ? '—' : stats?.total ?? items.length} />
+        <SummaryItem label="In progress" value={loading ? '—' : activeCount} />
+        <SummaryItem label="Completed" value={loading ? '—' : completedCount} />
+        <SummaryItem label="Average score" value={loading || avgRating == null ? '—' : Number(avgRating).toFixed(1)} />
+      </SummaryStrip>
+      <SeriesConsumption stats={stats} />
+    </>
+  )
+  const FilterContainer = nativeApp ? 'details' : 'section'
+
   return (
     <div className="series-register" data-testid="series-register">
       <PageHeading
@@ -930,18 +943,17 @@ export default function Media() {
         actions={<button className="record-button record-button--primary" onClick={() => setAddOpen(true)}><Icon name="plus" size={16} /> Add title</button>}
       />
 
-      <SummaryStrip>
-        <SummaryItem label="Library" value={loading ? '—' : stats?.total ?? items.length} />
-        <SummaryItem label="In progress" value={loading ? '—' : activeCount} />
-        <SummaryItem label="Completed" value={loading ? '—' : completedCount} />
-        <SummaryItem label="Average score" value={loading || avgRating == null ? '—' : Number(avgRating).toFixed(1)} />
-      </SummaryStrip>
-
-      <SeriesConsumption stats={stats} />
+      {!nativeApp && libraryInsights}
 
       {loadError && <StatePanel kind="offline" title="Using the last series record" detail={loadError} action={<button className="record-button record-button--compact" onClick={load}>Retry</button>} />}
 
-      <section className="record-series-filters" aria-label="Filter series library">
+      <FilterContainer className={`record-series-filters${nativeApp ? ' record-series-filters--native' : ''}`} aria-label="Filter series library">
+        {nativeApp && (
+          <summary>
+            <span><strong>Search and filters</strong><small>{search || filterStatus || filterType ? 'Filters active' : 'All titles'}</small></span>
+            <Icon name="sliders-horizontal" size={17} />
+          </summary>
+        )}
         <IconInput className="record-series-filters__search" aria-label="Search media library" placeholder="Search library..." value={search} onChange={e => setSearch(e.target.value)} />
         <label className="record-series-filters__row record-series-sort">
           <span>Order</span>
@@ -974,7 +986,7 @@ export default function Media() {
             ))}
           </div>
         </div>
-      </section>
+      </FilterContainer>
 
       {loading ? (
         <StatePanel kind="loading" title="Opening the series record" detail="Season catalogs and continuity are checked without hiding saved titles." />
@@ -1010,6 +1022,16 @@ export default function Media() {
           </div>
           <SeriesPagination pagination={pagination} onPageChange={changePage} />
         </div>
+      )}
+
+      {nativeApp && (
+        <details className="series-mobile-insights">
+          <summary>
+            <span><strong>Library insights</strong><small>Progress, score, and watch time</small></span>
+            <Icon name="chevron-down" size={16} />
+          </summary>
+          {libraryInsights}
+        </details>
       )}
 
       <AddModal open={addOpen} onClose={() => setAddOpen(false)} onSave={load} />

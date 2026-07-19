@@ -91,6 +91,7 @@ describe('native adaptive app navigation', () => {
     assert.equal(getNativeBackDestination('/menu'), '/home');
     assert.equal(getNativeBackDestination('/chat'), '/home');
     assert.equal(getNativeBackDestination('/settings?section=notifications'), '/settings');
+    assert.equal(getNativeBackDestination('/settings?section=appearance&panel=modules'), '/settings?section=appearance');
     assert.equal(getNativeBackDestination('/settings'), '/home');
     assert.equal(getNativeBackDestination('/finance/transactions'), '/home');
     assert.equal(getNativeBackDestination('/finance/budgets'), '/finance/transactions');

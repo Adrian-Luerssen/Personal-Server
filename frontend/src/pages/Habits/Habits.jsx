@@ -684,7 +684,7 @@ function NativeHabitsView({
           <div className="native-panel-head">
             <div>
               <h2>Due now</h2>
-              <p>Large actions first. Secondary states stay one tap away.</p>
+              <p>Log each habit for the selected day. Tap a completed entry to change it.</p>
             </div>
             <button type="button" className="native-icon-button" aria-label="Refresh habits" onClick={() => loadData({ silent: true, force: true })}>
               <Icon name="refresh-cw" size={16} />

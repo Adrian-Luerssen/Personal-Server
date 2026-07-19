@@ -150,6 +150,9 @@ export function getNativeBackDestination(path, search = '') {
   }
 
   if (pathname === '/settings') {
+    if (query.includes('section=appearance') && query.includes('panel=')) {
+      return '/settings?section=appearance'
+    }
     return query.includes('section=') ? '/settings' : '/home'
   }
 

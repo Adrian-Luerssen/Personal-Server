@@ -983,7 +983,45 @@ function AdminSettingsSection() {
   )
 }
 
-function NativeSettings({ activeSection, setActiveSection, spotifyError, currentLanguage, changeLanguage, t, isAdmin }) {
+const NATIVE_APPEARANCE_PANELS = [
+  { key: 'density', label: 'Density', description: 'Choose how much information fits on screen', icon: 'rows-3' },
+  { key: 'modules', label: 'Modules', description: 'Choose the records visible in navigation and Home', icon: 'layout-grid' },
+  { key: 'widgets', label: 'Home widgets', description: 'Order the summary widgets on Today', icon: 'panels-top-left' },
+  { key: 'language', label: 'Language', description: 'Set the language used on this device', icon: 'globe' },
+]
+
+function NativeAppearanceSection({ appearancePanel, onSelect, currentLanguage, changeLanguage, t }) {
+  if (!appearancePanel) {
+    return (
+      <section className="native-settings-list native-appearance-index" aria-label="Appearance settings">
+        {NATIVE_APPEARANCE_PANELS.map((item) => (
+          <button type="button" className="native-settings-row" key={item.key} onClick={() => onSelect(item.key)}>
+            <span className="native-settings-row__icon" aria-hidden="true"><Icon name={item.icon} size={20} /></span>
+            <span className="native-settings-row__copy"><strong>{item.label}</strong><small>{item.description}</small></span>
+            <Icon name="chevron-right" size={18} aria-hidden="true" />
+          </button>
+        ))}
+      </section>
+    )
+  }
+
+  const panel = NATIVE_APPEARANCE_PANELS.find((item) => item.key === appearancePanel)
+  return (
+    <div className="native-settings-subpage">
+      <button type="button" className="native-back-row" onClick={() => onSelect('')}>
+        <Icon name="chevron-left" size={18} />
+        Appearance
+      </button>
+      {panel && <header><span>Appearance</span><h2>{panel.label}</h2><p>{panel.description}.</p></header>}
+      {appearancePanel === 'density' && <Appearance compact />}
+      {appearancePanel === 'modules' && <ModuleSettingsSection />}
+      {appearancePanel === 'widgets' && <NativeWidgetsSection />}
+      {appearancePanel === 'language' && <NativePreferencesSection currentLanguage={currentLanguage} changeLanguage={changeLanguage} t={t} />}
+    </div>
+  )
+}
+
+function NativeSettings({ activeSection, setActiveSection, appearancePanel, setAppearancePanel, spotifyError, currentLanguage, changeLanguage, t, isAdmin }) {
   const back = () => setActiveSection('')
   if (!activeSection) return <NativeSettingsIndex onSelect={setActiveSection} isAdmin={isAdmin} />
 
@@ -997,7 +1035,7 @@ function NativeSettings({ activeSection, setActiveSection, spotifyError, current
       {activeSection === 'sync' && <NativeSyncSection />}
       {activeSection === 'privacy' && <NativePrivacySection />}
       {activeSection === 'updates' && <NativeUpdatesSection />}
-      {activeSection === 'appearance' && <><Appearance /><ModuleSettingsSection /><NativeWidgetsSection /><NativePreferencesSection currentLanguage={currentLanguage} changeLanguage={changeLanguage} t={t} /></>}
+      {activeSection === 'appearance' && <NativeAppearanceSection appearancePanel={appearancePanel} onSelect={setAppearancePanel} currentLanguage={currentLanguage} changeLanguage={changeLanguage} t={t} />}
       {activeSection === 'data' && <DataManagement />}
       {activeSection === 'developer' && <AgentApiKeys />}
       {activeSection === 'admin' && isAdmin && <AdminSettingsSection />}
@@ -1010,6 +1048,7 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const requestedSection = searchParams.get('section')
+  const requestedPanel = searchParams.get('panel') || ''
   const spotifyError = searchParams.get('spotify_error') || ''
   const nativeApp = isNativeMobileApp()
   const [accountRole, setAccountRole] = useState('regular')
@@ -1050,11 +1089,18 @@ export default function Settings() {
     else setSearchParams({})
   }
 
+  function setNativeAppearancePanel(panel) {
+    if (panel) setSearchParams({ section: 'appearance', panel })
+    else setSearchParams({ section: 'appearance' })
+  }
+
   if (nativeApp) {
     return (
       <NativeSettings
         activeSection={activeNativeSection}
         setActiveSection={setNativeSection}
+        appearancePanel={activeNativeSection === 'appearance' ? requestedPanel : ''}
+        setAppearancePanel={setNativeAppearancePanel}
         spotifyError={spotifyError}
         currentLanguage={currentLanguage}
         changeLanguage={changeLanguage}

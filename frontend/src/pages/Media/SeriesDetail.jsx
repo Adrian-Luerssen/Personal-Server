@@ -87,7 +87,7 @@ export default function SeriesDetail({
       >
         <header className="series-detail__hero">
           <div className="series-detail__cover">
-            {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <Icon name="clapperboard" size={30} />}
+            {item.coverUrl ? <img src={item.coverUrl} alt="" loading="eager" decoding="async" /> : <Icon name="clapperboard" size={30} />}
           </div>
           <div className="series-detail__intro">
             <span className="series-detail__kicker">{item.type === 'anime' ? 'Anime release' : isMovie ? 'Film' : 'Television series'}</span>

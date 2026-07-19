@@ -11,6 +11,7 @@ import { formatProvenance } from '../chatProvenance.mjs'
 
 const POLL_OPEN_MS = 5000
 const POLL_CLOSED_MS = 60000
+const SOCKET_CONNECT_TIMEOUT_MS = 8000
 
 function formatTime(ts) {
   if (!ts) return ''
@@ -204,17 +205,31 @@ export default function ChatPanel({ inline = false }) {
     if (!accessToken) return undefined
 
     const socketBase = getApiBase().replace(/\/api$/, '')
-    setConnectionState('connecting')
+    let connectionTimer
+    const markConnecting = () => {
+      setConnectionState('connecting')
+      window.clearTimeout(connectionTimer)
+      connectionTimer = window.setTimeout(() => {
+        setConnectionState((current) => current === 'connecting' ? 'offline' : current)
+      }, SOCKET_CONNECT_TIMEOUT_MS)
+    }
+    markConnecting()
     const socket = io(`${socketBase}/chat/user`, {
       auth: { token: accessToken },
       transports: ['websocket', 'polling'],
     })
     socketRef.current = socket
 
-    socket.on('connect', () => setConnectionState('connected'))
+    socket.on('connect', () => {
+      window.clearTimeout(connectionTimer)
+      setConnectionState('connected')
+    })
     socket.on('disconnect', () => setConnectionState('offline'))
-    socket.on('connect_error', () => setConnectionState('error'))
-    socket.io.on('reconnect_attempt', () => setConnectionState('connecting'))
+    socket.on('connect_error', () => {
+      window.clearTimeout(connectionTimer)
+      setConnectionState('error')
+    })
+    socket.io.on('reconnect_attempt', markConnecting)
 
     socket.on('message:new', (message) => {
       const normalized = normalizeMessage(message)
@@ -249,6 +264,7 @@ export default function ChatPanel({ inline = false }) {
     })
 
     return () => {
+      window.clearTimeout(connectionTimer)
       socketRef.current = null
       socket.disconnect()
       setConnectionState('idle')

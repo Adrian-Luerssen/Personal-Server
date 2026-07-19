@@ -1,0 +1,55 @@
+{
+  "platform": "android",
+  "appVersion": "0.0.1.60",
+  "version": "0.0.1.60",
+  "baseAppVersion": "0.0.1",
+  "androidVersionCode": "60",
+  "versionCode": 60,
+  "buildTime": "2026-07-18T18:15:35Z",
+  "releaseTag": "android-v0.0.1.60",
+  "releaseName": "Personal Server Android v0.0.1.60",
+  "releaseChannel": "Versioned Android APK release",
+  "sourceRef": "branch:main",
+  "commit": "cb1e3ef2a214026ce36cfcf89372c8350f2e067d",
+  "workflowRun": "https://github.com/Adrian-Luerssen/Personal-Server/actions/runs/29655503741",
+  "apkUrl": "https://github.com/Adrian-Luerssen/Personal-Server/releases/download/android-v0.0.1.60/personal-server.apk",
+  "minimumSupportedVersion": "0.0.0",
+  "required": false,
+  "publishedAt": "2026-07-18T18:19:37.883Z",
+  "changelog": {
+    "summary": "replace oversized workout and listening metric cards with dense ledgers",
+    "features": [],
+    "fixes": [
+      "replace oversized workout and listening metric cards with dense ledgers",
+      "make shared summary rows responsive to metric count",
+      "version the Android launcher component to refresh cached icons",
+      "cover summary density and launcher behavior in CI"
+    ],
+    "technical": [],
+    "commits": [
+      {
+        "hash": "cb1e3ef2a214026ce36cfcf89372c8350f2e067d",
+        "shortHash": "cb1e3ef",
+        "subject": "fix: compact mobile summary layouts",
+        "body": "- replace oversized workout and listening metric cards with dense ledgers\n- make shared summary rows responsive to metric count\n- version the Android launcher component to refresh cached icons\n- cover summary density and launcher behavior in CI"
+      }
+    ],
+    "previousAndroidTag": "android-v0.0.1.59",
+    "range": "android-v0.0.1.59..cb1e3ef2a214026ce36cfcf89372c8350f2e067d",
+    "compareUrl": "https://github.com/Adrian-Luerssen/Personal-Server/compare/android-v0.0.1.59...cb1e3ef2a214026ce36cfcf89372c8350f2e067d"
+  },
+  "apk": {
+    "file": "personal-server.apk",
+    "sizeBytes": 5868055,
+    "sha256": "661d16eb58eef4e6ceebcce5c55a13b9d33dda5c4ed1155b0e67e81e6d7290d4",
+    "signed": true
+  },
+  "verification": [
+    "api-cache-and-version-tests",
+    "mobile-shell-playwright-tests",
+    "vite-production-build",
+    "capacitor-android-sync",
+    "gradle-assemble-release",
+    "apksigner-verify"
+  ]
+}

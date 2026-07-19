@@ -15,7 +15,6 @@ import DomainNav from './product/DomainNav'
 import MobileGlobalNav from './product/MobileGlobalNav'
 import ProductHeader from './product/ProductHeader'
 import { getCaptureActions } from '../product/capture.mjs'
-import { checkForAndroidUpdate, dismissAndroidUpdate } from '../appUpdate'
 import { pollPendingAiNotifications } from '../aiNotifications.mjs'
 import {
   LIVE_STEP_SYNC_INTERVAL_MS,
@@ -31,40 +30,6 @@ import {
   syncLiveStepSnapshot,
 } from '../nativeHealth.mjs'
 import { getNativeBackDestination } from '../nativeNavigation.mjs'
-
-function NativeUpdatePrompt() {
-  const [update, setUpdate] = useState(null)
-
-  useEffect(() => {
-    let ignore = false
-    checkForAndroidUpdate().then((next) => {
-      if (!ignore && next) setUpdate(next)
-    })
-    return () => { ignore = true }
-  }, [])
-
-  if (!update) return null
-
-  return (
-    <div className="native-update-prompt" role="status">
-      <div>
-        <strong>APK update available</strong>
-        <span>Installed v{update.currentVersion} - Latest {update.version}</span>
-      </div>
-      <a href={update.apkUrl} target="_blank" rel="noreferrer">Download</a>
-      <button
-        type="button"
-        aria-label="Dismiss update"
-        onClick={() => {
-          dismissAndroidUpdate(update.id)
-          setUpdate(null)
-        }}
-      >
-        <Icon name="x" size={15} />
-      </button>
-    </div>
-  )
-}
 
 function DisabledFeatureState({ moduleId, onEnable }) {
   const module = FEATURE_MODULES.find((item) => item.id === moduleId)
@@ -276,8 +241,7 @@ export default function Layout() {
           </div>
         </div>
       </main>
-      <ApiStatus />
-      {nativeApp && <NativeUpdatePrompt />}
+      {!nativeApp && <ApiStatus />}
       {nativeApp && <MobileGlobalNav onCapture={() => setCaptureOpen(true)} />}
       {(
         <CaptureSheet

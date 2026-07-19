@@ -54,6 +54,8 @@ const TIMEFRAMES = [
   { label: 'Custom', value: 'custom' },
 ]
 
+const CURRENTLY_PLAYING_TIMEOUT_MS = 6000
+
 function ListeningRankRow({ data, details, rank, type }) {
   const artwork = getListeningArtworkUrl(details)
   const movement = getRankMovement({ ...data, rank })
@@ -236,7 +238,19 @@ export default function SpotifyPersonal() {
   useEffect(() => {
     let mounted = true
     let socket
+    let fallbackStarted = false
     setCurrentlyPlayingLoading(true)
+
+    const loadFallback = () => {
+      if (fallbackStarted) return
+      fallbackStarted = true
+      api.get('/spotify/currently-playing')
+        .then(data => { if (mounted) setCurrentlyPlaying(data) })
+        .catch(() => { if (mounted) setCurrentlyPlaying(null) })
+        .finally(() => { if (mounted) setCurrentlyPlayingLoading(false) })
+    }
+    const timeoutId = window.setTimeout(loadFallback, CURRENTLY_PLAYING_TIMEOUT_MS)
+
     try {
       const base = getApiBase()
       const url = new URL(base)
@@ -248,20 +262,20 @@ export default function SpotifyPersonal() {
       })
       socket.on('spotify:current', (payload) => {
         if (!mounted) return
+        window.clearTimeout(timeoutId)
         setCurrentlyPlaying(payload)
         setCurrentlyPlayingLoading(false)
       })
-      socket.on('spotify:error', () => {
-        api.get('/spotify/currently-playing')
-          .then(d => { if (mounted) setCurrentlyPlaying(d) })
-          .finally(() => { if (mounted) setCurrentlyPlayingLoading(false) })
-      })
+      socket.on('spotify:error', loadFallback)
+      socket.on('connect_error', loadFallback)
     } catch {
-      api.get('/spotify/currently-playing')
-        .then(d => { if (mounted) setCurrentlyPlaying(d) })
-        .finally(() => { if (mounted) setCurrentlyPlayingLoading(false) })
+      loadFallback()
     }
-    return () => { mounted = false; if (socket) socket.disconnect() }
+    return () => {
+      mounted = false
+      window.clearTimeout(timeoutId)
+      if (socket) socket.disconnect()
+    }
   }, [])
 
   // Single background sync + refresh every 2 minutes
@@ -346,6 +360,16 @@ export default function SpotifyPersonal() {
     : topPlaylistDetails
 
   const periodLabel = TIMEFRAMES.find(item => item.value === timeframe)?.label || 'Today'
+  const hasListeningData = Boolean(
+    Number(stats?.totalStreams)
+    || history.length
+    || topTracks.length
+    || topAlbums.length
+    || topArtists.length
+    || topPlaylists.length
+    || perDay.length
+    || perHour.length
+  )
   const soundMeasures = [
     ['energy', 'Energy'],
     ['danceability', 'Dance'],
@@ -384,7 +408,7 @@ export default function SpotifyPersonal() {
           <section className="record-music-profile" aria-label="Spotify profile and current playback">
             <div className="record-music-profile__account">
               <div className="record-music-profile__avatar">
-                {loading ? <LoadingDot /> : avatarUrl ? <img src={avatarUrl} alt="" /> : <Icon name="music" size={26} />}
+                {loading ? <LoadingDot /> : avatarUrl ? <img src={avatarUrl} alt="" loading="eager" decoding="async" /> : <Icon name="music" size={26} />}
               </div>
               <div className="record-music-profile__copy">
                 <span>Connected source</span>
@@ -426,6 +450,19 @@ export default function SpotifyPersonal() {
             <SummaryItem label="Listening time" value={hasLoadedOnce ? formatDuration(stats?.msListened ?? 0) : '—'} />
           </SummaryStrip>
 
+          {hasLoadedOnce && !hasListeningData ? (
+            <section className="record-music-empty">
+              <Icon name="headphones" size={24} />
+              <div>
+                <h2>No listening data for {periodLabel.toLowerCase()}</h2>
+                <p>Choose another period or sync Spotify to bring recent plays into this record.</p>
+              </div>
+              <button className="record-button record-button--primary" type="button" onClick={syncLatest} disabled={syncing}>
+                {syncing ? 'Syncing…' : 'Sync plays'}
+              </button>
+            </section>
+          ) : (
+            <>
           <section className="record-music-pattern" aria-labelledby="listening-pattern-title">
             <header className="record-section-heading">
               <div><span>Rhythm</span><h2 id="listening-pattern-title">Listening pattern</h2></div>
@@ -511,6 +548,8 @@ export default function SpotifyPersonal() {
               )) : <StatePanel title={`No ranked ${topCategory}`} detail={`Play data for ${periodLabel.toLowerCase()} will be ranked here.`} />}
             </div>
           </section>
+            </>
+          )}
 
           {showHistoryModal && <HistoryModal onClose={() => setShowHistoryModal(false)} />}
         </>

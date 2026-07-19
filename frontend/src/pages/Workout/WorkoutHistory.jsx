@@ -188,7 +188,7 @@ export default function WorkoutHistory() {
 
       <ScrollReveal delay={100}>
       <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <div className="filter-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <div className="filter-grid workout-history-filters">
           <div>
             <label style={{ display: 'block', marginBottom: '.5rem', fontSize: '.9rem', color: 'var(--color-text-secondary)' }}>Search</label>
             <input type="text" className="input" aria-label="Search workout history" placeholder="Search title, notes, date..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />

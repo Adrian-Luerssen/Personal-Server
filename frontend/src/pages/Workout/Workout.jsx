@@ -27,6 +27,7 @@ function toWorkoutStats(value) {
 
 export default function Workout() {
   const navigate = useNavigate()
+  const nativeApp = isNativeMobileApp()
   const [loading, setLoading] = useState(true)
   const [activeSession, setActiveSession] = useState(null)
   const [recentSessions, setRecentSessions] = useState([])
@@ -42,7 +43,7 @@ export default function Workout() {
   useEffect(() => { loadDashboard(); loadPRs() }, [])
 
   useEffect(() => {
-    if (!isNativeMobileApp()) return undefined
+    if (!nativeApp) return undefined
     let cancelled = false
     let unsubscribe = null
     subscribeToLiveStepUpdates((event) => {
@@ -51,7 +52,7 @@ export default function Workout() {
       setActivityStatus('Live steps streaming')
     }).then((next) => { unsubscribe = next }).catch(() => {})
     return () => { cancelled = true; unsubscribe?.() }
-  }, [])
+  }, [nativeApp])
 
   async function loadDashboard() {
     setLoading(true)
@@ -124,7 +125,7 @@ export default function Workout() {
       <PageHeading
         eyebrow="Gym · Today"
         title="Training"
-        actions={<button type="button" className="record-button record-button--primary" data-testid="gym-primary-action" onClick={primaryAction}><Icon name={activeSession ? 'play' : 'dumbbell'} size={17} />{primaryLabel}</button>}
+        actions={nativeApp ? null : <button type="button" className="record-button record-button--primary" data-testid="gym-primary-action" onClick={primaryAction}><Icon name={activeSession ? 'play' : 'dumbbell'} size={17} />{primaryLabel}</button>}
       >
         <p>{activeSession ? 'A session is open. Continue directly where you left it.' : 'Start a session, choose an exercise, and log each set without leaving the workbench.'}</p>
       </PageHeading>
@@ -159,12 +160,27 @@ export default function Workout() {
           ))}
         </Register>
 
-        <Register title="Training records" description="Measurements and personal bests">
-          <RegisterRow leading={<Icon name="footprints" size={17} />} meta={activitySummary.today?.steps ?? 0} action={<button type="button" className="record-register-action" onClick={syncSteps}>Sync</button>}><strong>Steps today</strong><span>{activityStatus || `${activitySummary.week?.daysWithData ?? 0} days available`}</span></RegisterRow>
-          <RegisterRow leading={<Icon name="scale" size={17} />} meta={latestWeight ? `${latestWeight.weightKg} kg` : '—'} action={<button type="button" className="record-cash-row__edit" aria-label="Open bodyweight" onClick={() => navigate('/workout/bodyweight')}><Icon name="chevron-right" size={16} /></button>}><strong>Bodyweight</strong><span>{latestWeight ? formatDate(latestWeight.date) : 'No entries yet'}</span></RegisterRow>
-          <RegisterRow leading={<Icon name="trophy" size={17} />} meta={prsLoading ? '…' : prs.length} action={<button type="button" className="record-register-action" onClick={loadPRs}>Refresh</button>}><strong>Personal records</strong><span>{prs[0] ? `${prs[0].exerciseName || 'Exercise'} · ${prs[0].maxWeight} kg` : 'No records yet'}</span></RegisterRow>
-          <RegisterRow leading={<Icon name="folder-open" size={17} />} meta="Catalogue" action={<button type="button" className="record-cash-row__edit" aria-label="Open exercises" onClick={() => navigate('/workout/exercises')}><Icon name="chevron-right" size={16} /></button>}><strong>Exercises</strong><span>Movements and defaults</span></RegisterRow>
-        </Register>
+        {nativeApp ? (
+          <details className="record-gym-tools">
+            <summary>
+              <span><strong>Training tools</strong><small>Steps, bodyweight, records, and exercises</small></span>
+              <Icon name="chevron-down" size={16} />
+            </summary>
+            <Register title="Training records" description="Measurements and personal bests">
+              <RegisterRow leading={<Icon name="footprints" size={17} />} meta={activitySummary.today?.steps ?? 0} action={<button type="button" className="record-register-action" onClick={syncSteps}>Sync steps</button>}><strong>Steps today</strong><span>{activityStatus || `${activitySummary.week?.daysWithData ?? 0} days available`}</span></RegisterRow>
+              <RegisterRow leading={<Icon name="scale" size={17} />} meta={latestWeight ? `${latestWeight.weightKg} kg` : '—'} action={<button type="button" className="record-cash-row__edit" aria-label="Open bodyweight" onClick={() => navigate('/workout/bodyweight')}><Icon name="chevron-right" size={16} /></button>}><strong>Bodyweight</strong><span>{latestWeight ? formatDate(latestWeight.date) : 'No entries yet'}</span></RegisterRow>
+              <RegisterRow leading={<Icon name="trophy" size={17} />} meta={prsLoading ? '…' : prs.length} action={<button type="button" className="record-register-action" onClick={loadPRs}>Refresh records</button>}><strong>Personal records</strong><span>{prs[0] ? `${prs[0].exerciseName || 'Exercise'} · ${prs[0].maxWeight} kg` : 'No records yet'}</span></RegisterRow>
+              <RegisterRow leading={<Icon name="folder-open" size={17} />} meta="Catalogue" action={<button type="button" className="record-cash-row__edit" aria-label="Open exercises" onClick={() => navigate('/workout/exercises')}><Icon name="chevron-right" size={16} /></button>}><strong>Exercises</strong><span>Movements and defaults</span></RegisterRow>
+            </Register>
+          </details>
+        ) : (
+          <Register title="Training records" description="Measurements and personal bests">
+            <RegisterRow leading={<Icon name="footprints" size={17} />} meta={activitySummary.today?.steps ?? 0} action={<button type="button" className="record-register-action" onClick={syncSteps}>Sync steps</button>}><strong>Steps today</strong><span>{activityStatus || `${activitySummary.week?.daysWithData ?? 0} days available`}</span></RegisterRow>
+            <RegisterRow leading={<Icon name="scale" size={17} />} meta={latestWeight ? `${latestWeight.weightKg} kg` : '—'} action={<button type="button" className="record-cash-row__edit" aria-label="Open bodyweight" onClick={() => navigate('/workout/bodyweight')}><Icon name="chevron-right" size={16} /></button>}><strong>Bodyweight</strong><span>{latestWeight ? formatDate(latestWeight.date) : 'No entries yet'}</span></RegisterRow>
+            <RegisterRow leading={<Icon name="trophy" size={17} />} meta={prsLoading ? '…' : prs.length} action={<button type="button" className="record-register-action" onClick={loadPRs}>Refresh records</button>}><strong>Personal records</strong><span>{prs[0] ? `${prs[0].exerciseName || 'Exercise'} · ${prs[0].maxWeight} kg` : 'No records yet'}</span></RegisterRow>
+            <RegisterRow leading={<Icon name="folder-open" size={17} />} meta="Catalogue" action={<button type="button" className="record-cash-row__edit" aria-label="Open exercises" onClick={() => navigate('/workout/exercises')}><Icon name="chevron-right" size={16} /></button>}><strong>Exercises</strong><span>Movements and defaults</span></RegisterRow>
+          </Register>
+        )}
       </div>
     </div>
   )

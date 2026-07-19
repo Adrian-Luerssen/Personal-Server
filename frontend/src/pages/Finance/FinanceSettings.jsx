@@ -11,6 +11,7 @@ import IconPicker from '../../components/finance/IconPicker'
 import Icon from '../../components/icons/Icon'
 import PageHeader from '../../components/PageHeader'
 import { normalizeFinanceColor, transparentFinanceColor } from '../../components/finance/financeVisuals.mjs'
+import { isNativeMobileApp } from '../../mobilePlatform'
 
 const FINANCE_COLOR = '#7c5cff'
 
@@ -1138,6 +1139,7 @@ function BudgetsTab() {
 export default function FinanceSettings() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'wallets'
+  const nativeApp = isNativeMobileApp()
 
   function setTab(tab) {
     setSearchParams({ tab })
@@ -1147,8 +1149,14 @@ export default function FinanceSettings() {
     <>
       <PageHeader title="Finance Settings" />
 
-      {/* Tab Bar */}
-      <div style={{
+      {nativeApp ? (
+        <label className="native-finance-settings-select">
+          <span>Finance area</span>
+          <select value={activeTab} onChange={(event) => setTab(event.target.value)}>
+            {TABS.map((tab) => <option key={tab.key} value={tab.key}>{tab.label}</option>)}
+          </select>
+        </label>
+      ) : <div style={{
         display: 'flex',
         borderBottom: '1px solid var(--glass-border)',
         marginBottom: '1.5rem',
@@ -1177,7 +1185,7 @@ export default function FinanceSettings() {
             {tab.label}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* Tab Content */}
       {activeTab === 'wallets' && <WalletsTab />}

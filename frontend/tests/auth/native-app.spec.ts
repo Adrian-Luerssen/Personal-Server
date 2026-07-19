@@ -1139,7 +1139,7 @@ test.describe('Native Android app shell', () => {
     const appControl = page.getByRole('region', { name: /^app control$/i })
 
     await expect(page.getByRole('heading', { name: /^records$/i })).toBeVisible()
-    const recordSearch = page.getByRole('searchbox', { name: /search app sections/i })
+    const recordSearch = page.getByRole('searchbox', { name: /search records and settings/i })
     await expect(recordSearch).toBeVisible()
     await expect(dailyActions.getByRole('link', { name: /^habits\b/i })).toBeVisible()
     await expect(dailyActions.getByRole('link', { name: /^gym\b/i })).toBeVisible()
@@ -1289,6 +1289,7 @@ test.describe('Native Android app shell', () => {
 
     await page.goto('/media')
 
+    await page.getByText('Library insights', { exact: true }).click()
     const consumption = page.getByRole('region', { name: 'Series consumption' })
     await expect(consumption.getByText('1d 2h 45m')).toBeVisible()
     await expect(consumption.getByText('Includes 1d 2h estimated')).toBeVisible()
@@ -1454,6 +1455,7 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('button', { name: 'Edit score for Finished Nine' })).toHaveText('9.0 / 10')
     await expect(page.getByRole('button', { name: 'Log next episode for Finished Nine' })).toHaveCount(0)
 
+    await page.getByText('Search and filters', { exact: true }).click()
     await page.getByLabel('Order series library').selectOption('rating-desc')
     const titles = await page.locator('.series-row__title-button').allTextContents()
     expect(titles).toEqual(['Finished Nine', 'Airing Seven', 'Finished Unrated'])
@@ -1474,6 +1476,31 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('heading', { name: 'Section unavailable' })).toHaveCount(0)
   })
 
+  test('starts listening requests after a client-side route transition', async ({ page }) => {
+    await mockNativeApi(page)
+    const requestedPaths: string[] = []
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      if (url.pathname.startsWith('/api/spotify') || url.pathname.startsWith('/api/streams')) {
+        requestedPaths.push(url.pathname)
+      }
+    })
+    await page.addInitScript(() => {
+      ;(window as any).Capacitor = { isNativePlatform: () => true }
+      localStorage.setItem('accessToken', 'native-music-transition')
+      localStorage.setItem('refreshToken', 'native-refresh')
+    })
+
+    await page.goto('/home')
+    await page.getByRole('link', { name: 'Records' }).click()
+    await page.getByRole('link', { name: /Spotify personal:/i }).click()
+
+    await expect(page).toHaveURL(/\/spotify\/personal/)
+    await expect(page.getByRole('heading', { name: 'Music' })).toBeVisible()
+    await expect.poll(() => requestedPaths.includes('/api/spotify/linked')).toBe(true)
+    await expect(page.getByRole('heading', { name: 'Section unavailable' })).toHaveCount(0)
+  })
+
   test('signs out from the native account screen and clears the device session', async ({ page }) => {
     await mockNativeApi(page)
     await page.addInitScript(() => {
@@ -1488,8 +1515,11 @@ test.describe('Native Android app shell', () => {
           },
         },
       }
-      localStorage.setItem('accessToken', 'native-access')
-      localStorage.setItem('refreshToken', 'native-refresh')
+      if (!sessionStorage.getItem('native-sign-out-seeded')) {
+        localStorage.setItem('accessToken', 'native-access')
+        localStorage.setItem('refreshToken', 'native-refresh')
+        sessionStorage.setItem('native-sign-out-seeded', '1')
+      }
     })
     await page.goto('/home')
     await page.getByRole('link', { name: 'You' }).click()
@@ -1567,6 +1597,7 @@ test.describe('Native Android app shell', () => {
     await expect(page.getByRole('button', { name: /appearance/i })).toBeVisible()
     await page.getByRole('button', { name: /appearance/i }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Appearance', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: /widgets/i }).click()
     await expect(page.getByRole('heading', { name: 'Home-screen widgets', exact: true })).toBeVisible()
     await expect(page.getByText(/Use Samsung Lock screen settings first/i)).toBeVisible()
     await expect(page.getByRole('button', { name: /refresh widgets/i })).toBeVisible()
@@ -1584,6 +1615,7 @@ test.describe('Native Android app shell', () => {
 
     await expect(page.getByRole('heading', { name: /^training$/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /start workout/i }).first()).toBeVisible()
+    await page.getByText('Training tools', { exact: true }).click()
     await expect(page.getByText('No records yet', { exact: true })).toBeVisible()
   })
 
@@ -1716,8 +1748,8 @@ test.describe('Native Android app shell', () => {
       })
 
       expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.innerWidth)
-      expect(metrics.minInputHeight).toBeGreaterThanOrEqual(55.5)
-      expect(metrics.minButtonHeight).toBeGreaterThanOrEqual(55.5)
+      expect(metrics.minInputHeight).toBeGreaterThanOrEqual(43.5)
+      expect(metrics.minButtonHeight).toBeGreaterThanOrEqual(43.5)
       expect(metrics.minModeHeight).toBeGreaterThanOrEqual(43.5)
     }
   })

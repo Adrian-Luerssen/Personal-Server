@@ -33,6 +33,7 @@ npm-debug.log*
 # Test artifacts
 /test/
 /frontend/mobile-screenshots/
+/frontend/test-results/
 /frontend/mobile-test.mjs
 /frontend/mobile-screenshot.js
 mobile-landing.png

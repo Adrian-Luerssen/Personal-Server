@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import BrandMark from './BrandMark'
 import Icon from '../icons/Icon'
+import MutationSyncState from './MutationSyncState'
 import { getProductBackTarget, getProductHeader } from './ProductShellState.mjs'
 
 export default function ProductHeader({ native = false, onCapture }) {
@@ -23,6 +24,7 @@ export default function ProductHeader({ native = false, onCapture }) {
           <span>{header.eyebrow}</span>
           <strong>{header.title}</strong>
         </div>
+        <MutationSyncState compact />
         <button type="button" className="record-route-bar__icon" onClick={onCapture} aria-label="New record">
           <Icon name="plus" size={20} />
         </button>
@@ -40,7 +42,7 @@ export default function ProductHeader({ native = false, onCapture }) {
         <button type="button" className="record-route-bar__search" onClick={() => navigate('/chat')} aria-label="Search records">
           <Icon name="search" size={16} /><span>Search records</span><kbd>Ctrl K</kbd>
         </button>
-        <span className="record-route-bar__freshness" role="status"><i aria-hidden="true" />Last checked just now</span>
+        <MutationSyncState />
         <button type="button" className="record-button record-button--primary" onClick={onCapture}>
           <Icon name="plus" size={16} />New record
         </button>

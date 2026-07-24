@@ -1,7 +1,11 @@
 import { getApiBase } from "./config";
 import { getTokens, refreshIfPossible, clearTokens } from "./auth";
 import { createApiResponseCache } from "./apiCache.mjs";
-import { getEnabledPreloadPaths } from "./modulePreferences.mjs";
+import {
+  getAllEnabledPreloadPaths,
+  getPreloadPathsForRoute,
+} from "./apiPreload.mjs";
+import { createApiMutationQueue } from "./apiMutationQueue.mjs";
 
 // ---------------------------------------------------------------------------
 // Cache configuration — tiered TTLs based on data volatility
@@ -89,6 +93,8 @@ const responseCache = createApiResponseCache({
   maxEntries: LS_MAX_ENTRIES,
 });
 
+let mutationQueue;
+
 function invalidateCache(path) {
   const prefix = '/' + path.split('/').filter(Boolean)[0]; // e.g. "/finance"
   const prefixes = [prefix];
@@ -96,11 +102,11 @@ function invalidateCache(path) {
   if (dashboardPrefixes.includes(prefix)) {
     prefixes.push('/dashboard');
   }
-  responseCache.invalidatePrefixes(prefixes);
+  responseCache.markPrefixesStale(prefixes);
 }
 
 function invalidateCachePrefixes(prefixes) {
-  responseCache.invalidatePrefixes(prefixes);
+  responseCache.markPrefixesStale(prefixes);
 }
 
 export function invalidateApiCachePrefixes(prefixes) {
@@ -110,6 +116,7 @@ export function invalidateApiCachePrefixes(prefixes) {
 export function clearApiCache() {
   inflightRequests.clear();
   responseCache.clearAll();
+  mutationQueue?.clearAll();
 }
 
 export function subscribeToApiPath(path, listener) {
@@ -118,6 +125,14 @@ export function subscribeToApiPath(path, listener) {
 
 export function getApiCacheEntry(path) {
   return responseCache.get(path);
+}
+
+export function updateApiCache(path, updater, metadata) {
+  return responseCache.update(path, updater, metadata);
+}
+
+export function updateApiCachePrefixes(prefixes, updater, metadata) {
+  return responseCache.updatePrefixes(prefixes, updater, metadata);
 }
 
 // ---------------------------------------------------------------------------
@@ -191,17 +206,30 @@ export const api = {
     const force = options?.force === true;
 
     if (cached && !force) {
-      // Return cached data immediately, even when stale. Mobile navigation
-      // should not wait for API latency; freshness is handled in background.
-      if (!inflightRequests.has(path)) {
+      const ttl = getCacheTTL(path);
+      const lastValidatedAt = Number(cached.lastValidatedAt ?? cached.timestamp ?? 0);
+      const needsRevalidation =
+        cached.stale === true ||
+        lastValidatedAt <= 0 ||
+        Date.now() - lastValidatedAt >= ttl;
+
+      // Return cached data immediately. Only stale entries revalidate, so
+      // route changes stay instant without waking the slow backend repeatedly.
+      if (needsRevalidation && !inflightRequests.has(path)) {
         const bgRefresh = apiFetch(path).then(fresh => {
-          responseCache.set(path, fresh, { lastValidatedAt: Date.now() });
+          responseCache.set(path, fresh, {
+            lastValidatedAt: Date.now(),
+            stale: false,
+          });
           inflightRequests.delete(path);
+          options?.onUpdate?.(fresh);
           return fresh;
         }).catch(() => {
           inflightRequests.delete(path);
         });
         inflightRequests.set(path, bgRefresh);
+      } else if (needsRevalidation && inflightRequests.has(path) && options?.onUpdate) {
+        inflightRequests.get(path).then(options.onUpdate).catch(() => {});
       }
       return cached.data;
     }
@@ -212,7 +240,10 @@ export const api = {
     }
 
     const request = apiFetch(path).then(data => {
-      responseCache.set(path, data, { lastValidatedAt: Date.now() });
+      responseCache.set(path, data, {
+        lastValidatedAt: Date.now(),
+        stale: false,
+      });
       inflightRequests.delete(path);
       return data;
     }).catch(err => {
@@ -268,6 +299,76 @@ function readStoredWatermarks() {
   return responseCache.readWatermarks();
 }
 
+mutationQueue = createApiMutationQueue({
+  storage: typeof localStorage !== 'undefined' ? localStorage : undefined,
+  getAccountId: getCacheAccountId,
+  execute: async (entry) => {
+    try {
+      return await apiFetch(entry.path, {
+        method: entry.method,
+        body: entry.body == null ? undefined : JSON.stringify(entry.body),
+      });
+    } catch (error) {
+      // Deleting a record that disappeared while offline is already the
+      // intended final state and must not poison the queue.
+      if (entry.method === 'DELETE' && error?.status === 404) return null;
+      throw error;
+    }
+  },
+  onCommitted: ({ entry }) => {
+    invalidateCachePrefixes(entry.prefixes?.length ? entry.prefixes : [entry.path]);
+  },
+  onFailed: ({ entry }) => {
+    invalidateCachePrefixes(entry.prefixes?.length ? entry.prefixes : [entry.path]);
+  },
+});
+
+/**
+ * Applies local cache updates synchronously and persists the write for
+ * background delivery. The returned `committed` promise is for reconciliation;
+ * UI interactions should not await it before closing or navigating.
+ */
+export function queueApiMutation(path, {
+  method = 'PATCH',
+  body = null,
+  prefixes = [],
+  dedupeKey = null,
+  optimisticUpdates = [],
+  optimisticPrefixUpdates = [],
+} = {}) {
+  for (const update of optimisticUpdates) {
+    if (!update?.path || typeof update.updater !== 'function') continue;
+    responseCache.update(update.path, update.updater, {
+      optimistic: true,
+      mutationPath: path,
+    });
+  }
+  for (const update of optimisticPrefixUpdates) {
+    if (!update?.prefixes?.length || typeof update.updater !== 'function') continue;
+    responseCache.updatePrefixes(update.prefixes, update.updater, {
+      optimistic: true,
+      mutationPath: path,
+    });
+  }
+  return mutationQueue.enqueue({ method, path, body, prefixes, dedupeKey });
+}
+
+export function flushApiMutations(options) {
+  return mutationQueue.flush(options);
+}
+
+export function retryFailedApiMutations(options) {
+  return mutationQueue.retryFailed(options);
+}
+
+export function subscribeToApiMutations(listener) {
+  return mutationQueue.subscribe(listener);
+}
+
+export function getApiMutationSnapshot() {
+  return mutationQueue.getSnapshot();
+}
+
 function writeStoredWatermarks(watermarks) {
   responseCache.writeWatermarks(watermarks);
 }
@@ -298,38 +399,55 @@ export async function checkDataValidity() {
 // Preload — call from Layout on mount to warm the cache
 // ---------------------------------------------------------------------------
 
-const PRELOAD_PATHS = [
-  '/dashboard/mobile',
-  '/dashboard/intelligence',
-  '/streams/stats?timeframe=all',
-  '/workout/sessions?page=1&limit=1',
-  '/habits/summary',
-  '/finance/transactions/summary',
-  '/workout/sessions/recent',
-  '/finance/wallets',
-  '/finance/categories',
-  '/workout/exercises',
-];
+let idlePreloadScheduled = false;
+
+async function warmApiPaths(paths, concurrency = 3) {
+  const queue = [...new Set(paths)].filter(Boolean);
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, concurrency), queue.length) },
+    async () => {
+      while (queue.length > 0) {
+        const path = queue.shift();
+        await api.get(path).catch(() => {});
+      }
+    }
+  );
+  await Promise.all(workers);
+}
+
+export function preloadRouteData(pathname, prefs) {
+  const paths = getPreloadPathsForRoute(pathname, prefs);
+  warmApiPaths(paths, 3).catch(() => {});
+  return paths;
+}
+
+export function preloadEnabledRouteData(prefs) {
+  if (idlePreloadScheduled) return;
+  idlePreloadScheduled = true;
+  const run = () => {
+    warmApiPaths(getAllEnabledPreloadPaths(prefs), 2)
+      .catch(() => {})
+      .finally(() => {
+        idlePreloadScheduled = false;
+      });
+  };
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(run, { timeout: 1500 });
+  } else if (typeof window !== 'undefined') {
+    window.setTimeout(run, 250);
+  } else {
+    run();
+  }
+}
 
 export function preloadDashboardData(prefs) {
-  const preloadPaths = getEnabledPreloadPaths(PRELOAD_PATHS, prefs);
-
+  const preloadPaths = preloadRouteData('/home', prefs);
   checkDataValidity()
     .then(({ changed }) => {
       if (changed) {
-        for (const path of preloadPaths) {
-          api.get(path).catch(() => {});
-        }
+        warmApiPaths(preloadPaths, 3).catch(() => {});
       }
     })
     .catch(() => {});
-
-  for (const path of preloadPaths) {
-    // Only preload if not already cached
-    const cached = responseCache.get(path);
-    const ttl = getCacheTTL(path);
-    if (!cached || Date.now() - cached.timestamp >= ttl) {
-      api.get(path).catch(() => {}); // silent, best-effort
-    }
-  }
+  preloadEnabledRouteData(prefs);
 }

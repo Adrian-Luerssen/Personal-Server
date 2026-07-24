@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
-import { apiFetch } from '../../api'
+import { api, apiFetch, queueApiMutation, updateApiCache } from '../../api'
 import Icon from '../../components/icons/Icon'
 import { PageHeading, StatePanel, SummaryItem, SummaryStrip } from '../../components/record'
 import {
@@ -23,6 +23,11 @@ import SeriesDetail from './SeriesDetail'
 import IconInput from '../../components/product/IconInput'
 import MediaDiscover from './MediaDiscover'
 import { isNativeMobileApp } from '../../mobilePlatform'
+import {
+  getMediaClassificationLabel,
+  getMediaStatusOptions,
+  normalizeMediaStatus,
+} from './mediaStatusModel.mjs'
 
 const TYPE_META = {
   anime:  { icon: 'tv',           label: 'Anime' },
@@ -42,6 +47,12 @@ const STATUS_META = {
 }
 
 const MEDIA_PAGE_SIZE = 24
+
+function mapCachedMediaList(data, mapper) {
+  if (Array.isArray(data)) return data.map(mapper)
+  if (Array.isArray(data?.items)) return { ...data, items: data.items.map(mapper) }
+  return data
+}
 
 function formatMediaDuration(value) {
   const totalMinutes = Math.max(0, Math.round(Number(value) || 0))
@@ -192,7 +203,7 @@ function SeriesRow({ item, catalog, onOpen, onScore, onIncrement, onWatchEpisode
           {item.title}
         </button>
         <span className="series-row__meta">
-          <span>{typeMeta.label || item.type}</span>
+          <span>{getMediaClassificationLabel(item) || typeMeta.label || item.type}</span>
           {metadata.year && <span>{metadata.year}</span>}
           {metadata.studio && <span>{metadata.studio}</span>}
           {item.rating != null && <span>{Number(item.rating).toFixed(1)} / 10</span>}
@@ -256,6 +267,7 @@ function AddModal({ open, onClose, onSave }) {
   const [error, setError] = useState('')
   const [mode, setMode] = useState('search') // 'search' | 'manual'
   const [manual, setManual] = useState({ title: '', type: 'anime', status: 'planning', rating: '' })
+  const [searchStatuses, setSearchStatuses] = useState({})
   const debounce = useRef(null)
   const dialogRef = useRef(null)
   useModalFocus(open, onClose, dialogRef)
@@ -266,7 +278,7 @@ function AddModal({ open, onClose, onSave }) {
     try {
       const params = new URLSearchParams({ q })
       if (t) params.set('type', t)
-      const data = await apiFetch(`/media/search?${params}`)
+      const data = await api.get(`/media/search?${params}`)
       setResults(Array.isArray(data) ? data : [])
     } catch { setResults([]) }
     finally { setSearching(false) }
@@ -278,7 +290,7 @@ function AddModal({ open, onClose, onSave }) {
     return () => clearTimeout(debounce.current)
   }, [query, type])
 
-  const addFromSearch = async (item) => {
+  const addFromSearch = async (item, status) => {
     setError('')
     setAdding(item.title)
     try {
@@ -287,7 +299,7 @@ function AddModal({ open, onClose, onSave }) {
         body: JSON.stringify({
           title: item.title,
           type: item.type,
-          status: 'planning',
+          status,
           coverUrl: item.coverUrl,
           metadata: item.metadata || {},
           externalIds: item.externalIds || {},
@@ -314,7 +326,7 @@ function AddModal({ open, onClose, onSave }) {
           title: manual.title.trim(),
           type: manual.type,
           status: manual.status,
-          rating: manual.rating ? parseFloat(manual.rating) : undefined,
+          rating: manual.rating !== '' ? parseFloat(manual.rating) : undefined,
         }),
       })
       onSave()
@@ -369,6 +381,8 @@ function AddModal({ open, onClose, onSave }) {
               )}
               {results.map((item, i) => {
                 const meta = TYPE_META[item.type] || {}
+                const resultKey = `${item.type}:${item.externalIds?.malId || item.externalIds?.tmdbId || item.externalIds?.openLibraryKey || item.title}:${i}`
+                const selectedStatus = normalizeMediaStatus(item.type, searchStatuses[resultKey] || 'planning', '', item.metadata)
                 return (
                   <div key={i} className="media-search-result">
                     <div className="media-search-result-cover">
@@ -388,13 +402,25 @@ function AddModal({ open, onClose, onSave }) {
                         <div className="media-search-result-desc">{item.description.slice(0, 120)}...</div>
                       )}
                     </div>
-                    <button
-                      className="btn media-add-btn"
-                      onClick={() => addFromSearch(item)}
-                      disabled={adding === item.title}
-                    >
-                      {adding === item.title ? <Icon name="loader" size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Icon name="plus" size={16} />}
-                    </button>
+                    <div className="media-search-result__action">
+                      <label>
+                        <span>Status</span>
+                        <select
+                          aria-label={`Status for ${item.title}`}
+                          value={selectedStatus}
+                          onChange={event => setSearchStatuses(current => ({ ...current, [resultKey]: event.target.value }))}
+                        >
+                          {getMediaStatusOptions(item.type, item.metadata).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                      <button
+                        className="btn media-add-btn"
+                        onClick={() => addFromSearch(item, selectedStatus)}
+                        disabled={adding === item.title}
+                      >
+                        {adding === item.title ? <Icon name="loader" size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <><Icon name="plus" size={16} /> Add</>}
+                      </button>
+                    </div>
                   </div>
                 )
               })}
@@ -409,19 +435,19 @@ function AddModal({ open, onClose, onSave }) {
             <div className="media-manual-row">
               <label>
                 Type
-                <select aria-label="Manual media type" value={manual.type} onChange={e => setManual(m => ({ ...m, type: e.target.value }))}>
+                <select aria-label="Manual media type" value={manual.type} onChange={e => setManual(m => ({ ...m, type: e.target.value, status: normalizeMediaStatus(e.target.value, m.status, m.rating) }))}>
                   {Object.entries(TYPE_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </label>
               <label>
                 Status
                 <select aria-label="Manual media status" value={manual.status} onChange={e => setManual(m => ({ ...m, status: e.target.value }))}>
-                  {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  {getMediaStatusOptions(manual.type).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label>
                 Rating
-                <input type="number" aria-label="Manual media rating" min="0" max="10" step="0.5" value={manual.rating} onChange={e => setManual(m => ({ ...m, rating: e.target.value }))} placeholder="0-10" />
+                <input type="number" aria-label="Manual media rating" min="0" max="10" step="0.5" value={manual.rating} onChange={e => setManual(m => ({ ...m, rating: e.target.value, status: normalizeMediaStatus(m.type, m.status, e.target.value) }))} placeholder="0-10" />
               </label>
             </div>
             <button className="btn primary" onClick={addManual} disabled={!manual.title.trim() || adding === 'manual'}>
@@ -478,7 +504,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
     try {
       const params = new URLSearchParams({ q })
       if (t) params.set('type', t)
-      const data = await apiFetch(`/media/search?${params}`)
+      const data = await api.get(`/media/search?${params}`)
       setMatchResults(Array.isArray(data) ? data : [])
     } catch { setMatchResults([]) }
     finally { setMatchSearching(false) }
@@ -510,14 +536,13 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
     finally { setMatching(null) }
   }
 
-  const save = async () => {
+  const save = () => {
     setError('')
     setSaving(true)
-    try {
-      const body = {
+    const body = {
         title: form.title,
         status: form.status,
-        rating: form.rating ? parseFloat(form.rating) : null,
+        rating: form.rating !== '' ? parseFloat(form.rating) : null,
         notes: form.notes || null,
         startDate: form.startDate || null,
         endDate: form.endDate || null,
@@ -528,23 +553,41 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
       if (form.pagesRead !== '') metadata.pagesRead = parseInt(form.pagesRead) || 0
       if (Object.keys(metadata).length) body.metadata = metadata
 
-      await apiFetch(`/media/${item.id}`, { method: 'PATCH', body: JSON.stringify(body) })
-      onSave()
-      onClose()
-    } catch (e) { setError(e.message || 'The record could not be saved.') }
-    finally { setSaving(false) }
+    const optimistic = { ...item, ...body, metadata: { ...(item.metadata || {}), ...(body.metadata || {}) }, pendingSync: true }
+    const mutation = queueApiMutation(`/media/${item.id}`, {
+      method: 'PATCH',
+      body,
+      prefixes: ['/media', '/dashboard'],
+      dedupeKey: `media-item:${item.id}`,
+      optimisticPrefixUpdates: [{
+        prefixes: ['/media?'],
+        updater: data => mapCachedMediaList(data, entry => entry.id === item.id ? optimistic : entry),
+      }],
+    })
+    onSave(optimistic, mutation)
+    onClose()
+    setSaving(false)
   }
 
-  const remove = async () => {
+  const remove = () => {
     if (!deleteConfirm) { setDeleteConfirm(true); return }
     setError('')
     setDeleting(true)
-    try {
-      await apiFetch(`/media/${item.id}`, { method: 'DELETE' })
-      onDelete()
-      onClose()
-    } catch (e) { setError(e.message || 'The record could not be deleted.') }
-    finally { setDeleting(false) }
+    const mutation = queueApiMutation(`/media/${item.id}`, {
+      method: 'DELETE',
+      prefixes: ['/media', '/dashboard'],
+      optimisticPrefixUpdates: [{
+        prefixes: ['/media?'],
+        updater: data => {
+          if (Array.isArray(data)) return data.filter(entry => entry.id !== item.id)
+          if (Array.isArray(data?.items)) return { ...data, items: data.items.filter(entry => entry.id !== item.id) }
+          return data
+        },
+      }],
+    })
+    onDelete(item, mutation)
+    onClose()
+    setDeleting(false)
   }
 
   if (!open || !item) return null
@@ -594,11 +637,11 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                 <div className="media-manual-row">
                   <label>Status
                     <select aria-label="Media status" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                      {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                      {getMediaStatusOptions(item.type, item.metadata).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
                   <label>Rating
-                    <input type="number" aria-label="Media rating" min="0" max="10" step="0.5" value={form.rating} onChange={e => setForm(f => ({ ...f, rating: e.target.value }))} placeholder="0-10" />
+                    <input type="number" aria-label="Media rating" min="0" max="10" step="0.5" value={form.rating} onChange={e => setForm(f => ({ ...f, rating: e.target.value, status: normalizeMediaStatus(item.type, f.status, e.target.value, item.metadata) }))} placeholder="0-10" />
                   </label>
                 </div>
                 <div className="media-manual-row">
@@ -693,7 +736,7 @@ function EditModal({ item, open, onClose, onSave, onDelete }) {
                     <div className="media-search-result-info">
                       <div className="media-search-result-title">{result.title}</div>
                       <div className="media-search-result-meta">
-                        <span>{meta.label}</span>
+                        <span>{getMediaClassificationLabel(result) || meta.label}</span>
                         {result.year && <span>{result.year}</span>}
                         {result.metadata?.mediaFormat && <span style={{ opacity: 0.7 }}>{result.metadata.mediaFormat}</span>}
                       </div>
@@ -752,13 +795,14 @@ export default function Media() {
     setLoadError('')
     try {
       const params = new URLSearchParams()
-      if (filterType) params.set('type', filterType)
+      if (filterType) params.set('tag', filterType)
       if (filterStatus) params.set('status', filterStatus)
       if (search) params.set('search', search)
+      const listPath = `/media?${params}`
       const [dataResult, statsResult, catalogsResult] = await Promise.allSettled([
-        apiFetch(`/media?${params}`),
-        apiFetch('/media/stats'),
-        apiFetch('/media/catalog/summaries'),
+        api.get(listPath, { onUpdate: fresh => setItems(normalizeSeriesCollection(fresh)) }),
+        api.get('/media/stats', { onUpdate: setStats }),
+        api.get('/media/catalog/summaries', { onUpdate: fresh => setCatalogs(fresh || {}) }),
       ])
       if (dataResult.status === 'fulfilled') setItems(normalizeSeriesCollection(dataResult.value))
       else setLoadError(dataResult.reason?.message || 'The series library could not be refreshed.')
@@ -789,6 +833,7 @@ export default function Media() {
 
   const applyCatalogView = (view) => {
     if (!view?.item?.id) return
+    updateApiCache(`/media/${view.item.id}/catalog`, () => view)
     setCatalogs(current => ({ ...current, [view.item.id]: view }))
     setItems(current => current.map(entry => entry.id === view.item.id ? { ...entry, ...view.item } : entry))
     if (detailItem?.id === view.item.id) {
@@ -803,7 +848,7 @@ export default function Media() {
     setDetailError('')
     setDetailLoading(true)
     try {
-      const view = await apiFetch(`/media/${item.id}/catalog`)
+      const view = await api.get(`/media/${item.id}/catalog`)
       applyCatalogView(view)
       setDetailCatalog(view)
     } catch (error) {
@@ -838,7 +883,7 @@ export default function Media() {
     setDetailLoading(true)
     setDetailError('')
     try {
-      const preview = await apiFetch(`/media/catalog/anime/${target.malId}`)
+      const preview = await api.get(`/media/catalog/anime/${target.malId}`)
       const previewItem = { ...preview.item, id: `mal-${target.malId}`, isCatalogPreview: true }
       setDetailItem(previewItem)
       setDetailCatalog({ item: previewItem, seasons: [], relations: preview.relations || [], progress: { watched: 0, total: previewItem.metadata?.episodes || null } })
@@ -847,18 +892,32 @@ export default function Media() {
     } finally { setDetailLoading(false) }
   }
 
-  const updateDetailRating = async (rating) => {
+  const updateDetailRating = (rating) => {
     if (!detailItem?.id || detailItem.isCatalogPreview) return
-    const updated = await apiFetch(`/media/${detailItem.id}`, {
+    const itemId = detailItem.id
+    const optimistic = { ...detailItem, rating }
+    setDetailItem(current => current?.id === itemId ? { ...current, rating } : current)
+    setItems(current => current.map(entry => entry.id === itemId ? { ...entry, rating } : entry))
+    const mutation = queueApiMutation(`/media/${itemId}`, {
       method: 'PATCH',
-      body: JSON.stringify({ rating }),
+      body: { rating },
+      prefixes: ['/media', '/dashboard'],
+      dedupeKey: `media-rating:${itemId}`,
+      optimisticPrefixUpdates: [{
+        prefixes: ['/media?'],
+        updater: data => mapCachedMediaList(data, entry => (
+          entry.id === itemId ? { ...entry, rating } : entry
+        )),
+      }],
     })
-    setDetailItem(current => current?.id === updated.id ? { ...current, ...updated } : current)
-    setItems(current => current.map(entry => entry.id === updated.id ? { ...entry, ...updated } : entry))
-    return updated
+    mutation.committed.then((updated) => {
+      setDetailItem(current => current?.id === updated.id ? { ...current, ...updated } : current)
+      setItems(current => current.map(entry => entry.id === updated.id ? { ...entry, ...updated } : entry))
+    }).catch(() => {})
+    return optimistic
   }
 
-  const addPreviewToLibrary = async (previewItem) => {
+  const addPreviewToLibrary = async (previewItem, status) => {
     setDetailLoading(true)
     setDetailError('')
     try {
@@ -867,7 +926,7 @@ export default function Media() {
         body: JSON.stringify({
           title: previewItem.title,
           type: 'anime',
-          status: 'planning',
+          status,
           coverUrl: previewItem.coverUrl,
           metadata: previewItem.metadata || {},
           externalIds: previewItem.externalIds || {},
@@ -882,42 +941,69 @@ export default function Media() {
     } finally { setDetailLoading(false) }
   }
 
-  const toggleEpisode = async (item, episode, watched) => {
+  const toggleEpisode = (item, episode, watched) => {
     if (!item || !episode?.id || busyEpisodeId) return
-    const previous = catalogs[item.id]
     setBusyEpisodeId(episode.id)
     setDetailError('')
-    try {
-      const view = await apiFetch(`/media/${item.id}/episodes/${episode.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ watched }),
-      })
-      applyCatalogView(view)
-    } catch (error) {
-      if (previous) setCatalogs(current => ({ ...current, [item.id]: previous }))
-      setDetailError(error.message || 'Episode progress could not be saved.')
-    } finally {
-      setBusyEpisodeId(null)
+    const updateView = (view) => {
+      if (!view) return view
+      const wasWatched = Boolean(
+        view.seasons?.flatMap(season => season.episodes || []).find(entry => entry.id === episode.id)?.watched
+      )
+      return {
+        ...view,
+        seasons: (view.seasons || []).map(season => ({
+          ...season,
+          episodes: (season.episodes || []).map(entry => (
+            entry.id === episode.id ? { ...entry, watched } : entry
+          )),
+        })),
+        progress: {
+          ...(view.progress || {}),
+          watched: Math.max(0, Number(view.progress?.watched || 0) + (watched ? 1 : -1) * (wasWatched === watched ? 0 : 1)),
+        },
+      }
     }
+    const optimisticView = updateView(catalogs[item.id])
+    if (optimisticView) applyCatalogView(optimisticView)
+    setBusyEpisodeId(null)
+    const mutation = queueApiMutation(`/media/${item.id}/episodes/${episode.id}`, {
+      method: 'PATCH',
+      body: { watched },
+      prefixes: ['/media', '/dashboard'],
+      dedupeKey: `media-episode:${item.id}:${episode.id}`,
+      optimisticUpdates: optimisticView ? [{
+        path: `/media/${item.id}/catalog`,
+        updater: () => optimisticView,
+      }] : [],
+    })
+    mutation.committed.then((view) => {
+      applyCatalogView(view)
+    }).catch(() => {})
   }
 
-  const incrementProgress = async (item) => {
+  const incrementProgress = (item) => {
     const update = getNextProgressUpdate(item)
     if (!update || busyItemId) return
     const metadata = { ...(item.metadata || {}), [update.field]: update.value }
     setBusyItemId(item.id)
     setItems(current => current.map(entry => entry.id === item.id ? { ...entry, metadata } : entry))
-    try {
-      const updated = await apiFetch(`/media/${item.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ metadata }),
-      })
+    setBusyItemId(null)
+    const mutation = queueApiMutation(`/media/${item.id}`, {
+      method: 'PATCH',
+      body: { metadata },
+      prefixes: ['/media', '/dashboard'],
+      dedupeKey: `media-progress:${item.id}`,
+      optimisticPrefixUpdates: [{
+        prefixes: ['/media?'],
+        updater: data => mapCachedMediaList(data, entry => (
+          entry.id === item.id ? { ...entry, metadata } : entry
+        )),
+      }],
+    })
+    mutation.committed.then((updated) => {
       setItems(current => current.map(entry => entry.id === item.id ? { ...entry, ...updated } : entry))
-    } catch {
-      setItems(current => current.map(entry => entry.id === item.id ? item : entry))
-    } finally {
-      setBusyItemId(null)
-    }
+    }).catch(() => {})
   }
 
   const libraryInsights = (
@@ -981,7 +1067,7 @@ export default function Media() {
             <button className={!filterType ? 'is-active' : ''} onClick={() => setFilterType('')} aria-pressed={!filterType}>All</button>
             {Object.entries(TYPE_META).map(([key, meta]) => (
               <button key={key} className={filterType === key ? 'is-active' : ''} onClick={() => setFilterType(filterType === key ? '' : key)} aria-pressed={filterType === key}>
-                {meta.label}{stats?.byType?.[key] != null && <span>{stats.byType[key]}</span>}
+                {meta.label}{stats?.byTag?.[key] != null && <span>{stats.byTag[key]}</span>}
               </button>
             ))}
           </div>

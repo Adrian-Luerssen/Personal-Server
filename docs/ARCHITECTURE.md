@@ -351,6 +351,32 @@ frontend/src/
 └── styles.css                 # Global styles
 ```
 
+### Cache-first client contract
+
+The web client and Capacitor app share the same account-scoped local data
+layer:
+
+- `apiCache.mjs` persists the most recently usable GET responses and serves
+  them synchronously before stale-while-revalidate network work begins.
+- `apiPreload.mjs` maps routes to their first-screen requests. `Layout`
+  preloads the current route, likely pointer/touch navigation targets, and
+  enabled modules during idle time.
+- `apiMutationQueue.mjs` persists ordinary record writes per account. UI state
+  and matching cached queries update optimistically; the queue commits in
+  order, retries transient failures, and exposes permanent validation failures
+  for explicit retry.
+- Login, MFA, imports, provider synchronization, and catalog rebuild commands
+  remain server-confirmed operations because they cannot be represented as a
+  safe local record mutation.
+- The native shell flushes queued writes on startup, focus, visibility resume,
+  and network reconnection. Signing out clears both cached reads and queued
+  writes so one account can never inherit another account's local state.
+
+This contract makes repeat navigation and ordinary edits independent of the
+hosted API's wake-up latency. A newly authenticated account with no local
+snapshot still requires one successful network response before its private
+data can be shown.
+
 ### Routing Structure
 
 ```

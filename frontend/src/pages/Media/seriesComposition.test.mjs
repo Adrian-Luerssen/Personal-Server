@@ -35,3 +35,20 @@ test('Series creation and editing do not use blocking browser alerts or confirma
   assert.match(media, /role="alert"/)
   assert.match(media, /deleteConfirm/)
 })
+
+test('every catalog creation path exposes a status choice before saving', async () => {
+  const discover = await readFile(new URL('./MediaDiscover.jsx', import.meta.url), 'utf8')
+  const statusModel = await readFile(new URL('./mediaStatusModel.mjs', import.meta.url), 'utf8')
+
+  assert.match(media, /Status for \$\{item\.title\}/)
+  assert.match(discover, /Status for \$\{result\.title\}/)
+  assert.match(detail, /Status for new title/)
+  assert.doesNotMatch(discover, /Add to Planning/)
+  assert.match(statusModel, /classifications\.includes\('movie'\)/)
+})
+
+test('series filtering and labels use classification facets instead of only primary type', () => {
+  assert.match(media, /params\.set\('tag', filterType\)/)
+  assert.match(media, /getMediaClassificationLabel\(item\)/)
+  assert.match(media, /stats\?\.byTag\?\.\[key\]/)
+})

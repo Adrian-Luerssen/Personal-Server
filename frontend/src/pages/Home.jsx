@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { api, subscribeToApiPath } from '../api'
+import { api, queueApiMutation, subscribeToApiPath, updateApiCache } from '../api'
 import { saveAndroidWidgetSnapshot } from '../androidWidgets.mjs'
 import Icon from '../components/icons/Icon'
 import { PageHeading, Register, RegisterRow, StatePanel, SummaryItem, SummaryStrip } from '../components/record'
@@ -175,13 +175,16 @@ export default function Home() {
     streamsToday: Number(spotifyStats?.todayStreams || 0),
   }), [activeWorkout, activitySummary, completedHabits, financeSummary, habits.length, paymentSuggestions, spotifyStats])
 
-  const handleHabitDone = useCallback(async (timelineItem) => {
+  const handleHabitDone = useCallback((timelineItem) => {
     const habitId = String(timelineItem.id).replace(/^habit-/, '')
-    const previous = habits
     const nextHabits = habits.map((habit) => String(habit.id) === habitId
       ? { ...habit, completedToday: true, todayStatus: 'success' }
       : habit)
     setHabits(nextHabits)
+    updateApiCache('/dashboard/mobile', (current) => ({
+      ...current,
+      habits: { ...(current?.habits || {}), today: nextHabits },
+    }))
 
     if (nativeApp && snapshot) {
       saveAndroidWidgetSnapshot({
@@ -191,11 +194,11 @@ export default function Home() {
       }, { preferences: prefs }).catch(() => {})
     }
 
-    try {
-      await api.post(`/habits/${habitId}/entries`, { date: localDateKey(), status: 'success' })
-    } catch {
-      setHabits(previous)
-    }
+    queueApiMutation(`/habits/${habitId}/entries`, {
+      method: 'POST',
+      body: { date: localDateKey(), status: 'success' },
+      prefixes: ['/habits', '/dashboard'],
+    })
   }, [habits, nativeApp, prefs, snapshot])
 
   const askAboutToday = () => {

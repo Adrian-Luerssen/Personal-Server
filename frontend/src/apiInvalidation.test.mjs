@@ -16,7 +16,8 @@ test('finance SSE imports invalidate finance and dashboard caches on completion'
   assert.match(financeImportSource, /'\/finance'[\s\S]*'\/dashboard'/)
 })
 
-test('finance ledger force-refreshes suspicious empty cached results', () => {
-  assert.match(financeLedgerSource, /looksLikeEmptyFinanceCache/)
-  assert.match(financeLedgerSource, /force:\s*true/)
+test('finance ledger renders cached data first and accepts silent fresh replacements', () => {
+  assert.match(financeLedgerSource, /api\.get\(transactionsPath,\s*\{\s*onUpdate:/)
+  assert.doesNotMatch(financeLedgerSource, /looksLikeEmptyFinanceCache/)
+  assert.doesNotMatch(financeLedgerSource, /force:\s*true/)
 })

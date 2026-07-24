@@ -61,15 +61,6 @@ function normalizeTransactionList(data) {
   return []
 }
 
-function looksLikeEmptyFinanceCache(summaryData, transactionsData) {
-  const numeric = (value) => Number.isFinite(Number(value)) ? Number(value) : 0
-  return normalizeTransactionList(transactionsData).length === 0
-    && numeric(summaryData?.totalIncome) === 0
-    && numeric(summaryData?.totalExpense ?? summaryData?.totalExpenses) === 0
-    && numeric(summaryData?.incomeCount) === 0
-    && numeric(summaryData?.expenseCount) === 0
-}
-
 export default function FinanceTransactions() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -103,8 +94,8 @@ export default function FinanceTransactions() {
       const walletsPath = '/finance/wallets'
       const categoriesPath = '/finance/categories'
       const [walletsData, categoriesData] = await Promise.all([
-        api.get(walletsPath),
-        api.get(categoriesPath),
+        api.get(walletsPath, { onUpdate: fresh => setWallets(fresh || []) }),
+        api.get(categoriesPath, { onUpdate: fresh => setCategories(fresh || []) }),
       ])
 
       const params = new URLSearchParams({ page: String(page), limit: String(limit), from, to })
@@ -113,6 +104,12 @@ export default function FinanceTransactions() {
       if (filters.search) params.set('search', filters.search)
       if (filters.transactionType === 'income') params.set('isIncome', 'true')
       if (filters.transactionType === 'expense') params.set('isIncome', 'false')
+      const normalizeFiltered = (data) => {
+        let items = normalizeTransactionList(data)
+        if (filters.transactionType === 'transfer') items = items.filter((transaction) => [1, 3].includes(transaction.type))
+        if (['income', 'expense'].includes(filters.transactionType)) items = items.filter((transaction) => ![1, 3].includes(transaction.type))
+        return items
+      }
 
       if (isNativeMobileApp()) await syncNativePaymentSuggestions().catch(() => [])
 
@@ -120,28 +117,22 @@ export default function FinanceTransactions() {
       const summaryPath = `/finance/transactions/summary?from=${from}&to=${to}`
       const suggestionsPath = '/finance/transaction-suggestions'
       let [transactionData, summaryData, suggestionData] = await Promise.all([
-        api.get(transactionsPath),
-        api.get(summaryPath),
-        api.get(suggestionsPath).catch(() => []),
+        api.get(transactionsPath, {
+          onUpdate: fresh => {
+            const items = normalizeFiltered(fresh)
+            setTransactions(items)
+            setTotalCount(fresh?.total || items.length || 0)
+          },
+        }),
+        api.get(summaryPath, { onUpdate: setMonthSummary }),
+        api.get(suggestionsPath, {
+          onUpdate: fresh => setSuggestions((Array.isArray(fresh) ? fresh : []).filter((item) => !item.status || item.status === 'pending')),
+        }).catch(() => []),
       ])
 
-      let freshWallets = walletsData
-      let freshCategories = categoriesData
-      if (looksLikeEmptyFinanceCache(summaryData, transactionData)) {
-        ;[freshWallets, freshCategories, transactionData, summaryData, suggestionData] = await Promise.all([
-          api.get(walletsPath, { force: true }),
-          api.get(categoriesPath, { force: true }),
-          api.get(transactionsPath, { force: true }),
-          api.get(summaryPath, { force: true }),
-          api.get(suggestionsPath, { force: true }).catch(() => []),
-        ])
-      }
-
-      setWallets(freshWallets || [])
-      setCategories(freshCategories || [])
-      let items = normalizeTransactionList(transactionData)
-      if (filters.transactionType === 'transfer') items = items.filter((transaction) => [1, 3].includes(transaction.type))
-      if (['income', 'expense'].includes(filters.transactionType)) items = items.filter((transaction) => ![1, 3].includes(transaction.type))
+      setWallets(walletsData || [])
+      setCategories(categoriesData || [])
+      const items = normalizeFiltered(transactionData)
       setTransactions(items)
       setTotalCount(transactionData?.total || items.length || 0)
       setMonthSummary(summaryData)
@@ -186,6 +177,28 @@ export default function FinanceTransactions() {
   function clearFilters() {
     setFilters({ walletId: '', categoryId: '', transactionType: '', search: '' })
     setPage(1)
+  }
+
+  function applyOptimisticTransaction({ action, optimistic, mutation }) {
+    if (action === 'delete') {
+      setTransactions(current => current.filter(item => item.id !== optimistic.id))
+      setTotalCount(current => Math.max(0, current - 1))
+      return
+    }
+    if (action === 'update') {
+      setTransactions(current => current.map(item => (
+        item.id === optimistic.id ? { ...item, ...optimistic } : item
+      )))
+    } else {
+      setTransactions(current => [optimistic, ...current])
+      setTotalCount(current => current + 1)
+    }
+    mutation.committed.then((saved) => {
+      if (!saved?.id) return
+      setTransactions(current => current.map(item => (
+        item.id === optimistic.id ? { ...item, ...saved, pendingSync: false } : item
+      )))
+    }).catch(() => {})
   }
 
   function handleMonthChange(year, month) {
@@ -283,7 +296,7 @@ export default function FinanceTransactions() {
           categories={categories}
           initialMode={txFormMode}
           onClose={() => setShowTxForm(false)}
-          onSaved={loadData}
+          onSaved={applyOptimisticTransaction}
         />
       )}
       {selectedSuggestion && (

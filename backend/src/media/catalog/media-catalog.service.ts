@@ -21,8 +21,10 @@ import {
   MediaRelationType,
 } from "../entities/media-relation.entity";
 import { MediaSeason } from "../entities/media-season.entity";
+import { withMediaClassifications } from "../media/media-classification";
 
 const TMDB_IMAGE_ROOT = "https://image.tmdb.org/t/p/w500";
+const CATALOG_SCHEMA_VERSION = 2;
 
 export interface MediaCatalogView {
   item: MediaItem;
@@ -82,12 +84,13 @@ export class MediaCatalogService {
         );
       }
 
-      item.metadata = {
+      item.metadata = withMediaClassifications(item.type, {
         ...(item.metadata || {}),
         catalogSyncState: "ready",
+        catalogSchemaVersion: CATALOG_SCHEMA_VERSION,
         catalogSyncedAt: new Date().toISOString(),
         catalogSyncError: null,
-      };
+      });
       await this.mediaRepo.save(item);
       return this.getCatalog(account, item);
     } catch (error) {
@@ -113,8 +116,7 @@ export class MediaCatalogService {
       (item) =>
         (item.type === MediaType.ANIME &&
           Number(item.externalIds?.malId) > 0) ||
-        ([MediaType.TV, MediaType.MOVIE].includes(item.type) &&
-          Number(item.externalIds?.tmdbId) > 0)
+        [MediaType.TV, MediaType.MOVIE].includes(item.type)
     );
     let synced = 0;
     let failed = 0;
@@ -172,13 +174,19 @@ export class MediaCatalogService {
       const accountItems = await this.mediaRepo.find({
         where: { accountId: account.id },
       });
+      const [accountSeasons, accountEpisodes] = await Promise.all([
+        this.seasonRepo.find({ where: { accountId: account.id } }),
+        this.episodeRepo.find({ where: { accountId: account.id } }),
+      ]);
       const remaining = accountItems.filter((item) => {
         const eligible =
           (item.type === MediaType.ANIME &&
             Number(item.externalIds?.malId) > 0) ||
-          ([MediaType.TV, MediaType.MOVIE].includes(item.type) &&
-            Number(item.externalIds?.tmdbId) > 0);
-        return eligible && item.metadata?.catalogSyncState !== "ready";
+          item.type === MediaType.TV;
+        return (
+          eligible &&
+          this.needsCatalogSync(item, accountSeasons, accountEpisodes)
+        );
       });
       return await this.syncImportedItems(account, remaining);
     } finally {
@@ -235,6 +243,63 @@ export class MediaCatalogService {
       "returning series",
       "in production",
     ].includes(status);
+  }
+
+  private needsCatalogSync(
+    item: MediaItem,
+    seasons: MediaSeason[],
+    episodes: MediaEpisode[]
+  ): boolean {
+    if (
+      item.metadata?.catalogSyncState !== "ready" ||
+      Number(item.metadata?.catalogSchemaVersion) !== CATALOG_SCHEMA_VERSION
+    ) {
+      return true;
+    }
+
+    if (
+      item.type === MediaType.ANIME &&
+      String(item.metadata?.mediaFormat || "")
+        .trim()
+        .toLowerCase() === "movie"
+    ) {
+      return false;
+    }
+
+    const itemSeasons = seasons.filter(
+      (season) => season.mediaItemId === item.id && season.number > 0
+    );
+    const itemEpisodes = episodes.filter(
+      (episode) => episode.mediaItemId === item.id && episode.seasonNumber > 0
+    );
+    const expectedEpisodes = Number(item.metadata?.episodes);
+    if (
+      Number.isInteger(expectedEpisodes) &&
+      expectedEpisodes > 0 &&
+      itemEpisodes.length < expectedEpisodes
+    ) {
+      return true;
+    }
+
+    if (item.type === MediaType.TV) {
+      const expectedSeasons = Number(item.metadata?.seasons);
+      if (
+        Number.isInteger(expectedSeasons) &&
+        expectedSeasons > 0 &&
+        itemSeasons.length < expectedSeasons
+      ) {
+        return true;
+      }
+    } else if (
+      item.type === MediaType.ANIME &&
+      Number.isInteger(expectedEpisodes) &&
+      expectedEpisodes > 0 &&
+      itemSeasons.length === 0
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   async getCatalog(
@@ -412,7 +477,10 @@ export class MediaCatalogService {
 
       const seasonResponse = await axios.get(
         `https://api.themoviedb.org/3/tv/${tmdbId}/season/${number}`,
-        { params: { api_key: tmdbKey }, timeout: 10000 }
+        {
+          params: { api_key: tmdbKey },
+          timeout: 10000,
+        }
       );
       const providerEpisodes = Array.isArray(seasonResponse.data?.episodes)
         ? seasonResponse.data.episodes
@@ -488,6 +556,11 @@ export class MediaCatalogService {
     const regularEpisodes = allEpisodes.filter(
       (episode) => episode.seasonNumber > 0
     );
+    await this.applyTvTimeEpisodeProgress(
+      item,
+      regularEpisodes,
+      details.status
+    );
     const regularSeasonCount = providerSeasons.filter(
       (season) => Number(season.season_number) > 0
     ).length;
@@ -515,7 +588,10 @@ export class MediaCatalogService {
 
     const response = await axios.get(
       `https://api.themoviedb.org/3/movie/${tmdbId}`,
-      { params: { api_key: tmdbKey }, timeout: 10000 }
+      {
+        params: { api_key: tmdbKey },
+        timeout: 10000,
+      }
     );
     const details = response.data || {};
     const releaseYear = Number(String(details.release_date || "").slice(0, 4));
@@ -526,9 +602,10 @@ export class MediaCatalogService {
       ...(item.metadata || {}),
       synopsis: details.overview || item.metadata?.synopsis,
       airingStatus: details.status || item.metadata?.airingStatus,
-      year: Number.isInteger(releaseYear) && releaseYear > 0
-        ? releaseYear
-        : item.metadata?.year,
+      year:
+        Number.isInteger(releaseYear) && releaseYear > 0
+          ? releaseYear
+          : item.metadata?.year,
       runtime: Number(details.runtime) || item.metadata?.runtime,
       tmdbScore: Number(details.vote_average) || item.metadata?.tmdbScore,
     };
@@ -573,15 +650,23 @@ export class MediaCatalogService {
       tmdbType === "tv"
         ? [candidate?.name, candidate?.original_name]
         : [candidate?.title, candidate?.original_title]
-        .map((value) => this.normalizeCatalogTitle(value))
-        .includes(normalizedQuery)
+            .map((value) => this.normalizeCatalogTitle(value))
+            .includes(normalizedQuery)
     );
     const match =
-      exactMatches.find((candidate: any) =>
-        !year || Number(String(
-          tmdbType === "tv" ? candidate?.first_air_date : candidate?.release_date
-        ).slice(0, 4)) === year
-      ) || exactMatches[0] || results[0];
+      exactMatches.find(
+        (candidate: any) =>
+          !year ||
+          Number(
+            String(
+              tmdbType === "tv"
+                ? candidate?.first_air_date
+                : candidate?.release_date
+            ).slice(0, 4)
+          ) === year
+      ) ||
+      exactMatches[0] ||
+      results[0];
     const matchedId = Number(match?.id);
     if (!Number.isInteger(matchedId) || matchedId <= 0) return null;
 
@@ -663,12 +748,14 @@ export class MediaCatalogService {
         details.title,
         details.title_english,
         details.title_japanese,
-        ...(Array.isArray(details.title_synonyms) ? details.title_synonyms : []),
+        ...(Array.isArray(details.title_synonyms)
+          ? details.title_synonyms
+          : []),
       ].filter(
         (title, index, titles): title is string =>
           typeof title === "string" &&
           !!title.trim() &&
-          titles.indexOf(title) === index,
+          titles.indexOf(title) === index
       ),
       synopsis: details.synopsis || item.metadata?.synopsis,
       year: details.year || item.metadata?.year,
@@ -689,6 +776,191 @@ export class MediaCatalogService {
       details.images?.jpg?.image_url ||
       item.coverUrl ||
       null;
+    await this.syncAnimeEpisodeCatalog(account, item, details);
+  }
+
+  private async syncAnimeEpisodeCatalog(
+    account: Account,
+    item: MediaItem,
+    details: any
+  ): Promise<void> {
+    const format = String(details?.type || item.metadata?.mediaFormat || "")
+      .trim()
+      .toLowerCase();
+    const episodeCount = Number(details?.episodes ?? item.metadata?.episodes);
+    if (
+      format === "movie" ||
+      !Number.isInteger(episodeCount) ||
+      episodeCount < 1
+    ) {
+      return;
+    }
+
+    let season = await this.seasonRepo.findOne({
+      where: { accountId: account.id, mediaItemId: item.id, number: 1 },
+    });
+    season ||= this.seasonRepo.create({
+      accountId: account.id,
+      account,
+      mediaItemId: item.id,
+      mediaItem: item,
+      number: 1,
+    });
+    Object.assign(season, {
+      providerSeasonId: `mal:${item.externalIds.malId}`,
+      name: "Episodes",
+      overview: null,
+      posterUrl: item.coverUrl || null,
+      airDate: this.providerDate(details?.aired?.from),
+      episodeCount,
+    });
+    season = await this.seasonRepo.save(season);
+
+    const backfillLegacyProgress =
+      Number(item.metadata?.catalogSchemaVersion || 0) < CATALOG_SCHEMA_VERSION;
+    const legacyWatched = backfillLegacyProgress
+      ? Math.max(0, Number(item.metadata?.episodesWatched) || 0)
+      : 0;
+
+    for (let number = 1; number <= episodeCount; number++) {
+      let episode = await this.episodeRepo.findOne({
+        where: {
+          accountId: account.id,
+          seasonId: season.id,
+          number,
+        },
+      });
+      const watched = episode?.watched ?? number <= legacyWatched;
+      const watchedAt = episode?.watchedAt ?? (watched ? new Date() : null);
+      episode ||= this.episodeRepo.create({
+        accountId: account.id,
+        account,
+        mediaItemId: item.id,
+        mediaItem: item,
+        seasonId: season.id,
+        season,
+        seasonNumber: 1,
+        number,
+      });
+      Object.assign(episode, {
+        providerEpisodeId: `mal:${item.externalIds.malId}:${number}`,
+        seasonNumber: 1,
+        title: episode.title || `Episode ${number}`,
+        watched,
+        watchedAt,
+      });
+      await this.episodeRepo.save(episode);
+    }
+
+    const episodes = await this.episodeRepo.find({
+      where: { accountId: account.id, mediaItemId: item.id },
+    });
+    await this.applyTvTimeEpisodeProgress(item, episodes, details?.status);
+    item.metadata = {
+      ...(item.metadata || {}),
+      episodes: episodeCount,
+      seasons: 1,
+      episodesWatched: episodes.filter(
+        (episode) => episode.seasonNumber > 0 && episode.watched
+      ).length,
+    };
+  }
+
+  private async applyTvTimeEpisodeProgress(
+    item: MediaItem,
+    episodes: MediaEpisode[],
+    providerStatus: unknown
+  ): Promise<void> {
+    if (item.metadata?.importSource !== "tvtime") return;
+
+    const mode = String(item.metadata?.tvTimeProgressMode || "");
+    const regularEpisodes = episodes
+      .filter((episode) => episode.seasonNumber > 0)
+      .sort(
+        (left, right) =>
+          left.seasonNumber - right.seasonNumber || left.number - right.number
+      );
+    const normalizedProviderStatus = String(providerStatus || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, " ");
+    const providerEnded = [
+      "ended",
+      "canceled",
+      "cancelled",
+      "finished",
+      "finished airing",
+    ].includes(normalizedProviderStatus);
+
+    if (mode === "unknown-partial") {
+      item.metadata = {
+        ...(item.metadata || {}),
+        tvTimeProgressImported: false,
+        tvTimeProgressNeedsReview: true,
+      };
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    let reconstructable = mode === "exact" || mode === "none";
+    const exactTarget =
+      mode === "exact"
+        ? Math.max(0, Number(item.metadata?.episodesWatched) || 0)
+        : 0;
+
+    for (let index = 0; index < regularEpisodes.length; index++) {
+      const episode = regularEpisodes[index];
+      let shouldBeWatched = episode.watched;
+      if (mode === "exact" || mode === "none") {
+        shouldBeWatched = index < exactTarget;
+      } else if (mode === "all-aired") {
+        const hasKnownAirDate = /^\d{4}-\d{2}-\d{2}$/.test(
+          String(episode.airDate || "")
+        );
+        const hasAired = hasKnownAirDate
+          ? String(episode.airDate) <= today
+          : providerEnded;
+        reconstructable ||= hasKnownAirDate || providerEnded;
+        shouldBeWatched = episode.watched || hasAired;
+      } else {
+        continue;
+      }
+
+      if (episode.watched !== shouldBeWatched) {
+        episode.watched = shouldBeWatched;
+        episode.watchedAt = shouldBeWatched
+          ? episode.watchedAt || new Date()
+          : null;
+        await this.episodeRepo.save(episode);
+      }
+    }
+
+    const watchedCount = regularEpisodes.filter(
+      (episode) => episode.watched
+    ).length;
+    if (mode === "none") {
+      item.status = MediaStatus.PLANNING;
+    } else if (mode === "all-aired") {
+      item.status =
+        providerEnded &&
+        regularEpisodes.length > 0 &&
+        watchedCount === regularEpisodes.length
+          ? MediaStatus.COMPLETED
+          : MediaStatus.WATCHING;
+    } else if (
+      mode === "exact" &&
+      providerEnded &&
+      regularEpisodes.length > 0 &&
+      watchedCount === regularEpisodes.length
+    ) {
+      item.status = MediaStatus.COMPLETED;
+    }
+    item.metadata = {
+      ...(item.metadata || {}),
+      episodesWatched: watchedCount,
+      tvTimeProgressImported: reconstructable,
+      tvTimeProgressNeedsReview: !reconstructable,
+    };
   }
 
   private async fetchAnimeFull(malId: number): Promise<any> {

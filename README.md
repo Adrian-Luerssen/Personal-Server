@@ -123,6 +123,21 @@ In the Android app, open **You → Updates**, check for an update, and install t
 
 The customer-facing launcher icon is **Bookplate R**. Its adaptive, round, and legacy-density resources use dedicated `record_bookplate_r` resource names so Android launchers refresh the icon during upgrades instead of retaining the retired icon cache. See the [Android release guide](docs/ANDROID_RELEASES.md).
 
+### Cache-first data experience
+
+The web client and Android app render account-scoped cached responses first,
+then refresh stale data silently. Route intent and idle-time preloaders warm
+the first useful screen before navigation. Ordinary record edits are applied
+locally and written through a durable, ordered mutation queue, so slow API
+wake-ups do not block habits, workout sets, finance records, bodyweight, or
+media progress.
+
+Queued writes retry after reconnect, app resume, or window focus. Validation
+failures remain visible through the header sync state and can be retried.
+Authentication, imports, catalog synchronization, and provider sync remain
+server-confirmed operations. Signing out clears both cached reads and queued
+writes.
+
 ### Product analytics
 
 The React web client includes Vercel Web Analytics through `@vercel/analytics/react`. Enable Web Analytics for the Vercel project and redeploy the frontend; hosted web page views then use Vercel's automatically injected analytics routes. Query strings and URL fragments are removed before events are sent.

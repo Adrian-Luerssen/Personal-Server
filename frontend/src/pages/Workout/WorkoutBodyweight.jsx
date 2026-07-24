@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { api } from '../../api'
+import { api, queueApiMutation } from '../../api'
 import {
   Modal,
   LoadingLine,
@@ -36,32 +36,45 @@ export default function WorkoutBodyweight() {
 
   function closeModal() { setShowModal(false); setForm({ id: null, date: '', weightKg: '', note: '' }) }
 
-  async function saveEntry() {
+  function saveEntry() {
     if (!form.date || !form.weightKg) { setError('Date and weight are required'); return }
     setError('')
-    try {
-      const payload = { date: form.date, weightKg: Number(form.weightKg), note: form.note.trim() || null }
-      if (form.id) {
-        const updated = await api.post(`/workout/bodyweight/${form.id}`, payload)
-        setEntries(entries.map(e => e.id === updated.id ? updated : e))
-      } else {
-        const created = await api.post('/workout/bodyweight', payload)
-        const exists = entries.find(e => e.date === created.date)
-        if (exists) setEntries(entries.map(e => e.date === created.date ? created : e))
-        else setEntries([created, ...entries].sort((a, b) => b.date.localeCompare(a.date)))
-      }
-      closeModal()
-    } catch (e) { setError(e.message || 'Failed to save entry') }
+    const payload = { date: form.date, weightKg: Number(form.weightKg), note: form.note.trim() || null }
+    const optimistic = { ...payload, id: form.id || `pending-${Date.now()}`, pendingSync: true }
+    const updateEntries = (items = []) => {
+      const existing = items.find(entry => entry.id === form.id || entry.date === optimistic.date)
+      return (existing
+        ? items.map(entry => entry.id === existing.id ? { ...entry, ...optimistic } : entry)
+        : [optimistic, ...items]
+      ).sort((a, b) => b.date.localeCompare(a.date))
+    }
+    setEntries(updateEntries)
+    const mutation = queueApiMutation(form.id ? `/workout/bodyweight/${form.id}` : '/workout/bodyweight', {
+      method: 'POST',
+      body: payload,
+      prefixes: ['/workout', '/dashboard'],
+      dedupeKey: form.id ? `bodyweight:${form.id}` : null,
+      optimisticUpdates: [{ path: '/workout/bodyweight', updater: updateEntries }],
+    })
+    mutation.committed.then(created => {
+      setEntries(items => items.map(entry => entry.id === optimistic.id ? created : entry))
+    }).catch(() => {})
+    closeModal()
   }
 
   // BUG FIX B3: use api.delete instead of api.post with { method: 'DELETE' }
-  async function deleteEntry(entry) {
+  function deleteEntry(entry) {
     setError('')
-    try {
-      await api.delete(`/workout/bodyweight/${entry.id}`)
-      setEntries(entries.filter(e => e.id !== entry.id))
-      setPendingDelete(null)
-    } catch (e) { setError(e.message || 'Failed to delete entry') }
+    setEntries(current => current.filter(item => item.id !== entry.id))
+    queueApiMutation(`/workout/bodyweight/${entry.id}`, {
+      method: 'DELETE',
+      prefixes: ['/workout', '/dashboard'],
+      optimisticUpdates: [{
+        path: '/workout/bodyweight',
+        updater: items => (items || []).filter(item => item.id !== entry.id),
+      }],
+    })
+    setPendingDelete(null)
   }
 
   const latestEntry = entries.length > 0 ? entries[0] : null

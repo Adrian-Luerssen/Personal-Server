@@ -4,6 +4,11 @@ import Icon from '../../components/icons/Icon'
 import AnimeContinuity from './AnimeContinuity'
 import SeriesSeasonList from './SeriesSeasonList'
 import {
+  getMediaClassifications,
+  getMediaStatusOptions,
+  normalizeMediaStatus,
+} from './mediaStatusModel.mjs'
+import {
   getCatalogProgressLabel,
   getNextEpisodeAction,
   summarizeSeriesMetadata,
@@ -28,14 +33,18 @@ export default function SeriesDetail({
   const [selectedSeason, setSelectedSeason] = useState(firstRegularSeason ?? catalog?.seasons?.[0]?.number ?? 0)
   const [rating, setRating] = useState(item?.rating ?? '')
   const [ratingSaving, setRatingSaving] = useState(false)
+  const [previewStatus, setPreviewStatus] = useState(normalizeMediaStatus(item?.type, 'planning', '', item?.metadata))
   const metadata = useMemo(() => summarizeSeriesMetadata(item), [item])
   const nextAction = getNextEpisodeAction(catalog)
-  const isMovie = item?.type === 'movie'
+  const classifications = getMediaClassifications(item)
+  const classificationKey = classifications.join(':')
+  const isMovie = classifications.includes('movie')
 
   useEffect(() => {
     setSelectedSeason(firstRegularSeason ?? catalog?.seasons?.[0]?.number ?? 0)
     setRating(item?.rating ?? '')
-  }, [item?.id, firstRegularSeason])
+    setPreviewStatus(normalizeMediaStatus(item?.type, 'planning', '', item?.metadata))
+  }, [item?.id, item?.type, classificationKey, firstRegularSeason])
 
   const saveRating = async () => {
     if (item?.isCatalogPreview || ratingSaving) return
@@ -90,7 +99,7 @@ export default function SeriesDetail({
             {item.coverUrl ? <img src={item.coverUrl} alt="" loading="eager" decoding="async" /> : <Icon name="clapperboard" size={30} />}
           </div>
           <div className="series-detail__intro">
-            <span className="series-detail__kicker">{item.type === 'anime' ? 'Anime release' : isMovie ? 'Film' : 'Television series'}</span>
+            <span className="series-detail__kicker">{item.type === 'anime' ? (isMovie ? 'Anime film' : 'Anime release') : isMovie ? 'Film' : 'Television series'}</span>
             <h2 id="series-detail-title">{item.title}</h2>
             <div className="series-detail__facts" aria-label="Title facts">
               {metadata.year && <span>{metadata.year}</span>}
@@ -145,9 +154,23 @@ export default function SeriesDetail({
             </div>
           )}
           {item.isCatalogPreview ? (
-            <button type="button" className="series-detail__primary" onClick={() => onAddPreview?.(item)} disabled={loading}>
-              <Icon name="plus" size={16} /> Add to library
-            </button>
+            <div className="series-detail__add-record">
+              <label>
+                <span>Status for new title</span>
+                <select
+                  aria-label="Status for new title"
+                  value={previewStatus}
+                  onChange={(event) => setPreviewStatus(event.target.value)}
+                >
+                  {getMediaStatusOptions(item.type, item.metadata).map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="series-detail__primary" onClick={() => onAddPreview?.(item, previewStatus)} disabled={loading}>
+                <Icon name="plus" size={16} /> Add to library
+              </button>
+            </div>
           ) : <>
             <button type="button" onClick={onRefresh} disabled={loading}>
               <Icon name="refresh-cw" size={16} /> {loading ? 'Syncing…' : isMovie ? 'Refresh details' : 'Refresh catalog'}

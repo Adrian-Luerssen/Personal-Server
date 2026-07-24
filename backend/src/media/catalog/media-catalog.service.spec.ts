@@ -152,6 +152,51 @@ describe("MediaCatalogService", () => {
     });
   });
 
+  it("reconstructs TV Time up-to-date progress from episodes that have already aired", async () => {
+    const item = {
+      id: "tvtime-up-to-date",
+      accountId: account.id,
+      title: "Current Show",
+      type: MediaType.TV,
+      status: MediaStatus.WATCHING,
+      externalIds: { tmdbId: 99 },
+      metadata: {
+        importSource: "tvtime",
+        tvTimeProgressMode: "all-aired",
+      },
+    } as any;
+    mediaRepo.rows.push(item);
+    mockedAxios.get
+      .mockResolvedValueOnce({
+        data: {
+          status: "Returning Series",
+          seasons: [
+            { id: 901, season_number: 1, name: "Season 1", episode_count: 3 },
+          ],
+        },
+      } as any)
+      .mockResolvedValueOnce({
+        data: {
+          episodes: [
+            { id: 1, episode_number: 1, name: "One", air_date: "2025-01-01" },
+            { id: 2, episode_number: 2, name: "Two", air_date: "2026-01-01" },
+            { id: 3, episode_number: 3, name: "Three", air_date: "2999-01-01" },
+          ],
+        },
+      } as any);
+
+    const view = await service.syncItem(account, item);
+
+    expect(view.progress).toMatchObject({ watched: 2, total: 3 });
+    expect(view.nextEpisode).toBeNull();
+    expect(view.upcomingEpisode).toMatchObject({ number: 3, watched: false });
+    expect(item.status).toBe(MediaStatus.WATCHING);
+    expect(item.metadata).toMatchObject({
+      episodesWatched: 2,
+      tvTimeProgressImported: true,
+    });
+  });
+
   it("matches a TV title with a trailing year before synchronizing TMDB", async () => {
     const item = {
       id: "tv-grand-tour",
@@ -166,12 +211,14 @@ describe("MediaCatalogService", () => {
     mockedAxios.get
       .mockResolvedValueOnce({
         data: {
-          results: [{
-            id: 67557,
-            name: "The Grand Tour",
-            original_name: "The Grand Tour",
-            first_air_date: "2016-11-17",
-          }],
+          results: [
+            {
+              id: 67557,
+              name: "The Grand Tour",
+              original_name: "The Grand Tour",
+              first_air_date: "2016-11-17",
+            },
+          ],
         },
       } as any)
       .mockResolvedValueOnce({
@@ -193,7 +240,7 @@ describe("MediaCatalogService", () => {
           query: "The Grand Tour",
           first_air_date_year: 2016,
         }),
-      }),
+      })
     );
     expect(item.externalIds.tmdbId).toBe(67557);
     expect(item.metadata).toMatchObject({ catalogSyncState: "ready" });
@@ -213,12 +260,14 @@ describe("MediaCatalogService", () => {
     mockedAxios.get
       .mockResolvedValueOnce({
         data: {
-          results: [{
-            id: 329865,
-            title: "Arrival",
-            original_title: "Arrival",
-            release_date: "2016-11-10",
-          }],
+          results: [
+            {
+              id: 329865,
+              title: "Arrival",
+              original_title: "Arrival",
+              release_date: "2016-11-10",
+            },
+          ],
         },
       } as any)
       .mockResolvedValueOnce({
@@ -243,7 +292,7 @@ describe("MediaCatalogService", () => {
           query: "Arrival",
           primary_release_year: 2016,
         }),
-      }),
+      })
     );
     expect(item.externalIds.tmdbId).toBe(329865);
     expect(item.coverUrl).toBe("https://image.tmdb.org/t/p/w500/arrival.jpg");
@@ -327,6 +376,45 @@ describe("MediaCatalogService", () => {
       ],
     });
     expect(item.coverUrl).toBe("https://img.example/first-season.jpg");
+  });
+
+  it("creates an episode catalog for an anime release and preserves imported progress", async () => {
+    const item = {
+      id: "anime-catalog",
+      accountId: account.id,
+      title: "Catalogued Anime",
+      type: MediaType.ANIME,
+      externalIds: { malId: 321 },
+      metadata: { episodesWatched: 2 },
+    } as any;
+    mediaRepo.rows.push(item);
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        data: {
+          mal_id: 321,
+          title: "Catalogued Anime",
+          type: "TV",
+          episodes: 3,
+          relations: [],
+        },
+      },
+    } as any);
+
+    const view = await service.syncItem(account, item);
+
+    expect(view.seasons).toHaveLength(1);
+    expect(view.seasons[0]).toMatchObject({
+      number: 1,
+      name: "Episodes",
+      episodeCount: 3,
+    });
+    expect(view.seasons[0].episodes).toHaveLength(3);
+    expect(view.progress).toMatchObject({
+      watched: 2,
+      total: 3,
+      episodeNumber: 2,
+    });
+    expect(view.nextEpisode).toMatchObject({ number: 3, title: "Episode 3" });
   });
 
   it("falls back to AniList when Jikan rejects the deployed server", async () => {
@@ -464,7 +552,7 @@ describe("MediaCatalogService", () => {
     expect(peak).toBeLessThanOrEqual(4);
   });
 
-  it("force syncs only unfinished eligible shows for the requesting account", async () => {
+  it("force syncs unfinished and legacy-ready shows that lack the current episode catalog", async () => {
     mediaRepo.rows.push(
       {
         id: "failed",
@@ -485,7 +573,18 @@ describe("MediaCatalogService", () => {
         accountId: account.id,
         type: MediaType.ANIME,
         externalIds: { malId: 3 },
-        metadata: { catalogSyncState: "ready" },
+        metadata: {
+          catalogSyncState: "ready",
+          catalogSchemaVersion: 2,
+          episodes: 1,
+        },
+      },
+      {
+        id: "legacy-ready-without-catalog",
+        accountId: account.id,
+        type: MediaType.TV,
+        externalIds: { tmdbId: 30 },
+        metadata: { catalogSyncState: "ready", episodes: 12 },
       },
       {
         id: "unsupported",
@@ -502,9 +601,23 @@ describe("MediaCatalogService", () => {
         metadata: {},
       }
     );
+    seasonRepo.rows.push({
+      id: "ready-season",
+      accountId: account.id,
+      mediaItemId: "ready",
+      number: 1,
+    });
+    episodeRepo.rows.push({
+      id: "ready-episode",
+      accountId: account.id,
+      mediaItemId: "ready",
+      seasonId: "ready-season",
+      seasonNumber: 1,
+      number: 1,
+    });
     const sync = jest
       .spyOn(service, "syncImportedItems")
-      .mockResolvedValue({ eligible: 2, synced: 2, failed: 0 });
+      .mockResolvedValue({ eligible: 3, synced: 3, failed: 0 });
 
     const result = await service.syncRemainingItems(account);
 
@@ -513,13 +626,37 @@ describe("MediaCatalogService", () => {
       expect.arrayContaining([
         expect.objectContaining({ id: "failed" }),
         expect.objectContaining({ id: "pending" }),
+        expect.objectContaining({ id: "legacy-ready-without-catalog" }),
       ])
     );
     expect(sync.mock.calls[0][1].map((item) => item.id).sort()).toEqual([
       "failed",
+      "legacy-ready-without-catalog",
       "pending",
     ]);
-    expect(result).toEqual({ eligible: 2, synced: 2, failed: 0 });
+    expect(result).toEqual({ eligible: 3, synced: 3, failed: 0 });
+  });
+
+  it("does not repeatedly recover a fully enriched anime movie without episodes", async () => {
+    mediaRepo.rows.push({
+      id: "anime-movie",
+      accountId: account.id,
+      type: MediaType.ANIME,
+      externalIds: { malId: 400 },
+      metadata: {
+        mediaFormat: "Movie",
+        episodes: 1,
+        catalogSyncState: "ready",
+        catalogSchemaVersion: 2,
+      },
+    });
+    const sync = jest
+      .spyOn(service, "syncImportedItems")
+      .mockResolvedValue({ eligible: 0, synced: 0, failed: 0 });
+
+    await service.syncRemainingItems(account);
+
+    expect(sync).toHaveBeenCalledWith(account, []);
   });
 
   it("refreshes stale currently-airing titles and ignores finished titles", async () => {

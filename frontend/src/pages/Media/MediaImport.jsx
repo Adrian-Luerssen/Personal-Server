@@ -10,6 +10,11 @@ import { isNativeMobileApp } from '../../mobilePlatform'
 import { streamImportProgress } from '../../importProgress.mjs'
 
 const MEDIA_COLOR = '#7c5cff'
+const IMPORT_TYPE_OPTIONS = [
+  { type: 'anime', label: 'Anime', icon: 'tv' },
+  { type: 'tv', label: 'TV series', icon: 'monitor' },
+  { type: 'movie', label: 'Movies', icon: 'clapperboard' },
+]
 
 const SOURCES = [
   { id: 'mal-anime',  label: 'MyAnimeList (Anime)', icon: 'tv',        endpoint: '/media/import/mal/anime/preview', fileType: 'mal', desc: 'Export from MAL Settings > Account > Export' },
@@ -102,6 +107,12 @@ function SourceStep({ source, setSource, file, setFile, onNext }) {
 function PreviewStep({ preview, loading, error, onNext, onBack }) {
   const [actions, setActions] = useState({}) // title -> 'skip' | 'replace'
   const [bulkAction, setBulkAction] = useState('') // for "set all"
+  const [includedTypes, setIncludedTypes] = useState([])
+
+  React.useEffect(() => {
+    if (!preview?.previewId) return
+    setIncludedTypes(Object.keys(preview.typeCounts || {}))
+  }, [preview?.previewId])
 
   if (loading) return (
     <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
@@ -119,46 +130,113 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
 
   const newItems = preview.items || []
   const duplicates = preview.duplicates || []
-  const hasDuplicates = duplicates.length > 0
+  const selectedTypes = new Set(includedTypes)
+  const selectedNewItems = newItems.filter(item => selectedTypes.has(item.type))
+  const selectedDuplicates = duplicates.filter(dup => selectedTypes.has(dup.incoming.type))
+  const selectedNewCount = includedTypes.reduce((count, type) => count + (preview.newTypeCounts?.[type] || 0), 0)
+  const selectedDuplicateCount = includedTypes.reduce((count, type) => count + (preview.duplicateTypeCounts?.[type] || 0), 0)
+  const selectedTotal = includedTypes.reduce((count, type) => count + (preview.typeCounts?.[type] || 0), 0)
+  const hasDuplicates = selectedDuplicates.length > 0
+  const isTvTime = preview.source === 'tvtime'
 
   const getAction = (title) => actions[title] || 'skip'
 
   const applyBulk = (action) => {
     setBulkAction(action)
     const newActions = {}
-    duplicates.forEach(d => { newActions[d.incoming.title] = action })
+    selectedDuplicates.forEach(d => { newActions[d.incoming.title] = action })
     setActions(newActions)
   }
 
   const handleNext = () => {
-    onNext(actions)
+    onNext(actions, includedTypes)
   }
 
-  const replaceCount = Object.values(actions).filter(a => a === 'replace').length
+  const replaceCount = selectedDuplicates.filter(dup => getAction(dup.incoming.title) === 'replace').length
+  const progressUpdateCount = isTvTime ? selectedDuplicateCount - replaceCount : 0
+  const canImport = includedTypes.length > 0 && (selectedNewCount > 0 || replaceCount > 0 || progressUpdateCount > 0)
+  const toggleType = (type) => {
+    setIncludedTypes(current => current.includes(type)
+      ? current.filter(item => item !== type)
+      : [...current, type])
+  }
 
   return (
     <div style={{ marginBottom: '1.5rem' }}>
+      {preview.source === 'tvtime' && (
+        <section className="card" style={{ marginBottom: '1rem' }} aria-labelledby="tvtime-import-types">
+          <div style={{ marginBottom: '0.9rem' }}>
+            <h3 id="tvtime-import-types" style={{ marginBottom: '0.25rem' }}>What to import</h3>
+            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.82rem' }}>
+              Choose the parts of this TV Time library you want to merge. Nothing excluded will be created, replaced, or synchronized.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem' }}>
+            {IMPORT_TYPE_OPTIONS.map(option => {
+              const checked = includedTypes.includes(option.type)
+              const available = (preview.typeCounts?.[option.type] || 0) > 0
+              return (
+                <label key={option.type} style={{
+                  minHeight: 58,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.7rem',
+                  padding: '0.7rem 0.8rem',
+                  border: `1px solid ${checked ? MEDIA_COLOR : 'var(--glass-border)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  background: checked ? `${MEDIA_COLOR}15` : 'var(--color-bg-elevated)',
+                  cursor: available ? 'pointer' : 'not-allowed',
+                  opacity: available ? 1 : 0.5,
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleType(option.type)}
+                    disabled={!available}
+                    style={{ inlineSize: 18, blockSize: 18, accentColor: MEDIA_COLOR }}
+                  />
+                  <Icon name={option.icon} size={18} style={{ color: checked ? MEDIA_COLOR : 'var(--color-text-muted)' }} />
+                  <span style={{ flex: 1, fontWeight: 650, fontSize: '0.84rem' }}>{option.label}</span>
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>{preview.typeCounts?.[option.type] || 0}</span>
+                </label>
+              )
+            })}
+          </div>
+          {(preview.progressSummary?.reconstructable > 0 || preview.progressSummary?.needsReview > 0) && (
+            <div className="alert-warning" style={{ marginTop: '0.8rem' }}>
+              Episode progress: {preview.progressSummary.reconstructable || 0} up-to-date titles will be rebuilt from aired episodes.
+              {(preview.progressSummary.needsReview || 0) > 0 && ` ${preview.progressSummary.needsReview} partial-progress titles have no episode count in this export and will keep their Watching or Paused state.`}
+            </div>
+          )}
+          {selectedTotal < preview.totalItems && (
+            <p style={{ margin: '0.7rem 0 0', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>
+              {preview.totalItems - selectedTotal} {preview.totalItems - selectedTotal === 1 ? 'title' : 'titles'} excluded from this import.
+            </p>
+          )}
+        </section>
+      )}
+
       {/* New items */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <h3 style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Icon name="plus-circle" size={20} style={{ color: 'var(--color-success)' }} />
           New Items
-          <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>({preview.newCount})</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>({selectedNewCount})</span>
         </h3>
-        {preview.newCount === 0 ? (
+        {selectedNewCount === 0 ? (
           <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', padding: '0.5rem 0' }}>No new items to import - all already exist in your library.</div>
         ) : (
           <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-            {newItems.slice(0, 30).map((item, i) => (
+            {selectedNewItems.slice(0, 30).map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0', borderBottom: '1px solid var(--glass-border)' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 600, color: MEDIA_COLOR, textTransform: 'uppercase', width: 50 }}>{item.type}</span>
                 <span style={{ flex: 1, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{item.status}</span>
               </div>
             ))}
-            {preview.newCount > 30 && (
+            {selectedNewCount > selectedNewItems.length && (
               <div style={{ textAlign: 'center', padding: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-                ...and {preview.newCount - 30} more
+                ...and {selectedNewCount - selectedNewItems.length} more
               </div>
             )}
           </div>
@@ -171,10 +249,12 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
           <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Icon name="copy" size={20} style={{ color: '#fbbf24' }} />
             Already in Library
-            <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>({preview.duplicateCount ?? duplicates.length})</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>({selectedDuplicateCount})</span>
           </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
-            These titles already exist. Choose to <strong>skip</strong> (keep existing) or <strong>replace</strong> (overwrite with imported data) for each.
+            {isTvTime
+              ? <>Choose <strong>Keep & merge</strong> to preserve your record while adding TV Time episode progress, or <strong>replace</strong> to overwrite it with the export.</>
+              : <>These titles already exist. Choose to <strong>skip</strong> (keep existing) or <strong>replace</strong> (overwrite with imported data) for each.</>}
           </p>
 
           {/* Bulk actions */}
@@ -188,7 +268,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
                 border: '1px solid var(--glass-border)',
               }}
             >
-              Skip All
+              {isTvTime ? 'Keep & merge all' : 'Skip All'}
             </button>
             <button
               className="btn"
@@ -205,14 +285,14 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
           </div>
 
           <div style={{ maxHeight: 350, overflowY: 'auto' }}>
-            {duplicates.map((dup, i) => {
+            {selectedDuplicates.map((dup, i) => {
               const action = getAction(dup.incoming.title)
               return (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: '0.75rem',
                   padding: '0.5rem 0.4rem',
                   borderBottom: '1px solid var(--glass-border)',
-                  opacity: action === 'skip' ? 0.5 : 1,
+                  opacity: action === 'skip' && !isTvTime ? 0.5 : 1,
                   transition: 'opacity 0.2s',
                 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -234,7 +314,7 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
                         border: '1px solid var(--glass-border)',
                       }}
                     >
-                      Skip
+                      {isTvTime ? 'Keep & merge' : 'Skip'}
                     </button>
                     <button
                       className="btn"
@@ -263,11 +343,11 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
         <button
           className="btn"
           onClick={handleNext}
-          disabled={preview.newCount === 0 && replaceCount === 0}
-          style={{ background: MEDIA_COLOR, color: '#000', opacity: (preview.newCount === 0 && replaceCount === 0) ? 0.4 : 1 }}
+          disabled={!canImport}
+          style={{ background: MEDIA_COLOR, color: '#000', opacity: canImport ? 1 : 0.4 }}
         >
           <Icon name="play" size={18} />
-          Import {preview.newCount} new{replaceCount > 0 ? ` + replace ${replaceCount}` : ''}
+          Import {selectedNewCount} new{replaceCount > 0 ? ` + replace ${replaceCount}` : ''}{progressUpdateCount > 0 ? ` + update progress ${progressUpdateCount}` : ''}
         </button>
       </div>
     </div>
@@ -390,16 +470,16 @@ export default function MediaImport() {
     finally { setPreviewLoading(false) }
   }
 
-  const handleStartImport = async (duplicateActions) => {
+  const handleStartImport = async (duplicateActions, includedTypes) => {
     setImportError(null)
     setSummary(null)
 
     // Send duplicate resolution to backend
-    if (preview?.duplicateCount > 0 && Object.keys(duplicateActions).length > 0) {
+    if (preview?.previewId) {
       try {
         await apiFetch('/media/import/resolve', {
           method: 'POST',
-          body: JSON.stringify({ previewId: preview.previewId, actions: duplicateActions }),
+          body: JSON.stringify({ previewId: preview.previewId, actions: duplicateActions, includedTypes }),
         })
       } catch (e) {
         setImportError(e.message)

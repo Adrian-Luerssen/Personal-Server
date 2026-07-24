@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Modal } from '../shared/Modal'
-import { api } from '../../api'
+import { queueApiMutation } from '../../api'
 import CategoryPicker from './CategoryPicker'
 import WalletPicker from './WalletPicker'
 import Icon from '../icons/Icon'
@@ -136,14 +136,16 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
     }
   }, [form.amount, sameCurrency, mode])
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault()
     setError(null)
     setSaving(true)
-    try {
-      const resolvedName = form.name.trim() || selectedCategory?.name || (mode === 'transfer' ? 'Transfer' : mode === 'income' ? 'Income' : 'Expense')
-      if (mode === 'transfer' && !isEdit) {
-        const payload = {
+    const resolvedName = form.name.trim() || selectedCategory?.name || (mode === 'transfer' ? 'Transfer' : mode === 'income' ? 'Income' : 'Expense')
+    let path
+    let method
+    let payload
+    if (mode === 'transfer' && !isEdit) {
+        payload = {
           name: resolvedName,
           fromWalletId: form.fromWalletId || null,
           toWalletId: form.toWalletId || null,
@@ -152,9 +154,10 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
           transactionDate: form.transactionDate,
           note: form.note.trim() || null,
         }
-        await api.post('/finance/transactions/transfer', payload)
-      } else {
-        const payload = {
+        path = '/finance/transactions/transfer'
+        method = 'POST'
+    } else {
+        payload = {
           name: resolvedName,
           amount: parseFloat(form.amount),
           isIncome: mode === 'income' ? true : mode === 'expense' ? false : form.isIncome,
@@ -163,32 +166,62 @@ export default function TransactionForm({ transaction, wallets, categories, onCl
           categoryId: mode === 'transfer' ? null : (form.categoryId || null),
           note: form.note.trim() || null,
         }
-        if (isEdit) {
-          await api.patch(`/finance/transactions/${transaction.id}`, payload)
-        } else {
-          await api.post('/finance/transactions', payload)
-        }
-      }
-      onSaved()
-      onClose()
-    } catch (err) {
-      setError(err.message || 'Failed to save')
-    } finally {
-      setSaving(false)
+        path = isEdit ? `/finance/transactions/${transaction.id}` : '/finance/transactions'
+        method = isEdit ? 'PATCH' : 'POST'
     }
+    const optimistic = {
+      ...(transaction || {}),
+      ...payload,
+      id: transaction?.id || `pending-${Date.now()}`,
+      type: mode === 'transfer' ? 1 : transaction?.type,
+      wallet: (wallets || []).find(wallet => wallet.id === payload.walletId),
+      category: (categories || []).find(category => category.id === payload.categoryId),
+      fromWallet: (wallets || []).find(wallet => wallet.id === payload.fromWalletId),
+      toWallet: (wallets || []).find(wallet => wallet.id === payload.toWalletId),
+      pendingSync: true,
+    }
+    const mutation = queueApiMutation(path, {
+      method,
+      body: payload,
+      prefixes: ['/finance', '/dashboard'],
+      dedupeKey: isEdit ? `finance-transaction:${transaction.id}` : null,
+      optimisticPrefixUpdates: [{
+        prefixes: ['/finance/transactions?'],
+        updater: (data) => {
+          const updateItems = (items = []) => isEdit
+            ? items.map(item => item.id === optimistic.id ? { ...item, ...optimistic } : item)
+            : [optimistic, ...items]
+          if (Array.isArray(data)) return updateItems(data)
+          if (Array.isArray(data?.items)) return { ...data, items: updateItems(data.items), total: Number(data.total || 0) + (isEdit ? 0 : 1) }
+          if (Array.isArray(data?.transactions)) return { ...data, transactions: updateItems(data.transactions), total: Number(data.total || 0) + (isEdit ? 0 : 1) }
+          return data
+        },
+      }],
+    })
+    onSaved({ action: isEdit ? 'update' : 'create', optimistic, mutation })
+    onClose()
+    setSaving(false)
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     setSaving(true)
-    try {
-      await api.delete(`/finance/transactions/${transaction.id}`)
-      onSaved()
-      onClose()
-    } catch (err) {
-      setError(err.message || 'Failed to delete')
-    } finally {
-      setSaving(false)
-    }
+    const mutation = queueApiMutation(`/finance/transactions/${transaction.id}`, {
+      method: 'DELETE',
+      prefixes: ['/finance', '/dashboard'],
+      optimisticPrefixUpdates: [{
+        prefixes: ['/finance/transactions?'],
+        updater: (data) => {
+          const remove = (items = []) => items.filter(item => item.id !== transaction.id)
+          if (Array.isArray(data)) return remove(data)
+          if (Array.isArray(data?.items)) return { ...data, items: remove(data.items), total: Math.max(0, Number(data.total || 0) - 1) }
+          if (Array.isArray(data?.transactions)) return { ...data, transactions: remove(data.transactions), total: Math.max(0, Number(data.total || 0) - 1) }
+          return data
+        },
+      }],
+    })
+    onSaved({ action: 'delete', optimistic: transaction, mutation })
+    onClose()
+    setSaving(false)
   }
 
   const isTransfer = mode === 'transfer'

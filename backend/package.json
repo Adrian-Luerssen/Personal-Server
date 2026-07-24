@@ -31,6 +31,7 @@
     "test:cov": "jest -w 1 --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "NODE_ENV=testing env-cmd -f ./.env.dev jest --runInBand --config ./test/jest-e2e.json",
+    "media:backfill-classifications": "env-cmd -f ./.env node ./scripts/backfill-media-classifications.cjs",
     "fixtures": "env-cmd -f ./.env.dev fixtures ./src/fixtures --config ./src/typeormconfig.ts --require ts-node/register --require=tsconfig-paths/register"
   },
   "dependencies": {

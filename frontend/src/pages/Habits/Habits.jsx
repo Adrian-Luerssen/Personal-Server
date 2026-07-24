@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { api, apiFetch } from '../../api'
+import { api, apiFetch, queueApiMutation, updateApiCache } from '../../api'
 import {
   SkeletonCard,
   Modal,
@@ -215,7 +215,25 @@ export default function Habits() {
     setLoadError('')
 
     try {
-      const bundle = await fetchBundle(force ? apiFetch : api.get)
+      const cachedFetcher = (path) => api.get(path, {
+        onUpdate: (fresh) => {
+          if (path === '/habits') setHabits(Array.isArray(fresh) ? fresh : [])
+          else if (path === '/habits/summary') setSummary(Array.isArray(fresh) ? fresh : [])
+          else if (path.startsWith('/habits/calendar/')) {
+            setCalendarData({
+              habits: fresh?.habits || {},
+              entries: Array.isArray(fresh?.entries) ? fresh.entries : [],
+            })
+          } else if (path.startsWith('/habits/progress/')) {
+            setProgress({
+              weekly: fresh?.weekly || {},
+              monthly: fresh?.monthly || [],
+              yearly: fresh?.yearly || [],
+            })
+          }
+        },
+      })
+      const bundle = await fetchBundle(force ? apiFetch : cachedFetcher)
       applyBundle(bundle)
     } catch (error) {
       setLoadError(error.message || 'Failed to load habits')
@@ -234,6 +252,13 @@ export default function Habits() {
   }
 
   function updateCalendarEntry(habitId, date, nextEntry) {
+    updateApiCache(`/habits/calendar/${monthKey}`, (current = EMPTY_CALENDAR) => {
+      const entries = (current.entries || []).filter(
+        (entry) => !(entry.habitId === habitId && entry.date === date),
+      )
+      if (nextEntry) entries.push(nextEntry)
+      return { ...current, entries }
+    })
     setCalendarData((current) => {
       const entries = (current.entries || []).filter(
         (entry) => !(entry.habitId === habitId && entry.date === date),
@@ -269,7 +294,7 @@ export default function Habits() {
   const totalCurrentStreak = mergedHabits.reduce((sum, habit) => sum + Number(habit.currentStreak || 0), 0)
   const completionValue = totalHabits ? Math.round((loggedCount / totalHabits) * 100) : 0
 
-  async function toggleHabitEntry(habit, status) {
+  function toggleHabitEntry(habit, status) {
     const current = selectedEntries[habit.id]
     const entryKey = `${habit.id}:${selectedDate}`
     const previous = current ? { ...current } : null
@@ -290,48 +315,48 @@ export default function Habits() {
       })
     }
 
-    try {
-      if (isRemoving) {
-        await api.delete(`/habits/${habit.id}/entries/${selectedDate}`)
-      } else if (current) {
-        await api.patch(`/habits/${habit.id}/entries/${selectedDate}`, { status })
-      } else {
-        await api.post(`/habits/${habit.id}/entries`, { date: selectedDate, status })
-      }
-      setLastUndo({ habit, date: selectedDate, previous })
-      refreshSummary()
-    } catch (error) {
-      updateCalendarEntry(habit.id, selectedDate, previous)
-    } finally {
-      setSavingEntries((state) => {
-        const next = { ...state }
-        delete next[entryKey]
-        return next
-      })
-    }
+    const path = isRemoving || current
+      ? `/habits/${habit.id}/entries/${selectedDate}`
+      : `/habits/${habit.id}/entries`
+    const mutation = queueApiMutation(path, {
+      method: isRemoving ? 'DELETE' : current ? 'PATCH' : 'POST',
+      body: isRemoving ? null : current ? { status } : { date: selectedDate, status },
+      prefixes: ['/habits', '/dashboard'],
+      dedupeKey: current ? `habit-entry:${habit.id}:${selectedDate}` : null,
+    })
+    setLastUndo({ habit, date: selectedDate, previous })
+    setSavingEntries((state) => {
+      const next = { ...state }
+      delete next[entryKey]
+      return next
+    })
+    mutation.committed.then(() => refreshSummary()).catch(() => {})
   }
 
-  async function undoHabitEntry() {
+  function undoHabitEntry() {
     if (!lastUndo) return
     const { habit, date, previous } = lastUndo
     setLastUndo(null)
     updateCalendarEntry(habit.id, date, previous)
-    try {
-      if (previous) {
-        await api.patch(`/habits/${habit.id}/entries/${date}`, {
+    const mutation = previous
+      ? queueApiMutation(`/habits/${habit.id}/entries/${date}`, {
+          method: 'PATCH',
+          body: {
           status: previous.status,
           numericValue: previous.numericValue,
+          },
+          prefixes: ['/habits', '/dashboard'],
+          dedupeKey: `habit-entry:${habit.id}:${date}`,
         })
-      } else {
-        await api.delete(`/habits/${habit.id}/entries/${date}`)
-      }
-      refreshSummary()
-    } catch {
-      loadData({ silent: true, force: true })
-    }
+      : queueApiMutation(`/habits/${habit.id}/entries/${date}`, {
+          method: 'DELETE',
+          prefixes: ['/habits', '/dashboard'],
+          dedupeKey: `habit-entry:${habit.id}:${date}`,
+        })
+    mutation.committed.then(() => refreshSummary()).catch(() => {})
   }
 
-  async function saveNumericEntry(habit, numericValue) {
+  function saveNumericEntry(habit, numericValue) {
     const value = Number(numericValue)
     if (Number.isNaN(value) || value < 0) return
 
@@ -350,22 +375,24 @@ export default function Habits() {
       comment: current?.comment ?? null,
     })
 
-    try {
-      if (current) {
-        await api.patch(`/habits/${habit.id}/entries/${selectedDate}`, { numericValue: value })
-      } else {
-        await api.post(`/habits/${habit.id}/entries`, { date: selectedDate, numericValue: value })
-      }
-      refreshSummary()
-    } catch (error) {
-      updateCalendarEntry(habit.id, selectedDate, previous)
-    } finally {
-      setSavingEntries((state) => {
-        const next = { ...state }
-        delete next[entryKey]
-        return next
-      })
-    }
+    const mutation = current
+      ? queueApiMutation(`/habits/${habit.id}/entries/${selectedDate}`, {
+          method: 'PATCH',
+          body: { numericValue: value },
+          prefixes: ['/habits', '/dashboard'],
+          dedupeKey: `habit-entry:${habit.id}:${selectedDate}`,
+        })
+      : queueApiMutation(`/habits/${habit.id}/entries`, {
+          method: 'POST',
+          body: { date: selectedDate, numericValue: value },
+          prefixes: ['/habits', '/dashboard'],
+        })
+    setSavingEntries((state) => {
+      const next = { ...state }
+      delete next[entryKey]
+      return next
+    })
+    mutation.committed.then(() => refreshSummary()).catch(() => {})
   }
 
   async function createHabit(payload) {

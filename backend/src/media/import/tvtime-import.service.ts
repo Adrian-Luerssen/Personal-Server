@@ -16,15 +16,28 @@ export class TvTimeImportService {
     if (rows.length < 2) return [];
 
     const headers = rows[0];
-    const idIdx = this.findColumn(headers, ["id", "tvdb_id", "thetvdb_id", "thetvdb"]);
+    const idIdx = this.findColumn(headers, [
+      "id",
+      "tvdb_id",
+      "thetvdb_id",
+      "thetvdb",
+    ]);
     const nameIdx = this.findColumn(headers, ["name", "title", "series"]);
     const statusIdx = this.findColumn(headers, ["status"]);
     const seenIdx = this.findColumn(headers, ["seen_episodes"]);
     const airedIdx = this.findColumn(headers, ["aired_episodes"]);
     const runtimeIdx = this.findColumn(headers, ["runtime"]);
-    const posterIdx = this.findColumn(headers, ["all_images.poster", "poster", "image"]);
+    const posterIdx = this.findColumn(headers, [
+      "all_images.poster",
+      "poster",
+      "image",
+    ]);
     const upToDateIdx = this.findColumn(headers, ["up_to_date"]);
     const archivedIdx = this.findColumn(headers, ["archived"]);
+    const entityTypeIdx = this.findColumn(headers, [
+      "entity_type",
+      "entity type",
+    ]);
 
     if (nameIdx === -1) {
       this.logger.warn("Could not find name column in TVTime CSV");
@@ -41,29 +54,68 @@ export class TvTimeImportService {
       if (!title) continue;
 
       const tvdbId = idIdx >= 0 ? parseInt(cols[idIdx], 10) || null : null;
-      const rawStatus = statusIdx >= 0 ? cols[statusIdx]?.trim().toLowerCase() : "";
-      const seenEpisodes = seenIdx >= 0 ? parseInt(cols[seenIdx], 10) || 0 : 0;
-      const airedEpisodes = airedIdx >= 0 ? parseInt(cols[airedIdx], 10) || null : null;
-      const runtime = runtimeIdx >= 0 ? parseInt(cols[runtimeIdx], 10) || null : null;
+      const rawStatus =
+        statusIdx >= 0 ? cols[statusIdx]?.trim().toLowerCase() : "";
+      const seenRaw = seenIdx >= 0 ? cols[seenIdx]?.trim() || "" : "";
+      const parsedSeenEpisodes = Number.parseInt(seenRaw, 10);
+      const hasSeenEpisodes =
+        seenRaw !== "" && Number.isFinite(parsedSeenEpisodes);
+      const seenEpisodes = hasSeenEpisodes
+        ? Math.max(0, parsedSeenEpisodes)
+        : 0;
+      const airedEpisodes =
+        airedIdx >= 0 ? parseInt(cols[airedIdx], 10) || null : null;
+      const runtime =
+        runtimeIdx >= 0 ? parseInt(cols[runtimeIdx], 10) || null : null;
       const posterUrl = posterIdx >= 0 ? cols[posterIdx]?.trim() || null : null;
-      const upToDate = upToDateIdx >= 0 ? cols[upToDateIdx]?.trim().toLowerCase() === "true" : false;
-      const archived = archivedIdx >= 0 ? cols[archivedIdx]?.trim().toLowerCase() === "true" : false;
+      const upToDate =
+        upToDateIdx >= 0
+          ? cols[upToDateIdx]?.trim().toLowerCase() === "true"
+          : false;
+      const archived =
+        archivedIdx >= 0
+          ? cols[archivedIdx]?.trim().toLowerCase() === "true"
+          : false;
+      const entityType =
+        entityTypeIdx >= 0
+          ? cols[entityTypeIdx]
+              ?.trim()
+              .toLowerCase()
+              .replace(/[\s-]+/g, "_")
+          : "series";
+      const type = ["movie", "film"].includes(entityType)
+        ? MediaType.MOVIE
+        : MediaType.TV;
 
-      const status = this.mapStatus(rawStatus, upToDate, seenEpisodes, airedEpisodes);
+      const status = this.mapStatus(
+        rawStatus,
+        upToDate,
+        seenEpisodes,
+        airedEpisodes,
+        type
+      );
+      const progressMode = this.progressMode(
+        type,
+        rawStatus,
+        upToDate,
+        hasSeenEpisodes
+      );
 
       items.push({
         title,
-        type: MediaType.TV,
+        type,
         status,
         rating: null,
         externalIds: tvdbId ? { tvdbId } : {},
         metadata: {
           importSource: "tvtime",
-          sourceType: "tv",
+          sourceType: type,
           sourceId: tvdbId,
-          tags: ["tv"],
+          tags: [type],
           episodes: airedEpisodes,
           episodesWatched: seenEpisodes,
+          tvTimeRelationship: rawStatus || null,
+          tvTimeProgressMode: progressMode,
           runtime,
           archived,
           importCoverUrl: posterUrl,
@@ -82,7 +134,10 @@ export class TvTimeImportService {
    * that already exists in this account. A result is only accepted when its MAL
    * id is already in the library and the searched title is one of its aliases.
    */
-  async resolveExistingAnime(items: ImportPreviewItem[], existing: any[]): Promise<void> {
+  async resolveExistingAnime(
+    items: ImportPreviewItem[],
+    existing: any[]
+  ): Promise<void> {
     const existingByAlias = new Map<string, { item: any; aliases: string[] }>();
     const existingAnime: Array<{ item: any; malId: number }> = [];
     for (const item of existing) {
@@ -95,9 +150,15 @@ export class TvTimeImportService {
         item.metadata?.englishTitle,
         item.metadata?.titleJapanese,
         item.metadata?.titleRomaji,
-        ...(Array.isArray(item.metadata?.alternativeTitles) ? item.metadata.alternativeTitles : []),
-        ...(Array.isArray(item.metadata?.titleSynonyms) ? item.metadata.titleSynonyms : []),
-        ...(Array.isArray(item.metadata?.synonyms) ? item.metadata.synonyms : []),
+        ...(Array.isArray(item.metadata?.alternativeTitles)
+          ? item.metadata.alternativeTitles
+          : []),
+        ...(Array.isArray(item.metadata?.titleSynonyms)
+          ? item.metadata.titleSynonyms
+          : []),
+        ...(Array.isArray(item.metadata?.synonyms)
+          ? item.metadata.synonyms
+          : []),
       ]);
       for (const alias of aliases) {
         const normalized = this.normalizeTitle(alias);
@@ -107,11 +168,15 @@ export class TvTimeImportService {
       }
     }
     let unresolved = items.filter(
-      (item) => item.metadata?.importSource === "tvtime" && !item.metadata?.matchedExistingId,
+      (item) =>
+        item.type === MediaType.TV &&
+        item.metadata?.importSource === "tvtime" &&
+        !item.metadata?.matchedExistingId
     );
     for (const item of unresolved) {
       const localMatch = existingByAlias.get(this.normalizeTitle(item.title));
-      if (localMatch) this.applyAnimeMatch(item, localMatch.item, localMatch.aliases);
+      if (localMatch)
+        this.applyAnimeMatch(item, localMatch.item, localMatch.aliases);
     }
     unresolved = unresolved.filter((item) => !item.metadata?.matchedExistingId);
     if (unresolved.length === 0) return;
@@ -121,15 +186,39 @@ export class TvTimeImportService {
       for (let offset = 0; offset < existingAnime.length; offset += 20) {
         batches.push(existingAnime.slice(offset, offset + 20));
       }
-      await this.runWithConcurrency(batches, 3, (batch) =>
-        this.hydrateAnimeAliasBatch(batch, existingByAlias),
-      );
+      let aliasMatchingError: unknown;
+      await this.runWithConcurrency(batches, 3, async (batch) => {
+        try {
+          await this.hydrateAnimeAliasBatch(batch, existingByAlias);
+        } catch (error) {
+          aliasMatchingError ||= error;
+        }
+      });
 
       for (const item of unresolved) {
         const match = existingByAlias.get(this.normalizeTitle(item.title));
         if (match) this.applyAnimeMatch(item, match.item, match.aliases);
       }
-      unresolved = unresolved.filter((item) => !item.metadata?.matchedExistingId);
+      unresolved = unresolved.filter(
+        (item) => !item.metadata?.matchedExistingId
+      );
+
+      if (aliasMatchingError && unresolved.length > 0) {
+        this.logger.warn(
+          `TV Time preview will continue without remote anime matching: ${
+            aliasMatchingError instanceof Error
+              ? aliasMatchingError.message
+              : String(aliasMatchingError)
+          }`
+        );
+        for (const item of unresolved) {
+          item.metadata = {
+            ...item.metadata,
+            animeClassificationState: "unavailable",
+          };
+        }
+        return;
+      }
     }
     if (unresolved.length === 0) return;
 
@@ -138,14 +227,14 @@ export class TvTimeImportService {
       classificationBatches.push(unresolved.slice(offset, offset + 20));
     }
     await this.runWithConcurrency(classificationBatches, 3, (batch) =>
-      this.classifyAnimeBatch(batch),
+      this.classifyAnimeBatch(batch)
     );
   }
 
   private async runWithConcurrency<T>(
     batches: T[],
     concurrency: number,
-    operation: (batch: T) => Promise<void>,
+    operation: (batch: T) => Promise<void>
   ): Promise<void> {
     let nextBatch = 0;
     const worker = async () => {
@@ -155,7 +244,9 @@ export class TvTimeImportService {
       }
     };
     await Promise.all(
-      Array.from({ length: Math.min(concurrency, batches.length) }, () => worker()),
+      Array.from({ length: Math.min(concurrency, batches.length) }, () =>
+        worker()
+      )
     );
   }
 
@@ -171,12 +262,14 @@ export class TvTimeImportService {
         }
       }`;
     });
-    const declarations = batch.map((_, index) => `$search${index}: String`).join(", ");
+    const declarations = batch
+      .map((_, index) => `$search${index}: String`)
+      .join(", ");
 
     try {
       const results = await this.fetchAniListData(
         `query (${declarations}) { ${fields.join("\n")} }`,
-        variables,
+        variables
       );
       batch.forEach((item, index) => {
         const result = results[`page${index}`]?.media?.[0];
@@ -189,7 +282,10 @@ export class TvTimeImportService {
           ...(Array.isArray(result?.synonyms) ? result.synonyms : []),
         ]);
         const incomingTitle = this.normalizeTitle(item.title);
-        if (!aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)) return;
+        if (
+          !aliases.some((alias) => this.normalizeTitle(alias) === incomingTitle)
+        )
+          return;
         item.type = MediaType.ANIME;
         item.externalIds = { ...item.externalIds, malId };
         item.metadata = {
@@ -202,17 +298,22 @@ export class TvTimeImportService {
       });
     } catch (error) {
       this.logger.warn(
-        `TV Time anime classification was unavailable: ${error instanceof Error ? error.message : String(error)}`,
+        `TV Time anime classification was unavailable: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
       for (const item of batch) {
-        item.metadata = { ...item.metadata, animeClassificationState: "unavailable" };
+        item.metadata = {
+          ...item.metadata,
+          animeClassificationState: "unavailable",
+        };
       }
     }
   }
 
   private async fetchAniListData(
     query: string,
-    variables: Record<string, string>,
+    variables: Record<string, string>
   ): Promise<Record<string, any>> {
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -220,17 +321,22 @@ export class TvTimeImportService {
         const response = await axios.post(
           "https://graphql.anilist.co",
           { query, variables },
-          { timeout: 15000 },
+          { timeout: 15000 }
         );
-        if (!response.data?.data) throw new Error("AniList returned no classification data");
+        if (!response.data?.data)
+          throw new Error("AniList returned no classification data");
         return response.data.data;
       } catch (error: any) {
         lastError = error;
         const status = Number(error?.response?.status || 0);
         const retryable = status === 0 || status === 429 || status >= 500;
         if (!retryable || attempt === 2) break;
-        const retryAfter = Number(error?.response?.headers?.["retry-after"] || 0);
-        await this.pause(retryAfter > 0 ? retryAfter * 1000 : 100 * (attempt + 1));
+        const retryAfter = Number(
+          error?.response?.headers?.["retry-after"] || 0
+        );
+        await this.pause(
+          retryAfter > 0 ? retryAfter * 1000 : 100 * (attempt + 1)
+        );
       }
     }
     throw lastError instanceof Error ? lastError : new Error(String(lastError));
@@ -238,7 +344,7 @@ export class TvTimeImportService {
 
   private async hydrateAnimeAliasBatch(
     batch: Array<{ item: any; malId: number }>,
-    existingByAlias: Map<string, { item: any; aliases: string[] }>,
+    existingByAlias: Map<string, { item: any; aliases: string[] }>
   ): Promise<void> {
     const variables: Record<string, number> = {};
     const fields = batch.map(({ malId }, index) => {
@@ -249,7 +355,9 @@ export class TvTimeImportService {
           synonyms
         }`;
     });
-    const declarations = batch.map((_, index) => `$malId${index}: Int`).join(", ");
+    const declarations = batch
+      .map((_, index) => `$malId${index}: Int`)
+      .join(", ");
 
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -260,7 +368,7 @@ export class TvTimeImportService {
             query: `query (${declarations}) { ${fields.join("\n")} }`,
             variables,
           },
-          { timeout: 15000 },
+          { timeout: 15000 }
         );
         if (!response.data?.data) {
           throw new Error("AniList returned no title-matching data");
@@ -291,28 +399,44 @@ export class TvTimeImportService {
         const status = Number(error?.response?.status || 0);
         if (status === 404) {
           if (batch.length === 1) {
-            this.logger.warn(`MAL title aliases were unavailable for id ${batch[0].malId}`);
+            this.logger.warn(
+              `MAL title aliases were unavailable for id ${batch[0].malId}`
+            );
             return;
           }
           const middle = Math.ceil(batch.length / 2);
           await Promise.all([
-            this.hydrateAnimeAliasBatch(batch.slice(0, middle), existingByAlias),
+            this.hydrateAnimeAliasBatch(
+              batch.slice(0, middle),
+              existingByAlias
+            ),
             this.hydrateAnimeAliasBatch(batch.slice(middle), existingByAlias),
           ]);
           return;
         }
         const retryable = status === 0 || status === 429 || status >= 500;
         if (!retryable || attempt === 2) break;
-        const retryAfter = Number(error?.response?.headers?.["retry-after"] || 0);
-        await this.pause(retryAfter > 0 ? retryAfter * 1000 : 100 * (attempt + 1));
+        const retryAfter = Number(
+          error?.response?.headers?.["retry-after"] || 0
+        );
+        await this.pause(
+          retryAfter > 0 ? retryAfter * 1000 : 100 * (attempt + 1)
+        );
       }
     }
-    const reason = lastError instanceof Error ? lastError.message : String(lastError);
+    const reason =
+      lastError instanceof Error ? lastError.message : String(lastError);
     this.logger.warn(`TV Time title matching failed after retries: ${reason}`);
-    throw new Error("TV Time title matching is temporarily unavailable. Retry the preview.");
+    throw new Error(
+      "TV Time title matching is temporarily unavailable. Retry the preview."
+    );
   }
 
-  private applyAnimeMatch(item: ImportPreviewItem, match: any, aliases: string[]): void {
+  private applyAnimeMatch(
+    item: ImportPreviewItem,
+    match: any,
+    aliases: string[]
+  ): void {
     const malId = Number(match?.externalIds?.malId);
     item.type = MediaType.ANIME;
     item.externalIds = { ...item.externalIds, malId };
@@ -329,27 +453,53 @@ export class TvTimeImportService {
     raw: string,
     upToDate: boolean,
     seen: number,
-    aired: number | null
+    aired: number | null,
+    type: MediaType
   ): MediaStatus {
-    const relationship = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
-    if (relationship === "up_to_date") return MediaStatus.COMPLETED;
+    const relationship = raw
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+    if (relationship === "up_to_date") {
+      return type === MediaType.MOVIE
+        ? MediaStatus.COMPLETED
+        : MediaStatus.WATCHING;
+    }
     if (relationship === "continuing") return MediaStatus.WATCHING;
-    if (relationship === "stopped" || relationship === "on_hold") return MediaStatus.PAUSED;
+    if (relationship === "stopped" || relationship === "on_hold")
+      return MediaStatus.PAUSED;
     if (relationship === "dropped") return MediaStatus.DROPPED;
     if (relationship === "not_started_yet" || relationship === "watch_later") {
       return MediaStatus.PLANNING;
     }
     // If ended and all episodes seen
-    if (raw.includes("ended") && aired && seen >= aired) return MediaStatus.COMPLETED;
+    if (raw.includes("ended") && aired && seen >= aired)
+      return MediaStatus.COMPLETED;
     // Up to date on a continuing show
     if (upToDate && raw.includes("continuing")) return MediaStatus.WATCHING;
     // Continuing but not up to date
     if (raw.includes("continuing") && seen > 0) return MediaStatus.WATCHING;
     // Ended but not all seen
-    if (raw.includes("ended") && seen > 0 && aired && seen < aired) return MediaStatus.PAUSED;
+    if (raw.includes("ended") && seen > 0 && aired && seen < aired)
+      return MediaStatus.PAUSED;
     // No episodes seen
     if (seen === 0) return MediaStatus.PLANNING;
     return MediaStatus.WATCHING;
+  }
+
+  private progressMode(
+    type: MediaType,
+    rawStatus: string,
+    upToDate: boolean,
+    hasSeenEpisodes: boolean
+  ): "exact" | "all-aired" | "unknown-partial" | "none" | "complete" {
+    if (type === MediaType.MOVIE) {
+      return rawStatus === "up_to_date" ? "complete" : "none";
+    }
+    if (hasSeenEpisodes) return "exact";
+    if (rawStatus === "up_to_date" || upToDate) return "all-aired";
+    if (["not_started_yet", "watch_later"].includes(rawStatus)) return "none";
+    return "unknown-partial";
   }
 
   private normalizeTitle(title: string): string {
@@ -365,7 +515,14 @@ export class TvTimeImportService {
   }
 
   private uniqueTitles(titles: unknown[]): string[] {
-    return [...new Set(titles.filter((title): title is string => typeof title === "string" && !!title.trim()))];
+    return [
+      ...new Set(
+        titles.filter(
+          (title): title is string =>
+            typeof title === "string" && !!title.trim()
+        )
+      ),
+    ];
   }
 
   private pause(milliseconds: number): Promise<void> {

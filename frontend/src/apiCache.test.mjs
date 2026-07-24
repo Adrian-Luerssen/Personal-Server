@@ -100,3 +100,94 @@ test('stores sync watermarks per account', () => {
   accountId = 'account-a'
   assert.deepEqual(cache.readWatermarks(), { stream: 7 })
 })
+
+test('marks matching responses stale without deleting the last usable data', () => {
+  const storage = createMemoryStorage()
+  const cache = createApiResponseCache({
+    storage,
+    getAccountId: () => 'account-a',
+    now: () => 5000,
+  })
+
+  cache.set('/habits/summary', { completed: 4 }, { lastValidatedAt: 5000 })
+  cache.markPrefixesStale(['/habits'])
+
+  assert.deepEqual(cache.get('/habits/summary'), {
+    data: { completed: 4 },
+    timestamp: 5000,
+    lastValidatedAt: 0,
+    stale: true,
+  })
+})
+
+test('updates cached data immediately and persists the optimistic value', () => {
+  const storage = createMemoryStorage()
+  const cache = createApiResponseCache({
+    storage,
+    getAccountId: () => 'account-a',
+    now: () => 6000,
+  })
+  cache.set('/media?page=1', { items: [{ id: 'suzume', rating: null }] })
+
+  cache.update('/media?page=1', (data) => ({
+    ...data,
+    items: data.items.map((item) => item.id === 'suzume' ? { ...item, rating: 9 } : item),
+  }))
+
+  const reloaded = createApiResponseCache({
+    storage,
+    getAccountId: () => 'account-a',
+    now: () => 7000,
+  })
+  assert.equal(reloaded.get('/media?page=1')?.data.items[0].rating, 9)
+  assert.equal(reloaded.get('/media?page=1')?.stale, true)
+})
+
+test('updates every cached query under an active-account prefix', () => {
+  const storage = createMemoryStorage()
+  let accountId = 'account-a'
+  const cache = createApiResponseCache({
+    storage,
+    getAccountId: () => accountId,
+    now: () => 6500,
+  })
+  cache.set('/finance/transactions?page=1', [{ id: 'one', amount: 4 }])
+  cache.set('/finance/transactions?page=2', [{ id: 'two', amount: 8 }])
+  accountId = 'account-b'
+  cache.set('/finance/transactions?page=1', [{ id: 'other', amount: 12 }])
+  accountId = 'account-a'
+
+  cache.updatePrefixes(['/finance/transactions?'], (data) => (
+    data.map(item => ({ ...item, pending: true }))
+  ))
+
+  assert.equal(cache.get('/finance/transactions?page=1')?.data[0].pending, true)
+  assert.equal(cache.get('/finance/transactions?page=2')?.data[0].pending, true)
+  accountId = 'account-b'
+  assert.equal(cache.get('/finance/transactions?page=1')?.data[0].pending, undefined)
+})
+
+test('replacing an existing entry keeps it in the hot end of the bounded cache', () => {
+  const storage = createMemoryStorage()
+  const cache = createApiResponseCache({
+    storage,
+    getAccountId: () => 'account-a',
+    now: () => 8000,
+    maxEntries: 2,
+  })
+
+  cache.set('/first', 1)
+  cache.set('/second', 2)
+  cache.set('/first', 10)
+  cache.set('/third', 3)
+
+  const reloaded = createApiResponseCache({
+    storage,
+    getAccountId: () => 'account-a',
+    now: () => 9000,
+    maxEntries: 2,
+  })
+  assert.equal(reloaded.get('/second'), null)
+  assert.equal(reloaded.get('/first')?.data, 10)
+  assert.equal(reloaded.get('/third')?.data, 3)
+})

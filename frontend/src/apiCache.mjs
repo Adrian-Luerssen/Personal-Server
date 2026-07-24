@@ -72,6 +72,28 @@ export function createApiResponseCache({
       timestamp: now(),
       ...metadata,
     }
+    entries.delete(key)
+    entries.set(key, entry)
+    while (entries.size > maxEntries) {
+      entries.delete(entries.keys().next().value)
+    }
+    persist()
+    notify(key, entry)
+    return entry
+  }
+
+  function update(path, updater, metadata = {}) {
+    const key = scopedKey(path)
+    const current = entries.get(key)
+    if (!current || typeof updater !== 'function') return null
+    const entry = {
+      ...current,
+      data: updater(current.data),
+      stale: true,
+      lastValidatedAt: 0,
+      ...metadata,
+    }
+    entries.delete(key)
     entries.set(key, entry)
     persist()
     notify(key, entry)
@@ -102,6 +124,55 @@ export function createApiResponseCache({
     }
 
     if (changed) persist()
+  }
+
+  function markPrefixesStale(prefixes) {
+    const accountPrefix = activeAccountPrefix()
+    const normalizedPrefixes = prefixes.filter(Boolean)
+    let changed = false
+
+    for (const [key, current] of [...entries.entries()]) {
+      if (!key.startsWith(accountPrefix)) continue
+      const path = key.slice(accountPrefix.length)
+      if (!normalizedPrefixes.some((prefix) => path.startsWith(prefix))) continue
+      const entry = {
+        ...current,
+        stale: true,
+        lastValidatedAt: 0,
+      }
+      entries.set(key, entry)
+      changed = true
+      notify(key, entry)
+    }
+
+    if (changed) persist()
+  }
+
+  function updatePrefixes(prefixes, updater, metadata = {}) {
+    if (typeof updater !== 'function') return 0
+    const accountPrefix = activeAccountPrefix()
+    const normalizedPrefixes = prefixes.filter(Boolean)
+    let changed = 0
+
+    for (const [key, current] of [...entries.entries()]) {
+      if (!key.startsWith(accountPrefix)) continue
+      const path = key.slice(accountPrefix.length)
+      if (!normalizedPrefixes.some((prefix) => path.startsWith(prefix))) continue
+      const entry = {
+        ...current,
+        data: updater(current.data, path),
+        stale: true,
+        lastValidatedAt: 0,
+        ...metadata,
+      }
+      entries.delete(key)
+      entries.set(key, entry)
+      changed += 1
+      notify(key, entry)
+    }
+
+    if (changed > 0) persist()
+    return changed
   }
 
   function subscribe(path, listener) {
@@ -159,8 +230,11 @@ export function createApiResponseCache({
   return {
     get,
     set,
+    update,
     remove,
     invalidatePrefixes,
+    markPrefixesStale,
+    updatePrefixes,
     subscribe,
     readWatermarks,
     writeWatermarks,

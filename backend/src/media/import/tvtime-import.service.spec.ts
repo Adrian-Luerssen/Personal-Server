@@ -30,7 +30,7 @@ describe('TvTimeImportService', () => {
         status: MediaStatus.PAUSED,
         coverUrl: 'https://artworks.thetvdb.com/banners/posters/78804-52.jpg',
         externalIds: { tvdbId: 78804 },
-      }),
+      })
     );
     expect(items[0].metadata).toEqual(
       expect.objectContaining({
@@ -41,8 +41,9 @@ describe('TvTimeImportService', () => {
         episodesWatched: 2,
         runtime: 47,
         archived: true,
-        importCoverUrl: 'https://artworks.thetvdb.com/banners/posters/78804-52.jpg',
-      }),
+        importCoverUrl:
+          'https://artworks.thetvdb.com/banners/posters/78804-52.jpg',
+      })
     );
     expect(items[1].title).toBe('Love, Death & Robots');
   });
@@ -55,6 +56,7 @@ describe('TvTimeImportService', () => {
       '3,326613,The Commute (2016),,,up_to_date,,,,three,series,2018-06-30T10:18:40Z',
       '4,327417,Money Heist,,,stopped,,,,four,series,2018-06-30T10:18:40Z',
       '5,283947,Assassination Classroom,,,watch_later,,,,five,series,2018-06-30T10:18:40Z',
+      '6,999999,Arrival,,,up_to_date,,,,six,movie,2018-06-30T10:18:40Z',
     ].join('\n');
 
     const items = await service.parseCsv(Buffer.from(csv, 'utf-8'));
@@ -62,33 +64,58 @@ describe('TvTimeImportService', () => {
     expect(items.map((item) => item.status)).toEqual([
       MediaStatus.PLANNING,
       MediaStatus.WATCHING,
-      MediaStatus.COMPLETED,
+      MediaStatus.WATCHING,
       MediaStatus.PAUSED,
       MediaStatus.PLANNING,
+      MediaStatus.COMPLETED,
+    ]);
+    expect(items.map((item) => item.type)).toEqual([
+      MediaType.TV,
+      MediaType.TV,
+      MediaType.TV,
+      MediaType.TV,
+      MediaType.TV,
+      MediaType.MOVIE,
+    ]);
+    expect(items.map((item) => item.metadata.tvTimeProgressMode)).toEqual([
+      'none',
+      'unknown-partial',
+      'all-aired',
+      'unknown-partial',
+      'none',
+      'complete',
     ]);
   });
 
   it('resolves translated TV Time anime titles to existing MAL records in batches', async () => {
-    const incoming = [{
-      title: 'Attack on Titan',
-      type: MediaType.TV,
-      status: MediaStatus.COMPLETED,
-      externalIds: { tvdbId: 267440 },
-      metadata: { importSource: 'tvtime', tags: ['tv'] },
-    }] as any[];
-    const existing = [{
-      id: 'mal-aot',
-      title: 'Shingeki no Kyojin',
-      type: MediaType.ANIME,
-      externalIds: { malId: 16498 },
-      metadata: { tags: ['anime'] },
-    }] as any[];
+    const incoming = [
+      {
+        title: 'Attack on Titan',
+        type: MediaType.TV,
+        status: MediaStatus.COMPLETED,
+        externalIds: { tvdbId: 267440 },
+        metadata: { importSource: 'tvtime', tags: ['tv'] },
+      },
+    ] as any[];
+    const existing = [
+      {
+        id: 'mal-aot',
+        title: 'Shingeki no Kyojin',
+        type: MediaType.ANIME,
+        externalIds: { malId: 16498 },
+        metadata: { tags: ['anime'] },
+      },
+    ] as any[];
     mockedAxios.post.mockResolvedValueOnce({
       data: {
         data: {
           media0: {
             idMal: 16498,
-            title: { romaji: 'Shingeki no Kyojin', english: 'Attack on Titan', native: '進撃の巨人' },
+            title: {
+              romaji: 'Shingeki no Kyojin',
+              english: 'Attack on Titan',
+              native: '進撃の巨人',
+            },
             synonyms: [],
           },
         },
@@ -110,13 +137,15 @@ describe('TvTimeImportService', () => {
   });
 
   it('starts independent title-resolution batches without waiting for the previous provider request', async () => {
-    const incoming = [{
-      title: 'Unmatched TV Time title',
-      type: MediaType.TV,
-      status: MediaStatus.PLANNING,
-      externalIds: { tvdbId: 1 },
-      metadata: { importSource: 'tvtime', tags: ['tv'] },
-    }] as any[];
+    const incoming = [
+      {
+        title: 'Unmatched TV Time title',
+        type: MediaType.TV,
+        status: MediaStatus.PLANNING,
+        externalIds: { tvdbId: 1 },
+        metadata: { importSource: 'tvtime', tags: ['tv'] },
+      },
+    ] as any[];
     const existing = Array.from({ length: 41 }, (_, index) => ({
       id: `mal-existing-${index}`,
       title: `Existing anime ${index}`,
@@ -125,41 +154,52 @@ describe('TvTimeImportService', () => {
       metadata: {},
     })) as any[];
     const pending: Array<(value: any) => void> = [];
-    mockedAxios.post.mockImplementation(() => new Promise((resolve) => pending.push(resolve)) as any);
+    mockedAxios.post.mockImplementation(
+      () => new Promise((resolve) => pending.push(resolve)) as any
+    );
 
     const resolution = service.resolveExistingAnime(incoming, existing);
     await Promise.resolve();
 
     expect(mockedAxios.post).toHaveBeenCalledTimes(3);
-    pending.forEach((resolve) => resolve({
-      data: {
+    pending.forEach((resolve) =>
+      resolve({
         data: {
-          media0: {
-            idMal: 1,
-            title: { romaji: 'Existing anime 0', english: 'Unmatched TV Time title' },
-            synonyms: [],
+          data: {
+            media0: {
+              idMal: 1,
+              title: {
+                romaji: 'Existing anime 0',
+                english: 'Unmatched TV Time title',
+              },
+              synonyms: [],
+            },
           },
         },
-      },
-    }));
+      })
+    );
     await resolution;
   });
 
   it('uses existing title aliases without making a provider request', async () => {
-    const incoming = [{
-      title: 'My Hero Academia',
-      type: MediaType.TV,
-      status: MediaStatus.COMPLETED,
-      externalIds: { tvdbId: 305074 },
-      metadata: { importSource: 'tvtime', tags: ['tv'] },
-    }] as any[];
-    const existing = [{
-      id: 'mal-mha',
-      title: 'Boku no Hero Academia',
-      type: MediaType.ANIME,
-      externalIds: { malId: 31964 },
-      metadata: { alternativeTitles: ['My Hero Academia'] },
-    }] as any[];
+    const incoming = [
+      {
+        title: 'My Hero Academia',
+        type: MediaType.TV,
+        status: MediaStatus.COMPLETED,
+        externalIds: { tvdbId: 305074 },
+        metadata: { importSource: 'tvtime', tags: ['tv'] },
+      },
+    ] as any[];
+    const existing = [
+      {
+        id: 'mal-mha',
+        title: 'Boku no Hero Academia',
+        type: MediaType.ANIME,
+        externalIds: { malId: 31964 },
+        metadata: { alternativeTitles: ['My Hero Academia'] },
+      },
+    ] as any[];
 
     await service.resolveExistingAnime(incoming, existing);
 
@@ -205,13 +245,18 @@ describe('TvTimeImportService', () => {
       },
     ] as any[];
     mockedAxios.post
-      .mockRejectedValueOnce({ response: { status: 429, headers: { 'retry-after': '0' } } })
+      .mockRejectedValueOnce({
+        response: { status: 429, headers: { 'retry-after': '0' } },
+      })
       .mockResolvedValueOnce({
         data: {
           data: {
             media0: {
               idMal: 37779,
-              title: { romaji: 'Yakusoku no Neverland', english: 'The Promised Neverland' },
+              title: {
+                romaji: 'Yakusoku no Neverland',
+                english: 'The Promised Neverland',
+              },
               synonyms: [],
             },
             media1: {
@@ -233,14 +278,54 @@ describe('TvTimeImportService', () => {
     expect(mockedAxios.post).toHaveBeenCalledTimes(2);
   });
 
-  it('isolates an invalid MAL identity without discarding valid aliases from the same batch', async () => {
-    const incoming = [{
-      title: 'The Promised Neverland',
+  it('keeps the preview available when AniList alias matching is unavailable', async () => {
+    const incoming = [
+      {
+        title: 'Provider outage title',
+        type: MediaType.TV,
+        status: MediaStatus.WATCHING,
+        externalIds: { tvdbId: 123456 },
+        metadata: { importSource: 'tvtime', sourceType: 'tv', tags: ['tv'] },
+      },
+    ] as any[];
+    const existing = [
+      {
+        id: 'existing-anime',
+        title: 'Different local title',
+        type: MediaType.ANIME,
+        externalIds: { malId: 999 },
+        metadata: {},
+      },
+    ] as any[];
+    mockedAxios.post.mockRejectedValue({
+      code: 'ECONNABORTED',
+      message: 'timeout of 15000ms exceeded',
+    });
+
+    await expect(
+      service.resolveExistingAnime(incoming, existing)
+    ).resolves.toBeUndefined();
+
+    expect(incoming[0]).toMatchObject({
       type: MediaType.TV,
-      status: MediaStatus.PAUSED,
-      externalIds: { tvdbId: 348002 },
-      metadata: { importSource: 'tvtime', tags: ['tv'] },
-    }] as any[];
+      metadata: {
+        importSource: 'tvtime',
+        animeClassificationState: 'unavailable',
+      },
+    });
+    expect(mockedAxios.post).toHaveBeenCalledTimes(3);
+  });
+
+  it('isolates an invalid MAL identity without discarding valid aliases from the same batch', async () => {
+    const incoming = [
+      {
+        title: 'The Promised Neverland',
+        type: MediaType.TV,
+        status: MediaStatus.PAUSED,
+        externalIds: { tvdbId: 348002 },
+        metadata: { importSource: 'tvtime', tags: ['tv'] },
+      },
+    ] as any[];
     const existing = [
       {
         id: 'mal-promised-neverland',
@@ -264,7 +349,10 @@ describe('TvTimeImportService', () => {
           data: {
             media0: {
               idMal: 37779,
-              title: { romaji: 'Yakusoku no Neverland', english: 'The Promised Neverland' },
+              title: {
+                romaji: 'Yakusoku no Neverland',
+                english: 'The Promised Neverland',
+              },
               synonyms: [],
             },
           },
@@ -274,7 +362,9 @@ describe('TvTimeImportService', () => {
 
     await service.resolveExistingAnime(incoming, existing);
 
-    expect(incoming[0].metadata.matchedExistingId).toBe('mal-promised-neverland');
+    expect(incoming[0].metadata.matchedExistingId).toBe(
+      'mal-promised-neverland'
+    );
     expect(mockedAxios.post).toHaveBeenCalledTimes(3);
   });
 
@@ -299,11 +389,16 @@ describe('TvTimeImportService', () => {
       data: {
         data: {
           page0: {
-            media: [{
-              idMal: 37779,
-              title: { romaji: 'Yakusoku no Neverland', english: 'The Promised Neverland' },
-              synonyms: [],
-            }],
+            media: [
+              {
+                idMal: 37779,
+                title: {
+                  romaji: 'Yakusoku no Neverland',
+                  english: 'The Promised Neverland',
+                },
+                synonyms: [],
+              },
+            ],
           },
           page1: { media: [] },
         },
@@ -325,22 +420,26 @@ describe('TvTimeImportService', () => {
   });
 
   it('does not classify a fuzzy anime search result unless a returned alias exactly matches', async () => {
-    const incoming = [{
-      title: 'Monster',
-      type: MediaType.TV,
-      status: MediaStatus.PLANNING,
-      externalIds: { tvdbId: 123 },
-      metadata: { importSource: 'tvtime', sourceType: 'tv', tags: ['tv'] },
-    }] as any[];
+    const incoming = [
+      {
+        title: 'Monster',
+        type: MediaType.TV,
+        status: MediaStatus.PLANNING,
+        externalIds: { tvdbId: 123 },
+        metadata: { importSource: 'tvtime', sourceType: 'tv', tags: ['tv'] },
+      },
+    ] as any[];
     mockedAxios.post.mockResolvedValueOnce({
       data: {
         data: {
           page0: {
-            media: [{
-              idMal: 19,
-              title: { romaji: 'Monster Extra', english: 'Monster Extra' },
-              synonyms: [],
-            }],
+            media: [
+              {
+                idMal: 19,
+                title: { romaji: 'Monster Extra', english: 'Monster Extra' },
+                synonyms: [],
+              },
+            ],
           },
         },
       },

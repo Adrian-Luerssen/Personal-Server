@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { api } from '../../api'
+import { api, queueApiMutation } from '../../api'
 import {
   LoadingSpinner,
   LoadingLine,
@@ -107,33 +107,62 @@ export default function WorkoutHistory() {
     setEditSetError('')
   }
 
-  async function saveSet(event) {
+  function saveSet(event) {
     event.preventDefault()
     if (!editingSet || savingSet) return
     setSavingSet(true)
     setEditSetError('')
     const numberOrNull = (value) => value === '' ? null : Number(value)
-    try {
-      const updated = await api.patch(`/workout/sets/${editingSet.id}`, {
+    const updated = {
+      ...editingSet,
         weight: numberOrNull(setForm.weight), reps: numberOrNull(setForm.reps),
         distance: numberOrNull(setForm.distance), durationSec: numberOrNull(setForm.durationSec),
         rpe: numberOrNull(setForm.rpe), notes: String(setForm.notes || '').trim() || null,
-      })
-      const merge = (session) => ({ ...session, sets: (session.sets || []).map((set) => set.id === updated.id ? { ...set, ...updated } : set) })
-      setSelectedSession((session) => merge(session))
-      setSessions((items) => items.map((session) => session.id === selectedSession.id ? merge(session) : session))
-      setEditingSet(null)
-    } catch (e) {
-      setEditSetError(e.message || 'Could not save this set')
-    } finally {
-      setSavingSet(false)
     }
+    const merge = (session) => ({ ...session, sets: (session?.sets || []).map((set) => set.id === updated.id ? { ...set, ...updated } : set) })
+    setSelectedSession((session) => merge(session))
+    setSessions((items) => items.map((session) => session.id === selectedSession.id ? merge(session) : session))
+    const mutation = queueApiMutation(`/workout/sets/${editingSet.id}`, {
+      method: 'PATCH',
+      body: {
+        weight: updated.weight, reps: updated.reps, distance: updated.distance,
+        durationSec: updated.durationSec, rpe: updated.rpe, notes: updated.notes,
+      },
+      prefixes: ['/workout', '/dashboard'],
+      dedupeKey: `workout-set:${editingSet.id}`,
+      optimisticPrefixUpdates: [{
+        prefixes: ['/workout/sessions?'],
+        updater: data => ({
+          ...data,
+          sessions: (data?.sessions || []).map(session => merge(session)),
+        }),
+      }],
+    })
+    mutation.committed.then((saved) => {
+      const mergeSaved = (session) => ({ ...session, sets: (session?.sets || []).map((set) => set.id === saved.id ? { ...set, ...saved } : set) })
+      setSelectedSession(session => session ? mergeSaved(session) : session)
+      setSessions(items => items.map(session => mergeSaved(session)))
+    }).catch(() => {})
+    setEditingSet(null)
+    setSavingSet(false)
   }
 
-  async function deleteSession(sessionId) {
+  function deleteSession(sessionId) {
     setError('')
-    try { await api.delete(`/workout/sessions/${sessionId}`); setSessions(sessions.filter(s => s.id !== sessionId)); closeDetail(); loadSessions(1, true) }
-    catch (e) { setError(e.message || 'Failed to delete session') }
+    setSessions(current => current.filter(session => session.id !== sessionId))
+    queueApiMutation(`/workout/sessions/${sessionId}`, {
+      method: 'DELETE',
+      prefixes: ['/workout', '/dashboard'],
+      optimisticPrefixUpdates: [{
+        prefixes: ['/workout/sessions?'],
+        updater: data => ({
+          ...data,
+          sessions: (data?.sessions || []).filter(session => session.id !== sessionId),
+          totalWorkouts: Math.max(0, Number(data?.totalWorkouts || 0) - 1),
+        }),
+      }],
+    })
+    closeDetail()
   }
 
   let filteredSessions = sessions

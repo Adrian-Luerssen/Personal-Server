@@ -18,6 +18,11 @@ import { SyncOperation } from "../../sync/sync-event.entity";
 import { SyncService } from "../../sync/sync.service";
 import { randomUUID } from "crypto";
 import { MediaEpisode } from "../entities/media-episode.entity";
+import {
+  getMediaClassifications,
+  hasMediaClassification,
+  withMediaClassifications,
+} from "./media-classification";
 
 export interface MediaStats {
   total: number;
@@ -107,12 +112,19 @@ export class MediaService {
       externalIds?: Record<string, any>;
     }
   ): Promise<MediaItem> {
+    const metadata = withMediaClassifications(dto.type, dto.metadata ?? {});
+    const status = this.normalizeMediaStatus(
+      dto.type,
+      dto.status ?? MediaStatus.PLANNING,
+      dto.rating,
+      metadata
+    );
     const item = this.mediaRepo.create({
       ...dto,
       accountId: account.id,
       account,
-      status: dto.status ?? MediaStatus.PLANNING,
-      metadata: dto.metadata ?? {},
+      status,
+      metadata,
       externalIds: dto.externalIds ?? {},
     });
     const result = await this.mediaRepo.save(item);
@@ -138,6 +150,7 @@ export class MediaService {
     }>
   ): Promise<MediaItem> {
     const item = await this.findOne(account, id);
+    const statusWasProvided = Object.prototype.hasOwnProperty.call(dto, "status");
 
     // Merge metadata/externalIds instead of replacing
     if (dto.metadata) {
@@ -147,7 +160,13 @@ export class MediaService {
       dto.externalIds = { ...item.externalIds, ...dto.externalIds };
     }
 
-    if (dto.metadata && Object.prototype.hasOwnProperty.call(dto.metadata, "episodesWatched") && dto.status === undefined) {
+    const effectiveType = dto.type ?? item.type;
+    dto.metadata = withMediaClassifications(
+      effectiveType,
+      dto.metadata ?? item.metadata ?? {}
+    );
+
+    if (dto.metadata && Object.prototype.hasOwnProperty.call(dto.metadata, "episodesWatched") && !statusWasProvided) {
       const watched = Math.max(0, Number(dto.metadata.episodesWatched) || 0);
       const total = Math.max(0, Number(dto.metadata.episodes) || 0);
       const statusCanFollowProgress =
@@ -172,6 +191,15 @@ export class MediaService {
         }
       }
     }
+
+    dto.status = this.normalizeMediaStatus(
+      effectiveType,
+      dto.status ?? item.status,
+      Object.prototype.hasOwnProperty.call(dto, "rating")
+        ? dto.rating
+        : item.rating,
+      dto.metadata
+    );
 
     Object.assign(item, dto);
     const result = await this.mediaRepo.save(item);
@@ -231,7 +259,7 @@ export class MediaService {
       byStatus[item.status] = (byStatus[item.status] || 0) + 1;
 
       // Count by tags
-      const tags: string[] = Array.isArray(item.metadata?.tags) ? item.metadata.tags : [item.type];
+      const tags = getMediaClassifications(item.type, item.metadata);
       for (const tag of tags) {
         byTag[tag] = (byTag[tag] || 0) + 1;
       }
@@ -341,7 +369,7 @@ export class MediaService {
       // Keep it intact even when the original import came from another source.
       if (newMeta.manualMatch) {
         if (item.type === MediaType.TV && item.externalIds?.malId) item.type = MediaType.ANIME;
-        newMeta.tags = this.tagsForSourceType(item.type);
+        newMeta.tags = getMediaClassifications(item.type, newMeta);
         item.metadata = newMeta;
         await this.mediaRepo.save(item);
         reset++;
@@ -363,7 +391,11 @@ export class MediaService {
       }
       if (sourceType) {
         item.type = sourceType;
-        newMeta.tags = this.tagsForSourceType(sourceType);
+        // Existing tags may have been introduced by the enrichment that is
+        // being reset. Rebuild classifications from source facts instead of
+        // preserving an inferred anime/movie tag from the previous match.
+        const { tags: _enrichedTags, ...sourceMetadata } = newMeta;
+        newMeta.tags = getMediaClassifications(sourceType, sourceMetadata);
       } else {
         delete newMeta.tags;
       }
@@ -427,12 +459,18 @@ export class MediaService {
         continue;
       }
 
+      const metadata = withMediaClassifications(dto.type, dto.metadata ?? {});
       const item = this.mediaRepo.create({
         ...dto,
         accountId: account.id,
         account,
-        status: dto.status ?? MediaStatus.PLANNING,
-        metadata: dto.metadata ?? {},
+        status: this.normalizeMediaStatus(
+          dto.type,
+          dto.status ?? MediaStatus.PLANNING,
+          dto.rating,
+          metadata
+        ),
+        metadata,
         externalIds: dto.externalIds ?? {},
       });
       toInsert.push(item);
@@ -451,6 +489,25 @@ export class MediaService {
 
   private mediaIdentityKey(title: string, type: MediaType): string {
     return `${title.trim().toLowerCase()}::${type}`;
+  }
+
+  private normalizeMediaStatus(
+    type: MediaType,
+    status: MediaStatus,
+    rating?: number,
+    metadata: Record<string, any> = {}
+  ): MediaStatus {
+    if (!hasMediaClassification(type, metadata, MediaType.MOVIE)) return status;
+    if (
+      rating !== null &&
+      rating !== undefined &&
+      Number.isFinite(Number(rating))
+    ) {
+      return MediaStatus.COMPLETED;
+    }
+    return status === MediaStatus.WATCHING || status === MediaStatus.READING
+      ? MediaStatus.PLANNING
+      : status;
   }
 
   private async recordSync(
@@ -490,10 +547,6 @@ export class MediaService {
       return sourceType as MediaType;
     }
     return null;
-  }
-
-  private tagsForSourceType(type: MediaType): string[] {
-    return [type];
   }
 
   private looksLikeLegacyTvTime(

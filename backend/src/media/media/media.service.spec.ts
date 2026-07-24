@@ -140,7 +140,7 @@ describe('MediaService', () => {
           title: 'Attack on Titan',
           type: 'anime',
           status: 'planning',
-          metadata: {},
+          metadata: { tags: ['anime'] },
           externalIds: {},
           accountId: 'acc-123',
         }),
@@ -166,6 +166,58 @@ describe('MediaService', () => {
         }),
       );
     });
+
+    it('should complete a movie when it is created with a rating', async () => {
+      await service.create(mockAccount, {
+        title: 'Arrival',
+        type: MediaType.MOVIE,
+        status: MediaStatus.PLANNING,
+        rating: 9,
+      });
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: MediaType.MOVIE,
+          status: MediaStatus.COMPLETED,
+          rating: 9,
+        }),
+      );
+    });
+
+    it('should not allow an unrated movie to use the watching status', async () => {
+      await service.create(mockAccount, {
+        title: 'Heat',
+        type: MediaType.MOVIE,
+        status: MediaStatus.WATCHING,
+      });
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: MediaType.MOVIE,
+          status: MediaStatus.PLANNING,
+        }),
+      );
+    });
+
+    it('should apply movie status rules to anime movies', async () => {
+      await service.create(mockAccount, {
+        title: 'Suzume no Tojimari',
+        type: MediaType.ANIME,
+        status: MediaStatus.WATCHING,
+        rating: 8.5,
+        metadata: { mediaFormat: 'Movie' },
+      });
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: MediaType.ANIME,
+          status: MediaStatus.COMPLETED,
+          metadata: expect.objectContaining({
+            tags: [MediaType.ANIME, MediaType.MOVIE],
+          }),
+        }),
+      );
+    });
   });
 
   describe('update', () => {
@@ -184,7 +236,7 @@ describe('MediaService', () => {
 
       expect(mockRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          metadata: { episodesWatched: 10, episodes: 24 },
+          metadata: { episodesWatched: 10, episodes: 24, tags: [] },
         }),
       );
     });
@@ -205,6 +257,29 @@ describe('MediaService', () => {
       expect(mockRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           externalIds: { malId: 123, tmdbId: 456 },
+        }),
+      );
+    });
+
+    it('should complete an existing movie when a rating is added', async () => {
+      mockRepo.findOne.mockResolvedValue({
+        id: 'movie-1',
+        accountId: 'acc-123',
+        title: 'Arrival',
+        type: MediaType.MOVIE,
+        status: MediaStatus.PLANNING,
+        rating: null,
+        metadata: {},
+        externalIds: {},
+      });
+
+      await service.update(mockAccount, 'movie-1', { rating: 8.5 });
+
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: MediaType.MOVIE,
+          status: MediaStatus.COMPLETED,
+          rating: 8.5,
         }),
       );
     });
@@ -353,7 +428,7 @@ describe('MediaService', () => {
       expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({
         type: MediaType.ANIME,
         externalIds: expect.objectContaining({ malId: 456 }),
-        metadata: expect.objectContaining({ manualMatch: true, tags: ['anime'] }),
+        metadata: expect.objectContaining({ manualMatch: true, tags: ['anime', 'tv'] }),
       }));
     });
 
@@ -507,6 +582,37 @@ describe('MediaService', () => {
       ]);
 
       expect(mockCacheManager.reset).toHaveBeenCalled();
+    });
+
+    it('should normalize movie status during bulk imports', async () => {
+      mockRepo.find.mockResolvedValue([]);
+
+      await service.bulkCreate(mockAccount, [
+        {
+          title: 'Rated movie',
+          type: MediaType.MOVIE,
+          status: MediaStatus.WATCHING,
+          rating: 7,
+        },
+        {
+          title: 'Unrated movie',
+          type: MediaType.MOVIE,
+          status: MediaStatus.WATCHING,
+        },
+      ]);
+
+      expect(mockRepo.insert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            title: 'Rated movie',
+            status: MediaStatus.COMPLETED,
+          }),
+          expect.objectContaining({
+            title: 'Unrated movie',
+            status: MediaStatus.PLANNING,
+          }),
+        ]),
+      );
     });
   });
 });

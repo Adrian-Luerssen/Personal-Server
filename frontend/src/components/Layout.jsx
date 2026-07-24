@@ -4,7 +4,13 @@ import Sidebar from './Sidebar'
 import ApiStatus from './ApiStatus'
 import PageTransition from './PageTransition'
 import RouteErrorBoundary from './RouteErrorBoundary'
-import { api, checkDataValidity, preloadDashboardData } from '../api'
+import {
+  api,
+  checkDataValidity,
+  flushApiMutations,
+  preloadDashboardData,
+  preloadRouteData,
+} from '../api'
 import PWAInstallPrompt from './PWAInstallPrompt'
 import { isNativeMobileApp } from '../mobilePlatform'
 import { usePreferences } from '../contexts/PreferencesContext'
@@ -79,6 +85,7 @@ export default function Layout() {
   // Preload dashboard data on app mount so pages load instantly
   useEffect(() => {
     preloadDashboardData(prefs)
+    flushApiMutations().catch(() => {})
 
     const refreshIfChanged = () => {
       checkDataValidity()
@@ -91,19 +98,57 @@ export default function Layout() {
     }
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') refreshIfChanged()
+      if (document.visibilityState === 'visible') {
+        flushApiMutations().catch(() => {})
+        refreshIfChanged()
+      }
     }
 
-    window.addEventListener('focus', refreshIfChanged)
+    const onFocus = () => {
+      flushApiMutations().catch(() => {})
+      refreshIfChanged()
+    }
+    const onOnline = () => flushApiMutations({ ignoreBackoff: true }).catch(() => {})
+
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('online', onOnline)
     document.addEventListener('visibilitychange', onVisibilityChange)
     const interval = nativeApp ? window.setInterval(refreshIfChanged, 120_000) : null
 
     return () => {
-      window.removeEventListener('focus', refreshIfChanged)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('online', onOnline)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       if (interval) window.clearInterval(interval)
     }
   }, [nativeApp, prefs])
+
+  useEffect(() => {
+    preloadRouteData(location.pathname, prefs)
+  }, [location.pathname, prefs])
+
+  useEffect(() => {
+    const preloadNavigationTarget = (event) => {
+      const anchor = event.target?.closest?.('a[href]')
+      if (!anchor) return
+      try {
+        const target = new URL(anchor.href, window.location.href)
+        if (target.origin !== window.location.origin) return
+        preloadRouteData(target.pathname, prefs)
+      } catch {
+        // Ignore malformed or non-navigation href values.
+      }
+    }
+
+    document.addEventListener('pointerover', preloadNavigationTarget, { passive: true })
+    document.addEventListener('focusin', preloadNavigationTarget)
+    document.addEventListener('touchstart', preloadNavigationTarget, { passive: true })
+    return () => {
+      document.removeEventListener('pointerover', preloadNavigationTarget)
+      document.removeEventListener('focusin', preloadNavigationTarget)
+      document.removeEventListener('touchstart', preloadNavigationTarget)
+    }
+  }, [prefs])
 
   useEffect(() => {
     if (!nativeApp) return undefined

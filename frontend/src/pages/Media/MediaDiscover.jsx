@@ -3,6 +3,11 @@ import { apiFetch } from '../../api'
 import Icon from '../../components/icons/Icon'
 import { PageHeading, StatePanel } from '../../components/record'
 import IconInput from '../../components/product/IconInput'
+import {
+  getMediaClassificationLabel,
+  getMediaStatusOptions,
+  normalizeMediaStatus,
+} from './mediaStatusModel.mjs'
 
 const TYPES = {
   anime: { label: 'Anime', icon: 'tv' },
@@ -36,6 +41,7 @@ export default function MediaDiscover({ libraryItems = [], onAdded }) {
   const [adding, setAdding] = useState('')
   const [added, setAdded] = useState(() => new Set())
   const [error, setError] = useState('')
+  const [statuses, setStatuses] = useState({})
 
   const libraryIdentities = new Set(libraryItems.map(identityFor))
 
@@ -59,7 +65,7 @@ export default function MediaDiscover({ libraryItems = [], onAdded }) {
     }
   }
 
-  const addResult = async (result) => {
+  const addResult = async (result, status) => {
     const identity = identityFor(result)
     setAdding(identity)
     setError('')
@@ -69,7 +75,7 @@ export default function MediaDiscover({ libraryItems = [], onAdded }) {
         body: JSON.stringify({
           title: result.title,
           type: result.type,
-          status: 'planning',
+          status,
           coverUrl: result.coverUrl || null,
           externalIds: result.externalIds || {},
           metadata: result.metadata || {},
@@ -140,13 +146,14 @@ export default function MediaDiscover({ libraryItems = [], onAdded }) {
               const typeMeta = TYPES[result.type] || { label: result.type, icon: 'library' }
               const facts = resultFacts(result)
               const genres = Array.isArray(result.metadata?.genres) ? result.metadata.genres.slice(0, 3) : []
+              const selectedStatus = normalizeMediaStatus(result.type, statuses[identity] || 'planning', '', result.metadata)
               return (
                 <article className="series-discover-card" aria-label={result.title} key={`${identity}-${index}`}>
                   <div className="series-discover-card__cover">
                     {result.coverUrl
                       ? <img src={result.coverUrl} alt="" loading="lazy" />
                       : <Icon name={typeMeta.icon} size={28} />}
-                    <span>{typeMeta.label}</span>
+                    <span>{getMediaClassificationLabel(result) || typeMeta.label}</span>
                   </div>
                   <div className="series-discover-card__body">
                     <div className="series-discover-card__title-row">
@@ -155,16 +162,29 @@ export default function MediaDiscover({ libraryItems = [], onAdded }) {
                     </div>
                     {result.description && <p>{result.description}</p>}
                     {genres.length > 0 && <div className="series-discover-card__genres">{genres.map(genre => <span key={genre}>{genre}</span>)}</div>}
-                    <button
-                      type="button"
-                      className="record-button record-button--compact"
-                      disabled={inLibrary || adding === identity}
-                      onClick={() => addResult(result)}
-                      aria-label={inLibrary ? 'In my list' : 'Add to my list'}
-                    >
-                      <Icon name={inLibrary ? 'check' : adding === identity ? 'loader' : 'plus'} size={15} />
-                      {inLibrary ? 'In my list' : adding === identity ? 'Adding…' : 'Add to Planning'}
-                    </button>
+                    <div className="series-discover-card__add">
+                      <label>
+                        <span>Status</span>
+                        <select
+                          aria-label={`Status for ${result.title}`}
+                          value={selectedStatus}
+                          disabled={inLibrary || adding === identity}
+                          onChange={event => setStatuses(current => ({ ...current, [identity]: event.target.value }))}
+                        >
+                          {getMediaStatusOptions(result.type, result.metadata).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        className="record-button record-button--compact"
+                        disabled={inLibrary || adding === identity}
+                        onClick={() => addResult(result, selectedStatus)}
+                        aria-label={inLibrary ? 'In my list' : 'Add to my list'}
+                      >
+                        <Icon name={inLibrary ? 'check' : adding === identity ? 'loader' : 'plus'} size={15} />
+                        {inLibrary ? 'In my list' : adding === identity ? 'Adding…' : 'Add to list'}
+                      </button>
+                    </div>
                   </div>
                 </article>
               )

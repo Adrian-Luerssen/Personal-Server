@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { api } from '../../api'
+import { api, queueApiMutation, updateApiCache } from '../../api'
 import Icon from '../../components/icons/Icon'
 import { PageHeading, StatePanel } from '../../components/record'
 import ExerciseBlock from './components/ExerciseBlock'
@@ -84,7 +84,7 @@ export default function WorkoutActive() {
     setExerciseToAdd('')
   }
 
-  async function completeSet(group) {
+  function completeSet(group) {
     const draft = draftFor(group)
     const optimisticId = `pending-${Date.now()}`
     const optimistic = completeSetOptimistically({
@@ -92,56 +92,65 @@ export default function WorkoutActive() {
       exerciseId: group.exerciseId,
       weight: Number(draft.weight || 0) || null,
       reps: Number(draft.reps || 0) || null,
-      completed: false,
+      completed: true,
     }).current
 
     setSavingExerciseId(group.exerciseId)
     setSets((current) => [...current, optimistic])
+    updateApiCache('/workout/sessions/active', (current) => ({
+      ...current,
+      sets: [...(current?.sets || []), optimistic],
+    }))
     setError('')
-    try {
-      const saved = await api.post(`/workout/sets/session/${session.id}/add`, {
+    const mutation = queueApiMutation(`/workout/sets/session/${session.id}/add`, {
+      method: 'POST',
+      body: {
         exerciseId: group.exerciseId,
         weight: optimistic.weight,
         reps: optimistic.reps,
-      })
+      },
+      prefixes: ['/workout', '/dashboard'],
+    })
+    setSavingExerciseId(null)
+    setRestEndsAt(Date.now() + 90_000)
+    setNow(Date.now())
+    mutation.committed.then((saved) => {
       const completed = { ...saved, completed: true }
       setSets((current) => current.map((set) => set.id === optimisticId ? completed : set))
+      updateApiCache('/workout/sessions/active', (current) => ({
+        ...current,
+        sets: (current?.sets || []).map((set) => set.id === optimisticId ? completed : set),
+      }))
       setUndoSet(completed)
-      setRestEndsAt(Date.now() + 90_000)
-      setNow(Date.now())
-    } catch (nextError) {
-      setSets((current) => current.filter((set) => set.id !== optimisticId))
-      setError(nextError.message || 'The set could not be saved. Your values remain in the row.')
-    } finally {
-      setSavingExerciseId(null)
-    }
+    }).catch(() => {})
   }
 
-  async function undoLastSet() {
+  function undoLastSet() {
     if (!undoSet) return
     const target = undoSet
     setUndoSet(null)
     setSets((current) => current.filter((set) => set.id !== target.id))
+    updateApiCache('/workout/sessions/active', (current) => ({
+      ...current,
+      sets: (current?.sets || []).filter((set) => set.id !== target.id),
+    }))
     setDrafts((current) => ({ ...current, [target.exerciseId]: { weight: target.weight || '', reps: target.reps || '' } }))
-    await api.delete(`/workout/sets/${target.id}`).catch(() => {
-      setSets((current) => [...current, target])
-      setError('The set could not be undone.')
+    queueApiMutation(`/workout/sets/${target.id}`, {
+      method: 'DELETE',
+      prefixes: ['/workout', '/dashboard'],
     })
   }
 
-  async function finishWorkout() {
+  function finishWorkout() {
     if (!session || finishing) return
     setFinishing(true)
     setError('')
-    try {
-      await api.patch(`/workout/sessions/${session.id}/end`, {})
-      navigate('/workout/history')
-    } catch (nextError) {
-      setError(nextError.message || 'The workout could not be finished')
-      setFinishConfirmationOpen(false)
-    } finally {
-      setFinishing(false)
-    }
+    queueApiMutation(`/workout/sessions/${session.id}/end`, {
+      method: 'PATCH',
+      body: {},
+      prefixes: ['/workout', '/dashboard'],
+    })
+    navigate('/workout/history')
   }
 
   if (loading) return <StatePanel kind="loading" title="Opening active workout" detail="Sets already saved will appear first." />

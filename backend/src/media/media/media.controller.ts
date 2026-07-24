@@ -28,6 +28,7 @@ import { MediaType, MediaStatus } from "../entities/media-item.entity";
 import { MediaCatalogService } from "../catalog/media-catalog.service";
 import { Roles } from "../../system/auth/roles.decorator";
 import { AccountRole } from "../../system/accounts/account.entity";
+import { withMediaClassifications } from "./media-classification";
 
 @ApiTags("Media")
 @ApiBearerAuth("access-token")
@@ -239,24 +240,15 @@ export class MediaController {
   ) {
     const item = await this.mediaService.findOne(account, id);
 
-    // Build tags from type + metadata format
-    const tags: string[] = [body.type];
-    const format = body.metadata?.mediaFormat?.toLowerCase();
-    if (body.type === "anime" && format === "movie") tags.push("movie");
-    if (body.type === "movie" && body.metadata?.mediaFormat) {
-      // already tagged as movie
-    }
-
     const merged = {
       type: body.type,
       coverUrl: body.coverUrl || item.coverUrl,
-      metadata: {
+      metadata: withMediaClassifications(body.type, {
         ...item.metadata,
         ...(body.metadata || {}),
-        tags,
         reclassified: true,
         manualMatch: true,
-      },
+      }),
       externalIds: {
         ...item.externalIds,
         ...(body.externalIds || {}),

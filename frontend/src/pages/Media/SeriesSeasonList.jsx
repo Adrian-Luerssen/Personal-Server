@@ -7,13 +7,18 @@ export default function SeriesSeasonList({
   selectedSeason,
   onSelectSeason,
   onToggleEpisode,
+  onToggleSeason,
   busyEpisodeId,
+  busySeasonNumber,
   nextEpisodeId,
 }) {
   if (!seasons.length) {
     return <p className="series-detail__empty">No episode catalog has been synchronized yet.</p>
   }
   const active = seasons.find((season) => season.number === selectedSeason) || seasons.find((season) => season.number > 0) || seasons[0]
+  const watchedCount = active?.episodes?.filter((episode) => episode.watched).length || 0
+  const episodeCount = active?.episodes?.length || active?.episodeCount || 0
+  const seasonComplete = episodeCount > 0 && watchedCount === episodeCount
 
   return (
     <section className="series-seasons" aria-labelledby="series-seasons-title">
@@ -22,7 +27,18 @@ export default function SeriesSeasonList({
           <span className="series-detail__kicker">Episode guide</span>
           <h3 id="series-seasons-title">Seasons</h3>
         </div>
-        <span>{active?.episodes?.filter((episode) => episode.watched).length || 0} / {active?.episodes?.length || active?.episodeCount || 0}</span>
+        <div className="series-season-progress">
+          <span>{watchedCount} / {episodeCount}</span>
+          <button
+            type="button"
+            className="btn subtle"
+            disabled={seasonComplete || !active?.episodes?.length || busySeasonNumber === active?.number}
+            onClick={() => onToggleSeason(active, true)}
+          >
+            <Icon name={seasonComplete ? 'check' : busySeasonNumber === active?.number ? 'loader' : 'check-circle'} size={15} />
+            {seasonComplete ? 'Season watched' : busySeasonNumber === active?.number ? 'Saving season…' : 'Mark season watched'}
+          </button>
+        </div>
       </div>
       <div className="series-season-tabs" role="tablist" aria-label="Seasons">
         {seasons.map((season) => (

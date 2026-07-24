@@ -10,6 +10,43 @@ const RELATION_POSITION = Object.freeze({
 
 const POSITION_ORDER = Object.freeze({ before: 0, current: 1, after: 2, related: 3 })
 
+export function applyEpisodeWatchOverrides(catalog, overrides) {
+  if (!catalog || !overrides || overrides.size === 0) return catalog
+
+  const seasons = (catalog.seasons || []).map(season => ({
+    ...season,
+    episodes: (season.episodes || []).map(episode => {
+      if (!overrides.has(episode.id)) return episode
+      const override = overrides.get(episode.id)
+      const watched = typeof override === 'object' ? override.watched : override
+      return { ...episode, watched: Boolean(watched) }
+    }),
+  }))
+  const regularSeasons = seasons.filter(season => Number(season.number) > 0)
+  const progressSeasons = regularSeasons.length > 0 ? regularSeasons : seasons
+  const watched = progressSeasons.reduce(
+    (total, season) => total + (season.episodes || []).filter(episode => episode.watched).length,
+    0,
+  )
+
+  return {
+    ...catalog,
+    seasons,
+    progress: {
+      ...(catalog.progress || {}),
+      watched,
+    },
+  }
+}
+
+export function getSeasonEpisodeOverrides(season, watched) {
+  return new Map(
+    (season?.episodes || [])
+      .filter(episode => episode?.id)
+      .map(episode => [episode.id, Boolean(watched)]),
+  )
+}
+
 export function formatEpisodeCode(episode) {
   if (!episode) return ''
   const season = Math.max(0, Number(episode.seasonNumber) || 0)

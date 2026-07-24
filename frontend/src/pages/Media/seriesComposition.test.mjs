@@ -4,6 +4,7 @@ import test from 'node:test'
 
 const media = await readFile(new URL('./Media.jsx', import.meta.url), 'utf8')
 const detail = await readFile(new URL('./SeriesDetail.jsx', import.meta.url), 'utf8')
+const seasonList = await readFile(new URL('./SeriesSeasonList.jsx', import.meta.url), 'utf8')
 
 test('Series is a season-aware library rather than a generic media dashboard', () => {
   assert.match(media, /<PageHeading/)
@@ -27,6 +28,18 @@ test('Series detail exposes TV seasons and anime continuity as different structu
   assert.match(detail, /Release dates/)
   assert.match(detail, /onOpenRelated/)
   assert.match(detail, /Add to library/)
+})
+
+test('episode updates do not re-run initial dialog focus and jump back to the top', () => {
+  assert.match(detail, /onCloseRef/)
+  assert.match(detail, /\[item\?\.id\]\)/)
+  assert.doesNotMatch(detail, /\}, \[item, onClose\]\)/)
+})
+
+test('a whole season can be marked watched with one action', () => {
+  assert.match(seasonList, /Mark season watched/)
+  assert.match(detail, /onToggleSeason/)
+  assert.match(media, /\/seasons\/\$\{season\.number\}/)
 })
 
 test('Series creation and editing do not use blocking browser alerts or confirmations', () => {

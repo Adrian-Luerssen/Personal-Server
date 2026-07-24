@@ -22,13 +22,16 @@ export default function SeriesDetail({
   onClose,
   onRefresh,
   onToggleEpisode,
+  onToggleSeason,
   onEdit,
   onUpdateRating,
   onOpenRelated,
   onAddPreview,
   busyEpisodeId,
+  busySeasonNumber,
 }) {
   const dialogRef = useRef(null)
+  const onCloseRef = useRef(onClose)
   const firstRegularSeason = catalog?.seasons?.find((season) => season.number > 0)?.number
   const [selectedSeason, setSelectedSeason] = useState(firstRegularSeason ?? catalog?.seasons?.[0]?.number ?? 0)
   const [rating, setRating] = useState(item?.rating ?? '')
@@ -39,6 +42,10 @@ export default function SeriesDetail({
   const classifications = getMediaClassifications(item)
   const classificationKey = classifications.join(':')
   const isMovie = classifications.includes('movie')
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     setSelectedSeason(firstRegularSeason ?? catalog?.seasons?.[0]?.number ?? 0)
@@ -65,7 +72,7 @@ export default function SeriesDetail({
     const previous = document.activeElement
     const focusDialog = window.requestAnimationFrame(() => dialogRef.current?.querySelector('button')?.focus())
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') { event.preventDefault(); onClose(); return }
+      if (event.key === 'Escape') { event.preventDefault(); onCloseRef.current?.(); return }
       if (event.key !== 'Tab' || !dialogRef.current) return
       const focusable = [...dialogRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
       if (!focusable.length) return
@@ -80,7 +87,7 @@ export default function SeriesDetail({
       window.removeEventListener('keydown', handleKeyDown)
       if (previous instanceof HTMLElement) previous.focus()
     }
-  }, [item, onClose])
+  }, [item?.id])
 
   if (!item) return null
 
@@ -206,7 +213,9 @@ export default function SeriesDetail({
                 selectedSeason={selectedSeason}
                 onSelectSeason={setSelectedSeason}
                 onToggleEpisode={onToggleEpisode}
+                onToggleSeason={onToggleSeason}
                 busyEpisodeId={busyEpisodeId}
+                busySeasonNumber={busySeasonNumber}
                 nextEpisodeId={catalog?.nextEpisode?.id}
               />
             )}

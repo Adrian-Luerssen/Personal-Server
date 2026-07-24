@@ -2,15 +2,53 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  applyEpisodeWatchOverrides,
   buildContinuity,
   formatEpisodeCode,
   getCatalogProgressLabel,
   getContinuityTarget,
   getNextEpisodeAction,
+  getSeasonEpisodeOverrides,
   getSeriesRowAction,
   isSeriesAiring,
   summarizeSeriesMetadata,
 } from './seriesCatalogModel.mjs'
+
+test('keeps every pending episode toggle when an older server snapshot arrives', () => {
+  const catalog = {
+    seasons: [{
+      id: 'season-1',
+      number: 1,
+      episodes: [
+        { id: 'episode-1', watched: true },
+        { id: 'episode-2', watched: false },
+        { id: 'episode-3', watched: false },
+      ],
+    }],
+    progress: { watched: 1, total: 3 },
+  }
+
+  const merged = applyEpisodeWatchOverrides(catalog, new Map([
+    ['episode-2', true],
+    ['episode-3', true],
+  ]))
+
+  assert.deepEqual(
+    merged.seasons[0].episodes.map(episode => episode.watched),
+    [true, true, true],
+  )
+  assert.equal(merged.progress.watched, 3)
+  assert.equal(catalog.seasons[0].episodes[1].watched, false)
+})
+
+test('builds one optimistic override for every episode in a season', () => {
+  assert.deepEqual(
+    [...getSeasonEpisodeOverrides({
+      episodes: [{ id: 'episode-1' }, { id: 'episode-2' }],
+    }, true)],
+    [['episode-1', true], ['episode-2', true]],
+  )
+})
 
 test('formats concrete season and episode positions', () => {
   assert.equal(formatEpisodeCode({ seasonNumber: 3, number: 7 }), 'S03E07')

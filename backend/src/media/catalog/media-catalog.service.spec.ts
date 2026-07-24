@@ -829,6 +829,91 @@ describe("MediaCatalogService", () => {
     expect(item.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("marks an entire season watched in one progress update", async () => {
+    const item = {
+      id: "tv-season",
+      accountId: account.id,
+      title: "Example Show",
+      type: MediaType.TV,
+      status: MediaStatus.PLANNING,
+      startDate: null,
+      endDate: null,
+      metadata: { episodesWatched: 0 },
+    } as any;
+    const seasons = [
+      {
+        id: "season-1",
+        accountId: account.id,
+        mediaItemId: item.id,
+        number: 1,
+        name: "Season 1",
+      },
+      {
+        id: "season-2",
+        accountId: account.id,
+        mediaItemId: item.id,
+        number: 2,
+        name: "Season 2",
+      },
+    ];
+    const episodes = [
+      {
+        id: "episode-1",
+        accountId: account.id,
+        mediaItemId: item.id,
+        seasonId: seasons[0].id,
+        seasonNumber: 1,
+        number: 1,
+        watched: false,
+        watchedAt: null,
+      },
+      {
+        id: "episode-2",
+        accountId: account.id,
+        mediaItemId: item.id,
+        seasonId: seasons[0].id,
+        seasonNumber: 1,
+        number: 2,
+        watched: false,
+        watchedAt: null,
+      },
+      {
+        id: "episode-3",
+        accountId: account.id,
+        mediaItemId: item.id,
+        seasonId: seasons[1].id,
+        seasonNumber: 2,
+        number: 1,
+        watched: false,
+        watchedAt: null,
+      },
+    ];
+    mediaRepo.rows.push(item);
+    seasonRepo.rows.push(...seasons);
+    episodeRepo.rows.push(...episodes);
+
+    const firstSeasonView = await service.setSeasonWatched(
+      account,
+      item,
+      1,
+      true
+    );
+
+    expect(episodes.map((episode) => episode.watched)).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    expect(item.metadata.episodesWatched).toBe(2);
+    expect(item.status).toBe(MediaStatus.WATCHING);
+    expect(firstSeasonView.progress.watched).toBe(2);
+
+    await service.setSeasonWatched(account, item, 2, true);
+    expect(item.metadata.episodesWatched).toBe(3);
+    expect(item.status).toBe(MediaStatus.COMPLETED);
+    expect(item.endDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it("returns a navigable MAL preview for an untracked related release", async () => {
     mockedAxios.get.mockResolvedValueOnce({
       data: {

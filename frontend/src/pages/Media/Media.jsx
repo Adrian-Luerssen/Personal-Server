@@ -12,9 +12,11 @@ import {
   sortSeriesLibrary,
 } from './seriesViewModel.mjs'
 import {
+  applyEpisodeWatchOverrides,
   getCatalogProgressLabel,
   getContinuityTarget,
   getNextEpisodeAction,
+  getSeasonEpisodeOverrides,
   getSeriesRowAction,
   isSeriesAiring,
   summarizeSeriesMetadata,
@@ -785,10 +787,13 @@ export default function Media() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
   const [busyEpisodeId, setBusyEpisodeId] = useState(null)
+  const [busySeasonNumber, setBusySeasonNumber] = useState(null)
   const [busyItemId, setBusyItemId] = useState(null)
   const [page, setPage] = useState(1)
   const [sortOrder, setSortOrder] = useState('status')
   const listTopRef = useRef(null)
+  const pendingEpisodeUpdatesRef = useRef(new Map())
+  const episodeMutationSequenceRef = useRef(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -843,6 +848,7 @@ export default function Media() {
   }
 
   const openDetail = async (item) => {
+    pendingEpisodeUpdatesRef.current.clear()
     setDetailItem(item)
     setDetailCatalog(catalogs[item.id] || null)
     setDetailError('')
@@ -942,31 +948,15 @@ export default function Media() {
   }
 
   const toggleEpisode = (item, episode, watched) => {
-    if (!item || !episode?.id || busyEpisodeId) return
-    setBusyEpisodeId(episode.id)
+    if (!item || !episode?.id) return
     setDetailError('')
-    const updateView = (view) => {
-      if (!view) return view
-      const wasWatched = Boolean(
-        view.seasons?.flatMap(season => season.episodes || []).find(entry => entry.id === episode.id)?.watched
-      )
-      return {
-        ...view,
-        seasons: (view.seasons || []).map(season => ({
-          ...season,
-          episodes: (season.episodes || []).map(entry => (
-            entry.id === episode.id ? { ...entry, watched } : entry
-          )),
-        })),
-        progress: {
-          ...(view.progress || {}),
-          watched: Math.max(0, Number(view.progress?.watched || 0) + (watched ? 1 : -1) * (wasWatched === watched ? 0 : 1)),
-        },
-      }
-    }
-    const optimisticView = updateView(catalogs[item.id])
+    const token = ++episodeMutationSequenceRef.current
+    pendingEpisodeUpdatesRef.current.set(episode.id, { watched, token })
+    const optimisticView = applyEpisodeWatchOverrides(
+      catalogs[item.id] || detailCatalog,
+      pendingEpisodeUpdatesRef.current,
+    )
     if (optimisticView) applyCatalogView(optimisticView)
-    setBusyEpisodeId(null)
     const mutation = queueApiMutation(`/media/${item.id}/episodes/${episode.id}`, {
       method: 'PATCH',
       body: { watched },
@@ -978,8 +968,61 @@ export default function Media() {
       }] : [],
     })
     mutation.committed.then((view) => {
-      applyCatalogView(view)
+      const current = pendingEpisodeUpdatesRef.current.get(episode.id)
+      if (current?.token === token) {
+        pendingEpisodeUpdatesRef.current.delete(episode.id)
+      }
+      applyCatalogView(
+        applyEpisodeWatchOverrides(view, pendingEpisodeUpdatesRef.current),
+      )
     }).catch(() => {})
+  }
+
+  const toggleSeason = (item, season, watched) => {
+    if (!item || !Number.isInteger(Number(season?.number))) return
+    const overrides = getSeasonEpisodeOverrides(season, watched)
+    if (!overrides.size) return
+
+    const token = ++episodeMutationSequenceRef.current
+    setBusySeasonNumber(season.number)
+    setDetailError('')
+    for (const [episodeId, nextWatched] of overrides) {
+      pendingEpisodeUpdatesRef.current.set(episodeId, {
+        watched: nextWatched,
+        token,
+      })
+    }
+    const optimisticView = applyEpisodeWatchOverrides(
+      catalogs[item.id] || detailCatalog,
+      pendingEpisodeUpdatesRef.current,
+    )
+    if (optimisticView) applyCatalogView(optimisticView)
+
+    const mutation = queueApiMutation(`/media/${item.id}/seasons/${season.number}`, {
+      method: 'PATCH',
+      body: { watched },
+      prefixes: ['/media', '/dashboard'],
+      dedupeKey: `media-season:${item.id}:${season.number}`,
+      optimisticUpdates: optimisticView ? [{
+        path: `/media/${item.id}/catalog`,
+        updater: () => optimisticView,
+      }] : [],
+    })
+    mutation.committed.then((view) => {
+      for (const episodeId of overrides.keys()) {
+        const current = pendingEpisodeUpdatesRef.current.get(episodeId)
+        if (current?.token === token) {
+          pendingEpisodeUpdatesRef.current.delete(episodeId)
+        }
+      }
+      applyCatalogView(
+        applyEpisodeWatchOverrides(view, pendingEpisodeUpdatesRef.current),
+      )
+      setBusySeasonNumber(null)
+    }).catch(() => {
+      setBusySeasonNumber(null)
+      setDetailError('The season update could not be saved yet. Your pending changes remain queued.')
+    })
   }
 
   const incrementProgress = (item) => {
@@ -1129,11 +1172,13 @@ export default function Media() {
         onClose={() => { setDetailItem(null); setDetailCatalog(null); setDetailError('') }}
         onRefresh={refreshCatalog}
         onToggleEpisode={(episode, watched) => toggleEpisode(detailItem, episode, watched)}
+        onToggleSeason={(season, watched) => toggleSeason(detailItem, season, watched)}
         onEdit={(item) => { setDetailItem(null); setEditItem(item) }}
         onUpdateRating={updateDetailRating}
         onOpenRelated={openRelated}
         onAddPreview={addPreviewToLibrary}
         busyEpisodeId={busyEpisodeId}
+        busySeasonNumber={busySeasonNumber}
       />
       <EditModal key={editItem?.id || 'none'} item={editItem} open={!!editItem} onClose={() => setEditItem(null)} onSave={load} onDelete={load} />
 

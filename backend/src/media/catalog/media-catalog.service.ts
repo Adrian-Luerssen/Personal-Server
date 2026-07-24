@@ -378,6 +378,46 @@ export class MediaCatalogService {
     episode.watchedAt = watched ? new Date() : null;
     await this.episodeRepo.save(episode);
 
+    return this.updateEpisodeProgress(account, item, watched);
+  }
+
+  async setSeasonWatched(
+    account: Account,
+    item: MediaItem,
+    seasonNumber: number,
+    watched: boolean
+  ): Promise<MediaCatalogView> {
+    if (item.accountId !== account.id) {
+      throw new BadRequestException(
+        "The media item does not belong to this account"
+      );
+    }
+    const seasonEpisodes = await this.episodeRepo.find({
+      where: {
+        accountId: account.id,
+        mediaItemId: item.id,
+        seasonNumber,
+      },
+    });
+    if (!seasonEpisodes.length) {
+      throw new NotFoundException("Season not found for this title");
+    }
+
+    const watchedAt = watched ? new Date() : null;
+    for (const episode of seasonEpisodes) {
+      episode.watched = watched;
+      episode.watchedAt = watchedAt;
+      await this.episodeRepo.save(episode);
+    }
+
+    return this.updateEpisodeProgress(account, item, watched);
+  }
+
+  private async updateEpisodeProgress(
+    account: Account,
+    item: MediaItem,
+    watched: boolean
+  ): Promise<MediaCatalogView> {
     const episodes = await this.episodeRepo.find({
       where: { accountId: account.id, mediaItemId: item.id },
     });

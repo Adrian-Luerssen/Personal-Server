@@ -160,6 +160,26 @@ export class MediaController {
     );
   }
 
+  @Patch(":id/seasons/:seasonNumber")
+  @ApiOperation({ summary: "Mark every episode in a season watched or unwatched" })
+  async setSeasonWatched(
+    @ReqUser() account: Account,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("seasonNumber", ParseIntPipe) seasonNumber: number,
+    @Body() body: { watched: boolean }
+  ) {
+    if (typeof body?.watched !== "boolean") {
+      throw new BadRequestException("watched must be a boolean");
+    }
+    const item = await this.mediaService.findOne(account, id);
+    return this.mediaCatalogService.setSeasonWatched(
+      account,
+      item,
+      seasonNumber,
+      body.watched
+    );
+  }
+
   // ========== CREATE ==========
 
   @Post()

@@ -5,6 +5,32 @@ jest.mock("@nestjs/platform-express", () => ({
 import { MediaImportController } from "./import.controller";
 
 describe("MediaImportController preview", () => {
+  it("normalizes fully watched imported titles to completed", async () => {
+    const mediaService = { findAll: jest.fn().mockResolvedValue([]) };
+    const controller = new MediaImportController(
+      {} as any,
+      { resolveExistingAnime: jest.fn().mockResolvedValue(undefined) } as any,
+      {} as any,
+      mediaService as any,
+      {} as any
+    );
+
+    const preview = await (controller as any).storePreviewWithDedup(
+      { id: "account-1" },
+      [
+        {
+          title: "Fully watched title",
+          type: "tv",
+          status: "watching",
+          metadata: { episodes: 10, episodesWatched: 10 },
+          externalIds: {},
+        },
+      ]
+    );
+
+    expect(preview.items[0].status).toBe("completed");
+  });
+
   it("returns every duplicate while reporting the complete duplicate count", async () => {
     const existing = Array.from({ length: 411 }, (_, index) => ({
       id: `existing-${index}`,
@@ -270,7 +296,7 @@ describe("MediaImportController preview", () => {
       id: "existing-1",
       title: "The Promised Neverland",
       type: "anime",
-      status: "completed",
+      status: "watching",
       rating: 9,
       metadata: {
         importSource: "mal",
@@ -281,10 +307,12 @@ describe("MediaImportController preview", () => {
     };
     const pendingExisting = {
       ...existing,
+      status: "completed",
       metadata: {
         ...existing.metadata,
-        tvTimeRelationship: "up_to_date",
-        tvTimeProgressMode: "all-aired",
+        episodesWatched: 12,
+        tvTimeRelationship: "ended",
+        tvTimeProgressMode: "exact",
         catalogSyncState: "pending",
       },
       externalIds: { malId: 37779, tvdbId: 356561 },
@@ -315,13 +343,15 @@ describe("MediaImportController preview", () => {
         {
           title: "The Promised Neverland",
           type: "anime",
-          status: "watching",
+          status: "completed",
           metadata: {
             importSource: "tvtime",
             sourceType: "anime",
             tags: ["anime"],
-            tvTimeRelationship: "up_to_date",
-            tvTimeProgressMode: "all-aired",
+            episodes: 12,
+            episodesWatched: 12,
+            tvTimeRelationship: "ended",
+            tvTimeProgressMode: "exact",
           },
           externalIds: { tvdbId: 356561 },
         },
@@ -345,10 +375,12 @@ describe("MediaImportController preview", () => {
       existing.id,
       expect.objectContaining({
         type: "anime",
+        status: "completed",
         externalIds: { tvdbId: 356561 },
         metadata: expect.objectContaining({
-          tvTimeRelationship: "up_to_date",
-          tvTimeProgressMode: "all-aired",
+          episodesWatched: 12,
+          tvTimeRelationship: "ended",
+          tvTimeProgressMode: "exact",
           catalogSyncState: "pending",
         }),
       })

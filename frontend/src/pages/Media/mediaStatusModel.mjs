@@ -70,3 +70,15 @@ export function normalizeMediaStatus(type, status = 'planning', rating = '', met
   }
   return status === 'watching' || status === 'reading' ? 'planning' : status || 'planning'
 }
+
+export function getImportedEpisodeProgressLabel(item) {
+  const watched = Number(item?.metadata?.episodesWatched)
+  if (!Number.isFinite(watched) || watched < 0) return null
+
+  const total = Number(item?.metadata?.episodes)
+  if (Number.isFinite(total) && total > 0) {
+    return `${watched.toLocaleString()} / ${total.toLocaleString()} episodes watched`
+  }
+
+  return `${watched.toLocaleString()} episodes watched`
+}

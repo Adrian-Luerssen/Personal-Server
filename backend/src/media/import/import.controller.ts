@@ -29,6 +29,7 @@ import { Response } from "express";
 import { MediaStatus, MediaType } from "../entities/media-item.entity";
 import { createImportProgressSender } from "../../utils/sse";
 import { MediaCatalogService } from "../catalog/media-catalog.service";
+import { normalizeImportedStatus } from "./import-progress";
 
 // In-memory preview store
 const previewStore = new Map<
@@ -342,6 +343,9 @@ export class MediaImportController {
           : {};
         await this.mediaService.update(account, duplicate.existing.id, {
           type: incoming.type,
+          ...(incoming.status === MediaStatus.COMPLETED
+            ? { status: MediaStatus.COMPLETED }
+            : {}),
           externalIds: incoming.externalIds || {},
           metadata: {
             importSource: incoming.metadata?.importSource,
@@ -441,6 +445,10 @@ export class MediaImportController {
     items: any[],
     source?: string
   ) {
+    for (const item of items) {
+      item.status = normalizeImportedStatus(item.status, item.metadata);
+    }
+
     // Load all existing media for this account
     const existing = await this.mediaService.findAll(account);
     if (items.some((item) => item.metadata?.importSource === "tvtime")) {

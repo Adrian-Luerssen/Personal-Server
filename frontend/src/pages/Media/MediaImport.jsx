@@ -8,6 +8,7 @@ import PageHeader from '../../components/PageHeader'
 import { getImportAccept, getImportFileDescription } from '../../importFileTypes.mjs'
 import { isNativeMobileApp } from '../../mobilePlatform'
 import { streamImportProgress } from '../../importProgress.mjs'
+import { getImportedEpisodeProgressLabel } from './mediaStatusModel.mjs'
 
 const MEDIA_COLOR = '#7c5cff'
 const IMPORT_TYPE_OPTIONS = [
@@ -230,7 +231,14 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
             {selectedNewItems.slice(0, 30).map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0', borderBottom: '1px solid var(--glass-border)' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 600, color: MEDIA_COLOR, textTransform: 'uppercase', width: 50 }}>{item.type}</span>
-                <span style={{ flex: 1, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                  {getImportedEpisodeProgressLabel(item) && (
+                    <span style={{ display: 'block', marginTop: '0.1rem', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                      {getImportedEpisodeProgressLabel(item)}
+                    </span>
+                  )}
+                </span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{item.status}</span>
               </div>
             ))}
@@ -303,6 +311,11 @@ function PreviewStep({ preview, loading, error, onNext, onBack }) {
                       <span>Existing: <strong>{dup.existing.status}</strong>{dup.existing.rating != null ? ` (${dup.existing.rating})` : ''}</span>
                       <span style={{ color: MEDIA_COLOR }}>Import: <strong>{dup.incoming.status}</strong>{dup.incoming.rating != null ? ` (${dup.incoming.rating})` : ''}</span>
                     </div>
+                    {getImportedEpisodeProgressLabel(dup.incoming) && (
+                      <div style={{ marginTop: '0.15rem', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                        {getImportedEpisodeProgressLabel(dup.incoming)}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
                     <button

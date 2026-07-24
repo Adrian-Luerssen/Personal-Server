@@ -87,6 +87,35 @@ describe('TvTimeImportService', () => {
     ]);
   });
 
+  it('marks a title completed when every exported episode has been watched', async () => {
+    const csv = [
+      'No.,id,name,up_to_date,archived,status,aired_episodes,seen_episodes,runtime',
+      '1,12345,Finished title,True,False,up_to_date,12,12,24',
+      '2,67890,Caught-up title,True,False,continuing,8,8,45',
+    ].join('\n');
+
+    const items = await service.parseCsv(Buffer.from(csv, 'utf-8'));
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        title: 'Finished title',
+        status: MediaStatus.COMPLETED,
+        metadata: expect.objectContaining({
+          episodes: 12,
+          episodesWatched: 12,
+        }),
+      }),
+      expect.objectContaining({
+        title: 'Caught-up title',
+        status: MediaStatus.COMPLETED,
+        metadata: expect.objectContaining({
+          episodes: 8,
+          episodesWatched: 8,
+        }),
+      }),
+    ]);
+  });
+
   it('resolves translated TV Time anime titles to existing MAL records in batches', async () => {
     const incoming = [
       {

@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import axios from "axios";
 import { MediaType, MediaStatus } from "../entities/media-item.entity";
 import { ImportPreviewItem } from "./mal-import.service";
+import { normalizeImportedStatus } from "./import-progress";
 
 @Injectable()
 export class TvTimeImportService {
@@ -87,12 +88,18 @@ export class TvTimeImportService {
         ? MediaType.MOVIE
         : MediaType.TV;
 
-      const status = this.mapStatus(
-        rawStatus,
-        upToDate,
-        seenEpisodes,
-        airedEpisodes,
-        type
+      const status = normalizeImportedStatus(
+        this.mapStatus(
+          rawStatus,
+          upToDate,
+          seenEpisodes,
+          airedEpisodes,
+          type
+        ),
+        {
+          episodes: airedEpisodes,
+          episodesWatched: seenEpisodes,
+        }
       );
       const progressMode = this.progressMode(
         type,

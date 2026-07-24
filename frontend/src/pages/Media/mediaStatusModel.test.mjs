@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  getImportedEpisodeProgressLabel,
   getMediaClassificationLabel,
   getMediaClassifications,
   getMediaStatusOptions,
@@ -35,4 +36,20 @@ test('anime movies expose both classifications and use movie statuses', () => {
     normalizeMediaStatus(item.type, 'watching', 8.5, item.metadata),
     'completed',
   )
+})
+
+test('import previews describe watched episodes with the known total', () => {
+  assert.equal(
+    getImportedEpisodeProgressLabel({
+      metadata: { episodesWatched: 12, episodes: 12 },
+    }),
+    '12 / 12 episodes watched',
+  )
+  assert.equal(
+    getImportedEpisodeProgressLabel({
+      metadata: { episodesWatched: 7 },
+    }),
+    '7 episodes watched',
+  )
+  assert.equal(getImportedEpisodeProgressLabel({ metadata: {} }), null)
 })
